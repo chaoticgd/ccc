@@ -58,10 +58,17 @@ struct ProgramImage {
 	std::vector<u8> bytes;
 };
 
+// This is like a simplified ElfSectionType.
+enum class ProgramSectionType {
+	MIPS_DEBUG,
+	OTHER
+};
+
 struct ProgramSection {
 	u64 image;
 	u64 file_offset;
 	u64 size;
+	ProgramSectionType type;
 };
 
 struct Program {

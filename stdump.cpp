@@ -8,6 +8,9 @@ int main(int argc, char** argv) {
 	parse_elf_file(program, 0);
 	
 	for(ProgramSection& section : program.sections) {
+		if(section.type == ProgramSectionType::MIPS_DEBUG) {
+			printf("mdebug ");
+		}
 		printf("section %lx %lx\n", section.file_offset, section.size);
 	}
 }

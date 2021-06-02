@@ -97,7 +97,8 @@ enum class ElfSectionType : u32 {
 	GROUP = 0x11,
 	SYMTAB_SHNDX = 0x12,
 	NUM = 0x13,
-	LOOS = 0x60000000
+	LOOS = 0x60000000,
+	MIPS_DEBUG = 0x70000005
 };
 
 packed_struct(ElfSectionHeader32,
@@ -131,6 +132,12 @@ void parse_elf_file(Program& program, u64 image_index) {
 		section.image = image_index;
 		section.file_offset = section_header.offset;
 		section.size = section_header.size;
+		section.type = [&]() {
+			switch(section_header.type) {
+				case ElfSectionType::MIPS_DEBUG: return ProgramSectionType::MIPS_DEBUG;
+				default:                         return ProgramSectionType::OTHER;
+			}
+		}();
 		program.sections.emplace_back(section);
 	}
 }
