@@ -78,17 +78,39 @@ packed_struct(ElfProgramHeader32,
 	u32 align;  // 0x1c
 )
 
+enum class ElfSectionType : u32 {
+	NULL_SECTION = 0x0,
+	PROGBITS = 0x1,
+	SYMTAB = 0x2,
+	STRTAB = 0x3,
+	RELA = 0x4,
+	HASH = 0x5,
+	DYNAMIC = 0x6,
+	NOTE = 0x7,
+	NOBITS = 0x8,
+	REL = 0x9,
+	SHLIB = 0xa,
+	DYNSYM = 0xb,
+	INIT_ARRAY = 0xe,
+	FINI_ARRAY = 0xf,
+	PREINIT_ARRAY = 0x10,
+	GROUP = 0x11,
+	SYMTAB_SHNDX = 0x12,
+	NUM = 0x13,
+	LOOS = 0x60000000
+};
+
 packed_struct(ElfSectionHeader32,
-	u32 name;      // 0x0
-	u32 type;      // 0x4
-	u32 flags;     // 0x8
-	u32 addr;      // 0xc
-	u32 offset;    // 0x10
-	u32 size;      // 0x14
-	u32 link;      // 0x18
-	u32 info;      // 0x1c
-	u32 addralign; // 0x20
-	u32 entsize;   // 0x24
+	u32 name;            // 0x0
+	ElfSectionType type; // 0x4
+	u32 flags;           // 0x8
+	u32 addr;            // 0xc
+	u32 offset;          // 0x10
+	u32 size;            // 0x14
+	u32 link;            // 0x18
+	u32 info;            // 0x1c
+	u32 addralign;       // 0x20
+	u32 entsize;         // 0x24
 )
 
 void parse_elf_file(Program& program, u64 image_index) {
