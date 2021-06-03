@@ -50,6 +50,13 @@ const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subjec
 	return *(const T*) &bytes[offset];
 }
 
+std::string read_string(const std::vector<u8>& bytes, u64 offset);
+
+struct Range {
+	s32 begin;
+	s32 end;
+};
+
 // *****************************************************************************
 // Core data structures
 // *****************************************************************************
@@ -71,6 +78,21 @@ struct ProgramSection {
 	ProgramSectionType type;
 };
 
+struct SymFileDescriptor {
+	std::string name;
+	Range procedures;
+};
+
+struct SymProcedureDescriptor {
+	std::string name;
+};
+
+struct SymbolTable {
+	u64 file_descriptor_table_offset;
+	std::vector<SymFileDescriptor> files;
+	std::vector<SymProcedureDescriptor> procedures;
+};
+
 struct Program {
 	std::vector<ProgramImage> images;
 	std::vector<ProgramSection> sections;
@@ -82,3 +104,9 @@ struct Program {
 
 ProgramImage read_program_image(fs::path path);
 void parse_elf_file(Program& program, u64 image_index);
+
+// *****************************************************************************
+// mdebug.cpp
+// *****************************************************************************
+
+SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& section);

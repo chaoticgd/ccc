@@ -1,7 +1,10 @@
-CC=g++
-LIBCCC_SRC=ccc/elf.cpp
+CXX=g++
+CXXFLAGS=-std=c++17 -Wall
 
-stdump: stdump.cpp libccc.o
-	$(CC) stdump.cpp libccc.o -o stdump -std=c++17 -Wall
-libccc.o: ccc/ccc.h $(LIBCCC_SRC)
-	$(CC) -c $(LIBCCC_SRC) -o libccc.o -std=c++17 -Wall
+stdump: stdump.cpp libccc.a
+	$(CXX) $(CXXFLAGS) -c stdump.cpp -o stdump.o
+	$(CXX) $(CXXFLAGS) stdump.o libccc.a -o stdump
+libccc.a: ccc/util.o ccc/elf.o ccc/mdebug.o
+	ar rcs $@ $^
+ccc/%.o: ccc/%.c ccc/ccc.h
+	$(CXX) $(CXXFLAGS) -c ccc/%.c -o %.o
