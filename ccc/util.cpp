@@ -1,6 +1,9 @@
 #include "ccc.h"
 
 std::string read_string(const std::vector<u8>& bytes, u64 offset) {
+	if(offset > bytes.size()) {
+		return "(unexpected eof)";
+	}
 	std::string result;
 	for(u64 i = offset; i < bytes.size(); i++) {
 		if(bytes[i] == 0) {

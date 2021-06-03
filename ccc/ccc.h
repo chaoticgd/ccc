@@ -53,8 +53,8 @@ const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subjec
 std::string read_string(const std::vector<u8>& bytes, u64 offset);
 
 struct Range {
-	s32 begin;
-	s32 end;
+	s32 low;
+	s32 high;
 };
 
 // *****************************************************************************
@@ -78,9 +78,32 @@ struct ProgramSection {
 	ProgramSectionType type;
 };
 
+enum class SymbolType : u32 {
+	NIL = 0,
+	GLOBAL = 1,
+	STATIC = 2,
+	PARAM = 3,
+	LOCAL = 4,
+	LABEL = 5,
+	PROC = 6,
+	BLOCK = 7,
+	END = 8,
+	MEMBER = 9,
+	TYPEDEF = 10,
+	FILE_SYMBOL = 11,
+	STATICPROC = 14,
+	CONSTANT = 15
+};
+
+struct Symbol {
+	SymbolType type;
+	std::string string;
+};
+
 struct SymFileDescriptor {
 	std::string name;
 	Range procedures;
+	std::vector<Symbol> symbols;
 };
 
 struct SymProcedureDescriptor {
@@ -88,9 +111,11 @@ struct SymProcedureDescriptor {
 };
 
 struct SymbolTable {
-	u64 file_descriptor_table_offset;
-	std::vector<SymFileDescriptor> files;
 	std::vector<SymProcedureDescriptor> procedures;
+	std::vector<SymFileDescriptor> files;
+	u64 procedure_descriptor_table_offset;
+	u64 local_symbol_table_offset;
+	u64 file_descriptor_table_offset;
 };
 
 struct Program {
@@ -110,3 +135,4 @@ void parse_elf_file(Program& program, u64 image_index);
 // *****************************************************************************
 
 SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& section);
+const char* symbol_type(SymbolType type);

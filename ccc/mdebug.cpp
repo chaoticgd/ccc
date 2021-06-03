@@ -28,7 +28,24 @@ packed_struct(SymbolicHeader,
 	s32 cb_ext_offset;
 )
 
-packed_struct(SymbolRecord,
+packed_struct(ProcedureDescriptorEntry,
+	u32 adr;            // 0x00
+	s32 isym;           // 0x04
+	s32 iline;          // 0x08
+	s32 regmask;        // 0x0c
+	s32 regoffset;      // 0x10
+	s32 iopt;           // 0x14
+	s32 fregmask;       // 0x18
+	s32 fregoffset;     // 0x1c
+	s32 frameoffset;    // 0x20
+	s16 framereg;       // 0x24
+	s16 pcreg;          // 0x26
+	s32 ln_low;         // 0x28
+	s32 ln_high;        // 0x2c
+	s32 cb_line_offset; // 0x30
+)
+
+packed_struct(SymbolEntry,
 	u32 iss;
 	u32 value;
 	u32 st : 6;
@@ -36,7 +53,7 @@ packed_struct(SymbolRecord,
 	u32 reserved : 1;
 	u32 index : 20;
 )
-static_assert(sizeof(SymbolRecord) == 0xc);
+static_assert(sizeof(SymbolEntry) == 0xc);
 
 packed_struct(FileDescriptorEntry,
 	u32 adr;              // 0x00
@@ -64,7 +81,7 @@ packed_struct(FileDescriptorEntry,
 	s32 cb_line;          // 0x44
 	//s16 reserved_2;       // 0x48
 	//s16 ifd;              // 0x4a
-	//SymbolRecord asym;    // 0x4c
+	//SymbolEntry asym;     // 0x4c
 )
 static_assert(sizeof(FileDescriptorEntry) == 0x48);
 
@@ -73,19 +90,57 @@ SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& 
 	
 	const auto& hdrr = get_packed<SymbolicHeader>(image.bytes, section.file_offset, "MIPS debug section");
 	verify(hdrr.magic == 0x7009, "error: Invalid symbolic header.\n");
-	symbol_table.file_descriptor_table_offset = hdrr.cb_fd_offset;
 	
+	symbol_table.procedure_descriptor_table_offset = hdrr.cb_pd_offset;
+	symbol_table.local_symbol_table_offset = hdrr.cb_sym_offset;
+	symbol_table.file_descriptor_table_offset = hdrr.cb_fd_offset;
 	for(s64 i = 0; i < hdrr.ifd_max; i++) {
-		u64 offset = hdrr.cb_fd_offset + i * sizeof(FileDescriptorEntry);
-		const auto& entry = get_packed<FileDescriptorEntry>(image.bytes, offset, "file descriptor");
-		verify(entry.f_big_endian == 0, "error: Not little endian or bad file descriptor table.\n");
+		u64 fd_offset = hdrr.cb_fd_offset + i * sizeof(FileDescriptorEntry);
+		const auto& fd_entry = get_packed<FileDescriptorEntry>(image.bytes, fd_offset, "file descriptor");
+		verify(fd_entry.f_big_endian == 0, "error: Not little endian or bad file descriptor table.\n");
 		
 		SymFileDescriptor fd;
-		u64 file_name_offset = hdrr.cb_ss_offset + entry.iss_base + entry.rss;
+		u64 file_name_offset = hdrr.cb_ss_offset + fd_entry.iss_base + fd_entry.rss;
 		fd.name = read_string(image.bytes, file_name_offset);
-		fd.procedures = {entry.ipd_first, entry.cpd};
+		fd.procedures = {fd_entry.ipd_first, fd_entry.ipd_first + fd_entry.cpd};
+		
+		for(s64 j = 0; j < fd_entry.csym; j++) {
+			u64 sym_offset = hdrr.cb_sym_offset + (fd_entry.isym_base + j) * sizeof(SymbolEntry);
+			const auto& sym_entry = get_packed<SymbolEntry>(image.bytes, sym_offset, "local symbol");
+			
+			Symbol sym;
+			sym.type = (SymbolType) sym_entry.st;
+			u64 string_offset = hdrr.cb_ss_offset + fd_entry.iss_base + sym_entry.iss;
+			sym.string = read_string(image.bytes, string_offset);
+			fd.symbols.emplace_back(sym);
+		}
+		
 		symbol_table.files.emplace_back(fd);
 	}
 	
 	return symbol_table;
+}
+
+const char* symbol_type(SymbolType type) {
+	static const char* SYMBOL_TYPE_STRINGS[] = {
+		"NIL",
+		"GLOBAL",
+		"STATIC",
+		"PARAM",
+		"LOCAL",
+		"LABEL",
+		"PROC",
+		"BLOCK",
+		"END",
+		"MEMBER",
+		"TYPEDEF",
+		"FILE",
+		"STATICPROC",
+		"CONSTANT"
+	};
+	if(type >= SymbolType::NIL && type <= SymbolType::CONSTANT) {
+		return SYMBOL_TYPE_STRINGS[(u32) type];
+	} else {
+		return nullptr;
+	}
 }

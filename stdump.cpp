@@ -1,7 +1,7 @@
 #include "ccc/ccc.h"
 
 void print_address(const char* name, u64 address) {
-	printf("%32s @ 0x%08lx\n", name, address);
+	fprintf(stderr, "%32s @ 0x%08lx\n", name, address);
 }
 
 int main(int argc, char** argv) {
@@ -26,10 +26,19 @@ int main(int argc, char** argv) {
 	}
 	verify(has_symbol_table, "No symbol table.\n");
 	if(verbose) {
+		print_address("procedure descriptor table", symbol_table.procedure_descriptor_table_offset);
+		print_address("local symbol table", symbol_table.local_symbol_table_offset);
 		print_address("file descriptor table", symbol_table.file_descriptor_table_offset);
 	}
-	printf("FILE DESCRIPTORS:\n");
 	for(SymFileDescriptor& fd : symbol_table.files) {
-		printf("\t%s\n", fd.name.c_str());
+		printf("FILE %s:\n", fd.name.c_str());
+		for(Symbol& sym : fd.symbols) {
+			const char* symbol_type_str = symbol_type(sym.type);
+			if(symbol_type_str) {
+				printf("\t %s %s\n", symbol_type_str, sym.string.c_str());
+			} else {
+				printf("\t UNK(%d) %s\n", (u32) sym.type, sym.string.c_str());
+			}
+		}
 	}
 }
