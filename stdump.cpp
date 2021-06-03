@@ -35,9 +35,9 @@ int main(int argc, char** argv) {
 		for(Symbol& sym : fd.symbols) {
 			const char* symbol_type_str = symbol_type(sym.type);
 			if(symbol_type_str) {
-				printf("\t %s %s\n", symbol_type_str, sym.string.c_str());
+				printf("\t%s %s\n", symbol_type_str, sym.string.c_str());
 			} else {
-				printf("\t UNK(%d) %s\n", (u32) sym.type, sym.string.c_str());
+				printf("\tUNK(%d) %s\n", (u32) sym.type, sym.string.c_str());
 			}
 		}
 	}
