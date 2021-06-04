@@ -104,7 +104,25 @@ void print_symbols(Program& program, SymbolTable& symbol_table) {
 }
 
 void print_types(Program& program, SymbolTable& symbol_table) {
-	
+	for(SymFileDescriptor& fd : symbol_table.files) {
+		std::string prefix;
+		for(Symbol& sym : fd.symbols) {
+			if(sym.type == SymbolType::NIL) {
+				if(sym.string.find("@") == 0 || sym.string.find("$") == 0 || sym.string.size() == 0) {
+					continue;
+				}
+				// Some STABS symbols are split between multiple strings.
+				if(sym.string[sym.string.size() - 1] == '\\') {
+					prefix += sym.string.substr(0, sym.string.size() - 1);
+				} else {
+					std::string full_symbol = prefix + sym.string;
+					printf("*** PARSING %s\n", full_symbol.c_str());
+					StabsSymbol t = parse_stabs_symbol(full_symbol.c_str());
+					prefix = "";
+				}
+			}
+		}
+	}
 }
 
 void print_help() {

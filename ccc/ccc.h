@@ -28,12 +28,23 @@ using s64 = int64_t;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
 template <typename... Args>
-void verify(bool condition, const char* error_message, Args... args) {
+void verify_impl(const char* file, int line, bool condition, const char* error_message, Args... args) {
 	if(!condition) {
+		fprintf(stderr, "[%s:%d] ", file, line);
 		fprintf(stderr, error_message, args...);
 		exit(1);
 	}
 }
+#define verify(condition, ...) \
+	verify_impl(__FILE__, __LINE__, condition, __VA_ARGS__)
+template <typename... Args>
+[[noreturn]] void verify_not_reached_impl(const char* file, int line, const char* error_message, Args... args) {
+	fprintf(stderr, "[%s:%d] ", file, line);
+	fprintf(stderr, error_message, args...);
+	exit(1);
+}
+#define verify_not_reached(...) \
+	verify_not_reached_impl(__FILE__, __LINE__, __VA_ARGS__)
 #pragma GCC diagnostic pop
 
 #ifdef _MSC_VER
@@ -136,3 +147,93 @@ void parse_elf_file(Program& program, u64 image_index);
 
 SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& section);
 const char* symbol_type(SymbolType type);
+
+// *****************************************************************************
+// stabs.cpp
+// *****************************************************************************
+
+enum class StabsSymbolDescriptor : s8 {
+	LOCAL_VARIABLE = '\0',
+	A = 'a',
+	LOCAL_FUNCTION = 'f',
+	GLOBAL_FUNCTION = 'F',
+	GLOBAL_VARIABLE = 'G',
+	REGISTER_PARAMETER = 'P',
+	VALUE_PARAMETER = 'p',
+	REGISTER_VARIABLE = 'r',
+	STATIC_GLOBAL_VARIABLE = 's',
+	TYPE_NAME = 't',
+	ENUM_STRUCT_OR_TYPE_TAG = 'T',
+	STATIC_LOCAL_VARIABLE = 'V'
+};
+
+enum class StabsTypeDescriptor : s8 {
+	TYPE_REFERENCE = '\0',
+	ARRAY = 'a',
+	ENUM = 'e',
+	FUNCTION = 'f',
+	RANGE = 'r',
+	STRUCT = 's',
+	UNION = 'u',
+	// I'm not sure what some of these are, they're not all listed in the
+	// current version of the documentation.
+	AMPERSAND = '&',
+	POINTER = '*',
+	SLASH = '/',
+	MEMBER = '@'
+};
+
+struct StabsField;
+
+struct StabsType {
+	StabsTypeDescriptor descriptor;
+	StabsType* aux_type = nullptr;
+	// Tagged "union" based on the value of the type descriptor.
+	struct {
+		s64 type_number;
+	} type_reference;
+	struct {
+		StabsType* index_type = nullptr;
+		StabsType* element_type = nullptr;
+	} array_type;
+	struct {
+		std::vector<std::pair<std::string, s64>> values;
+	} enum_type;
+	struct {
+		
+	} function_type;
+	struct {
+		StabsType* type;
+		s64 low;
+		s64 high;
+	} range_type;
+	struct {
+		s64 type_number;
+		std::vector<StabsField> fields;
+	} struct_type;
+	struct {
+		s64 type_number;
+		std::vector<StabsField> fields;
+	} union_type;
+	struct {
+		StabsType* value_type = nullptr;
+	} pointer_type;
+};
+
+struct StabsField {
+	std::string name;
+	StabsType type;
+	s64 offset;
+	s64 size;
+	std::string type_name;
+};
+
+struct StabsSymbol {
+	std::string name;
+	StabsSymbolDescriptor descriptor;
+	s64 type_number;
+	StabsType type;
+};
+
+StabsSymbol parse_stabs_symbol(const char* input);
+void print_stabs_type(const StabsType& type);
