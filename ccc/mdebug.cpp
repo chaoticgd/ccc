@@ -122,25 +122,21 @@ SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& 
 }
 
 const char* symbol_type(SymbolType type) {
-	static const char* SYMBOL_TYPE_STRINGS[] = {
-		"NIL",
-		"GLOBAL",
-		"STATIC",
-		"PARAM",
-		"LOCAL",
-		"LABEL",
-		"PROC",
-		"BLOCK",
-		"END",
-		"MEMBER",
-		"TYPEDEF",
-		"FILE",
-		"STATICPROC",
-		"CONSTANT"
-	};
-	if(type >= SymbolType::NIL && type <= SymbolType::CONSTANT) {
-		return SYMBOL_TYPE_STRINGS[(u32) type];
-	} else {
-		return nullptr;
+	switch(type) {
+		case SymbolType::NIL: return "NIL";
+		case SymbolType::GLOBAL: return "GLOBAL";
+		case SymbolType::STATIC: return "STATIC";
+		case SymbolType::PARAM: return "PARAM";
+		case SymbolType::LOCAL: return "LOCAL";
+		case SymbolType::LABEL: return "LABEL";
+		case SymbolType::PROC: return "PROC";
+		case SymbolType::BLOCK: return "BLOCK";
+		case SymbolType::END: return "END";
+		case SymbolType::MEMBER: return "MEMBER";
+		case SymbolType::TYPEDEF: return "TYPEDEF";
+		case SymbolType::FILE_SYMBOL: return "FILE_SYMBOL";
+		case SymbolType::STATICPROC: return "STATICPROC";
+		case SymbolType::CONSTANT: return "CONSTANT";
+		default: return nullptr;
 	}
 }
