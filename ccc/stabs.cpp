@@ -235,12 +235,12 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 
 void print_stabs_type(const StabsType& type) {
 	printf("type descriptor: %c\n", (s8) type.descriptor);
-	printf("fields (type number, offset, size, name):\n");
+	printf("fields (offset, size, offset in bits, size in bits, name):\n");
 	for(const StabsField& field : type.struct_type.fields) {
 		print_field(field);
 	}
 }
 
 static void print_field(const StabsField& field) {
-	printf("%04ld %04lx %s\n", field.offset, field.size, field.name.c_str());
+	printf("%04lx %04lx %04lx %04lx %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
 }
