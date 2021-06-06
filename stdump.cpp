@@ -95,18 +95,20 @@ void print_symbols(Program& program, SymbolTable& symbol_table) {
 		for(Symbol& sym : fd.symbols) {
 			const char* symbol_type_str = symbol_type(sym.storage_type);
 			const char* symbol_class_str = symbol_class(sym.storage_class);
-			printf("\t%x ", sym.value);
+			printf("\t%8x ", sym.value);
 			if(symbol_type_str) {
-				printf("%s ", symbol_type_str);
+				printf("%11s ", symbol_type_str);
 			} else {
-				printf("ST(%d) ", (u32) sym.storage_type);
+				printf("ST(%5d) ", (u32) sym.storage_type);
 			}
 			if(symbol_class_str) {
-				printf("%s ", symbol_class_str);
+				printf("%6s ", symbol_class_str);
+			} else if ((u32)sym.storage_class == 0) {
+				printf("       ");
 			} else {
-				printf("SC(%d) ", (u32) sym.storage_class);
+				printf("SC(%2d) ", (u32) sym.storage_class);
 			}
-			printf("%d %s\n", sym.index, sym.string.c_str());
+			printf("%8d %s\n", sym.index, sym.string.c_str());
 		}
 	}
 }
