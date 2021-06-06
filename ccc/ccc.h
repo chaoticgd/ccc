@@ -62,6 +62,7 @@ const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subjec
 }
 
 std::string read_string(const std::vector<u8>& bytes, u64 offset);
+std::vector<uint8_t> read_file_bin(const std::filesystem::path& path);
 
 struct Range {
 	s32 low;
