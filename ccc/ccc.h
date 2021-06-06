@@ -106,9 +106,16 @@ enum class SymbolType : u32 {
 	CONSTANT = 15
 };
 
+enum class SymbolClass : u32 {
+	COMPILER_VERSION_INFO = 11
+};
+
 struct Symbol {
-	SymbolType type;
 	std::string string;
+	u32 value;
+	SymbolType storage_type;
+	SymbolClass storage_class;
+	u32 index;
 };
 
 struct SymFileDescriptor {
@@ -147,6 +154,7 @@ void parse_elf_file(Program& program, u64 image_index);
 
 SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& section);
 const char* symbol_type(SymbolType type);
+const char* symbol_class(SymbolClass symbol_class);
 
 // *****************************************************************************
 // stabs.cpp

@@ -109,9 +109,12 @@ SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& 
 			const auto& sym_entry = get_packed<SymbolEntry>(image.bytes, sym_offset, "local symbol");
 			
 			Symbol sym;
-			sym.type = (SymbolType) sym_entry.st;
 			u64 string_offset = hdrr.cb_ss_offset + fd_entry.iss_base + sym_entry.iss;
 			sym.string = read_string(image.bytes, string_offset);
+			sym.value = sym_entry.value;
+			sym.storage_type = (SymbolType) sym_entry.st;
+			sym.storage_class = (SymbolClass) sym_entry.sc;
+			sym.index = sym_entry.index;
 			fd.symbols.emplace_back(sym);
 		}
 		
@@ -137,6 +140,13 @@ const char* symbol_type(SymbolType type) {
 		case SymbolType::FILE_SYMBOL: return "FILE_SYMBOL";
 		case SymbolType::STATICPROC: return "STATICPROC";
 		case SymbolType::CONSTANT: return "CONSTANT";
+		default: return nullptr;
+	}
+}
+
+const char* symbol_class(SymbolClass symbol_class) {
+	switch(symbol_class) {
+		case SymbolClass::COMPILER_VERSION_INFO: return "COMPILER_VERSION_INFO";
 		default: return nullptr;
 	}
 }

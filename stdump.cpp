@@ -93,12 +93,20 @@ void print_symbols(Program& program, SymbolTable& symbol_table) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		printf("FILE %s:\n", fd.name.c_str());
 		for(Symbol& sym : fd.symbols) {
-			const char* symbol_type_str = symbol_type(sym.type);
+			const char* symbol_type_str = symbol_type(sym.storage_type);
+			const char* symbol_class_str = symbol_class(sym.storage_class);
+			printf("\t%x ", sym.value);
 			if(symbol_type_str) {
-				printf("\t%s %s\n", symbol_type_str, sym.string.c_str());
+				printf("%s ", symbol_type_str);
 			} else {
-				printf("\tUNK(%d) %s\n", (u32) sym.type, sym.string.c_str());
+				printf("ST(%d) ", (u32) sym.storage_type);
 			}
+			if(symbol_class_str) {
+				printf("%s ", symbol_class_str);
+			} else {
+				printf("SC(%d) ", (u32) sym.storage_class);
+			}
+			printf("%d %s\n", sym.index, sym.string.c_str());
 		}
 	}
 }
@@ -107,7 +115,7 @@ void print_types(Program& program, SymbolTable& symbol_table) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
-			if(sym.type == SymbolType::NIL) {
+			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
 				if(sym.string.find("@") == 0 || sym.string.find("$") == 0 || sym.string.size() == 0) {
 					continue;
 				}
