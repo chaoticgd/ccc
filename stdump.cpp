@@ -1,5 +1,6 @@
 #include "ccc/ccc.h"
 
+#include <algorithm>
 #include <set>
 
 void print_address(const char* name, u64 address) {
@@ -149,9 +150,11 @@ void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
 
 						switch (stab_sym.type.descriptor) {
 						case StabsTypeDescriptor::ENUM: {
+							const auto& fields = stab_sym.type.enum_type.fields;
+							const u32 max_name_size = aggregate_max_name_size(fields);
 							printf("typedef enum %s {\n", sym_name.c_str());
-							for (const auto [name, value] : stab_sym.type.enum_type.fields)
-								printf("\t%s = 0x%llX,\n", name.c_str(), value);
+							for (const auto [name, value] : fields)
+								printf("\t%-*s = 0x%X,\n", max_name_size, name.c_str(), (s32) value);
 							printf("} %s;\n", sym_name.c_str());
 							break;
 						}
