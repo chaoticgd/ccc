@@ -62,6 +62,11 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool 
 					"error: Expecting ',' while parsing enum, got '%c' (%02hhx).",
 					*input, *input);
 			}
+			std::sort(type.enum_type.fields.begin(), type.enum_type.fields.end(),
+				[](const std::pair<std::string, s64>& f1, const std::pair<std::string, s64>& f2) {
+					return f1.second < f2.second;
+				}
+			);
 			break;
 		case StabsTypeDescriptor::FUNCTION:
 			eat_s64_literal(input);
