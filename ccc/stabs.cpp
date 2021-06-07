@@ -1,5 +1,8 @@
 #include "ccc.h"
 
+#include <algorithm>
+
+//#pragma optimize("", off)
 static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool verbose);
 static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const char*& input, bool verbose);
 static s8 eat_s8(const char*& input);

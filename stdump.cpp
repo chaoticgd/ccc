@@ -184,9 +184,6 @@ void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
 					prefix = "";
 				}
 			}
-			if (sym.storage_type == SymbolType::TYPEDEF) {
-				__debugbreak();
-			}
 		}
 	}
 }
