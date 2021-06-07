@@ -1,5 +1,8 @@
 #include "ccc/ccc.h"
 
+#include <algorithm>
+#include <set>
+
 void print_address(const char* name, u64 address) {
 	fprintf(stderr, "%32s @ 0x%08lx\n", name, address);
 }
@@ -18,7 +21,7 @@ struct Options {
 
 Options parse_args(int argc, char** argv);
 void print_symbols(Program& program, SymbolTable& symbol_table);
-void print_types(Program& program, SymbolTable& symbol_table);
+void print_types(Program& program, SymbolTable& symbol_table, bool verbose);
 void print_help();
 
 int main(int argc, char** argv) {
@@ -54,7 +57,7 @@ int main(int argc, char** argv) {
 		print_symbols(program, symbol_table);
 	}
 	if(options.mode & OUTPUT_TYPES) {
-		print_types(program, symbol_table);
+		print_types(program, symbol_table, options.verbose);
 	}
 }
 
@@ -113,11 +116,16 @@ void print_symbols(Program& program, SymbolTable& symbol_table) {
 	}
 }
 
-void print_types(Program& program, SymbolTable& symbol_table) {
+void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
+	std::set<std::string> declared_symbols;
+
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
+			printf("// stype: %11s sclass: %d\n", symbol_type(sym.storage_type), sym.storage_class);
+
 			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
+
 				if(sym.string.find("@") == 0 || sym.string.find("$") == 0 || sym.string.size() == 0) {
 					continue;
 				}
@@ -125,9 +133,54 @@ void print_types(Program& program, SymbolTable& symbol_table) {
 				if(sym.string[sym.string.size() - 1] == '\\') {
 					prefix += sym.string.substr(0, sym.string.size() - 1);
 				} else {
-					std::string full_symbol = prefix + sym.string;
-					printf("*** PARSING %s\n", full_symbol.c_str());
-					StabsSymbol t = parse_stabs_symbol(full_symbol.c_str());
+					const std::string full_symbol = prefix + sym.string;
+
+					if(verbose)
+						printf("//  PARSING %s\n", full_symbol.c_str());
+
+					const StabsSymbol stab_sym = parse_stabs_symbol(full_symbol.c_str(), verbose);
+
+					printf("//  type: %c %c name: %s\n", (u8) stab_sym.descriptor, (u8) stab_sym.type.descriptor, stab_sym.name.c_str());
+
+					const std::string sym_name = stab_sym.name;
+
+					if (declared_symbols.count(sym_name) == 0) {
+						auto aggregate_max_name_size = [](const auto& fields) -> size_t {
+							if(fields.empty())
+								return 0;
+							return std::max_element(fields.begin(), fields.end(),
+								[](const std::pair<std::string, s64>& f1, const std::pair<std::string, s64>& f2) {
+									return f1.first.size() < f2.first.size();
+								})->first.size();
+						};
+
+						switch (stab_sym.type.descriptor) {
+						case StabsTypeDescriptor::ENUM: {
+							const auto& fields = stab_sym.type.enum_type.fields;
+							const u32 max_name_size = aggregate_max_name_size(fields);
+							printf("typedef enum %s {\n", sym_name.c_str());
+							for (const auto [name, value] : fields)
+								printf("\t%-*s = 0x%X,\n", max_name_size, name.c_str(), (s32) value);
+							printf("} %s;\n", sym_name.c_str());
+							break;
+						}
+						}
+
+						declared_symbols.insert(sym_name);
+					}
+					else { // Forward declare
+						switch (stab_sym.type.descriptor) {
+						case StabsTypeDescriptor::STRUCT: {
+							printf("struct %s;\n", sym_name.c_str());
+							break;
+						}
+						case StabsTypeDescriptor::ENUM: {
+							printf("enum %s;\n", sym_name.c_str());
+							break;
+						}
+						}
+					}
+
 					prefix = "";
 				}
 			}
