@@ -24,6 +24,8 @@ using s16 = int16_t;
 using s32 = int32_t;
 using s64 = int64_t;
 
+using buffer = std::vector<u8>;
+
 // Like assert, but for user errors.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
@@ -61,7 +63,8 @@ const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subjec
 	return *(const T*) &bytes[offset];
 }
 
-std::string read_string(const std::vector<u8>& bytes, u64 offset);
+buffer read_file_bin(fs::path const& filepath);
+std::string read_string(const buffer& bytes, u64 offset);
 
 struct Range {
 	s32 low;

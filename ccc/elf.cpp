@@ -1,22 +1,10 @@
 #include "ccc.h"
 
-u64 size_in_bytes(FILE* file) {
-	u64 whence_you_came = ftell(file);
-	fseek(file, 0, SEEK_END);
-	u64 size = ftell(file);
-	fseek(file, whence_you_came, SEEK_SET);
-	return size;
-}
-
 ProgramImage read_program_image(fs::path path) {
-	FILE* file = fopen(path.c_str(), "rb");
-	verify(file, "error: Failed to open file.\n");
-	u64 size = size_in_bytes(file);
+	verify(fs::exists(path), "error: file doesn't exist\n");
+
 	ProgramImage image;
-	image.bytes.resize(size);
-	verify(fread(image.bytes.data(), size, 1, file) == 1,
-		"error: Failed to read file.\n");
-	fclose(file);
+	image.bytes = read_file_bin(path);
 	return image;
 }
 
