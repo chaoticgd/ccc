@@ -6,12 +6,29 @@
 #include <vector>
 #include <cstdint>
 
-std::vector<uint8_t> read_file_bin(const std::filesystem::path& path) {
-	std::basic_ifstream<uint8_t> file{ path, std::ios::binary };
-	return { std::istreambuf_iterator<uint8_t>{file}, {} };
+buffer read_file_bin(fs::path const& filepath) {
+	std::ifstream ifs(filepath, std::ios::binary | std::ios::ate);
+
+	if (!ifs)
+		throw std::runtime_error(filepath.string() + ": " + std::strerror(errno));
+
+	const auto end = ifs.tellg();
+	ifs.seekg(0, std::ios::beg);
+
+	const auto size = std::size_t(end - ifs.tellg());
+
+	if (size == 0)  // avoid undefined behavior
+		return {};
+
+	const buffer buf(size);
+
+	if (!ifs.read((char*)buf.data(), buf.size()))
+		throw std::runtime_error(filepath.string() + ": " + std::strerror(errno));
+
+	return buf;
 }
 
-std::string read_string(const std::vector<u8>& bytes, u64 offset) {
+std::string read_string(const buffer& bytes, u64 offset) {
 	if(offset > bytes.size()) {
 		return "(unexpected eof)";
 	}
