@@ -122,7 +122,10 @@ void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
+			printf("// stype: %11s sclass: %d\n", symbol_type(sym.storage_type), sym.storage_class);
+
 			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
+
 				if(sym.string.find("@") == 0 || sym.string.find("$") == 0 || sym.string.size() == 0) {
 					continue;
 				}
@@ -133,9 +136,12 @@ void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
 					const std::string full_symbol = prefix + sym.string;
 
 					if(verbose)
-						printf("*** PARSING %s\n", full_symbol.c_str());
+						printf("//  PARSING %s\n", full_symbol.c_str());
 
 					const StabsSymbol stab_sym = parse_stabs_symbol(full_symbol.c_str(), verbose);
+
+					printf("//  type: %c %c name: %s\n", (u8) stab_sym.descriptor, (u8) stab_sym.type.descriptor, stab_sym.name.c_str());
+
 					const std::string sym_name = stab_sym.name;
 
 					if (declared_symbols.count(sym_name) == 0) {
@@ -177,6 +183,9 @@ void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
 
 					prefix = "";
 				}
+			}
+			if (sym.storage_type == SymbolType::TYPEDEF) {
+				__debugbreak();
 			}
 		}
 	}
