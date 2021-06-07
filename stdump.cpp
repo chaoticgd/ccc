@@ -1,5 +1,7 @@
 #include "ccc/ccc.h"
 
+#include <set>
+
 void print_address(const char* name, u64 address) {
 	fprintf(stderr, "%32s @ 0x%08lx\n", name, address);
 }
@@ -114,6 +116,8 @@ void print_symbols(Program& program, SymbolTable& symbol_table) {
 }
 
 void print_types(Program& program, SymbolTable& symbol_table) {
+	std::set<std::string> declared_symbols;
+
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
@@ -125,9 +129,38 @@ void print_types(Program& program, SymbolTable& symbol_table) {
 				if(sym.string[sym.string.size() - 1] == '\\') {
 					prefix += sym.string.substr(0, sym.string.size() - 1);
 				} else {
-					std::string full_symbol = prefix + sym.string;
+					const std::string full_symbol = prefix + sym.string;
 					printf("*** PARSING %s\n", full_symbol.c_str());
-					StabsSymbol t = parse_stabs_symbol(full_symbol.c_str());
+
+					const StabsSymbol stab_sym = parse_stabs_symbol(full_symbol.c_str());
+					const std::string sym_name = stab_sym.name;
+
+					if (declared_symbols.count(sym_name) == 0) {
+						switch (stab_sym.type.descriptor) {
+						case StabsTypeDescriptor::ENUM: {
+							printf("typedef enum %s {\n", sym_name.c_str());
+							for (const auto [name, value] : stab_sym.type.enum_type.values)
+								printf("\t%s = 0x%llX,\n", name.c_str(), value);
+							printf("} %s;\n", sym_name.c_str());
+							break;
+						}
+						}
+
+						declared_symbols.insert(sym_name);
+					}
+					else { // Forward declare
+						switch (stab_sym.type.descriptor) {
+						case StabsTypeDescriptor::STRUCT: {
+							printf("struct %s;\n", sym_name.c_str());
+							break;
+						}
+						case StabsTypeDescriptor::ENUM: {
+							printf("enum %s;\n", sym_name.c_str());
+							break;
+						}
+						}
+					}
+
 					prefix = "";
 				}
 			}
