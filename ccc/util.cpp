@@ -1,10 +1,13 @@
 #include "ccc.h"
 
 #include <filesystem>
+#include <stdexcept>
 #include <fstream>
 #include <iterator>
 #include <vector>
 #include <cstdint>
+#include <string>
+#include <cstring>
 
 buffer read_file_bin(fs::path const& filepath) {
 	std::ifstream ifs(filepath, std::ios::binary | std::ios::ate);
