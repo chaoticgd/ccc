@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <vector>
 #include <cstdio>
 #include <cstdint>
@@ -208,7 +209,7 @@ struct StabsType {
 		StabsType* element_type = nullptr;
 	} array_type;
 	struct {
-		std::vector<std::pair<std::string, s64>> values;
+		std::vector<std::pair<std::string, s64>> fields;
 	} enum_type;
 	struct {
 		
@@ -246,5 +247,5 @@ struct StabsSymbol {
 	StabsType type;
 };
 
-StabsSymbol parse_stabs_symbol(const char* input);
+StabsSymbol parse_stabs_symbol(const char* input, bool verbose);
 void print_stabs_type(const StabsType& type);

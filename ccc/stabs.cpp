@@ -1,7 +1,7 @@
 #include "ccc.h"
 
-static StabsType parse_type(const StabsSymbol& symbol, const char*& input);
-static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const char*& input);
+static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool verbose);
+static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const char*& input, bool verbose);
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
@@ -12,7 +12,7 @@ static void print_field(const StabsField& field);
 static const char* ERR_END_OF_INPUT =
 	"error: Unexpected end of input while parsing STAB type.\n";
 
-StabsSymbol parse_stabs_symbol(const char* input) {
+StabsSymbol parse_stabs_symbol(const char* input, bool verbose) {
 	StabsSymbol symbol;
 	symbol.name = eat_identifier(input);
 	expect_s8(input, ':', "identifier");
@@ -32,11 +32,11 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 		return symbol;
 	}
 	verify(eat_s8(input) == '=', "error: Expected '='.\n");
-	symbol.type = parse_type(symbol, input);
+	symbol.type = parse_type(symbol, input, verbose);
 	return symbol;
 }
 
-static StabsType parse_type(const StabsSymbol& symbol, const char*& input) {
+static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool verbose) {
 	StabsType type;
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	if(*input >= '0' && *input <= '9') {
@@ -49,15 +49,15 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input) {
 			type.type_reference.type_number = eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::ARRAY:
-			type.array_type.index_type = new StabsType(parse_type(symbol, input));
-			type.array_type.element_type = new StabsType(parse_type(symbol, input));
+			type.array_type.index_type = new StabsType(parse_type(symbol, input, verbose));
+			type.array_type.element_type = new StabsType(parse_type(symbol, input, verbose));
 			break;
 		case StabsTypeDescriptor::ENUM:
 			while(*input != ';') {
 				std::string name = eat_identifier(input);
 				expect_s8(input, ':', "identifier");
 				s64 value = eat_s64_literal(input);
-				type.enum_type.values.emplace_back(name, value);
+				type.enum_type.fields.emplace_back(name, value);
 				verify(eat_s8(input) == ',',
 					"error: Expecting ',' while parsing enum, got '%c' (%02hhx).",
 					*input, *input);
@@ -67,7 +67,7 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input) {
 			eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::RANGE:
-			type.range_type.type = new StabsType(parse_type(symbol, input));
+			type.range_type.type = new StabsType(parse_type(symbol, input, verbose));
 			expect_s8(input, ';', "range type descriptor");
 			type.range_type.low = eat_s64_literal(input);
 			expect_s8(input, ';', "low range value");
@@ -82,21 +82,21 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input) {
 				expect_s8(input, ',', "!");
 				eat_s64_literal(input);
 				expect_s8(input, ',', "!");
-				parse_type(symbol, input);
+				parse_type(symbol, input, verbose);
 				expect_s8(input, ';', "!");
 			}
-			type.struct_type.fields = parse_field_list(symbol, input);
+			type.struct_type.fields = parse_field_list(symbol, input, verbose);
 			break;
 		case StabsTypeDescriptor::UNION:
 			type.union_type.type_number = eat_s64_literal(input);
-			type.union_type.fields = parse_field_list(symbol, input);
+			type.union_type.fields = parse_field_list(symbol, input, verbose);
 			break;
 		case StabsTypeDescriptor::AMPERSAND:
 			// Not sure.
 			eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::POINTER:
-			type.pointer_type.value_type = new StabsType(parse_type(symbol, input));
+			type.pointer_type.value_type = new StabsType(parse_type(symbol, input, verbose));
 			break;
 		case StabsTypeDescriptor::SLASH:
 			// Not sure.
@@ -111,12 +111,12 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input) {
 	}
 	if(*input == '=') {
 		input++;
-		type.aux_type = new StabsType(parse_type(symbol, input));
+		type.aux_type = new StabsType(parse_type(symbol, input, verbose));
 	}
 	return type;
 }
 
-static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const char*& input) {
+static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const char*& input, bool verbose) {
 	std::vector<StabsField> fields;
 	while(*input != '\0') {
 		StabsField field;
@@ -136,7 +136,7 @@ static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const
 			}
 			break;
 		}
-		field.type = parse_type(symbol, input);
+		field.type = parse_type(symbol, input, verbose);
 		if(field.name.size() >= 1 && field.name[0] == '$') {
 			// Not sure.
 			expect_s8(input, ',', "field type");
@@ -155,7 +155,10 @@ static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const
 		} else {
 			verify_not_reached("error: Expected ':' or ',', got '%c' (%hhx).", *input, *input);
 		}
-		print_field(field);
+
+		if(verbose)
+			print_field(field);
+
 		fields.emplace_back(field);
 		if(*input == ';') {
 			input++;

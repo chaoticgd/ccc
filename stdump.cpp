@@ -20,7 +20,7 @@ struct Options {
 
 Options parse_args(int argc, char** argv);
 void print_symbols(Program& program, SymbolTable& symbol_table);
-void print_types(Program& program, SymbolTable& symbol_table);
+void print_types(Program& program, SymbolTable& symbol_table, bool verbose);
 void print_help();
 
 int main(int argc, char** argv) {
@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 		print_symbols(program, symbol_table);
 	}
 	if(options.mode & OUTPUT_TYPES) {
-		print_types(program, symbol_table);
+		print_types(program, symbol_table, options.verbose);
 	}
 }
 
@@ -115,7 +115,7 @@ void print_symbols(Program& program, SymbolTable& symbol_table) {
 	}
 }
 
-void print_types(Program& program, SymbolTable& symbol_table) {
+void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
 	std::set<std::string> declared_symbols;
 
 	for(SymFileDescriptor& fd : symbol_table.files) {
@@ -130,16 +130,27 @@ void print_types(Program& program, SymbolTable& symbol_table) {
 					prefix += sym.string.substr(0, sym.string.size() - 1);
 				} else {
 					const std::string full_symbol = prefix + sym.string;
-					printf("*** PARSING %s\n", full_symbol.c_str());
 
-					const StabsSymbol stab_sym = parse_stabs_symbol(full_symbol.c_str());
+					if(verbose)
+						printf("*** PARSING %s\n", full_symbol.c_str());
+
+					const StabsSymbol stab_sym = parse_stabs_symbol(full_symbol.c_str(), verbose);
 					const std::string sym_name = stab_sym.name;
 
 					if (declared_symbols.count(sym_name) == 0) {
+						auto aggregate_max_name_size = [](const auto& fields) -> size_t {
+							if(fields.empty())
+								return 0;
+							return std::max_element(fields.begin(), fields.end(),
+								[](const std::pair<std::string, s64>& f1, const std::pair<std::string, s64>& f2) {
+									return f1.first.size() < f2.first.size();
+								})->first.size();
+						};
+
 						switch (stab_sym.type.descriptor) {
 						case StabsTypeDescriptor::ENUM: {
 							printf("typedef enum %s {\n", sym_name.c_str());
-							for (const auto [name, value] : stab_sym.type.enum_type.values)
+							for (const auto [name, value] : stab_sym.type.enum_type.fields)
 								printf("\t%s = 0x%llX,\n", name.c_str(), value);
 							printf("} %s;\n", sym_name.c_str());
 							break;
