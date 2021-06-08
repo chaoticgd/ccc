@@ -121,8 +121,6 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
-			printf("// stype: %11s sclass: %d\n", symbol_type(sym.storage_type), (u32) sym.storage_class);
-
 			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
 				if(sym.string.find("@") == 0 || sym.string.find("$") == 0 || sym.string.size() == 0) {
 					continue;
@@ -143,8 +141,6 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 
 
 static void print_symbol(const StabsSymbol& symbol) {
-	printf("//  type: %c %c name: %s\n", (u8) symbol.descriptor, (u8) symbol.type.descriptor, symbol.name.c_str());
-	
 	auto longest_name_length = [](const auto& fields) {
 		s32 pad_size = 0;
 		for(const auto& [name, _] : fields) {

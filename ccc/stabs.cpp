@@ -276,5 +276,5 @@ void print_stabs_type(const StabsType& type) {
 }
 
 static void print_field(const StabsField& field) {
-	printf("  %04x %04x %04x %04x %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
+	printf("\t%04x %04x %04x %04x %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
 }
