@@ -3,11 +3,12 @@
 #include <map>
 #include <vector>
 #include <cstdio>
-#include <cstdint>
+#include <stdint.h>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <filesystem>
+#include <inttypes.h>
 
 // *****************************************************************************
 // util.cpp
@@ -235,8 +236,8 @@ struct StabsType {
 struct StabsField {
 	std::string name;
 	StabsType type;
-	s64 offset;
-	s64 size;
+	s32 offset;
+	s32 size;
 	std::string type_name;
 };
 

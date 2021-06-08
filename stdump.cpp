@@ -122,7 +122,7 @@ void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
-			printf("// stype: %11s sclass: %d\n", symbol_type(sym.storage_type), sym.storage_class);
+			printf("// stype: %11s sclass: %d\n", symbol_type(sym.storage_type), (u32) sym.storage_class);
 
 			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
 
