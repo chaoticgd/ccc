@@ -22,7 +22,7 @@ struct Options {
 static Options parse_args(int argc, char** argv);
 static void print_symbols(Program& program, SymbolTable& symbol_table);
 static void print_types(SymbolTable& symbol_table, bool verbose);
-static void print_type(const char* symbol_string);
+static void print_symbol(const StabsSymbol& symbol);
 static void print_help();
 
 int main(int argc, char** argv) {
@@ -118,7 +118,6 @@ static void print_symbols(Program& program, SymbolTable& symbol_table) {
 }
 
 static void print_types(SymbolTable& symbol_table, bool verbose) {
-	std::set<std::string> declared_symbols;
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
@@ -133,10 +132,8 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 					prefix += sym.string.substr(0, sym.string.size() - 1);
 				} else {
 					std::string full_symbol = prefix + sym.string;
-					if(verbose) {
-						printf("//  PARSING %s\n", full_symbol.c_str());
-					}
-					print_type(full_symbol.c_str());
+					StabsSymbol symbol = parse_stabs_symbol(full_symbol.c_str());
+					print_symbol(symbol);
 					prefix = "";
 				}
 			}
@@ -145,9 +142,7 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 }
 
 
-static void print_type(const char* symbol_string) {
-	const StabsSymbol symbol = parse_stabs_symbol(symbol_string);
-	
+static void print_symbol(const StabsSymbol& symbol) {
 	printf("//  type: %c %c name: %s\n", (u8) symbol.descriptor, (u8) symbol.type.descriptor, symbol.name.c_str());
 	
 	auto longest_name_length = [](const auto& fields) {

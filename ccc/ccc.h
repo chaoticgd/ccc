@@ -188,6 +188,7 @@ enum class StabsTypeDescriptor : s8 {
 	RANGE = 'r',
 	STRUCT = 's',
 	UNION = 'u',
+	CROSS_REFERENCE = 'x',
 	// I'm not sure what some of these are, they're not all listed in the
 	// current version of the documentation.
 	AMPERSAND = '&',
@@ -228,6 +229,10 @@ struct StabsType {
 		s64 type_number;
 		std::vector<StabsField> fields;
 	} union_type;
+	struct {
+		char type;
+		std::string identifier;
+	} cross_reference;
 	struct {
 		StabsType* value_type = nullptr;
 	} pointer_type;

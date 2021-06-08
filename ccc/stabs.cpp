@@ -15,8 +15,11 @@ static const char* ERR_END_OF_INPUT =
 	"error: Unexpected end of input while parsing STAB type.\n";
 
 #define STABS_DEBUG(...) __VA_ARGS__
+#define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
 StabsSymbol parse_stabs_symbol(const char* input) {
+	STABS_DEBUG_PRINTF("PARSING %s\n", input);
+	
 	StabsSymbol symbol;
 	symbol.name = eat_identifier(input);
 	expect_s8(input, ':', "identifier");
@@ -57,6 +60,7 @@ static StabsType parse_type(const char*& input) {
 			type.array_type.element_type = new StabsType(parse_type(input));
 			break;
 		case StabsTypeDescriptor::ENUM: // e
+			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
 				std::string name = eat_identifier(input);
 				expect_s8(input, ':', "identifier");
@@ -71,6 +75,7 @@ static StabsType parse_type(const char*& input) {
 					return f1.second < f2.second;
 				}
 			);
+			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::FUNCTION: // f
 			eat_s64_literal(input);
@@ -84,6 +89,7 @@ static StabsType parse_type(const char*& input) {
 			expect_s8(input, ';', "high range value");
 			break;
 		case StabsTypeDescriptor::STRUCT: // s
+			STABS_DEBUG_PRINTF("struct {\n");
 			type.struct_type.type_number = eat_s64_literal(input);
 			if(*input == '!') {
 				input++;
@@ -95,10 +101,27 @@ static StabsType parse_type(const char*& input) {
 				expect_s8(input, ';', "!");
 			}
 			type.struct_type.fields = parse_field_list(input);
+			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::UNION: // u
+			STABS_DEBUG_PRINTF("union {\n");
 			type.union_type.type_number = eat_s64_literal(input);
 			type.union_type.fields = parse_field_list(input);
+			STABS_DEBUG_PRINTF("}\n");
+			break;
+		case StabsTypeDescriptor::CROSS_REFERENCE: // x
+			type.cross_reference.type = eat_s8(input);
+			switch(type.cross_reference.type) {
+				case 's': // struct
+				case 'u': // union
+				case 'e': // enum
+					break;
+				default:
+					verify_not_reached("error: Invalid cross reference type '%c'.\n",
+						type.cross_reference.type);
+			}
+			type.cross_reference.identifier = eat_identifier(input);
+			expect_s8(input, ':', "cross reference");
 			break;
 		case StabsTypeDescriptor::AMPERSAND: // &
 			// Not sure.
@@ -115,7 +138,8 @@ static StabsType parse_type(const char*& input) {
 			verify(*input == 's', "error: Weird value following '@' type descriptor.\n");
 			break;
 		default:
-			verify_not_reached("error: Invalid type descriptor.\n");
+			verify_not_reached("error: Invalid type descriptor '%c' (%02x).\n",
+				(u32) type.descriptor, (u32) type.descriptor);
 	}
 	if(*input == '=') {
 		input++;
@@ -252,5 +276,5 @@ void print_stabs_type(const StabsType& type) {
 }
 
 static void print_field(const StabsField& field) {
-	printf("%x %x %x %0x %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
+	printf("  %04x %04x %04x %04x %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
 }
