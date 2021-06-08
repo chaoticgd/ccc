@@ -49,14 +49,14 @@ static StabsType parse_type(const char*& input) {
 		type.descriptor = (StabsTypeDescriptor) eat_s8(input);
 	}
 	switch(type.descriptor) {
-		case StabsTypeDescriptor::TYPE_REFERENCE:
+		case StabsTypeDescriptor::TYPE_REFERENCE: // 0..9
 			type.type_reference.type_number = eat_s64_literal(input);
 			break;
-		case StabsTypeDescriptor::ARRAY:
+		case StabsTypeDescriptor::ARRAY: // a
 			type.array_type.index_type = new StabsType(parse_type(input));
 			type.array_type.element_type = new StabsType(parse_type(input));
 			break;
-		case StabsTypeDescriptor::ENUM:
+		case StabsTypeDescriptor::ENUM: // e
 			while(*input != ';') {
 				std::string name = eat_identifier(input);
 				expect_s8(input, ':', "identifier");
@@ -72,10 +72,10 @@ static StabsType parse_type(const char*& input) {
 				}
 			);
 			break;
-		case StabsTypeDescriptor::FUNCTION:
+		case StabsTypeDescriptor::FUNCTION: // f
 			eat_s64_literal(input);
 			break;
-		case StabsTypeDescriptor::RANGE:
+		case StabsTypeDescriptor::RANGE: // r
 			type.range_type.type = new StabsType(parse_type(input));
 			expect_s8(input, ';', "range type descriptor");
 			type.range_type.low = eat_s64_literal(input);
@@ -83,7 +83,7 @@ static StabsType parse_type(const char*& input) {
 			type.range_type.high = eat_s64_literal(input);
 			expect_s8(input, ';', "high range value");
 			break;
-		case StabsTypeDescriptor::STRUCT:
+		case StabsTypeDescriptor::STRUCT: // s
 			type.struct_type.type_number = eat_s64_literal(input);
 			if(*input == '!') {
 				input++;
@@ -96,27 +96,26 @@ static StabsType parse_type(const char*& input) {
 			}
 			type.struct_type.fields = parse_field_list(input);
 			break;
-		case StabsTypeDescriptor::UNION:
+		case StabsTypeDescriptor::UNION: // u
 			type.union_type.type_number = eat_s64_literal(input);
 			type.union_type.fields = parse_field_list(input);
 			break;
-		case StabsTypeDescriptor::AMPERSAND:
+		case StabsTypeDescriptor::AMPERSAND: // &
 			// Not sure.
 			eat_s64_literal(input);
 			break;
-		case StabsTypeDescriptor::POINTER:
+		case StabsTypeDescriptor::POINTER: // *
 			type.pointer_type.value_type = new StabsType(parse_type(input));
 			break;
-		case StabsTypeDescriptor::SLASH:
+		case StabsTypeDescriptor::SLASH: // /
 			// Not sure.
 			eat_s64_literal(input);
 			break;
-		case StabsTypeDescriptor::MEMBER:
+		case StabsTypeDescriptor::MEMBER: // @
 			verify(*input == 's', "error: Weird value following '@' type descriptor.\n");
 			break;
 		default:
-			eat_identifier(input);
-			expect_s8(input, ':', "identifier");
+			verify_not_reached("error: Invalid type descriptor.\n");
 	}
 	if(*input == '=') {
 		input++;
