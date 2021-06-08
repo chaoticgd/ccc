@@ -3,8 +3,8 @@
 #include <algorithm>
 
 //#pragma optimize("", off)
-static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool verbose);
-static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const char*& input, bool verbose);
+static StabsType parse_type(const char*& input, bool verbose);
+static std::vector<StabsField> parse_field_list(const char*& input, bool verbose);
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
@@ -35,11 +35,11 @@ StabsSymbol parse_stabs_symbol(const char* input, bool verbose) {
 		return symbol;
 	}
 	verify(eat_s8(input) == '=', "error: Expected '='.\n");
-	symbol.type = parse_type(symbol, input, verbose);
+	symbol.type = parse_type(input, verbose);
 	return symbol;
 }
 
-static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool verbose) {
+static StabsType parse_type(const char*& input, bool verbose) {
 	StabsType type;
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	if(*input >= '0' && *input <= '9') {
@@ -52,8 +52,8 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool 
 			type.type_reference.type_number = eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::ARRAY:
-			type.array_type.index_type = new StabsType(parse_type(symbol, input, verbose));
-			type.array_type.element_type = new StabsType(parse_type(symbol, input, verbose));
+			type.array_type.index_type = new StabsType(parse_type(input, verbose));
+			type.array_type.element_type = new StabsType(parse_type(input, verbose));
 			break;
 		case StabsTypeDescriptor::ENUM:
 			while(*input != ';') {
@@ -75,7 +75,7 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool 
 			eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::RANGE:
-			type.range_type.type = new StabsType(parse_type(symbol, input, verbose));
+			type.range_type.type = new StabsType(parse_type(input, verbose));
 			expect_s8(input, ';', "range type descriptor");
 			type.range_type.low = eat_s64_literal(input);
 			expect_s8(input, ';', "low range value");
@@ -90,21 +90,21 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool 
 				expect_s8(input, ',', "!");
 				eat_s64_literal(input);
 				expect_s8(input, ',', "!");
-				parse_type(symbol, input, verbose);
+				parse_type(input, verbose);
 				expect_s8(input, ';', "!");
 			}
-			type.struct_type.fields = parse_field_list(symbol, input, verbose);
+			type.struct_type.fields = parse_field_list(input, verbose);
 			break;
 		case StabsTypeDescriptor::UNION:
 			type.union_type.type_number = eat_s64_literal(input);
-			type.union_type.fields = parse_field_list(symbol, input, verbose);
+			type.union_type.fields = parse_field_list(input, verbose);
 			break;
 		case StabsTypeDescriptor::AMPERSAND:
 			// Not sure.
 			eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::POINTER:
-			type.pointer_type.value_type = new StabsType(parse_type(symbol, input, verbose));
+			type.pointer_type.value_type = new StabsType(parse_type(input, verbose));
 			break;
 		case StabsTypeDescriptor::SLASH:
 			// Not sure.
@@ -119,12 +119,12 @@ static StabsType parse_type(const StabsSymbol& symbol, const char*& input, bool 
 	}
 	if(*input == '=') {
 		input++;
-		type.aux_type = new StabsType(parse_type(symbol, input, verbose));
+		type.aux_type = new StabsType(parse_type(input, verbose));
 	}
 	return type;
 }
 
-static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const char*& input, bool verbose) {
+static std::vector<StabsField> parse_field_list(const char*& input, bool verbose) {
 	std::vector<StabsField> fields;
 	while(*input != '\0') {
 		StabsField field;
@@ -144,7 +144,7 @@ static std::vector<StabsField> parse_field_list(const StabsSymbol& symbol, const
 			}
 			break;
 		}
-		field.type = parse_type(symbol, input, verbose);
+		field.type = parse_type(input, verbose);
 		if(field.name.size() >= 1 && field.name[0] == '$') {
 			// Not sure.
 			expect_s8(input, ',', "field type");
