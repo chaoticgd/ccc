@@ -123,9 +123,8 @@ static StabsType parse_type(const char*& input) {
 			type.cross_reference.identifier = eat_identifier(input);
 			expect_s8(input, ':', "cross reference");
 			break;
-		case StabsTypeDescriptor::AMPERSAND: // &
-			// Not sure.
-			eat_s64_literal(input);
+		case StabsTypeDescriptor::REFERENCE: // &
+			type.reference.value_type = new StabsType(parse_type(input));
 			break;
 		case StabsTypeDescriptor::POINTER: // *
 			type.pointer_type.value_type = new StabsType(parse_type(input));

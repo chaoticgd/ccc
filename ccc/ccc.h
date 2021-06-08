@@ -191,7 +191,7 @@ enum class StabsTypeDescriptor : s8 {
 	CROSS_REFERENCE = 'x',
 	// I'm not sure what some of these are, they're not all listed in the
 	// current version of the documentation.
-	AMPERSAND = '&',
+	REFERENCE = '&',
 	POINTER = '*',
 	SLASH = '/',
 	MEMBER = '@'
@@ -236,6 +236,9 @@ struct StabsType {
 	struct {
 		StabsType* value_type = nullptr;
 	} pointer_type;
+	struct {
+		StabsType* value_type = nullptr;
+	} reference;
 };
 
 struct StabsField {
