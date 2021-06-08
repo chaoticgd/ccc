@@ -248,5 +248,5 @@ struct StabsSymbol {
 	StabsType type;
 };
 
-StabsSymbol parse_stabs_symbol(const char* input, bool verbose);
+StabsSymbol parse_stabs_symbol(const char* input);
 void print_stabs_type(const StabsType& type);

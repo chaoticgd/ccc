@@ -22,7 +22,7 @@ struct Options {
 static Options parse_args(int argc, char** argv);
 static void print_symbols(Program& program, SymbolTable& symbol_table);
 static void print_types(SymbolTable& symbol_table, bool verbose);
-static void print_type(const char* symbol_string, bool verbose);
+static void print_type(const char* symbol_string);
 static void print_help();
 
 int main(int argc, char** argv) {
@@ -133,7 +133,10 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 					prefix += sym.string.substr(0, sym.string.size() - 1);
 				} else {
 					std::string full_symbol = prefix + sym.string;
-					print_type(full_symbol.c_str(), verbose);
+					if(verbose) {
+						printf("//  PARSING %s\n", full_symbol.c_str());
+					}
+					print_type(full_symbol.c_str());
 					prefix = "";
 				}
 			}
@@ -142,12 +145,8 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 }
 
 
-static void print_type(const char* symbol_string, bool verbose) {
-	if(verbose) {
-		printf("//  PARSING %s\n", symbol_string);
-	}
-	
-	const StabsSymbol symbol = parse_stabs_symbol(symbol_string, verbose);
+static void print_type(const char* symbol_string) {
+	const StabsSymbol symbol = parse_stabs_symbol(symbol_string);
 	
 	printf("//  type: %c %c name: %s\n", (u8) symbol.descriptor, (u8) symbol.type.descriptor, symbol.name.c_str());
 	
