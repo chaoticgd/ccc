@@ -34,17 +34,25 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 	if(*input == 't') {
 		input++;
 	}
-	symbol.type_number = eat_s64_literal(input);
-	if(*input == '\0') {
-		return symbol;
-	}
-	verify(eat_s8(input) == '=', "error: Expected '='.\n");
 	symbol.type = parse_type(input);
 	return symbol;
 }
 
 static StabsType parse_type(const char*& input) {
 	StabsType type;
+	verify(*input != '\0', ERR_END_OF_INPUT);
+	if(*input >= '0' && *input <= '9') {
+		type.anonymous = false;
+		type.type_number = eat_s64_literal(input);
+		if(*input != '=') {
+			type.has_body = false;
+			return type;
+		}
+		input++;
+	} else {
+		type.anonymous = true;
+	}
+	type.has_body = true;
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	if(*input >= '0' && *input <= '9') {
 		type.descriptor = StabsTypeDescriptor::TYPE_REFERENCE;
@@ -153,6 +161,20 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		StabsField field;
 		field.name = eat_identifier(input);
 		expect_s8(input, ':', "identifier");
+		if(*input == '/') {
+			input++;
+			field.visibility = (StabsFieldVisibility) eat_s8(input);
+			switch(field.visibility) {
+				case StabsFieldVisibility::NONE:
+				case StabsFieldVisibility::PRIVATE:
+				case StabsFieldVisibility::PROTECTED:
+				case StabsFieldVisibility::PUBLIC:
+				case StabsFieldVisibility::IGNORE:
+					break;
+				default:
+					verify_not_reached("error: Invalid field visibility.\n");
+			}
+		}
 		if(*input == ':') {
 			// TODO: Parse the last part.
 			// For now, scan until we reach a ;;.

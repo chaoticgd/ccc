@@ -200,8 +200,11 @@ enum class StabsTypeDescriptor : s8 {
 struct StabsField;
 
 struct StabsType {
-	StabsTypeDescriptor descriptor;
 	StabsType* aux_type = nullptr;
+	bool anonymous;
+	s64 type_number;
+	bool has_body;
+	StabsTypeDescriptor descriptor;
 	// Tagged "union" based on the value of the type descriptor.
 	struct {
 		s64 type_number;
@@ -241,8 +244,17 @@ struct StabsType {
 	} reference;
 };
 
+enum class StabsFieldVisibility {
+	NONE = '\0',
+	PRIVATE = '0',
+	PROTECTED = '1',
+	PUBLIC = '2',
+	IGNORE = '9'
+};
+
 struct StabsField {
 	std::string name;
+	StabsFieldVisibility visibility = StabsFieldVisibility::NONE;
 	StabsType type;
 	s32 offset;
 	s32 size;
@@ -252,7 +264,6 @@ struct StabsField {
 struct StabsSymbol {
 	std::string name;
 	StabsSymbolDescriptor descriptor;
-	s64 type_number;
 	StabsType type;
 };
 
