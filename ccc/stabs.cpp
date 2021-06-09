@@ -101,12 +101,18 @@ static StabsType parse_type(const char*& input) {
 			type.struct_type.type_number = eat_s64_literal(input);
 			if(*input == '!') {
 				input++;
-				eat_s64_literal(input);
-				expect_s8(input, ',', "!");
-				eat_s64_literal(input);
-				expect_s8(input, ',', "!");
-				parse_type(input);
-				expect_s8(input, ';', "!");
+				s64 base_class_count = eat_s64_literal(input);
+				expect_s8(input, ',', "base class section");
+				for(s64 i = 0; i < base_class_count; i++) {
+					StabsBaseClass base_class;
+					eat_s8(input);
+					base_class.visibility = eat_s8(input);
+					base_class.offset = eat_s64_literal(input);
+					expect_s8(input, ',', "base class section");
+					base_class.type = parse_type(input);
+					expect_s8(input, ';', "base class section");
+					type.struct_type.base_classes.emplace_back(base_class);
+				}
 			}
 			type.struct_type.fields = parse_field_list(input);
 			STABS_DEBUG_PRINTF("}\n");
@@ -265,7 +271,7 @@ static std::string eat_identifier(const char*& input) {
 static void expect_s8(const char*& input, s8 expected, const char* subject) {
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	char val = *(input++);
-	verify(val == expected, "error: Expected '%c' after %s, got '%c'.\n", expected, subject, val);
+	verify(val == expected, "error: Expected '%c' in %s, got '%c'.\n", expected, subject, val);
 }
 
 static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {

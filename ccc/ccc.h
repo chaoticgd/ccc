@@ -198,6 +198,7 @@ enum class StabsTypeDescriptor : s8 {
 };
 
 struct StabsField;
+struct StabsBaseClass;
 
 struct StabsType {
 	StabsType* aux_type = nullptr;
@@ -226,6 +227,7 @@ struct StabsType {
 	} range_type;
 	struct {
 		s64 type_number;
+		std::vector<StabsBaseClass> base_classes;
 		std::vector<StabsField> fields;
 	} struct_type;
 	struct {
@@ -259,6 +261,12 @@ struct StabsField {
 	s32 offset;
 	s32 size;
 	std::string type_name;
+};
+
+struct StabsBaseClass {
+	s8 visibility;
+	s64 offset;
+	StabsType type;
 };
 
 struct StabsSymbol {
