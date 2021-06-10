@@ -298,7 +298,15 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 					verify_not_reached("error: Invalid member function modifiers.\n");
 			}
 			switch(eat_s8(input)) {
-				case '.':
+				case '*': // virtual member function
+					eat_s64_literal(input);
+					expect_s8(input, ';', "virtual member function");
+					parse_type(input);
+					expect_s8(input, ';', "virtual member function");
+					break;
+				case '?': // static member function
+					break;
+				case '.': // normal member function
 					break;
 				default:
 					verify_not_reached("error: Invalid member function type.\n");
