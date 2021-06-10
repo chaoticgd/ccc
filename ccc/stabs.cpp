@@ -65,8 +65,8 @@ static StabsType parse_type(const char*& input) {
 			type.type_reference.type_number = eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::ARRAY: // a
-			type.array_type.index_type = new StabsType(parse_type(input));
-			type.array_type.element_type = new StabsType(parse_type(input));
+			type.array_type.index_type = std::make_unique<StabsType>(parse_type(input));
+			type.array_type.element_type = std::make_unique<StabsType>(parse_type(input));
 			break;
 		case StabsTypeDescriptor::ENUM: // e
 			STABS_DEBUG_PRINTF("enum {\n");
@@ -90,7 +90,7 @@ static StabsType parse_type(const char*& input) {
 			eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::RANGE: // r
-			type.range_type.type = new StabsType(parse_type(input));
+			type.range_type.type = std::make_unique<StabsType>(parse_type(input));
 			expect_s8(input, ';', "range type descriptor");
 			type.range_type.low = eat_s64_literal(input);
 			expect_s8(input, ';', "low range value");
@@ -112,7 +112,7 @@ static StabsType parse_type(const char*& input) {
 					expect_s8(input, ',', "base class section");
 					base_class.type = parse_type(input);
 					expect_s8(input, ';', "base class section");
-					type.struct_or_union.base_classes.emplace_back(base_class);
+					type.struct_or_union.base_classes.emplace_back(std::move(base_class));
 				}
 			}
 			type.struct_or_union.fields = parse_field_list(input);
@@ -143,12 +143,12 @@ static StabsType parse_type(const char*& input) {
 		case StabsTypeDescriptor::METHOD: // #
 			if(*input == '#') {
 				input++;
-				type.method.return_type = new StabsType(parse_type(input));
+				type.method.return_type = std::make_unique<StabsType>(parse_type(input));
 				expect_s8(input, ';', "method");
 			} else {
-				type.method.class_type = new StabsType(parse_type(input));
+				type.method.class_type = std::make_unique<StabsType>(parse_type(input));
 				expect_s8(input, ',', "method");
-				type.method.return_type = new StabsType(parse_type(input));
+				type.method.return_type = std::make_unique<StabsType>(parse_type(input));
 				while(*input != '\0') {
 					if(*input == ';') {
 						input++;
@@ -160,10 +160,10 @@ static StabsType parse_type(const char*& input) {
 			}
 			break;
 		case StabsTypeDescriptor::REFERENCE: // &
-			type.reference.value_type = new StabsType(parse_type(input));
+			type.reference.value_type = std::make_unique<StabsType>(parse_type(input));
 			break;
 		case StabsTypeDescriptor::POINTER: // *
-			type.pointer_type.value_type = new StabsType(parse_type(input));
+			type.pointer_type.value_type = std::make_unique<StabsType>(parse_type(input));
 			break;
 		case StabsTypeDescriptor::SLASH: // /
 			// Not sure.
@@ -178,7 +178,7 @@ static StabsType parse_type(const char*& input) {
 	}
 	if(*input == '=') {
 		input++;
-		type.aux_type = new StabsType(parse_type(input));
+		type.aux_type = std::make_unique<StabsType>(parse_type(input));
 	}
 	return type;
 }
@@ -235,7 +235,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 
 		STABS_DEBUG(print_field(field);)
 
-		fields.emplace_back(field);
+		fields.emplace_back(std::move(field));
 	}
 	return fields;
 }
