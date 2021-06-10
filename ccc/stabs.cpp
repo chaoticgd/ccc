@@ -255,14 +255,6 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 		StabsMemberFunction member_function;
 		member_function.name = eat_identifier(input);
 		expect_s8(input, ':', "member function");
-		if(*input != ':') {
-			// TODO: Another set of fields/members after the first set of members.
-			input = before;
-			fprintf(stderr, "error: Second set of fields/members after set of members dropped.\n");
-			parse_field_list(input);
-			parse_member_functions(input);
-			return {};
-		}
 		expect_s8(input, ':', "member function");
 		while(*input != '\0') {
 			if(*input == ';') {
