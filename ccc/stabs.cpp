@@ -237,6 +237,10 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 }
 
 static std::vector<StabsMemberFunction> parse_member_functions(const char*& input) {
+	if(*input == ',') {
+		return {};
+	}
+	
 	std::vector<StabsMemberFunction> member_functions;
 	while(*input != '\0') {
 		if(*input == ';') {
