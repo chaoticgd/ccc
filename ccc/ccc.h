@@ -226,7 +226,7 @@ struct StabsType {
 		s64 high;
 	} range_type;
 	struct {
-		s64 type_number;
+		s64 size;
 		std::vector<StabsBaseClass> base_classes;
 		std::vector<StabsField> fields;
 		std::vector<StabsMemberFunction> member_functions;

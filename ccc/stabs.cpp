@@ -99,7 +99,7 @@ static StabsType parse_type(const char*& input) {
 			break;
 		case StabsTypeDescriptor::STRUCT: // s
 			STABS_DEBUG_PRINTF("struct {\n");
-			type.struct_or_union.type_number = eat_s64_literal(input);
+			type.struct_or_union.size = eat_s64_literal(input);
 			if(*input == '!') {
 				input++;
 				s64 base_class_count = eat_s64_literal(input);
@@ -121,7 +121,7 @@ static StabsType parse_type(const char*& input) {
 			break;
 		case StabsTypeDescriptor::UNION: // u
 			STABS_DEBUG_PRINTF("union {\n");
-			type.struct_or_union.type_number = eat_s64_literal(input);
+			type.struct_or_union.size = eat_s64_literal(input);
 			type.struct_or_union.fields = parse_field_list(input);
 			type.struct_or_union.member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
