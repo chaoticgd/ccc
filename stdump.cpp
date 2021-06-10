@@ -122,7 +122,8 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
 			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
-				if(sym.string.find("@") == 0 || sym.string.find("$") == 0 || sym.string.size() == 0) {
+				if(sym.string.size() == 0) {
+					prefix = "";
 					continue;
 				}
 				// Some STABS symbols are split between multiple strings.
@@ -130,6 +131,9 @@ static void print_types(SymbolTable& symbol_table, bool verbose) {
 					prefix += sym.string.substr(0, sym.string.size() - 1);
 				} else {
 					std::string full_symbol = prefix + sym.string;
+					if(full_symbol[0] == '$') {
+						continue;
+					}
 					StabsSymbol symbol = parse_stabs_symbol(full_symbol.c_str());
 					print_symbol(symbol);
 					prefix = "";
