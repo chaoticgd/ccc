@@ -176,6 +176,10 @@ static StabsType parse_type(const char*& input) {
 			verify_not_reached("error: Invalid type descriptor '%c' (%02x).\n",
 				(u32) type.descriptor, (u32) type.descriptor);
 	}
+	if(*input == '=') {
+		input++;
+		type.aux_type = new StabsType(parse_type(input));
+	}
 	return type;
 }
 
