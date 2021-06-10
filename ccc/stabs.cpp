@@ -4,6 +4,7 @@
 
 static StabsType parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
+static std::vector<StabsMemberFunction> parse_member_functions(const char*& input);
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
@@ -115,12 +116,14 @@ static StabsType parse_type(const char*& input) {
 				}
 			}
 			type.struct_type.fields = parse_field_list(input);
+			type.struct_type.member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::UNION: // u
 			STABS_DEBUG_PRINTF("union {\n");
 			type.union_type.type_number = eat_s64_literal(input);
 			type.union_type.fields = parse_field_list(input);
+			type.union_type.member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::CROSS_REFERENCE: // x
@@ -136,6 +139,25 @@ static StabsType parse_type(const char*& input) {
 			}
 			type.cross_reference.identifier = eat_identifier(input);
 			expect_s8(input, ':', "cross reference");
+			break;
+		case StabsTypeDescriptor::METHOD: // #
+			if(*input == '#') {
+				input++;
+				type.method.return_type = new StabsType(parse_type(input));
+				expect_s8(input, ';', "method");
+			} else {
+				type.method.class_type = new StabsType(parse_type(input));
+				expect_s8(input, ',', "method");
+				type.method.return_type = new StabsType(parse_type(input));
+				while(*input != '\0') {
+					if(*input == ';') {
+						input++;
+						break;
+					}
+					expect_s8(input, ',', "method");
+					type.method.parameter_types.emplace_back(parse_type(input));
+				}
+			}
 			break;
 		case StabsTypeDescriptor::REFERENCE: // &
 			type.reference.value_type = new StabsType(parse_type(input));
@@ -154,16 +176,18 @@ static StabsType parse_type(const char*& input) {
 			verify_not_reached("error: Invalid type descriptor '%c' (%02x).\n",
 				(u32) type.descriptor, (u32) type.descriptor);
 	}
-	if(*input == '=') {
-		input++;
-		type.aux_type = new StabsType(parse_type(input));
-	}
 	return type;
 }
 
 static std::vector<StabsField> parse_field_list(const char*& input) {
 	std::vector<StabsField> fields;
 	while(*input != '\0') {
+		if(*input == ';') {
+			input++;
+			break;
+		}
+		
+		const char* before_field = input;
 		StabsField field;
 		field.name = eat_identifier(input);
 		expect_s8(input, ':', "identifier");
@@ -182,17 +206,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 			}
 		}
 		if(*input == ':') {
-			// TODO: Parse the last part.
-			// For now, scan until we reach a ;;.
-			s8 last = 0, current = 0;
-			for(; *input != '\0'; input++) {
-				last = current;
-				current = *input;
-				if(last == ';' && current == ';') {
-					input++;
-					break;
-				}
-			}
+			input = before_field;
 			break;
 		}
 		field.type = parse_type(input);
@@ -212,18 +226,85 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 			field.size = eat_s64_literal(input);
 			expect_s8(input, ';', "field size");
 		} else {
-			verify_not_reached("error: Expected ':' or ',', got '%c' (%hhx).", *input, *input);
+			verify_not_reached("error: Expected ':' or ',', got '%c' (%hhx).\n", *input, *input);
 		}
 
 		STABS_DEBUG(print_field(field);)
 
 		fields.emplace_back(field);
+	}
+	return fields;
+}
+
+static std::vector<StabsMemberFunction> parse_member_functions(const char*& input) {
+	std::vector<StabsMemberFunction> member_functions;
+	while(*input != '\0') {
 		if(*input == ';') {
 			input++;
 			break;
 		}
+		
+		StabsMemberFunction member_function;
+		member_function.name = eat_identifier(input);
+		expect_s8(input, ':', "member function");
+		expect_s8(input, ':', "member function");
+		while(*input != '\0') {
+			if(*input == ';') {
+				input++;
+				break;
+			}
+			
+			StabsMemberFunctionField field;
+			field.type = parse_type(input);
+			
+			expect_s8(input, ':', "member function");
+			eat_identifier(input);
+			expect_s8(input, ';', "member function");
+			field.visibility = (StabsFieldVisibility) eat_s8(input);
+			switch(field.visibility) {
+				case StabsFieldVisibility::PRIVATE:
+				case StabsFieldVisibility::PROTECTED:
+				case StabsFieldVisibility::PUBLIC:
+				case StabsFieldVisibility::IGNORE:
+					break;
+				default:
+					verify_not_reached("error: Invalid visibility for member function.\n");
+			}
+			switch(eat_s8(input)) {
+				case 'A':
+					field.is_const = false;
+					field.is_volatile = false;
+					break;
+				case 'B':
+					field.is_const = true;
+					field.is_volatile = false;
+					break;
+				case 'C':
+					field.is_const = false;
+					field.is_volatile = true;
+					break;
+				case 'D':
+					field.is_const = true;
+					field.is_volatile = true;
+					break;
+				case '?':
+				case '.':
+					break;
+				default:
+					verify_not_reached("error: Invalid member function modifiers.\n");
+			}
+			switch(eat_s8(input)) {
+				case '.':
+					break;
+				default:
+					verify_not_reached("error: Invalid member function type.\n");
+			}
+			member_function.fields.emplace_back(std::move(field));
+		}
+		STABS_DEBUG_PRINTF("member func: %s\n", member_function.name.c_str());
+		member_functions.emplace_back(std::move(member_function));
 	}
-	return fields;
+	return member_functions;
 }
 
 static s8 eat_s8(const char*& input) {

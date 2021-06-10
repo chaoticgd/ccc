@@ -189,16 +189,16 @@ enum class StabsTypeDescriptor : s8 {
 	STRUCT = 's',
 	UNION = 'u',
 	CROSS_REFERENCE = 'x',
-	// I'm not sure what some of these are, they're not all listed in the
-	// current version of the documentation.
+	METHOD = '#',
 	REFERENCE = '&',
 	POINTER = '*',
 	SLASH = '/',
 	MEMBER = '@'
 };
 
-struct StabsField;
 struct StabsBaseClass;
+struct StabsField;
+struct StabsMemberFunction;
 
 struct StabsType {
 	StabsType* aux_type = nullptr;
@@ -229,15 +229,22 @@ struct StabsType {
 		s64 type_number;
 		std::vector<StabsBaseClass> base_classes;
 		std::vector<StabsField> fields;
+		std::vector<StabsMemberFunction> member_functions;
 	} struct_type;
 	struct {
 		s64 type_number;
 		std::vector<StabsField> fields;
+		std::vector<StabsMemberFunction> member_functions;
 	} union_type;
 	struct {
 		char type;
 		std::string identifier;
 	} cross_reference;
+	struct {
+		StabsType* return_type = nullptr;
+		std::optional<StabsType*> class_type;
+		std::vector<StabsType> parameter_types;
+	} method;
 	struct {
 		StabsType* value_type = nullptr;
 	} pointer_type;
@@ -246,12 +253,18 @@ struct StabsType {
 	} reference;
 };
 
-enum class StabsFieldVisibility {
+enum class StabsFieldVisibility : s8 {
 	NONE = '\0',
 	PRIVATE = '0',
 	PROTECTED = '1',
 	PUBLIC = '2',
 	IGNORE = '9'
+};
+
+struct StabsBaseClass {
+	s8 visibility;
+	s64 offset;
+	StabsType type;
 };
 
 struct StabsField {
@@ -263,10 +276,16 @@ struct StabsField {
 	std::string type_name;
 };
 
-struct StabsBaseClass {
-	s8 visibility;
-	s64 offset;
+struct StabsMemberFunctionField {
 	StabsType type;
+	StabsFieldVisibility visibility;
+	bool is_const;
+	bool is_volatile;
+};
+
+struct StabsMemberFunction {
+	std::string name;
+	std::vector<StabsMemberFunctionField> fields;
 };
 
 struct StabsSymbol {
