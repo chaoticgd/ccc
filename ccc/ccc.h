@@ -3,7 +3,8 @@
 #include <map>
 #include <vector>
 #include <cstdio>
-#include <stdint.h>
+#include <memory>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -201,7 +202,7 @@ struct StabsField;
 struct StabsMemberFunction;
 
 struct StabsType {
-	StabsType* aux_type = nullptr;
+	std::unique_ptr<StabsType> aux_type;
 	bool anonymous;
 	s64 type_number;
 	bool has_body;
@@ -211,8 +212,8 @@ struct StabsType {
 		s64 type_number;
 	} type_reference;
 	struct {
-		StabsType* index_type = nullptr;
-		StabsType* element_type = nullptr;
+		std::unique_ptr<StabsType> index_type;
+		std::unique_ptr<StabsType> element_type;
 	} array_type;
 	struct {
 		std::vector<std::pair<std::string, s64>> fields;
@@ -221,7 +222,7 @@ struct StabsType {
 		
 	} function_type;
 	struct {
-		StabsType* type;
+		std::unique_ptr<StabsType> type;
 		s64 low;
 		s64 high;
 	} range_type;
@@ -236,15 +237,15 @@ struct StabsType {
 		std::string identifier;
 	} cross_reference;
 	struct {
-		StabsType* return_type = nullptr;
-		std::optional<StabsType*> class_type;
+		std::unique_ptr<StabsType> return_type;
+		std::unique_ptr<StabsType> class_type;
 		std::vector<StabsType> parameter_types;
 	} method;
 	struct {
-		StabsType* value_type = nullptr;
+		std::unique_ptr<StabsType> value_type;
 	} pointer_type;
 	struct {
-		StabsType* value_type = nullptr;
+		std::unique_ptr<StabsType> value_type;
 	} reference;
 };
 
