@@ -3,11 +3,12 @@
 #include <map>
 #include <vector>
 #include <cstdio>
-#include <cstdint>
+#include <stdint.h>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <filesystem>
+#include <inttypes.h>
 
 // *****************************************************************************
 // util.cpp
@@ -187,19 +188,24 @@ enum class StabsTypeDescriptor : s8 {
 	RANGE = 'r',
 	STRUCT = 's',
 	UNION = 'u',
-	// I'm not sure what some of these are, they're not all listed in the
-	// current version of the documentation.
-	AMPERSAND = '&',
+	CROSS_REFERENCE = 'x',
+	METHOD = '#',
+	REFERENCE = '&',
 	POINTER = '*',
 	SLASH = '/',
 	MEMBER = '@'
 };
 
+struct StabsBaseClass;
 struct StabsField;
+struct StabsMemberFunction;
 
 struct StabsType {
-	StabsTypeDescriptor descriptor;
 	StabsType* aux_type = nullptr;
+	bool anonymous;
+	s64 type_number;
+	bool has_body;
+	StabsTypeDescriptor descriptor;
 	// Tagged "union" based on the value of the type descriptor.
 	struct {
 		s64 type_number;
@@ -220,32 +226,68 @@ struct StabsType {
 		s64 high;
 	} range_type;
 	struct {
-		s64 type_number;
+		s64 size;
+		std::vector<StabsBaseClass> base_classes;
 		std::vector<StabsField> fields;
-	} struct_type;
+		std::vector<StabsMemberFunction> member_functions;
+	} struct_or_union;
 	struct {
-		s64 type_number;
-		std::vector<StabsField> fields;
-	} union_type;
+		char type;
+		std::string identifier;
+	} cross_reference;
+	struct {
+		StabsType* return_type = nullptr;
+		std::optional<StabsType*> class_type;
+		std::vector<StabsType> parameter_types;
+	} method;
 	struct {
 		StabsType* value_type = nullptr;
 	} pointer_type;
+	struct {
+		StabsType* value_type = nullptr;
+	} reference;
+};
+
+enum class StabsFieldVisibility : s8 {
+	NONE = '\0',
+	PRIVATE = '0',
+	PROTECTED = '1',
+	PUBLIC = '2',
+	IGNORE = '9'
+};
+
+struct StabsBaseClass {
+	s8 visibility;
+	s64 offset;
+	StabsType type;
 };
 
 struct StabsField {
 	std::string name;
+	StabsFieldVisibility visibility = StabsFieldVisibility::NONE;
 	StabsType type;
-	s64 offset;
-	s64 size;
+	s32 offset;
+	s32 size;
 	std::string type_name;
+};
+
+struct StabsMemberFunctionField {
+	StabsType type;
+	StabsFieldVisibility visibility;
+	bool is_const;
+	bool is_volatile;
+};
+
+struct StabsMemberFunction {
+	std::string name;
+	std::vector<StabsMemberFunctionField> fields;
 };
 
 struct StabsSymbol {
 	std::string name;
 	StabsSymbolDescriptor descriptor;
-	s64 type_number;
 	StabsType type;
 };
 
-StabsSymbol parse_stabs_symbol(const char* input, bool verbose);
+StabsSymbol parse_stabs_symbol(const char* input);
 void print_stabs_type(const StabsType& type);

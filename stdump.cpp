@@ -19,10 +19,11 @@ struct Options {
 	bool verbose = false;
 };
 
-Options parse_args(int argc, char** argv);
-void print_symbols(Program& program, SymbolTable& symbol_table);
-void print_types(Program& program, SymbolTable& symbol_table, bool verbose);
-void print_help();
+static Options parse_args(int argc, char** argv);
+static void print_symbols(Program& program, SymbolTable& symbol_table);
+static void print_types(SymbolTable& symbol_table, bool verbose);
+static void print_symbol(const StabsSymbol& symbol);
+static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
@@ -57,11 +58,11 @@ int main(int argc, char** argv) {
 		print_symbols(program, symbol_table);
 	}
 	if(options.mode & OUTPUT_TYPES) {
-		print_types(program, symbol_table, options.verbose);
+		print_types(symbol_table, options.verbose);
 	}
 }
 
-Options parse_args(int argc, char** argv) {
+static Options parse_args(int argc, char** argv) {
 	Options options;
 	for(int i = 1; i < argc; i++) {
 		std::string arg = argv[i];
@@ -92,7 +93,7 @@ Options parse_args(int argc, char** argv) {
 	return options;
 }
 
-void print_symbols(Program& program, SymbolTable& symbol_table) {
+static void print_symbols(Program& program, SymbolTable& symbol_table) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		printf("FILE %s:\n", fd.name.c_str());
 		for(Symbol& sym : fd.symbols) {
@@ -116,74 +117,51 @@ void print_symbols(Program& program, SymbolTable& symbol_table) {
 	}
 }
 
-void print_types(Program& program, SymbolTable& symbol_table, bool verbose) {
-	std::set<std::string> declared_symbols;
-
+static void print_types(SymbolTable& symbol_table, bool verbose) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		std::string prefix;
 		for(Symbol& sym : fd.symbols) {
-			printf("// stype: %11s sclass: %d\n", symbol_type(sym.storage_type), sym.storage_class);
-
 			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
-
-				if(sym.string.find("@") == 0 || sym.string.find("$") == 0 || sym.string.size() == 0) {
+				if(sym.string.size() == 0) {
+					prefix = "";
 					continue;
 				}
 				// Some STABS symbols are split between multiple strings.
 				if(sym.string[sym.string.size() - 1] == '\\') {
 					prefix += sym.string.substr(0, sym.string.size() - 1);
 				} else {
-					const std::string full_symbol = prefix + sym.string;
-
-					if(verbose)
-						printf("//  PARSING %s\n", full_symbol.c_str());
-
-					const StabsSymbol stab_sym = parse_stabs_symbol(full_symbol.c_str(), verbose);
-
-					printf("//  type: %c %c name: %s\n", (u8) stab_sym.descriptor, (u8) stab_sym.type.descriptor, stab_sym.name.c_str());
-
-					const std::string sym_name = stab_sym.name;
-
-					if (declared_symbols.count(sym_name) == 0) {
-						auto aggregate_max_name_size = [](const auto& fields) -> size_t {
-							if(fields.empty())
-								return 0;
-							return std::max_element(fields.begin(), fields.end(),
-								[](const std::pair<std::string, s64>& f1, const std::pair<std::string, s64>& f2) {
-									return f1.first.size() < f2.first.size();
-								})->first.size();
-						};
-
-						switch (stab_sym.type.descriptor) {
-						case StabsTypeDescriptor::ENUM: {
-							const auto& fields = stab_sym.type.enum_type.fields;
-							const u32 max_name_size = aggregate_max_name_size(fields);
-							printf("typedef enum %s {\n", sym_name.c_str());
-							for (const auto [name, value] : fields)
-								printf("\t%-*s = 0x%X,\n", max_name_size, name.c_str(), (s32) value);
-							printf("} %s;\n", sym_name.c_str());
-							break;
-						}
-						}
-
-						declared_symbols.insert(sym_name);
+					std::string full_symbol = prefix + sym.string;
+					if(full_symbol[0] == '$') {
+						continue;
 					}
-					else { // Forward declare
-						switch (stab_sym.type.descriptor) {
-						case StabsTypeDescriptor::STRUCT: {
-							printf("struct %s;\n", sym_name.c_str());
-							break;
-						}
-						case StabsTypeDescriptor::ENUM: {
-							printf("enum %s;\n", sym_name.c_str());
-							break;
-						}
-						}
-					}
-
+					StabsSymbol symbol = parse_stabs_symbol(full_symbol.c_str());
+					print_symbol(symbol);
 					prefix = "";
 				}
 			}
+		}
+	}
+}
+
+
+static void print_symbol(const StabsSymbol& symbol) {
+	auto longest_name_length = [](const auto& fields) {
+		s32 pad_size = 0;
+		for(const auto& [name, _] : fields) {
+			pad_size = std::max(pad_size, (s32) name.size());
+		}
+		return pad_size;
+	};
+	
+	switch(symbol.type.descriptor) {
+		case StabsTypeDescriptor::ENUM: {
+			const auto& fields = symbol.type.enum_type.fields;
+			printf("typedef enum %s {\n", symbol.name.c_str());
+			for (const auto& [name, value] : fields) {
+				printf("\t%-*s = 0x%X,\n", longest_name_length(fields), name.c_str(), (s32) value);
+			}
+			printf("} %s;\n", symbol.name.c_str());
+			break;
 		}
 	}
 }
