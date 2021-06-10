@@ -99,7 +99,7 @@ static StabsType parse_type(const char*& input) {
 			break;
 		case StabsTypeDescriptor::STRUCT: // s
 			STABS_DEBUG_PRINTF("struct {\n");
-			type.struct_type.type_number = eat_s64_literal(input);
+			type.struct_or_union.type_number = eat_s64_literal(input);
 			if(*input == '!') {
 				input++;
 				s64 base_class_count = eat_s64_literal(input);
@@ -112,18 +112,18 @@ static StabsType parse_type(const char*& input) {
 					expect_s8(input, ',', "base class section");
 					base_class.type = parse_type(input);
 					expect_s8(input, ';', "base class section");
-					type.struct_type.base_classes.emplace_back(base_class);
+					type.struct_or_union.base_classes.emplace_back(base_class);
 				}
 			}
-			type.struct_type.fields = parse_field_list(input);
-			type.struct_type.member_functions = parse_member_functions(input);
+			type.struct_or_union.fields = parse_field_list(input);
+			type.struct_or_union.member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::UNION: // u
 			STABS_DEBUG_PRINTF("union {\n");
-			type.union_type.type_number = eat_s64_literal(input);
-			type.union_type.fields = parse_field_list(input);
-			type.union_type.member_functions = parse_member_functions(input);
+			type.struct_or_union.type_number = eat_s64_literal(input);
+			type.struct_or_union.fields = parse_field_list(input);
+			type.struct_or_union.member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::CROSS_REFERENCE: // x
@@ -390,7 +390,7 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 void print_stabs_type(const StabsType& type) {
 	printf("type descriptor: %c\n", (s8) type.descriptor);
 	printf("fields (offset, size, offset in bits, size in bits, name):\n");
-	for(const StabsField& field : type.struct_type.fields) {
+	for(const StabsField& field : type.struct_or_union.fields) {
 		print_field(field);
 	}
 }

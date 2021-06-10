@@ -230,12 +230,7 @@ struct StabsType {
 		std::vector<StabsBaseClass> base_classes;
 		std::vector<StabsField> fields;
 		std::vector<StabsMemberFunction> member_functions;
-	} struct_type;
-	struct {
-		s64 type_number;
-		std::vector<StabsField> fields;
-		std::vector<StabsMemberFunction> member_functions;
-	} union_type;
+	} struct_or_union;
 	struct {
 		char type;
 		std::string identifier;
