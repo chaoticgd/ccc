@@ -15,13 +15,46 @@ static void print_field(const StabsField& field);
 static const char* ERR_END_OF_INPUT =
 	"error: Unexpected end of input while parsing STAB type.\n";
 
-#define STABS_DEBUG(...) __VA_ARGS__
+#define STABS_DEBUG(...) //__VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
+
+std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
+	std::vector<StabsSymbol> output;
+	std::string prefix;
+	for(const Symbol& symbol : input) {
+		if(symbol.storage_type == SymbolType::NIL && (u32) symbol.storage_class == 0) {
+			if(symbol.string.size() == 0) {
+				verify(prefix.size() == 0, "error: Invalid STABS continuation.\n");
+				continue;
+			}
+			// Some STABS symbols are split between multiple strings.
+			if(symbol.string[symbol.string.size() - 1] == '\\') {
+				prefix += symbol.string.substr(0, symbol.string.size() - 1);
+			} else {
+				std::string symbol_string = prefix + symbol.string;
+				prefix = "";
+				if(symbol_string[0] == '$') {
+					continue;
+				}
+				StabsSymbol stabs_symbol = parse_stabs_symbol(symbol_string.c_str());
+				stabs_symbol.mdebug_symbol = symbol;
+				switch(stabs_symbol.descriptor) {
+					case StabsSymbolDescriptor::TYPE_NAME:
+					case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
+						output.emplace_back(std::move(stabs_symbol));
+						break;
+				}
+			}
+		}
+	}
+	return output;
+}
 
 StabsSymbol parse_stabs_symbol(const char* input) {
 	STABS_DEBUG_PRINTF("PARSING %s\n", input);
 	
 	StabsSymbol symbol;
+	symbol.raw = std::string(input);
 	symbol.name = eat_identifier(input);
 	expect_s8(input, ':', "identifier");
 	verify(*input != '\0', ERR_END_OF_INPUT);
@@ -36,6 +69,7 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 		input++;
 	}
 	symbol.type = parse_type(input);
+	symbol.type.name = symbol.name;
 	return symbol;
 }
 
@@ -62,7 +96,7 @@ static StabsType parse_type(const char*& input) {
 	}
 	switch(type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: // 0..9
-			type.type_reference.type_number = eat_s64_literal(input);
+			type.type_reference.type = std::make_unique<StabsType>(parse_type(input));
 			break;
 		case StabsTypeDescriptor::ARRAY: // a
 			type.array_type.index_type = std::make_unique<StabsType>(parse_type(input));
@@ -74,20 +108,15 @@ static StabsType parse_type(const char*& input) {
 				std::string name = eat_identifier(input);
 				expect_s8(input, ':', "identifier");
 				s64 value = eat_s64_literal(input);
-				type.enum_type.fields.emplace_back(name, value);
+				type.enum_type.fields.emplace_back(value, name);
 				verify(eat_s8(input) == ',',
 					"error: Expecting ',' while parsing enum, got '%c' (%02hhx).",
 					*input, *input);
 			}
-			std::sort(type.enum_type.fields.begin(), type.enum_type.fields.end(),
-				[](const std::pair<std::string, s64>& f1, const std::pair<std::string, s64>& f2) {
-					return f1.second < f2.second;
-				}
-			);
 			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::FUNCTION: // f
-			eat_s64_literal(input);
+			type.function_type.type = std::make_unique<StabsType>(parse_type(input));
 			break;
 		case StabsTypeDescriptor::RANGE: // r
 			type.range_type.type = std::make_unique<StabsType>(parse_type(input));
@@ -138,6 +167,7 @@ static StabsType parse_type(const char*& input) {
 						type.cross_reference.type);
 			}
 			type.cross_reference.identifier = eat_identifier(input);
+			type.name = type.cross_reference.identifier;
 			expect_s8(input, ':', "cross reference");
 			break;
 		case StabsTypeDescriptor::METHOD: // #
@@ -160,10 +190,8 @@ static StabsType parse_type(const char*& input) {
 			}
 			break;
 		case StabsTypeDescriptor::REFERENCE: // &
-			type.reference.value_type = std::make_unique<StabsType>(parse_type(input));
-			break;
 		case StabsTypeDescriptor::POINTER: // *
-			type.pointer_type.value_type = std::make_unique<StabsType>(parse_type(input));
+			type.reference_or_pointer.value_type = std::make_unique<StabsType>(parse_type(input));
 			break;
 		case StabsTypeDescriptor::SLASH: // /
 			// Not sure.
@@ -175,10 +203,6 @@ static StabsType parse_type(const char*& input) {
 		default:
 			verify_not_reached("error: Invalid type descriptor '%c' (%02x).\n",
 				(u32) type.descriptor, (u32) type.descriptor);
-	}
-	if(*input == '=') {
-		input++;
-		type.aux_type = std::make_unique<StabsType>(parse_type(input));
 	}
 	return type;
 }
@@ -401,4 +425,48 @@ void print_stabs_type(const StabsType& type) {
 
 static void print_field(const StabsField& field) {
 	printf("\t%04x %04x %04x %04x %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
+}
+
+static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& output, const StabsType& type);
+
+static void enumerate_unique_ptr(std::map<s32, const StabsType*>& output, const std::unique_ptr<StabsType>& type) {
+	if(type.get()) {
+		enumerate_numbered_types_recursive(output, *type.get());
+	}
+}
+
+static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& output, const StabsType& type) {
+	if(!type.anonymous) {
+		output.emplace(type.type_number, &type);
+	}
+	enumerate_unique_ptr(output, type.type_reference.type);
+	enumerate_unique_ptr(output, type.array_type.index_type);
+	enumerate_unique_ptr(output, type.array_type.element_type);
+	enumerate_unique_ptr(output, type.function_type.type);
+	enumerate_unique_ptr(output, type.range_type.type);
+	for(const StabsBaseClass& base_class : type.struct_or_union.base_classes) {
+		enumerate_numbered_types_recursive(output, base_class.type);
+	}
+	for(const StabsField& field : type.struct_or_union.fields) {
+		enumerate_numbered_types_recursive(output, field.type);
+	}
+	for(const StabsMemberFunction& member_functions : type.struct_or_union.member_functions) {
+		for(const StabsMemberFunctionField& field : member_functions.fields) {
+			enumerate_numbered_types_recursive(output, field.type);
+		}
+	}
+	enumerate_unique_ptr(output, type.method.return_type);
+	enumerate_unique_ptr(output, type.method.class_type);
+	for(const StabsType& parameter_type : type.method.parameter_types) {
+		enumerate_numbered_types_recursive(output, parameter_type);
+	}
+	enumerate_unique_ptr(output, type.reference_or_pointer.value_type);
+}
+
+std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols) {
+	std::map<s32, const StabsType*> output;
+	for(const StabsSymbol& symbol : symbols) {
+		enumerate_numbered_types_recursive(output, symbol.type);
+	}
+	return output;
 }

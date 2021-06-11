@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <assert.h>
 #include <iostream>
 #include <filesystem>
 #include <inttypes.h>
@@ -73,6 +74,8 @@ struct Range {
 	s32 low;
 	s32 high;
 };
+
+#define BEGIN_END(x) (x).begin(), (x).end()
 
 // *****************************************************************************
 // Core data structures
@@ -201,25 +204,30 @@ struct StabsBaseClass;
 struct StabsField;
 struct StabsMemberFunction;
 
+// e.g. for "123=*456" 123 would be the type_number, the type descriptor would
+// be of type POINTER and reference_or_pointer.value_type would point to a type
+// with type_number = 456 and has_body = false.
 struct StabsType {
-	std::unique_ptr<StabsType> aux_type;
+	// The name field is only populated for root types and cross references.
+	std::optional<std::string> name;
 	bool anonymous;
-	s64 type_number;
+	s32 type_number;
 	bool has_body;
+	// If !has_body, everything below isn't filled in.
 	StabsTypeDescriptor descriptor;
 	// Tagged "union" based on the value of the type descriptor.
 	struct {
-		s64 type_number;
+		std::unique_ptr<StabsType> type;
 	} type_reference;
 	struct {
 		std::unique_ptr<StabsType> index_type;
 		std::unique_ptr<StabsType> element_type;
 	} array_type;
 	struct {
-		std::vector<std::pair<std::string, s64>> fields;
+		std::vector<std::pair<s32, std::string>> fields;
 	} enum_type;
 	struct {
-		
+		std::unique_ptr<StabsType> type;
 	} function_type;
 	struct {
 		std::unique_ptr<StabsType> type;
@@ -243,10 +251,7 @@ struct StabsType {
 	} method;
 	struct {
 		std::unique_ptr<StabsType> value_type;
-	} pointer_type;
-	struct {
-		std::unique_ptr<StabsType> value_type;
-	} reference;
+	} reference_or_pointer;
 };
 
 enum class StabsFieldVisibility : s8 {
@@ -285,10 +290,26 @@ struct StabsMemberFunction {
 };
 
 struct StabsSymbol {
+	std::string raw;
 	std::string name;
 	StabsSymbolDescriptor descriptor;
 	StabsType type;
+	Symbol mdebug_symbol;
 };
 
+std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input);
 StabsSymbol parse_stabs_symbol(const char* input);
 void print_stabs_type(const StabsType& type);
+std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols);
+
+// *****************************************************************************
+// printc.cpp
+// *****************************************************************************
+
+struct TypeName {
+	std::string first_part;
+	std::vector<int> array_indices;
+};
+
+std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
+void print_symbol_as_c(FILE* output, const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
