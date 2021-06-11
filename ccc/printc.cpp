@@ -127,20 +127,6 @@ static void print_type_name(FILE* output, const StabsType& type, const std::map<
 	switch(type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			assert(0);
-			//auto actual_type = declared_types.find(type.type_number);
-			//if(actual_type != declared_types.end()) {
-			//	indent(output, depth);
-			//	fprintf(output, "%s", actual_type->second.c_str());
-			//} else {
-			//	if(type.aux_type.get()) {
-			//		print_type(output, *type.aux_type.get(), name, declared_types, depth);
-			//		return;
-			//	} else {
-			//		indent(output, depth);
-			//		fprintf(output, "<err type>");
-			//	}
-			//}
-			//break;
 		}
 		case StabsTypeDescriptor::ARRAY: {
 			assert(type.array_type.element_type.get());
