@@ -44,7 +44,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 	}
 	const StabsType& type = *type_ptr;
 	
-	if(type.name.has_value()) {
+	if(type.name.has_value() && type.descriptor != StabsTypeDescriptor::CROSS_REFERENCE) {
 		TypeName name;
 		name.first_part = *type.name;
 		return name;
@@ -85,7 +85,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
 			TypeName type_name;
-			type_name.first_part = type.cross_reference.identifier;
+			type_name.first_part = "/* " + type.cross_reference.identifier + " */ void";
 			return type_name;
 		}
 		case StabsTypeDescriptor::METHOD: {
@@ -278,7 +278,7 @@ static void indent(FILE* output, s32 depth) {
 void print_ast_node_test(FILE* output, const char* result_variable, const char* parent_struct, const AstNode& node, int depth) {
 	switch(node.descriptor) {
 		case AstNodeDescriptor::LEAF: {
-			fprintf(output, "\t%s &= offsetof(%s, %s) == 0x%x;\n", result_variable, parent_struct, node.name.c_str(), node.offset);
+			fprintf(output, "\t%s &= CCC_OFFSETOF(%s, %s) == 0x%x;\n", result_variable, parent_struct, node.name.c_str(), node.offset);
 			//fprintf(output, "\t%s &= sizeof(%s, %s) == 0x%x;\n", result_variable, parent_struct, node.name.c_str(), node.size);
 		}
 		case AstNodeDescriptor::STRUCT:
