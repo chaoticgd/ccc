@@ -211,7 +211,7 @@ void print_c_field(FILE* output, const CField& field, int depth) {
 			} else {
 				fprintf(output, "enum");
 			}
-			fprintf(output, " {\n");
+			fprintf(output, " %s {\n", field.name.c_str());
 			for(const CField& child : field.struct_or_union.fields) {
 				print_c_field(output, child, depth + 1);
 			}
@@ -229,5 +229,22 @@ void print_c_field(FILE* output, const CField& field, int depth) {
 static void indent(FILE* output, s32 depth) {
 	for(s32 i = 0; i < depth; i++) {
 		fprintf(output, "\t");
+	}
+}
+
+void print_c_field_test(FILE* output, const char* result_variable, const char* parent_struct, const CField& field, int depth) {
+	switch(field.descriptor) {
+		case CFieldDescriptor::LEAF: {
+			fprintf(output, "\t%s &= offsetof(%s, %s) == 0x%x;\n", result_variable, parent_struct, field.name.c_str(), field.offset);
+			//fprintf(output, "\t%s &= sizeof(%s, %s) == 0x%x;\n", result_variable, parent_struct, field.name.c_str(), field.size);
+		}
+		case CFieldDescriptor::STRUCT:
+		case CFieldDescriptor::UNION: {
+			if(depth == 0) {
+				for(const CField& child : field.struct_or_union.fields) {
+					print_c_field_test(output, result_variable, parent_struct, child, depth + 1);
+				}
+			}
+		}
 	}
 }

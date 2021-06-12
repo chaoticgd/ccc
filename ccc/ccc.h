@@ -321,6 +321,7 @@ struct CField {
 	std::string name;
 	CFieldDescriptor descriptor;
 	std::vector<s32> array_indices;
+	bool top_level = false;
 	struct {
 		std::string type_name;
 	} leaf_field;
@@ -330,6 +331,7 @@ struct CField {
 	struct {
 		std::vector<CField> fields;
 	} struct_or_union;
+	const StabsSymbol* symbol = nullptr;
 };
 
 std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
@@ -341,3 +343,4 @@ struct FieldInfo {
 };
 CField stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names);
 void print_c_field(FILE* output, const CField& field, int depth);
+void print_c_field_test(FILE* output, const char* result_variable, const char* parent_struct, const CField& field, int depth);

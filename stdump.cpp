@@ -10,7 +10,8 @@ void print_address(const char* name, u64 address) {
 enum OutputMode : u32 {
 	OUTPUT_HELP = 0,
 	OUTPUT_SYMBOLS = 1,
-	OUTPUT_TYPES = 2
+	OUTPUT_TYPES = 2,
+	OUTPUT_TEST = 4
 };
 
 struct Options {
@@ -22,6 +23,7 @@ struct Options {
 static Options parse_args(int argc, char** argv);
 static void print_symbols(Program& program, SymbolTable& symbol_table);
 static void print_types(const SymbolTable& symbol_table, bool verbose);
+static void print_test(const SymbolTable& symbol_table, bool verbose);
 static void print_help();
 
 int main(int argc, char** argv) {
@@ -59,6 +61,9 @@ int main(int argc, char** argv) {
 	if(options.mode & OUTPUT_TYPES) {
 		print_types(symbol_table, options.verbose);
 	}
+	if(options.mode & OUTPUT_TEST) {
+		print_test(symbol_table, options.verbose);
+	}
 }
 
 static Options parse_args(int argc, char** argv) {
@@ -71,6 +76,9 @@ static Options parse_args(int argc, char** argv) {
 		if(arg == "--types" || arg == "-t") {
 			(u32&) options.mode |= OUTPUT_TYPES;
 		}
+		if(arg == "--test") {
+			(u32&) options.mode |= OUTPUT_TEST;
+		}
 		if(arg == "--verbose" || arg == "-v") {
 			options.verbose = true;
 		}
@@ -81,6 +89,9 @@ static Options parse_args(int argc, char** argv) {
 			continue;
 		}
 		if(arg == "--types" || arg == "-t") {
+			continue;
+		}
+		if(arg == "--test") {
 			continue;
 		}
 		if(arg == "--verbose" || arg == "-v") {
@@ -116,29 +127,72 @@ static void print_symbols(Program& program, SymbolTable& symbol_table) {
 	}
 }
 
+std::vector<CField> symbols_to_c_fields(const std::vector<StabsSymbol>& symbols, const std::map<s32, TypeName>& type_names) {
+	auto is_data_type = [&](const StabsSymbol& symbol) {
+		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
+			&& (u32) symbol.mdebug_symbol.storage_class == 0
+			&& symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
+			&& symbol.type.has_body;
+	};
+	
+	std::vector<CField> c_fields;
+	for(const StabsSymbol& symbol : symbols) {
+		if(is_data_type(symbol)) {
+			CField c_field = stabs_field_to_c({0, 0, symbol.type, symbol.name}, type_names);
+			c_field.top_level = true;
+			c_field.symbol = &symbol;
+			c_fields.emplace_back(std::move(c_field));
+		}
+	}
+	return c_fields;
+}
+
 static void print_types(const SymbolTable& symbol_table, bool verbose) {
-	std::vector<std::string> files_processed;
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
 		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
+		const std::vector<CField> c_fields = symbols_to_c_fields(symbols, type_names);
 		
-		auto is_data_type = [&](const StabsSymbol& symbol) {
-			return symbol.mdebug_symbol.storage_type == SymbolType::NIL
-				&& (u32) symbol.mdebug_symbol.storage_class == 0
-				&& symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
-				&& symbol.type.has_body;
-		};
-		
-		for(const StabsSymbol& symbol : symbols) {
-			if(is_data_type(symbol)) {
-				printf("// %s\n", symbol.raw.c_str());
-				CField c_field = stabs_field_to_c({0, 0, symbol.type, symbol.name}, type_names);
-				print_c_field(stdout, c_field, 0);
-				printf("\n");
-			}
-		}//if(&fd == &symbol_table.files[1]) break;
+		for(const CField& field : c_fields) {
+			assert(field.symbol);
+			printf("// %s\n", field.symbol->raw.c_str());
+			print_c_field(stdout, field, 0);
+			printf("\n");
+		}
 	}
+}
+
+static void print_test(const SymbolTable& symbol_table, bool verbose) {
+	const SymFileDescriptor& fd = symbol_table.files.at(1);
+	const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
+	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
+	const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
+	const std::vector<CField> c_fields = symbols_to_c_fields(symbols, type_names);
+	
+	for(const CField& field : c_fields) {
+		switch(field.descriptor) {
+			case CFieldDescriptor::ENUM: printf("enum");break;
+			case CFieldDescriptor::STRUCT: printf("struct");break;
+			case CFieldDescriptor::UNION: printf("union");break;
+		}
+		printf(" %s;\n", field.name.c_str());
+	}
+	for(const CField& field : c_fields) {
+		assert(field.symbol);
+		printf("// %s\n", field.symbol->raw.c_str());
+		print_c_field(stdout, field, 0);
+		printf("\n");
+	}
+	printf("int main() {\n");
+	for(const CField& field : c_fields) {
+		static long varname = 0;
+		std::string varstr = "v" + std::to_string(varname++);
+		printf("\tint %s = 1;\n", varstr.c_str());
+		print_c_field_test(stdout, varstr.c_str(), field.name.c_str(), field, 0);
+		printf("\tprintf(\"%s %%s\\n\", %s ? \"passed\" : \"failed\");\n", field.name.c_str(), varstr.c_str());
+	}
+	printf("}\n");
 }
 
 void print_help() {
@@ -149,6 +203,8 @@ void print_help() {
 	puts("                    by file descriptor.");
 	puts("");
 	puts(" --types, -t        TODO");
+	puts("");
+	puts(" --test             TODO");
 	puts("");
 	puts(" --verbose, -v      Print out addition information e.g. the offsets of");
 	puts("                    various data structures in the input file.");
