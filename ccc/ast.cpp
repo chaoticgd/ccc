@@ -90,7 +90,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
 			TypeName type_name;
-			type_name.first_part = "/* " + type.cross_reference.identifier + " */ void";
+			type_name.first_part = "/* " + type.cross_reference.identifier + " */ void*";
 			return type_name;
 		}
 		case StabsTypeDescriptor::METHOD: {
