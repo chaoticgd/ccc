@@ -191,7 +191,7 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 		print_ast_node(stdout, node, 0);
 		printf("\n");
 	}
-	printf("int printf(const char* restrict format, ...);\n");
+	printf("int printf(const char* format, ...);\n");
 	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
 	printf("int main() {\n");
 	for(const AstNode& node : ast_nodes) {
