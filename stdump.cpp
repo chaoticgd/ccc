@@ -126,13 +126,15 @@ static void print_types(const SymbolTable& symbol_table, bool verbose) {
 		auto is_data_type = [&](const StabsSymbol& symbol) {
 			return symbol.mdebug_symbol.storage_type == SymbolType::NIL
 				&& (u32) symbol.mdebug_symbol.storage_class == 0
-				&& symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG;
+				&& symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
+				&& symbol.type.has_body;
 		};
 		
 		for(const StabsSymbol& symbol : symbols) {
 			if(is_data_type(symbol)) {
 				printf("// %s\n", symbol.raw.c_str());
-				print_symbol_as_c(stdout, symbol, type_names);
+				CField c_field = stabs_field_to_c({0, 0, symbol.type, symbol.name}, type_names);
+				print_c_field(stdout, c_field, 0);
 				printf("\n");
 			}
 		}//if(&fd == &symbol_table.files[1]) break;

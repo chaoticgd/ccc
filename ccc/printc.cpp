@@ -1,7 +1,14 @@
 #include "ccc.h"
 
 static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr);
-static void print_type_and_name(FILE* output, const StabsType& type, const char* name, const std::map<s32, TypeName>& type_names, s32 depth);
+static CField stabs_field_to_c(const StabsField& field, const std::map<s32, TypeName>& type_names);
+static CField leaf_field(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
+static CField enum_field(s32 offset, s32 size, const CEnumFields& fields, const std::string& name);
+static CField struct_or_union_field(
+		s32 offset, s32 size, bool is_struct,
+		const std::vector<CField>& fields,
+		const std::string& name,
+		const std::vector<s32>& array_indices);
 static void indent(FILE* output, s32 depth);
 
 s32 type_number_of(StabsType* type) {
@@ -102,95 +109,120 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 	}
 };
 
-void print_symbol_as_c(FILE* output, const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
-	switch(symbol.descriptor) {
-		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
-			fprintf(output, "typedef ");
-			print_type_and_name(output, symbol.type, symbol.name.c_str(), type_names, 0);
-			break;
-		default:
-			fprintf(output, "// ?");
-	}
-}
-
 static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, TypeName>& type_names) {
 	auto iterator = type_names.find(type_number);
 	verify(iterator != type_names.end(), "error: Undeclared type referenced: %d.\n", type_number);
 	return iterator->second;
 }
 
-static void print_type_and_name(FILE* output, const StabsType& type, const char* name, const std::map<s32, TypeName>& type_names, s32 depth) {
+
+CField stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names) {
+	s32 offset = field.offset;
+	s32 size = field.size;
+	const StabsType& type = field.type;
+	const std::string& name = field.name;
+	
 	if(!type.has_body) {
 		const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-		indent(output, depth);
-		fprintf(output, "%s", type_name.first_part.c_str());
-		fprintf(output, " %s", name);
-		for(s32 index : type_name.array_indices) {
-			fprintf(output, "[%d]", index);
-		}
-		return;
+		return leaf_field(offset, size, type_name.first_part, name, type_name.array_indices);
 	}
 	
-	bool is_struct = false;
 	switch(type.descriptor) {
-		case StabsTypeDescriptor::TYPE_REFERENCE: {
-			assert(0);
-		}
-		case StabsTypeDescriptor::ARRAY: {
-			assert(type.array_type.element_type.get());
-			print_type_and_name(output, *type.array_type.element_type.get(), name, type_names, depth);
-			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-			for(s32 index : type_name.array_indices) {
-				fprintf(output, "[%d]", index);
+		case StabsTypeDescriptor::STRUCT:
+		case StabsTypeDescriptor::UNION: {
+			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
+			std::vector<CField> fields;
+			for(const StabsField& child : type.struct_or_union.fields) {
+				fields.emplace_back(stabs_field_to_c({child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return;
+			return struct_or_union_field(0, 0, is_struct, fields, name, {});
 		}
-		case StabsTypeDescriptor::ENUM: {
+		default: {
+			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
+			return leaf_field(offset, size, type_name.first_part, name, type_name.array_indices);
+		}
+	}
+}
+
+static CField leaf_field(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices) {
+	CField field;
+	field.offset = offset;
+	field.size = size;
+	field.name = name;
+	field.descriptor = CFieldDescriptor::LEAF;
+	field.array_indices = array_indices;
+	field.leaf_field.type_name = type;
+	return field;
+}
+
+static CField enum_field(s32 offset, s32 size, const CEnumFields& fields, const std::string& name) {
+	CField field;
+	field.offset = offset;
+	field.size = size;
+	field.name = name;
+	field.descriptor = CFieldDescriptor::ENUM;
+	field.array_indices = {};
+	field.enum_type.fields = fields;
+	return field;
+}
+static CField struct_or_union_field(
+		s32 offset, s32 size, bool is_struct,
+		const std::vector<CField>& fields,
+		const std::string& name,
+		const std::vector<s32>& array_indices) {
+	CField field;
+	field.offset = offset;
+	field.size = size;
+	field.name = name;
+	field.descriptor = is_struct ? CFieldDescriptor::STRUCT : CFieldDescriptor::UNION;
+	field.array_indices = {};
+	field.struct_or_union.fields = fields;
+	return field;
+}
+
+void print_c_field(FILE* output, const CField& field, int depth) {
+	switch(field.descriptor) {
+		case CFieldDescriptor::LEAF: {
+			indent(output, depth);
+			if(field.leaf_field.type_name.size() > 0) {
+				fprintf(output, "%s", field.leaf_field.type_name.c_str());
+			} else {
+				fprintf(output, "/* error: empty type string */ int");
+			}
+			break;
+		}
+		case CFieldDescriptor::ENUM: {
 			indent(output, depth);
 			fprintf(output, "enum {\n");
-			for(auto& [value, name] : type.enum_type.fields) {
-				bool is_last = value == type.enum_type.fields.back().first;
+			for(auto& [value, name] : field.enum_type.fields) {
+				bool is_last = value == field.enum_type.fields.back().first;
 				indent(output, depth + 1);
 				fprintf(output, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
 			}
 			indent(output, depth);
-			fprintf(output, "}\n");
+			printf("}");
 			break;
 		}
-		case StabsTypeDescriptor::FUNCTION:
-			indent(output, depth);
-			fprintf(output, "/* function ptr */ void");
-			break;
-		case StabsTypeDescriptor::STRUCT:
-			is_struct = true;
-		case StabsTypeDescriptor::UNION: {
-			indent(output, depth);
-			fprintf(output, "%s {\n", is_struct ? "struct" : "union");
-			for(const StabsField& field : type.struct_or_union.fields) {
-				print_type_and_name(output, field.type, field.name.c_str(), type_names, depth + 1);
-				fprintf(output, ";\n");
+		case CFieldDescriptor::STRUCT:
+		case CFieldDescriptor::UNION: {
+			if(field.descriptor == CFieldDescriptor::STRUCT) {
+				fprintf(output, "struct");
+			} else {
+				fprintf(output, "enum");
+			}
+			fprintf(output, " {\n");
+			for(const CField& child : field.struct_or_union.fields) {
+				print_c_field(output, child, depth + 1);
 			}
 			indent(output, depth);
-			fprintf(output, "}");
-			break;
-		}
-		case StabsTypeDescriptor::CROSS_REFERENCE: {
-			fprintf(output, "%s", type.cross_reference.identifier.c_str());
-			break;
-		}
-		case StabsTypeDescriptor::REFERENCE:
-		case StabsTypeDescriptor::POINTER: {
-			if(!type.reference_or_pointer.value_type.get()) {
-				verify_not_reached("error: Invalid reference or pointer type.\n");
-			}
-			print_type_and_name(output, *type.reference_or_pointer.value_type.get(), name, type_names, depth);
-			break;
-		}
-		default: {
-			verify_not_reached("error: Unhandled type descriptor '%c' (%hhx).\n",
-				(s8) type.descriptor, (s8) type.descriptor);
+			printf("}");
 		}
 	}
+	fprintf(output, " %s", field.name.c_str());
+	for(s32 index : field.array_indices) {
+		fprintf(output, "[%d]", index);
+	}
+	fprintf(output, ";\n");
 }
 
 static void indent(FILE* output, s32 depth) {

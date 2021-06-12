@@ -311,5 +311,33 @@ struct TypeName {
 	std::vector<s32> array_indices;
 };
 
+enum class CFieldDescriptor {
+	LEAF, ENUM, STRUCT, UNION, TYPEDEF
+};
+using CEnumFields = std::vector<std::pair<s32, std::string>>;
+struct CField {
+	s32 offset;
+	s32 size;
+	std::string name;
+	CFieldDescriptor descriptor;
+	std::vector<s32> array_indices;
+	struct {
+		std::string type_name;
+	} leaf_field;
+	struct {
+		CEnumFields fields;
+	} enum_type;
+	struct {
+		std::vector<CField> fields;
+	} struct_or_union;
+};
+
 std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
-void print_symbol_as_c(FILE* output, const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
+struct FieldInfo {
+	s32 offset;
+	s32 size;
+	const StabsType& type;
+	const std::string& name;
+};
+CField stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names);
+void print_c_field(FILE* output, const CField& field, int depth);
