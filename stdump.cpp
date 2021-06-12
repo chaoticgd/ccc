@@ -198,7 +198,7 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 			for(const AstNode& field : node.struct_or_union.fields) {
 				printf("typedef int testcase__%d__%s__%s[(CCC_OFFSETOF(%s,%s) == %d) ? 1 : -1];\n",
 					test_case++, node.name.c_str(), field.name.c_str(),
-					node.name.c_str(), field.name.c_str(), field.offset);
+					node.name.c_str(), field.name.c_str(), field.offset / 8);
 			}
 		}
 	}
