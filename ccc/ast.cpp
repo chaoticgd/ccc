@@ -4,6 +4,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names);
 static AstNode leaf_node(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
 static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const std::string& name);
+static AstNode typedef_node(const std::string& type, const std::string& name);
 static AstNode struct_or_union_node(
 		s32 offset, s32 size, bool is_struct,
 		const std::vector<AstNode>& fields,
@@ -116,8 +117,26 @@ static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, Typ
 }
 
 
-AstNode stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
-	return stabs_field_to_ast({0, 0, symbol.type, symbol.name}, type_names);
+std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
+	switch(symbol.descriptor) {
+		case StabsSymbolDescriptor::TYPE_NAME: {
+			StabsType* referenced_type = symbol.type.type_reference.type.get();
+			if(!referenced_type || referenced_type->type_number == symbol.type.type_number) {
+				return std::nullopt;
+			}
+			verify(!symbol.type.anonymous && referenced_type && !referenced_type->anonymous,
+				"error: Invalid type name: %s.\n", symbol.raw.c_str());
+			auto type_name = lookup_type_name(referenced_type->type_number, type_names);
+			return typedef_node(type_name.first_part, symbol.name);
+		}
+		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
+			if(!symbol.type.has_body) {
+				return std::nullopt;
+			}
+			return stabs_field_to_ast({0, 0, symbol.type, symbol.name}, type_names);
+		default:
+			verify_not_reached("error: Unexpected symbol descriptor: %c.\n", (s8) symbol.descriptor);
+	}
 }
 
 static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names) {
@@ -169,6 +188,7 @@ static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const s
 	node.enum_type.fields = fields;
 	return node;
 }
+
 static AstNode struct_or_union_node(
 		s32 offset, s32 size, bool is_struct,
 		const std::vector<AstNode>& fields,
@@ -181,6 +201,16 @@ static AstNode struct_or_union_node(
 	node.descriptor = is_struct ? AstNodeDescriptor::STRUCT : AstNodeDescriptor::UNION;
 	node.array_indices = {};
 	node.struct_or_union.fields = fields;
+	return node;
+}
+
+static AstNode typedef_node(const std::string& type, const std::string& name) {
+	AstNode node;
+	node.offset = 0;
+	node.size = 0;
+	node.name = name;
+	node.descriptor = AstNodeDescriptor::TYPEDEF;
+	node.typedef_type.type_name = type;
 	return node;
 }
 
@@ -221,6 +251,12 @@ void print_ast_node(FILE* output, const AstNode& node, int depth) {
 			}
 			indent(output, depth);
 			printf("}");
+			break;
+		}
+		case AstNodeDescriptor::TYPEDEF: {
+			indent(output, depth);
+			printf("typedef %s", node.typedef_type.type_name.c_str());
+			break;
 		}
 	}
 	fprintf(output, " %s", node.name.c_str());

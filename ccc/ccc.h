@@ -331,6 +331,9 @@ struct AstNode {
 	struct {
 		std::vector<AstNode> fields;
 	} struct_or_union;
+	struct {
+		std::string type_name;
+	} typedef_type;
 	const StabsSymbol* symbol = nullptr;
 };
 
@@ -341,6 +344,6 @@ struct FieldInfo {
 	const StabsType& type;
 	const std::string& name;
 };
-AstNode stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
+std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
 void print_ast_node(FILE* output, const AstNode& node, int depth);
 void print_ast_node_test(FILE* output, const char* result_variable, const char* parent_struct, const AstNode& node, int depth);

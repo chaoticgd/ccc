@@ -131,16 +131,19 @@ static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbo
 	auto is_data_type = [&](const StabsSymbol& symbol) {
 		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
 			&& (u32) symbol.mdebug_symbol.storage_class == 0
-			&& symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG;
+			&& (symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
+				|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
 	};
 	
 	std::vector<AstNode> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
 		if(is_data_type(symbol)) {
-			AstNode node = stabs_symbol_to_ast(symbol, type_names);
-			node.top_level = true;
-			node.symbol = &symbol;
-			ast_nodes.emplace_back(std::move(node));
+			std::optional<AstNode> node = stabs_symbol_to_ast(symbol, type_names);
+			if(node.has_value()) {
+				node->top_level = true;
+				node->symbol = &symbol;
+				ast_nodes.emplace_back(std::move(*node));
+			}
 		}
 	}
 	return ast_nodes;
@@ -170,12 +173,17 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 	const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 	
 	for(const AstNode& node : ast_nodes) {
+		bool print = true;
 		switch(node.descriptor) {
-			case AstNodeDescriptor::ENUM: printf("enum");break;
-			case AstNodeDescriptor::STRUCT: printf("struct");break;
-			case AstNodeDescriptor::UNION: printf("union");break;
+			case AstNodeDescriptor::ENUM: printf("enum"); break;
+			case AstNodeDescriptor::STRUCT: printf("struct"); break;
+			case AstNodeDescriptor::UNION: printf("union"); break;
+			default:
+				print = false;
 		}
-		printf(" %s;\n", node.name.c_str());
+		if(print) {
+			printf(" %s;\n", node.name.c_str());
+		}
 	}
 	for(const AstNode& node : ast_nodes) {
 		assert(node.symbol);
