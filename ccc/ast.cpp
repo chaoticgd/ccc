@@ -279,20 +279,3 @@ static void indent(FILE* output, s32 depth) {
 		fprintf(output, "\t");
 	}
 }
-
-void print_ast_node_test(FILE* output, const char* result_variable, const char* parent_struct, const AstNode& node, int depth) {
-	switch(node.descriptor) {
-		case AstNodeDescriptor::LEAF: {
-			fprintf(output, "\t%s &= CCC_OFFSETOF(%s, %s) == 0x%x;\n", result_variable, parent_struct, node.name.c_str(), node.offset);
-			//fprintf(output, "\t%s &= sizeof(%s, %s) == 0x%x;\n", result_variable, parent_struct, node.name.c_str(), node.size);
-		}
-		case AstNodeDescriptor::STRUCT:
-		case AstNodeDescriptor::UNION: {
-			if(depth == 0) {
-				for(const AstNode& child : node.struct_or_union.fields) {
-					print_ast_node_test(output, result_variable, parent_struct, child, depth + 1);
-				}
-			}
-		}
-	}
-}
