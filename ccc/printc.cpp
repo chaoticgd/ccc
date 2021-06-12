@@ -39,7 +39,7 @@ const StabsType* find_type(StabsType* type, const std::map<s32, const StabsType*
 // FIXME: Detect indirect recusion e.g. type mappings 1 -> 2, 2 -> 1.
 static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr) {
 	if(!type_ptr) {
-		return {"/* error type */ void*", {}};
+		return {"/* error: null type */ void*", {}};
 	}
 	const StabsType& type = *type_ptr;
 	
@@ -51,7 +51,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 	
 	if(!type.has_body) {
 		TypeName name;
-		name.first_part = "/* error type */ void*";
+		name.first_part = "/* error: no body */ void*";
 		return name;
 	}
 	
