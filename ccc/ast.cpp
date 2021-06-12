@@ -46,7 +46,12 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 	
 	if(type.name.has_value() && type.descriptor != StabsTypeDescriptor::CROSS_REFERENCE) {
 		TypeName name;
-		name.first_part = *type.name;
+		switch(type.descriptor) {
+			case StabsTypeDescriptor::ENUM: name.first_part += "enum "; break;
+			case StabsTypeDescriptor::STRUCT: name.first_part += "struct "; break;
+			case StabsTypeDescriptor::UNION: name.first_part += "union "; break;
+		}
+		name.first_part += *type.name;
 		return name;
 	}
 	
