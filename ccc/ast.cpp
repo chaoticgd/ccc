@@ -25,7 +25,7 @@ std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType
 	}
 	return type_names;
 }
-
+#include <stdint.h>
 const StabsType* find_type(StabsType* type, const std::map<s32, const StabsType*>& types, s32 outer_type_number) {
 	assert(type && !type->anonymous);
 	if(type->type_number == outer_type_number) {
@@ -51,7 +51,12 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 			case StabsTypeDescriptor::STRUCT: name.first_part += "struct "; break;
 			case StabsTypeDescriptor::UNION: name.first_part += "union "; break;
 		}
-		name.first_part += *type.name;
+		// FIXME: Actually check the bounds of long long int.
+		if(type.type_number == 6 && type.name == "long long int") {
+			name.first_part = "struct ccc_int128";
+		} else {
+			name.first_part += *type.name;
+		}
 		return name;
 	}
 	
@@ -217,6 +222,13 @@ static AstNode typedef_node(const std::string& type, const std::string& name) {
 	node.descriptor = AstNodeDescriptor::TYPEDEF;
 	node.typedef_type.type_name = type;
 	return node;
+}
+
+void print_ast_begin(FILE* output) {
+	fprintf(output, "struct ccc_int128 {\n");
+	fprintf(output, "\tlong long int lo;\n");
+	fprintf(output, "\tlong long int hi;\n");
+	fprintf(output, "};\n\n");
 }
 
 void print_ast_node(FILE* output, const AstNode& node, int depth) {

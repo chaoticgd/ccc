@@ -345,4 +345,5 @@ struct FieldInfo {
 	const std::string& name;
 };
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
+void print_ast_begin(FILE* output);
 void print_ast_node(FILE* output, const AstNode& node, int depth);

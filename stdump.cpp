@@ -156,6 +156,7 @@ static void print_types(const SymbolTable& symbol_table, bool verbose) {
 		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
 		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 		
+		print_ast_begin(stdout);
 		for(const AstNode& node : ast_nodes) {
 			assert(node.symbol);
 			printf("// %s\n", node.symbol->raw.c_str());
@@ -172,6 +173,7 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 	const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
 	const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 	
+	print_ast_begin(stdout);
 	for(const AstNode& node : ast_nodes) {
 		bool print = true;
 		switch(node.descriptor) {
@@ -195,9 +197,12 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 	for(const AstNode& node : ast_nodes) {
 		if(node.descriptor == AstNodeDescriptor::STRUCT) {
 			for(const AstNode& field : node.struct_or_union.fields) {
-				printf("typedef int _%s__%s[(CCC_OFFSETOF(%s,%s) == %d) ? 1 : -1];\n",
+				printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
 					node.name.c_str(), field.name.c_str(),
 					node.name.c_str(), field.name.c_str(), field.offset / 8);
+				printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
+					node.name.c_str(), field.name.c_str(),
+					node.name.c_str(), field.name.c_str(), field.size / 8);
 			}
 		}
 	}
