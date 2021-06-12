@@ -107,7 +107,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 		default:
 			verify_not_reached("error: Unexpected type descriptor.\n");
 	}
-};
+}
 
 static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, TypeName>& type_names) {
 	auto iterator = type_names.find(type_number);
