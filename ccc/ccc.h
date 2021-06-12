@@ -303,7 +303,7 @@ void print_stabs_type(const StabsType& type);
 std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols);
 
 // *****************************************************************************
-// printc.cpp
+// ast.cpp
 // *****************************************************************************
 
 struct TypeName {
