@@ -10,7 +10,8 @@ void print_address(const char* name, u64 address) {
 enum OutputMode : u32 {
 	OUTPUT_HELP = 0,
 	OUTPUT_SYMBOLS = 1,
-	OUTPUT_TYPES = 2
+	OUTPUT_TYPES = 2,
+	OUTPUT_TEST = 4
 };
 
 struct Options {
@@ -21,8 +22,8 @@ struct Options {
 
 static Options parse_args(int argc, char** argv);
 static void print_symbols(Program& program, SymbolTable& symbol_table);
-static void print_types(SymbolTable& symbol_table, bool verbose);
-static void print_symbol(const StabsSymbol& symbol);
+static void print_types(const SymbolTable& symbol_table, bool verbose);
+static void print_test(const SymbolTable& symbol_table, bool verbose);
 static void print_help();
 
 int main(int argc, char** argv) {
@@ -60,6 +61,9 @@ int main(int argc, char** argv) {
 	if(options.mode & OUTPUT_TYPES) {
 		print_types(symbol_table, options.verbose);
 	}
+	if(options.mode & OUTPUT_TEST) {
+		print_test(symbol_table, options.verbose);
+	}
 }
 
 static Options parse_args(int argc, char** argv) {
@@ -72,6 +76,9 @@ static Options parse_args(int argc, char** argv) {
 		if(arg == "--types" || arg == "-t") {
 			(u32&) options.mode |= OUTPUT_TYPES;
 		}
+		if(arg == "--test") {
+			(u32&) options.mode |= OUTPUT_TEST;
+		}
 		if(arg == "--verbose" || arg == "-v") {
 			options.verbose = true;
 		}
@@ -82,6 +89,9 @@ static Options parse_args(int argc, char** argv) {
 			continue;
 		}
 		if(arg == "--types" || arg == "-t") {
+			continue;
+		}
+		if(arg == "--test") {
 			continue;
 		}
 		if(arg == "--verbose" || arg == "-v") {
@@ -117,51 +127,87 @@ static void print_symbols(Program& program, SymbolTable& symbol_table) {
 	}
 }
 
-static void print_types(SymbolTable& symbol_table, bool verbose) {
-	for(SymFileDescriptor& fd : symbol_table.files) {
-		std::string prefix;
-		for(Symbol& sym : fd.symbols) {
-			if(sym.storage_type == SymbolType::NIL && (u32) sym.storage_class == 0) {
-				if(sym.string.size() == 0) {
-					prefix = "";
-					continue;
-				}
-				// Some STABS symbols are split between multiple strings.
-				if(sym.string[sym.string.size() - 1] == '\\') {
-					prefix += sym.string.substr(0, sym.string.size() - 1);
-				} else {
-					std::string full_symbol = prefix + sym.string;
-					if(full_symbol[0] == '$') {
-						continue;
-					}
-					StabsSymbol symbol = parse_stabs_symbol(full_symbol.c_str());
-					print_symbol(symbol);
-					prefix = "";
-				}
+static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, TypeName>& type_names) {
+	auto is_data_type = [&](const StabsSymbol& symbol) {
+		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
+			&& (u32) symbol.mdebug_symbol.storage_class == 0
+			&& (symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
+				|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
+	};
+	
+	std::vector<AstNode> ast_nodes;
+	for(const StabsSymbol& symbol : symbols) {
+		if(is_data_type(symbol)) {
+			std::optional<AstNode> node = stabs_symbol_to_ast(symbol, type_names);
+			if(node.has_value()) {
+				node->top_level = true;
+				node->symbol = &symbol;
+				ast_nodes.emplace_back(std::move(*node));
 			}
+		}
+	}
+	return ast_nodes;
+}
+
+static void print_types(const SymbolTable& symbol_table, bool verbose) {
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
+		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
+		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
+		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
+		
+		printf("// *****************************************************************************\n");
+		printf("// FILE -- %s\n", fd.name.c_str());
+		printf("// *****************************************************************************\n");
+		printf("\n");
+		print_ast_begin(stdout);
+		for(const AstNode& node : ast_nodes) {
+			assert(node.symbol);
+			printf("// %s\n", node.symbol->raw.c_str());
+			print_ast_node(stdout, node, 0);
+			printf("\n");
 		}
 	}
 }
 
-
-static void print_symbol(const StabsSymbol& symbol) {
-	auto longest_name_length = [](const auto& fields) {
-		s32 pad_size = 0;
-		for(const auto& [name, _] : fields) {
-			pad_size = std::max(pad_size, (s32) name.size());
-		}
-		return pad_size;
-	};
+static void print_test(const SymbolTable& symbol_table, bool verbose) {
+	const SymFileDescriptor& fd = symbol_table.files.at(1);
+	const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
+	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
+	const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
+	const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 	
-	switch(symbol.type.descriptor) {
-		case StabsTypeDescriptor::ENUM: {
-			const auto& fields = symbol.type.enum_type.fields;
-			printf("typedef enum %s {\n", symbol.name.c_str());
-			for (const auto& [name, value] : fields) {
-				printf("\t%-*s = 0x%X,\n", longest_name_length(fields), name.c_str(), (s32) value);
+	print_ast_begin(stdout);
+	for(const AstNode& node : ast_nodes) {
+		bool print = true;
+		switch(node.descriptor) {
+			case AstNodeDescriptor::ENUM: printf("enum"); break;
+			case AstNodeDescriptor::STRUCT: printf("struct"); break;
+			case AstNodeDescriptor::UNION: printf("union"); break;
+			default:
+				print = false;
+		}
+		if(print) {
+			printf(" %s;\n", node.name.c_str());
+		}
+	}
+	for(const AstNode& node : ast_nodes) {
+		assert(node.symbol);
+		printf("// %s\n", node.symbol->raw.c_str());
+		print_ast_node(stdout, node, 0);
+		printf("\n");
+	}
+	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
+	for(const AstNode& node : ast_nodes) {
+		if(node.descriptor == AstNodeDescriptor::STRUCT) {
+			for(const AstNode& field : node.struct_or_union.fields) {
+				printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
+					node.name.c_str(), field.name.c_str(),
+					node.name.c_str(), field.name.c_str(), field.offset / 8);
+				printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
+					node.name.c_str(), field.name.c_str(),
+					node.name.c_str(), field.name.c_str(), field.size / 8);
 			}
-			printf("} %s;\n", symbol.name.c_str());
-			break;
 		}
 	}
 }
@@ -174,6 +220,8 @@ void print_help() {
 	puts("                    by file descriptor.");
 	puts("");
 	puts(" --types, -t        TODO");
+	puts("");
+	puts(" --test             TODO");
 	puts("");
 	puts(" --verbose, -v      Print out addition information e.g. the offsets of");
 	puts("                    various data structures in the input file.");

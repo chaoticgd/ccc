@@ -10,6 +10,7 @@ add_library(ccc STATIC
 	ccc/elf.cpp
 	ccc/mdebug.cpp
 	ccc/stabs.cpp
+	ccc/ast.cpp
 )
 
 add_executable(stdump stdump.cpp)
