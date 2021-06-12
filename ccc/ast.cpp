@@ -256,10 +256,13 @@ void print_ast_node(FILE* output, const AstNode& node, int depth) {
 		case AstNodeDescriptor::TYPEDEF: {
 			indent(output, depth);
 			printf("typedef %s", node.typedef_type.type_name.c_str());
+			fprintf(output, " %s", node.name.c_str());
 			break;
 		}
 	}
-	fprintf(output, " %s", node.name.c_str());
+	if(!node.top_level) {
+		fprintf(output, " %s", node.name.c_str());
+	}
 	for(s32 index : node.array_indices) {
 		fprintf(output, "[%d]", index);
 	}
