@@ -243,7 +243,7 @@ void print_ast_node(FILE* output, const AstNode& node, int depth) {
 			if(node.descriptor == AstNodeDescriptor::STRUCT) {
 				fprintf(output, "struct");
 			} else {
-				fprintf(output, "enum");
+				fprintf(output, "union");
 			}
 			fprintf(output, " %s {\n", node.name.c_str());
 			for(const AstNode& child : node.struct_or_union.fields) {
