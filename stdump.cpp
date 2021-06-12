@@ -191,13 +191,12 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 		print_ast_node(stdout, node, 0);
 		printf("\n");
 	}
-	int test_case = 0;
 	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
 	for(const AstNode& node : ast_nodes) {
 		if(node.descriptor == AstNodeDescriptor::STRUCT) {
 			for(const AstNode& field : node.struct_or_union.fields) {
-				printf("typedef int testcase__%d__%s__%s[(CCC_OFFSETOF(%s,%s) == %d) ? 1 : -1];\n",
-					test_case++, node.name.c_str(), field.name.c_str(),
+				printf("typedef int _%s__%s[(CCC_OFFSETOF(%s,%s) == %d) ? 1 : -1];\n",
+					node.name.c_str(), field.name.c_str(),
 					node.name.c_str(), field.name.c_str(), field.offset / 8);
 			}
 		}
