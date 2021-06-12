@@ -156,6 +156,10 @@ static void print_types(const SymbolTable& symbol_table, bool verbose) {
 		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
 		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 		
+		printf("// *****************************************************************************\n");
+		printf("// FILE -- %s\n", fd.name.c_str());
+		printf("// *****************************************************************************\n");
+		printf("\n");
 		print_ast_begin(stdout);
 		for(const AstNode& node : ast_nodes) {
 			assert(node.symbol);
