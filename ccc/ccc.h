@@ -311,25 +311,25 @@ struct TypeName {
 	std::vector<s32> array_indices;
 };
 
-enum class CFieldDescriptor {
+enum class AstNodeDescriptor {
 	LEAF, ENUM, STRUCT, UNION, TYPEDEF
 };
-using CEnumFields = std::vector<std::pair<s32, std::string>>;
-struct CField {
+using EnumFields = std::vector<std::pair<s32, std::string>>;
+struct AstNode {
 	s32 offset;
 	s32 size;
 	std::string name;
-	CFieldDescriptor descriptor;
+	AstNodeDescriptor descriptor;
 	std::vector<s32> array_indices;
 	bool top_level = false;
 	struct {
 		std::string type_name;
-	} leaf_field;
+	} leaf;
 	struct {
-		CEnumFields fields;
+		EnumFields fields;
 	} enum_type;
 	struct {
-		std::vector<CField> fields;
+		std::vector<AstNode> fields;
 	} struct_or_union;
 	const StabsSymbol* symbol = nullptr;
 };
@@ -341,6 +341,6 @@ struct FieldInfo {
 	const StabsType& type;
 	const std::string& name;
 };
-CField stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names);
-void print_c_field(FILE* output, const CField& field, int depth);
-void print_c_field_test(FILE* output, const char* result_variable, const char* parent_struct, const CField& field, int depth);
+AstNode stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names);
+void print_ast_node(FILE* output, const AstNode& node, int depth);
+void print_ast_node_test(FILE* output, const char* result_variable, const char* parent_struct, const AstNode& node, int depth);

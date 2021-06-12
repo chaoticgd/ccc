@@ -1,12 +1,12 @@
 #include "ccc.h"
 
 static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr);
-static CField stabs_field_to_c(const StabsField& field, const std::map<s32, TypeName>& type_names);
-static CField leaf_field(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
-static CField enum_field(s32 offset, s32 size, const CEnumFields& fields, const std::string& name);
-static CField struct_or_union_field(
+static AstNode stabs_field_to_c(const StabsField& field, const std::map<s32, TypeName>& type_names);
+static AstNode leaf_node(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
+static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const std::string& name);
+static AstNode struct_or_union_node(
 		s32 offset, s32 size, bool is_struct,
-		const std::vector<CField>& fields,
+		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices);
 static void indent(FILE* output, s32 depth);
@@ -116,7 +116,7 @@ static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, Typ
 }
 
 
-CField stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names) {
+AstNode stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names) {
 	s32 offset = field.offset;
 	s32 size = field.size;
 	const StabsType& type = field.type;
@@ -124,78 +124,78 @@ CField stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_nam
 	
 	if(!type.has_body) {
 		const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-		return leaf_field(offset, size, type_name.first_part, name, type_name.array_indices);
+		return leaf_node(offset, size, type_name.first_part, name, type_name.array_indices);
 	}
 	
 	switch(type.descriptor) {
 		case StabsTypeDescriptor::STRUCT:
 		case StabsTypeDescriptor::UNION: {
 			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
-			std::vector<CField> fields;
+			std::vector<AstNode> fields;
 			for(const StabsField& child : type.struct_or_union.fields) {
 				fields.emplace_back(stabs_field_to_c({child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return struct_or_union_field(0, 0, is_struct, fields, name, {});
+			return struct_or_union_node(0, 0, is_struct, fields, name, {});
 		}
 		default: {
 			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-			return leaf_field(offset, size, type_name.first_part, name, type_name.array_indices);
+			return leaf_node(offset, size, type_name.first_part, name, type_name.array_indices);
 		}
 	}
 }
 
-static CField leaf_field(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices) {
-	CField field;
-	field.offset = offset;
-	field.size = size;
-	field.name = name;
-	field.descriptor = CFieldDescriptor::LEAF;
-	field.array_indices = array_indices;
-	field.leaf_field.type_name = type;
-	return field;
+static AstNode leaf_node(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices) {
+	AstNode node;
+	node.offset = offset;
+	node.size = size;
+	node.name = name;
+	node.descriptor = AstNodeDescriptor::LEAF;
+	node.array_indices = array_indices;
+	node.leaf.type_name = type;
+	return node;
 }
 
-static CField enum_field(s32 offset, s32 size, const CEnumFields& fields, const std::string& name) {
-	CField field;
-	field.offset = offset;
-	field.size = size;
-	field.name = name;
-	field.descriptor = CFieldDescriptor::ENUM;
-	field.array_indices = {};
-	field.enum_type.fields = fields;
-	return field;
+static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const std::string& name) {
+	AstNode node;
+	node.offset = offset;
+	node.size = size;
+	node.name = name;
+	node.descriptor = AstNodeDescriptor::ENUM;
+	node.array_indices = {};
+	node.enum_type.fields = fields;
+	return node;
 }
-static CField struct_or_union_field(
+static AstNode struct_or_union_node(
 		s32 offset, s32 size, bool is_struct,
-		const std::vector<CField>& fields,
+		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices) {
-	CField field;
-	field.offset = offset;
-	field.size = size;
-	field.name = name;
-	field.descriptor = is_struct ? CFieldDescriptor::STRUCT : CFieldDescriptor::UNION;
-	field.array_indices = {};
-	field.struct_or_union.fields = fields;
-	return field;
+	AstNode node;
+	node.offset = offset;
+	node.size = size;
+	node.name = name;
+	node.descriptor = is_struct ? AstNodeDescriptor::STRUCT : AstNodeDescriptor::UNION;
+	node.array_indices = {};
+	node.struct_or_union.fields = fields;
+	return node;
 }
 
-void print_c_field(FILE* output, const CField& field, int depth) {
-	switch(field.descriptor) {
-		case CFieldDescriptor::LEAF: {
+void print_ast_node(FILE* output, const AstNode& node, int depth) {
+	switch(node.descriptor) {
+		case AstNodeDescriptor::LEAF: {
 			indent(output, depth);
-			if(field.leaf_field.type_name.size() > 0) {
-				fprintf(output, "%s", field.leaf_field.type_name.c_str());
+			if(node.leaf.type_name.size() > 0) {
+				fprintf(output, "%s", node.leaf.type_name.c_str());
 			} else {
 				fprintf(output, "/* error: empty type string */ int");
 			}
 			break;
 		}
-		case CFieldDescriptor::ENUM: {
+		case AstNodeDescriptor::ENUM: {
 			indent(output, depth);
 			fprintf(output, "enum {\n");
-			for(auto& [value, name] : field.enum_type.fields) {
-				bool is_last = value == field.enum_type.fields.back().first;
+			for(auto& [value, name] : node.enum_type.fields) {
+				bool is_last = value == node.enum_type.fields.back().first;
 				indent(output, depth + 1);
 				fprintf(output, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
 			}
@@ -203,24 +203,24 @@ void print_c_field(FILE* output, const CField& field, int depth) {
 			printf("}");
 			break;
 		}
-		case CFieldDescriptor::STRUCT:
-		case CFieldDescriptor::UNION: {
+		case AstNodeDescriptor::STRUCT:
+		case AstNodeDescriptor::UNION: {
 			indent(output, depth);
-			if(field.descriptor == CFieldDescriptor::STRUCT) {
+			if(node.descriptor == AstNodeDescriptor::STRUCT) {
 				fprintf(output, "struct");
 			} else {
 				fprintf(output, "enum");
 			}
-			fprintf(output, " %s {\n", field.name.c_str());
-			for(const CField& child : field.struct_or_union.fields) {
-				print_c_field(output, child, depth + 1);
+			fprintf(output, " %s {\n", node.name.c_str());
+			for(const AstNode& child : node.struct_or_union.fields) {
+				print_ast_node(output, child, depth + 1);
 			}
 			indent(output, depth);
 			printf("}");
 		}
 	}
-	fprintf(output, " %s", field.name.c_str());
-	for(s32 index : field.array_indices) {
+	fprintf(output, " %s", node.name.c_str());
+	for(s32 index : node.array_indices) {
 		fprintf(output, "[%d]", index);
 	}
 	fprintf(output, ";\n");
@@ -232,17 +232,17 @@ static void indent(FILE* output, s32 depth) {
 	}
 }
 
-void print_c_field_test(FILE* output, const char* result_variable, const char* parent_struct, const CField& field, int depth) {
-	switch(field.descriptor) {
-		case CFieldDescriptor::LEAF: {
-			fprintf(output, "\t%s &= offsetof(%s, %s) == 0x%x;\n", result_variable, parent_struct, field.name.c_str(), field.offset);
-			//fprintf(output, "\t%s &= sizeof(%s, %s) == 0x%x;\n", result_variable, parent_struct, field.name.c_str(), field.size);
+void print_ast_node_test(FILE* output, const char* result_variable, const char* parent_struct, const AstNode& node, int depth) {
+	switch(node.descriptor) {
+		case AstNodeDescriptor::LEAF: {
+			fprintf(output, "\t%s &= offsetof(%s, %s) == 0x%x;\n", result_variable, parent_struct, node.name.c_str(), node.offset);
+			//fprintf(output, "\t%s &= sizeof(%s, %s) == 0x%x;\n", result_variable, parent_struct, node.name.c_str(), node.size);
 		}
-		case CFieldDescriptor::STRUCT:
-		case CFieldDescriptor::UNION: {
+		case AstNodeDescriptor::STRUCT:
+		case AstNodeDescriptor::UNION: {
 			if(depth == 0) {
-				for(const CField& child : field.struct_or_union.fields) {
-					print_c_field_test(output, result_variable, parent_struct, child, depth + 1);
+				for(const AstNode& child : node.struct_or_union.fields) {
+					print_ast_node_test(output, result_variable, parent_struct, child, depth + 1);
 				}
 			}
 		}

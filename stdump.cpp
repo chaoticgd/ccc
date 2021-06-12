@@ -127,7 +127,7 @@ static void print_symbols(Program& program, SymbolTable& symbol_table) {
 	}
 }
 
-std::vector<CField> symbols_to_c_fields(const std::vector<StabsSymbol>& symbols, const std::map<s32, TypeName>& type_names) {
+static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, TypeName>& type_names) {
 	auto is_data_type = [&](const StabsSymbol& symbol) {
 		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
 			&& (u32) symbol.mdebug_symbol.storage_class == 0
@@ -135,16 +135,16 @@ std::vector<CField> symbols_to_c_fields(const std::vector<StabsSymbol>& symbols,
 			&& symbol.type.has_body;
 	};
 	
-	std::vector<CField> c_fields;
+	std::vector<AstNode> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
 		if(is_data_type(symbol)) {
-			CField c_field = stabs_field_to_c({0, 0, symbol.type, symbol.name}, type_names);
-			c_field.top_level = true;
-			c_field.symbol = &symbol;
-			c_fields.emplace_back(std::move(c_field));
+			AstNode node = stabs_field_to_c({0, 0, symbol.type, symbol.name}, type_names);
+			node.top_level = true;
+			node.symbol = &symbol;
+			ast_nodes.emplace_back(std::move(node));
 		}
 	}
-	return c_fields;
+	return ast_nodes;
 }
 
 static void print_types(const SymbolTable& symbol_table, bool verbose) {
@@ -152,12 +152,12 @@ static void print_types(const SymbolTable& symbol_table, bool verbose) {
 		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
 		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-		const std::vector<CField> c_fields = symbols_to_c_fields(symbols, type_names);
+		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 		
-		for(const CField& field : c_fields) {
-			assert(field.symbol);
-			printf("// %s\n", field.symbol->raw.c_str());
-			print_c_field(stdout, field, 0);
+		for(const AstNode& node : ast_nodes) {
+			assert(node.symbol);
+			printf("// %s\n", node.symbol->raw.c_str());
+			print_ast_node(stdout, node, 0);
 			printf("\n");
 		}
 	}
@@ -168,29 +168,29 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 	const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
 	const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-	const std::vector<CField> c_fields = symbols_to_c_fields(symbols, type_names);
+	const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 	
-	for(const CField& field : c_fields) {
-		switch(field.descriptor) {
-			case CFieldDescriptor::ENUM: printf("enum");break;
-			case CFieldDescriptor::STRUCT: printf("struct");break;
-			case CFieldDescriptor::UNION: printf("union");break;
+	for(const AstNode& node : ast_nodes) {
+		switch(node.descriptor) {
+			case AstNodeDescriptor::ENUM: printf("enum");break;
+			case AstNodeDescriptor::STRUCT: printf("struct");break;
+			case AstNodeDescriptor::UNION: printf("union");break;
 		}
-		printf(" %s;\n", field.name.c_str());
+		printf(" %s;\n", node.name.c_str());
 	}
-	for(const CField& field : c_fields) {
-		assert(field.symbol);
-		printf("// %s\n", field.symbol->raw.c_str());
-		print_c_field(stdout, field, 0);
+	for(const AstNode& node : ast_nodes) {
+		assert(node.symbol);
+		printf("// %s\n", node.symbol->raw.c_str());
+		print_ast_node(stdout, node, 0);
 		printf("\n");
 	}
 	printf("int main() {\n");
-	for(const CField& field : c_fields) {
+	for(const AstNode& node : ast_nodes) {
 		static long varname = 0;
 		std::string varstr = "v" + std::to_string(varname++);
 		printf("\tint %s = 1;\n", varstr.c_str());
-		print_c_field_test(stdout, varstr.c_str(), field.name.c_str(), field, 0);
-		printf("\tprintf(\"%s %%s\\n\", %s ? \"passed\" : \"failed\");\n", field.name.c_str(), varstr.c_str());
+		print_ast_node_test(stdout, varstr.c_str(), node.name.c_str(), node, 0);
+		printf("\tprintf(\"%s %%s\\n\", %s ? \"passed\" : \"failed\");\n", node.name.c_str(), varstr.c_str());
 	}
 	printf("}\n");
 }
