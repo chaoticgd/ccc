@@ -205,6 +205,7 @@ void print_c_field(FILE* output, const CField& field, int depth) {
 		}
 		case CFieldDescriptor::STRUCT:
 		case CFieldDescriptor::UNION: {
+			indent(output, depth);
 			if(field.descriptor == CFieldDescriptor::STRUCT) {
 				fprintf(output, "struct");
 			} else {
