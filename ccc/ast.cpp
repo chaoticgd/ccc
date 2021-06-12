@@ -1,7 +1,7 @@
 #include "ccc.h"
 
 static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr);
-static AstNode stabs_field_to_c(const StabsField& field, const std::map<s32, TypeName>& type_names);
+static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names);
 static AstNode leaf_node(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
 static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const std::string& name);
 static AstNode struct_or_union_node(
@@ -116,7 +116,11 @@ static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, Typ
 }
 
 
-AstNode stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_names) {
+AstNode stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
+	return stabs_field_to_ast({0, 0, symbol.type, symbol.name}, type_names);
+}
+
+static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names) {
 	s32 offset = field.offset;
 	s32 size = field.size;
 	const StabsType& type = field.type;
@@ -133,7 +137,7 @@ AstNode stabs_field_to_c(FieldInfo field, const std::map<s32, TypeName>& type_na
 			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			std::vector<AstNode> fields;
 			for(const StabsField& child : type.struct_or_union.fields) {
-				fields.emplace_back(stabs_field_to_c({child.offset, child.size, child.type, child.name}, type_names));
+				fields.emplace_back(stabs_field_to_ast({child.offset, child.size, child.type, child.name}, type_names));
 			}
 			return struct_or_union_node(0, 0, is_struct, fields, name, {});
 		}

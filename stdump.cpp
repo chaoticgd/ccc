@@ -131,14 +131,13 @@ static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbo
 	auto is_data_type = [&](const StabsSymbol& symbol) {
 		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
 			&& (u32) symbol.mdebug_symbol.storage_class == 0
-			&& symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
-			&& symbol.type.has_body;
+			&& symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG;
 	};
 	
 	std::vector<AstNode> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
 		if(is_data_type(symbol)) {
-			AstNode node = stabs_field_to_c({0, 0, symbol.type, symbol.name}, type_names);
+			AstNode node = stabs_symbol_to_ast(symbol, type_names);
 			node.top_level = true;
 			node.symbol = &symbol;
 			ast_nodes.emplace_back(std::move(node));
