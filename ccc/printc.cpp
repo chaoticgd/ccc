@@ -1,8 +1,7 @@
 #include "ccc.h"
 
 static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr);
-static void print_type_name(FILE* output, const StabsType& type, const std::map<s32, TypeName>& type_names, s32 depth);
-static void print_array_indices(FILE* output);
+static void print_type_and_name(FILE* output, const StabsType& type, const char* name, const std::map<s32, TypeName>& type_names, s32 depth);
 static void indent(FILE* output, s32 depth);
 
 s32 type_number_of(StabsType* type) {
@@ -59,8 +58,9 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 			TypeName name = resolve_c_type_name(types, inner_type);
 			StabsType* index = type.array_type.index_type.get();
 			assert(index);
-			verify(index->descriptor == StabsTypeDescriptor::RANGE, "error: Invalid index type for array.\n");
-			name.array_indices.push_back(index->range_type.high);
+			verify(index->descriptor == StabsTypeDescriptor::RANGE && index->range_type.low == 0,
+				"error: Invalid index type for array.\n");
+			name.array_indices.push_back(index->range_type.high + 1);
 			return name;
 		}
 		case StabsTypeDescriptor::FUNCTION: {
@@ -106,20 +106,28 @@ void print_symbol_as_c(FILE* output, const StabsSymbol& symbol, const std::map<s
 	switch(symbol.descriptor) {
 		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
 			fprintf(output, "typedef ");
-			print_type_name(output, symbol.type, type_names, 0);
-			fprintf(output, " %s;\n", symbol.name.c_str());
+			print_type_and_name(output, symbol.type, symbol.name.c_str(), type_names, 0);
 			break;
 		default:
 			fprintf(output, "// ?");
 	}
 }
 
-static void print_type_name(FILE* output, const StabsType& type, const std::map<s32, TypeName>& type_names, s32 depth) {
+static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, TypeName>& type_names) {
+	auto iterator = type_names.find(type_number);
+	verify(iterator != type_names.end(), "error: Undeclared type referenced: %d.\n", type_number);
+	return iterator->second;
+}
+
+static void print_type_and_name(FILE* output, const StabsType& type, const char* name, const std::map<s32, TypeName>& type_names, s32 depth) {
 	if(!type.has_body) {
-		auto iter = type_names.find(type.type_number);
-		if(iter == type_names.end()) {fprintf(stderr, "error: Undeclared type referenced: %d.\n", type.type_number);return;}
+		const TypeName& type_name = lookup_type_name(type.type_number, type_names);
 		indent(output, depth);
-		fprintf(output, "%s", iter->second.first_part.c_str());
+		fprintf(output, "%s", type_name.first_part.c_str());
+		fprintf(output, " %s", name);
+		for(s32 index : type_name.array_indices) {
+			fprintf(output, "[%d]", index);
+		}
 		return;
 	}
 	
@@ -130,7 +138,11 @@ static void print_type_name(FILE* output, const StabsType& type, const std::map<
 		}
 		case StabsTypeDescriptor::ARRAY: {
 			assert(type.array_type.element_type.get());
-			print_type_name(output, *type.array_type.element_type.get(), type_names, depth);
+			print_type_and_name(output, *type.array_type.element_type.get(), name, type_names, depth);
+			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
+			for(s32 index : type_name.array_indices) {
+				fprintf(output, "[%d]", index);
+			}
 			return;
 		}
 		case StabsTypeDescriptor::ENUM: {
@@ -155,9 +167,7 @@ static void print_type_name(FILE* output, const StabsType& type, const std::map<
 			indent(output, depth);
 			fprintf(output, "%s {\n", is_struct ? "struct" : "union");
 			for(const StabsField& field : type.struct_or_union.fields) {
-				print_type_name(output, field.type, type_names, depth + 1);
-				fprintf(output, " %s", field.name.c_str());
-				print_array_indices(output);
+				print_type_and_name(output, field.type, field.name.c_str(), type_names, depth + 1);
 				fprintf(output, ";\n");
 			}
 			indent(output, depth);
@@ -173,8 +183,7 @@ static void print_type_name(FILE* output, const StabsType& type, const std::map<
 			if(!type.reference_or_pointer.value_type.get()) {
 				verify_not_reached("error: Invalid reference or pointer type.\n");
 			}
-			print_type_name(output, *type.reference_or_pointer.value_type.get(), type_names, depth);
-			fprintf(output, "%c", (s8) type.descriptor);
+			print_type_and_name(output, *type.reference_or_pointer.value_type.get(), name, type_names, depth);
 			break;
 		}
 		default: {
@@ -182,10 +191,6 @@ static void print_type_name(FILE* output, const StabsType& type, const std::map<
 				(s8) type.descriptor, (s8) type.descriptor);
 		}
 	}
-}
-
-static void print_array_indices(FILE* output) {
-	// TODO
 }
 
 static void indent(FILE* output, s32 depth) {

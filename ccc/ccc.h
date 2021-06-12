@@ -308,7 +308,7 @@ std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<Stabs
 
 struct TypeName {
 	std::string first_part;
-	std::vector<int> array_indices;
+	std::vector<s32> array_indices;
 };
 
 std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
