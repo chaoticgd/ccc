@@ -170,7 +170,7 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 				printf("//   %s\n", source_file.c_str());
 			}
 		}
-		print_ast_node(stdout, node, 0);
+		print_ast_node(stdout, node, 0, 0);
 	}
 }
 
@@ -189,7 +189,7 @@ static void print_c_per_file(const SymbolTable& symbol_table, bool verbose) {
 		for(const AstNode& node : ast_nodes) {
 			assert(node.symbol);
 			printf("// %s\n", node.symbol->raw.c_str());
-			print_ast_node(stdout, node, 0);
+			print_ast_node(stdout, node, 0, 0);
 			printf("\n");
 		}
 	}
@@ -207,7 +207,7 @@ static void print_c_test(const SymbolTable& symbol_table) {
 	for(const AstNode& node : ast_nodes) {
 		assert(node.symbol);
 		printf("// %s\n", node.symbol->raw.c_str());
-		print_ast_node(stdout, node, 0);
+		print_ast_node(stdout, node, 0, 0);
 		printf("\n");
 	}
 	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");

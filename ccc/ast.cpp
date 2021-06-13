@@ -169,7 +169,7 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 			for(const StabsField& child : type.struct_or_union.fields) {
 				fields.emplace_back(stabs_field_to_ast({child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return struct_or_union_node(0, 0, is_struct, fields, name, {});
+			return struct_or_union_node(offset, size, is_struct, fields, name, {});
 		}
 		default: {
 			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
@@ -271,10 +271,11 @@ void print_forward_declarations(const std::vector<AstNode>& ast_nodes) {
 	}
 }
 
-void print_ast_node(FILE* output, const AstNode& node, int depth) {
+void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset) {
 	switch(node.descriptor) {
 		case AstNodeDescriptor::LEAF: {
 			indent(output, depth);
+			fprintf(output, "/* %3x */ ", (absolute_parent_offset + node.offset) / 8);
 			if(node.leaf.type_name.size() > 0) {
 				fprintf(output, "%s", node.leaf.type_name.c_str());
 			} else {
@@ -304,7 +305,7 @@ void print_ast_node(FILE* output, const AstNode& node, int depth) {
 			}
 			fprintf(output, " %s {\n", node.name.c_str());
 			for(const AstNode& child : node.struct_or_union.fields) {
-				print_ast_node(output, child, depth + 1);
+				print_ast_node(output, child, depth + 1, absolute_parent_offset + node.offset);
 			}
 			indent(output, depth);
 			printf("}");
