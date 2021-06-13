@@ -83,16 +83,16 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 			return name;
 		}
 		case StabsTypeDescriptor::FUNCTION: {
-			return {"/* function */ void", {}};
+			return {"/* function */ void*", {}};
 		}
 		case StabsTypeDescriptor::RANGE: {
-			return {"/* range */ void", {}};
+			return {"/* range */ void*", {}};
 		}
 		case StabsTypeDescriptor::STRUCT: {
-			return {"/* struct */ void", {}};
+			return {"/* struct */ void*", {}};
 		}
 		case StabsTypeDescriptor::UNION: {
-			return {"/* union */ void", {}};
+			return {"/* union */ void*", {}};
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
 			TypeName type_name;
