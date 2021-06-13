@@ -7,13 +7,13 @@ static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields&
 static AstNode typedef_node(const std::string& type, const std::string& name);
 static AstNode struct_or_union_node(
 		bool is_static, s32 offset, s32 size, bool is_struct,
+		const std::vector<AstBaseClass>& base_classes,
 		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices);
 static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs);
-static void indent(FILE* output, s32 depth);
 
-s32 type_number_of(StabsType* type) {
+s32 type_number_of(const StabsType* type) {
 	verify(type && !type->anonymous, "error: Tried to access type number of anonymous or null type.\n");
 	return type->type_number;
 }
@@ -164,11 +164,20 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 		case StabsTypeDescriptor::STRUCT:
 		case StabsTypeDescriptor::UNION: {
 			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
+			std::vector<AstBaseClass> base_classes;
+			for(const StabsBaseClass& stabs_base_class : type.struct_or_union.base_classes) {
+				AstBaseClass base_class;
+				base_class.visibility = stabs_base_class.visibility;
+				base_class.offset = stabs_base_class.offset;
+				s32 base_class_type_number = type_number_of(&stabs_base_class.type);
+				base_class.type_name = lookup_type_name(base_class_type_number, type_names).first_part;
+				base_classes.emplace_back(std::move(base_class));
+			}
 			std::vector<AstNode> fields;
 			for(const StabsField& child : type.struct_or_union.fields) {
 				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return struct_or_union_node(field.is_static, offset, size, is_struct, fields, name, {});
+			return struct_or_union_node(field.is_static, offset, size, is_struct, base_classes, fields, name, {});
 		}
 		default: {
 			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
@@ -203,6 +212,7 @@ static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields&
 
 static AstNode struct_or_union_node(
 		bool is_static, s32 offset, s32 size, bool is_struct,
+		const std::vector<AstBaseClass>& base_classes,
 		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices) {
@@ -213,6 +223,7 @@ static AstNode struct_or_union_node(
 	node.name = name;
 	node.descriptor = is_struct ? AstNodeDescriptor::STRUCT : AstNodeDescriptor::UNION;
 	node.array_indices = {};
+	node.struct_or_union.base_classes = base_classes;
 	node.struct_or_union.fields = fields;
 	return node;
 }
@@ -249,117 +260,6 @@ std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, st
 	return deduplicated_ast;
 }
 
-void print_ast_begin(FILE* output) {
-	printf("\n");
-	fprintf(output, "struct ccc_int128 {\n");
-	fprintf(output, "\tlong int lo;\n");
-	fprintf(output, "\tlong int hi;\n");
-	fprintf(output, "};\n");
-}
-
-static std::optional<std::string> encode_type_name(std::string name) {
-	bool changed = false;
-	for(char& c : name) {
-		if((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
-			c = '_';
-			changed = true;
-		}
-	}
-	if(changed) {
-		return name;
-	} else {
-		return std::nullopt;
-	}
-}
-
-void print_forward_declarations(FILE* output, const std::vector<AstNode>& ast_nodes) {
-	for(const AstNode& node : ast_nodes) {
-		bool print = true;
-		switch(node.descriptor) {
-			case AstNodeDescriptor::ENUM: fprintf(output, "enum"); break;
-			case AstNodeDescriptor::STRUCT: fprintf(output, "struct"); break;
-			case AstNodeDescriptor::UNION: fprintf(output, "union"); break;
-			default:
-				print = false;
-		}
-		if(print) {
-			auto encoded_name = encode_type_name(node.name);
-			if(encoded_name) {
-				fprintf(output, " %s; // %s\n", encoded_name->c_str(), node.name.c_str());
-			} else {
-				
-				fprintf(output, " %s;\n", node.name.c_str());
-			}
-		}
-	}
-}
-
-void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset) {
-	const std::string* name;
-	auto encoded_name = encode_type_name(node.name);
-	if(encoded_name) {
-		name = &(*encoded_name);
-	} else {
-		name = &node.name;
-	}
-	
-	indent(output, depth);
-	if(node.is_static) {
-		fprintf(output, "static ");
-	}
-	switch(node.descriptor) {
-		case AstNodeDescriptor::LEAF: {
-			if(!node.is_static) {
-				fprintf(output, "/* %3x */ ", (absolute_parent_offset + node.offset) / 8);
-			}
-			if(node.leaf.type_name.size() > 0) {
-				fprintf(output, "%s", node.leaf.type_name.c_str());
-			} else {
-				fprintf(output, "/* error: empty type string */ int");
-			}
-			break;
-		}
-		case AstNodeDescriptor::ENUM: {
-			fprintf(output, "enum {\n");
-			for(auto& [value, field_name] : node.enum_type.fields) {
-				bool is_last = value == node.enum_type.fields.back().first;
-				indent(output, depth + 1);
-				fprintf(output, "%s = %d%s\n", field_name.c_str(), value, is_last ? "" : ",");
-			}
-			indent(output, depth);
-			printf("}");
-			break;
-		}
-		case AstNodeDescriptor::STRUCT:
-		case AstNodeDescriptor::UNION: {
-			if(node.descriptor == AstNodeDescriptor::STRUCT) {
-				fprintf(output, "struct");
-			} else {
-				fprintf(output, "union");
-			}
-			fprintf(output, " %s {\n", name->c_str());
-			for(const AstNode& child : node.struct_or_union.fields) {
-				print_ast_node(output, child, depth + 1, absolute_parent_offset + node.offset);
-			}
-			indent(output, depth);
-			printf("}");
-			break;
-		}
-		case AstNodeDescriptor::TYPEDEF: {
-			printf("typedef %s", node.typedef_type.type_name.c_str());
-			fprintf(output, " %s",name->c_str());
-			break;
-		}
-	}
-	if(!node.top_level) {
-		fprintf(output, " %s", name->c_str());
-	}
-	for(s32 index : node.array_indices) {
-		fprintf(output, "[%d]", index);
-	}
-	fprintf(output, ";\n");
-}
-
 static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs) {
 	if(lhs.offset != rhs.offset) return false;
 	if(lhs.size != rhs.size) return false;
@@ -386,10 +286,4 @@ static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs) {
 			break;
 	}
 	return true;
-}
-
-static void indent(FILE* output, s32 depth) {
-	for(s32 i = 0; i < depth; i++) {
-		fprintf(output, "\t");
-	}
 }
