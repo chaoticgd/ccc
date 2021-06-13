@@ -23,6 +23,7 @@ struct Options {
 static Options parse_args(int argc, char** argv);
 static void print_symbols(Program& program, SymbolTable& symbol_table);
 static void print_types(const SymbolTable& symbol_table, bool verbose);
+static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose);
 static void print_test(const SymbolTable& symbol_table, bool verbose);
 static void print_help();
 
@@ -59,7 +60,7 @@ int main(int argc, char** argv) {
 		print_symbols(program, symbol_table);
 	}
 	if(options.mode & OUTPUT_TYPES) {
-		print_types(symbol_table, options.verbose);
+		print_c_deduplicated(symbol_table, options.verbose);
 	}
 	if(options.mode & OUTPUT_TEST) {
 		print_test(symbol_table, options.verbose);
@@ -167,6 +168,41 @@ static void print_types(const SymbolTable& symbol_table, bool verbose) {
 			print_ast_node(stdout, node, 0);
 			printf("\n");
 		}
+	}
+}
+
+static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
+	std::vector<std::vector<StabsSymbol>> symbols;
+	
+	std::map<std::string, std::vector<AstNode>> per_file_ast;
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
+		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols.back());
+		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
+		per_file_ast.emplace(fd.name, symbols_to_ast(symbols.back(), type_names));
+	}
+	
+	const std::map<std::string, AstNode> deduplicated_ast = deduplicate_ast(per_file_ast);
+	
+	print_ast_begin(stdout);
+	for(const auto& [name, node] : deduplicated_ast) {
+		assert(node.symbol);
+		if(verbose) {
+			printf("// %s\n", name.c_str());
+		}
+		if(node.conflicting_types) {
+			printf("// warning: multiple differing types with the same name, only one recovered\n");
+		}
+		if(verbose) {
+			printf("// symbol:\n");
+			printf("//   %s\n", node.symbol->raw.c_str());
+			printf("// used by:\n");
+			for(const std::string& source_file : node.source_files) {
+				printf("//   %s\n", source_file.c_str());
+			}
+		}
+		print_ast_node(stdout, node, 0);
+		printf("\n");
 	}
 }
 

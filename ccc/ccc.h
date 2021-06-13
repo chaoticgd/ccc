@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <vector>
 #include <cstdio>
 #include <memory>
@@ -335,6 +336,9 @@ struct AstNode {
 		std::string type_name;
 	} typedef_type;
 	const StabsSymbol* symbol = nullptr;
+	// Fields below populated by deduplicate_type.
+	std::set<std::string> source_files;
+	bool conflicting_types = false; // Are there other differing types with the same name?
 };
 
 std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
@@ -345,5 +349,6 @@ struct FieldInfo {
 	const std::string& name;
 };
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
+std::map<std::string, AstNode> deduplicate_ast(const std::map<std::string, std::vector<AstNode>>& per_file_ast);
 void print_ast_begin(FILE* output);
 void print_ast_node(FILE* output, const AstNode& node, int depth);
