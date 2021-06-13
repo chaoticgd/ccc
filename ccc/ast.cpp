@@ -127,15 +127,6 @@ static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, Typ
 	return iterator->second;
 }
 
-static std::string encode_type_name(std::string name) {
-	for(char& c : name) {
-		if((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9')) {
-			c = '_';
-		}
-	}
-	return name;
-}
-
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
 	switch(symbol.descriptor) {
 		case StabsSymbolDescriptor::TYPE_NAME: {
@@ -152,7 +143,7 @@ std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std:
 			if(!symbol.type.has_body) {
 				return std::nullopt;
 			}
-			return stabs_field_to_ast({false, 0, 0, symbol.type, encode_type_name(symbol.name)}, type_names);
+			return stabs_field_to_ast({false, 0, 0, symbol.type, symbol.name}, type_names);
 		default:
 			verify_not_reached("error: Unexpected symbol descriptor: %c.\n", (s8) symbol.descriptor);
 	}
@@ -166,7 +157,7 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 	
 	if(!type.has_body) {
 		const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-		return leaf_node(field.is_static, offset, size, type_name.first_part, encode_type_name(name), type_name.array_indices);
+		return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
 	}
 	
 	switch(type.descriptor) {
@@ -177,11 +168,11 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 			for(const StabsField& child : type.struct_or_union.fields) {
 				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return struct_or_union_node(field.is_static, offset, size, is_struct, fields, encode_type_name(name), {});
+			return struct_or_union_node(field.is_static, offset, size, is_struct, fields, name, {});
 		}
 		default: {
 			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-			return leaf_node(field.is_static, offset, size, type_name.first_part, encode_type_name(name), type_name.array_indices);
+			return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
 		}
 	}
 }
@@ -266,6 +257,21 @@ void print_ast_begin(FILE* output) {
 	fprintf(output, "};\n");
 }
 
+static std::optional<std::string> encode_type_name(std::string name) {
+	bool changed = false;
+	for(char& c : name) {
+		if((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9')) {
+			c = '_';
+			changed = true;
+		}
+	}
+	if(changed) {
+		return name;
+	} else {
+		return std::nullopt;
+	}
+}
+
 void print_forward_declarations(FILE* output, const std::vector<AstNode>& ast_nodes) {
 	for(const AstNode& node : ast_nodes) {
 		bool print = true;
@@ -277,12 +283,26 @@ void print_forward_declarations(FILE* output, const std::vector<AstNode>& ast_no
 				print = false;
 		}
 		if(print) {
-			fprintf(output, " %s;\n", node.name.c_str());
+			auto encoded_name = encode_type_name(node.name);
+			if(encoded_name) {
+				fprintf(output, " %s; // %s\n", encoded_name->c_str(), node.name.c_str());
+			} else {
+				
+				fprintf(output, " %s;\n", node.name.c_str());
+			}
 		}
 	}
 }
 
 void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset) {
+	const std::string* name;
+	auto encoded_name = encode_type_name(node.name);
+	if(encoded_name) {
+		name = &(*encoded_name);
+	} else {
+		name = &node.name;
+	}
+	
 	indent(output, depth);
 	if(node.is_static) {
 		fprintf(output, "static ");
@@ -301,10 +321,10 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 		}
 		case AstNodeDescriptor::ENUM: {
 			fprintf(output, "enum {\n");
-			for(auto& [value, name] : node.enum_type.fields) {
+			for(auto& [value, field_name] : node.enum_type.fields) {
 				bool is_last = value == node.enum_type.fields.back().first;
 				indent(output, depth + 1);
-				fprintf(output, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
+				fprintf(output, "%s = %d%s\n", field_name.c_str(), value, is_last ? "" : ",");
 			}
 			indent(output, depth);
 			printf("}");
@@ -317,7 +337,7 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 			} else {
 				fprintf(output, "union");
 			}
-			fprintf(output, " %s {\n", node.name.c_str());
+			fprintf(output, " %s {\n", name->c_str());
 			for(const AstNode& child : node.struct_or_union.fields) {
 				print_ast_node(output, child, depth + 1, absolute_parent_offset + node.offset);
 			}
@@ -327,12 +347,12 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 		}
 		case AstNodeDescriptor::TYPEDEF: {
 			printf("typedef %s", node.typedef_type.type_name.c_str());
-			fprintf(output, " %s", node.name.c_str());
+			fprintf(output, " %s",name->c_str());
 			break;
 		}
 	}
 	if(!node.top_level) {
-		fprintf(output, " %s", node.name.c_str());
+		fprintf(output, " %s", name->c_str());
 	}
 	for(s32 index : node.array_indices) {
 		fprintf(output, "[%d]", index);
