@@ -214,12 +214,14 @@ static void print_c_test(const SymbolTable& symbol_table) {
 	for(const AstNode& node : ast_nodes) {
 		if(node.descriptor == AstNodeDescriptor::STRUCT) {
 			for(const AstNode& field : node.struct_or_union.fields) {
-				printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
-					node.name.c_str(), field.name.c_str(),
-					node.name.c_str(), field.name.c_str(), field.offset / 8);
-				printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
-					node.name.c_str(), field.name.c_str(),
-					node.name.c_str(), field.name.c_str(), field.size / 8);
+				if(!field.is_static) {
+					printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
+						node.name.c_str(), field.name.c_str(),
+						node.name.c_str(), field.name.c_str(), field.offset / 8);
+					printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
+						node.name.c_str(), field.name.c_str(),
+						node.name.c_str(), field.name.c_str(), field.size / 8);
+				}
 			}
 		}
 	}
