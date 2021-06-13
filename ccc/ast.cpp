@@ -257,21 +257,6 @@ void print_ast_begin(FILE* output) {
 	fprintf(output, "};\n");
 }
 
-static std::optional<std::string> encode_type_name(std::string name) {
-	bool changed = false;
-	for(char& c : name) {
-		if((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
-			c = '_';
-			changed = true;
-		}
-	}
-	if(changed) {
-		return name;
-	} else {
-		return std::nullopt;
-	}
-}
-
 void print_forward_declarations(FILE* output, const std::vector<AstNode>& ast_nodes) {
 	for(const AstNode& node : ast_nodes) {
 		bool print = true;
@@ -283,26 +268,12 @@ void print_forward_declarations(FILE* output, const std::vector<AstNode>& ast_no
 				print = false;
 		}
 		if(print) {
-			auto encoded_name = encode_type_name(node.name);
-			if(encoded_name) {
-				fprintf(output, " %s; // %s\n", encoded_name->c_str(), node.name.c_str());
-			} else {
-				
-				fprintf(output, " %s;\n", node.name.c_str());
-			}
+			fprintf(output, " %s;\n", node.name.c_str());
 		}
 	}
 }
 
 void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset) {
-	const std::string* name;
-	auto encoded_name = encode_type_name(node.name);
-	if(encoded_name) {
-		name = &(*encoded_name);
-	} else {
-		name = &node.name;
-	}
-	
 	indent(output, depth);
 	if(node.is_static) {
 		fprintf(output, "static ");
@@ -337,7 +308,7 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 			} else {
 				fprintf(output, "union");
 			}
-			fprintf(output, " %s {\n", name->c_str());
+			fprintf(output, " %s {\n", node.name.c_str());
 			for(const AstNode& child : node.struct_or_union.fields) {
 				print_ast_node(output, child, depth + 1, absolute_parent_offset + node.offset);
 			}
@@ -347,12 +318,12 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 		}
 		case AstNodeDescriptor::TYPEDEF: {
 			printf("typedef %s", node.typedef_type.type_name.c_str());
-			fprintf(output, " %s",name->c_str());
+			fprintf(output, " %s", node.name.c_str());
 			break;
 		}
 	}
 	if(!node.top_level) {
-		fprintf(output, " %s", name->c_str());
+		fprintf(output, " %s", node.name.c_str());
 	}
 	for(s32 index : node.array_indices) {
 		fprintf(output, "[%d]", index);
