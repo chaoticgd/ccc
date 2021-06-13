@@ -130,9 +130,7 @@ static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbo
 	return ast_nodes;
 }
 
-static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
-	std::vector<std::vector<StabsSymbol>> symbols;
-	
+static std::vector<AstNode> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table) {
 	std::vector<std::pair<std::string, std::vector<AstNode>>> per_file_ast;
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
@@ -140,13 +138,17 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
 		per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), type_names));
 	}
+	return deduplicate_ast(per_file_ast);
+}
+
+static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
+	std::vector<std::vector<StabsSymbol>> symbols;
+	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
-	const std::vector<AstNode> deduplicated_ast = deduplicate_ast(per_file_ast);
-	
-	print_forward_declarations(deduplicated_ast);
+	print_forward_declarations(ast_nodes);
 	print_ast_begin(stdout);
 	bool last_node_was_struct_or_union = true;
-	for(const AstNode& node : deduplicated_ast) {
+	for(const AstNode& node : ast_nodes) {
 		bool node_is_struct_or_union =
 			node.descriptor == AstNodeDescriptor::STRUCT ||
 			node.descriptor == AstNodeDescriptor::UNION;
@@ -196,11 +198,8 @@ static void print_c_per_file(const SymbolTable& symbol_table, bool verbose) {
 }
 
 static void print_c_test(const SymbolTable& symbol_table) {
-	const SymFileDescriptor& fd = symbol_table.files.at(1);
-	const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
-	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-	const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-	const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
+	std::vector<std::vector<StabsSymbol>> symbols;
+	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
 	print_ast_begin(stdout);
 	print_forward_declarations(ast_nodes);
