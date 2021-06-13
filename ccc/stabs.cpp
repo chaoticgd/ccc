@@ -245,6 +245,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 			expect_s8(input, ';', "field offset");
 		} else if(*input == ':') {
 			input++;
+			field.is_static = true;
 			field.type_name = eat_identifier(input);
 			expect_s8(input, ';', "identifier");
 		} else if(*input == ',') {

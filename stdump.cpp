@@ -130,9 +130,7 @@ static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbo
 	return ast_nodes;
 }
 
-static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
-	std::vector<std::vector<StabsSymbol>> symbols;
-	
+static std::vector<AstNode> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table) {
 	std::vector<std::pair<std::string, std::vector<AstNode>>> per_file_ast;
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
@@ -140,11 +138,25 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
 		per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), type_names));
 	}
+	return deduplicate_ast(per_file_ast);
+}
+
+static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
+	std::vector<std::vector<StabsSymbol>> symbols;
+	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
-	const std::vector<AstNode> deduplicated_ast = deduplicate_ast(per_file_ast);
-	
+	print_forward_declarations(stdout, ast_nodes);
 	print_ast_begin(stdout);
-	for(const AstNode& node : deduplicated_ast) {
+	bool last_node_was_struct_or_union = true;
+	for(const AstNode& node : ast_nodes) {
+		bool node_is_struct_or_union =
+			node.descriptor == AstNodeDescriptor::STRUCT ||
+			node.descriptor == AstNodeDescriptor::UNION;
+		if(node_is_struct_or_union || last_node_was_struct_or_union) {
+			printf("\n");
+		}
+		last_node_was_struct_or_union = node_is_struct_or_union;
+		
 		assert(node.symbol);
 		if(verbose) {
 			printf("// %s\n", node.name.c_str());
@@ -160,8 +172,7 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 				printf("//   %s\n", source_file.c_str());
 			}
 		}
-		print_ast_node(stdout, node, 0);
-		printf("\n");
+		print_ast_node(stdout, node, 0, 0);
 	}
 }
 
@@ -180,49 +191,36 @@ static void print_c_per_file(const SymbolTable& symbol_table, bool verbose) {
 		for(const AstNode& node : ast_nodes) {
 			assert(node.symbol);
 			printf("// %s\n", node.symbol->raw.c_str());
-			print_ast_node(stdout, node, 0);
+			print_ast_node(stdout, node, 0, 0);
 			printf("\n");
 		}
 	}
 }
 
 static void print_c_test(const SymbolTable& symbol_table) {
-	const SymFileDescriptor& fd = symbol_table.files.at(1);
-	const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
-	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-	const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-	const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
+	std::vector<std::vector<StabsSymbol>> symbols;
+	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
 	print_ast_begin(stdout);
-	for(const AstNode& node : ast_nodes) {
-		bool print = true;
-		switch(node.descriptor) {
-			case AstNodeDescriptor::ENUM: printf("enum"); break;
-			case AstNodeDescriptor::STRUCT: printf("struct"); break;
-			case AstNodeDescriptor::UNION: printf("union"); break;
-			default:
-				print = false;
-		}
-		if(print) {
-			printf(" %s;\n", node.name.c_str());
-		}
-	}
+	print_forward_declarations(stdout, ast_nodes);
 	for(const AstNode& node : ast_nodes) {
 		assert(node.symbol);
 		printf("// %s\n", node.symbol->raw.c_str());
-		print_ast_node(stdout, node, 0);
+		print_ast_node(stdout, node, 0, 0);
 		printf("\n");
 	}
 	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
 	for(const AstNode& node : ast_nodes) {
 		if(node.descriptor == AstNodeDescriptor::STRUCT) {
 			for(const AstNode& field : node.struct_or_union.fields) {
-				printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
-					node.name.c_str(), field.name.c_str(),
-					node.name.c_str(), field.name.c_str(), field.offset / 8);
-				printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
-					node.name.c_str(), field.name.c_str(),
-					node.name.c_str(), field.name.c_str(), field.size / 8);
+				if(!field.is_static) {
+					printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
+						node.name.c_str(), field.name.c_str(),
+						node.name.c_str(), field.name.c_str(), field.offset / 8);
+					printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
+						node.name.c_str(), field.name.c_str(),
+						node.name.c_str(), field.name.c_str(), field.size / 8);
+				}
 			}
 		}
 	}

@@ -274,8 +274,9 @@ struct StabsField {
 	std::string name;
 	StabsFieldVisibility visibility = StabsFieldVisibility::NONE;
 	StabsType type;
-	s32 offset;
-	s32 size;
+	bool is_static = false;
+	s32 offset = 0;
+	s32 size = 0;
 	std::string type_name;
 };
 
@@ -318,6 +319,7 @@ enum class AstNodeDescriptor {
 };
 using EnumFields = std::vector<std::pair<s32, std::string>>;
 struct AstNode {
+	bool is_static = false;
 	s32 offset;
 	s32 size;
 	std::string name;
@@ -344,6 +346,7 @@ struct AstNode {
 
 std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
 struct FieldInfo {
+	bool is_static = false;
 	s32 offset;
 	s32 size;
 	const StabsType& type;
@@ -352,4 +355,5 @@ struct FieldInfo {
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
 std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<AstNode>>>& per_file_ast);
 void print_ast_begin(FILE* output);
-void print_ast_node(FILE* output, const AstNode& node, int depth);
+void print_forward_declarations(FILE* output, const std::vector<AstNode>& ast_nodes);
+void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset);
