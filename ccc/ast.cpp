@@ -249,8 +249,8 @@ std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, st
 
 void print_ast_begin(FILE* output) {
 	fprintf(output, "struct ccc_int128 {\n");
-	fprintf(output, "\tlong long int lo;\n");
-	fprintf(output, "\tlong long int hi;\n");
+	fprintf(output, "\tlong int lo;\n");
+	fprintf(output, "\tlong int hi;\n");
 	fprintf(output, "};\n\n");
 }
 
