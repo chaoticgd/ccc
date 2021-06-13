@@ -11,6 +11,7 @@ enum OutputMode : u32 {
 	OUTPUT_DEFAULT,
 	OUTPUT_HELP,
 	OUTPUT_SYMBOLS,
+	OUTPUT_FILES,
 	OUTPUT_TYPES,
 	OUTPUT_PER_FILE,
 	OUTPUT_TEST
@@ -23,6 +24,7 @@ struct Options {
 };
 
 static void print_symbols(SymbolTable& symbol_table);
+static void print_files(SymbolTable& symbol_table);
 static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose);
 static void print_c_per_file(const SymbolTable& symbol_table, bool verbose);
 static void print_c_test(const SymbolTable& symbol_table);
@@ -61,6 +63,9 @@ int main(int argc, char** argv) {
 		case OUTPUT_SYMBOLS:
 			print_symbols(symbol_table);
 			break;
+		case OUTPUT_FILES:
+			print_files(symbol_table);
+			break;
 		case OUTPUT_TYPES:
 			print_c_deduplicated(symbol_table, options.verbose);
 			break;
@@ -94,6 +99,12 @@ static void print_symbols(SymbolTable& symbol_table) {
 			}
 			printf("%8d %s\n", sym.index, sym.string.c_str());
 		}
+	}
+}
+
+static void print_files(SymbolTable& symbol_table) {
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		printf("%s\n", fd.name.c_str());
 	}
 }
 
@@ -229,6 +240,11 @@ static Options parse_args(int argc, char** argv) {
 			options.mode = OUTPUT_SYMBOLS;
 			continue;
 		}
+		if(arg == "--files" || arg == "-f") {
+			only_one();
+			options.mode = OUTPUT_FILES;
+			continue;
+		}
 		if(arg == "--types" || arg == "-t") {
 			only_one();
 			options.mode = OUTPUT_TYPES;
@@ -260,6 +276,8 @@ void print_help() {
 	puts("OPTIONS:");
 	puts(" --symbols, -s      Print a list of all the local symbols, grouped");
 	puts("                    by file descriptor.");
+	puts("");
+	puts(" --files, -f        Print a list of all the file descriptors.");
 	puts("");
 	puts(" --types, -t        Print a deduplicated list of all the types defined");
 	puts("                    in the MIPS debug section as C data structures.");
