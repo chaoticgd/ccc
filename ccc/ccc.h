@@ -352,4 +352,5 @@ struct FieldInfo {
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
 std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<AstNode>>>& per_file_ast);
 void print_ast_begin(FILE* output);
+void print_forward_declarations(const std::vector<AstNode>& ast_nodes);
 void print_ast_node(FILE* output, const AstNode& node, int depth);

@@ -143,6 +143,7 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 	
 	const std::vector<AstNode> deduplicated_ast = deduplicate_ast(per_file_ast);
 	
+	print_forward_declarations(deduplicated_ast);
 	print_ast_begin(stdout);
 	for(const AstNode& node : deduplicated_ast) {
 		assert(node.symbol);
@@ -194,19 +195,7 @@ static void print_c_test(const SymbolTable& symbol_table) {
 	const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
 	
 	print_ast_begin(stdout);
-	for(const AstNode& node : ast_nodes) {
-		bool print = true;
-		switch(node.descriptor) {
-			case AstNodeDescriptor::ENUM: printf("enum"); break;
-			case AstNodeDescriptor::STRUCT: printf("struct"); break;
-			case AstNodeDescriptor::UNION: printf("union"); break;
-			default:
-				print = false;
-		}
-		if(print) {
-			printf(" %s;\n", node.name.c_str());
-		}
-	}
+	print_forward_declarations(ast_nodes);
 	for(const AstNode& node : ast_nodes) {
 		assert(node.symbol);
 		printf("// %s\n", node.symbol->raw.c_str());

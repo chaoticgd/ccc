@@ -254,6 +254,22 @@ void print_ast_begin(FILE* output) {
 	fprintf(output, "};\n\n");
 }
 
+void print_forward_declarations(const std::vector<AstNode>& ast_nodes) {
+	for(const AstNode& node : ast_nodes) {
+		bool print = true;
+		switch(node.descriptor) {
+			case AstNodeDescriptor::ENUM: printf("enum"); break;
+			case AstNodeDescriptor::STRUCT: printf("struct"); break;
+			case AstNodeDescriptor::UNION: printf("union"); break;
+			default:
+				print = false;
+		}
+		if(print) {
+			printf(" %s;\n", node.name.c_str());
+		}
+	}
+}
+
 void print_ast_node(FILE* output, const AstNode& node, int depth) {
 	switch(node.descriptor) {
 		case AstNodeDescriptor::LEAF: {
