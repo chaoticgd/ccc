@@ -145,7 +145,16 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 	
 	print_forward_declarations(deduplicated_ast);
 	print_ast_begin(stdout);
+	bool last_node_was_struct_or_union = true;
 	for(const AstNode& node : deduplicated_ast) {
+		bool node_is_struct_or_union =
+			node.descriptor == AstNodeDescriptor::STRUCT ||
+			node.descriptor == AstNodeDescriptor::UNION;
+		if(node_is_struct_or_union || last_node_was_struct_or_union) {
+			printf("\n");
+		}
+		last_node_was_struct_or_union = node_is_struct_or_union;
+		
 		assert(node.symbol);
 		if(verbose) {
 			printf("// %s\n", node.name.c_str());
@@ -162,7 +171,6 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 			}
 		}
 		print_ast_node(stdout, node, 0);
-		printf("\n");
 	}
 }
 
