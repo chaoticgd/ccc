@@ -2,11 +2,11 @@
 
 static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr);
 static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names);
-static AstNode leaf_node(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
-static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const std::string& name);
+static AstNode leaf_node(bool is_static, s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
+static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields& fields, const std::string& name);
 static AstNode typedef_node(const std::string& type, const std::string& name);
 static AstNode struct_or_union_node(
-		s32 offset, s32 size, bool is_struct,
+		bool is_static, s32 offset, s32 size, bool is_struct,
 		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices);
@@ -144,7 +144,7 @@ std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std:
 			if(!symbol.type.has_body) {
 				return std::nullopt;
 			}
-			return stabs_field_to_ast({0, 0, symbol.type, symbol.name}, type_names);
+			return stabs_field_to_ast({false, 0, 0, symbol.type, symbol.name}, type_names);
 		default:
 			verify_not_reached("error: Unexpected symbol descriptor: %c.\n", (s8) symbol.descriptor);
 	}
@@ -158,7 +158,7 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 	
 	if(!type.has_body) {
 		const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-		return leaf_node(offset, size, type_name.first_part, name, type_name.array_indices);
+		return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
 	}
 	
 	switch(type.descriptor) {
@@ -167,19 +167,20 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			std::vector<AstNode> fields;
 			for(const StabsField& child : type.struct_or_union.fields) {
-				fields.emplace_back(stabs_field_to_ast({child.offset, child.size, child.type, child.name}, type_names));
+				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return struct_or_union_node(offset, size, is_struct, fields, name, {});
+			return struct_or_union_node(field.is_static, offset, size, is_struct, fields, name, {});
 		}
 		default: {
 			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-			return leaf_node(offset, size, type_name.first_part, name, type_name.array_indices);
+			return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
 		}
 	}
 }
 
-static AstNode leaf_node(s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices) {
+static AstNode leaf_node(bool is_static, s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices) {
 	AstNode node;
+	node.is_static = is_static;
 	node.offset = offset;
 	node.size = size;
 	node.name = name;
@@ -189,8 +190,9 @@ static AstNode leaf_node(s32 offset, s32 size, const std::string& type, const st
 	return node;
 }
 
-static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const std::string& name) {
+static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields& fields, const std::string& name) {
 	AstNode node;
+	node.is_static = is_static;
 	node.offset = offset;
 	node.size = size;
 	node.name = name;
@@ -201,11 +203,12 @@ static AstNode enum_node(s32 offset, s32 size, const EnumFields& fields, const s
 }
 
 static AstNode struct_or_union_node(
-		s32 offset, s32 size, bool is_struct,
+		bool is_static, s32 offset, s32 size, bool is_struct,
 		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices) {
 	AstNode node;
+	node.is_static = is_static;
 	node.offset = offset;
 	node.size = size;
 	node.name = name;
@@ -272,10 +275,15 @@ void print_forward_declarations(const std::vector<AstNode>& ast_nodes) {
 }
 
 void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset) {
+	indent(output, depth);
+	if(node.is_static) {
+		fprintf(output, "static ");
+	}
 	switch(node.descriptor) {
 		case AstNodeDescriptor::LEAF: {
-			indent(output, depth);
-			fprintf(output, "/* %3x */ ", (absolute_parent_offset + node.offset) / 8);
+			if(!node.is_static) {
+				fprintf(output, "/* %3x */ ", (absolute_parent_offset + node.offset) / 8);
+			}
 			if(node.leaf.type_name.size() > 0) {
 				fprintf(output, "%s", node.leaf.type_name.c_str());
 			} else {
@@ -284,7 +292,6 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 			break;
 		}
 		case AstNodeDescriptor::ENUM: {
-			indent(output, depth);
 			fprintf(output, "enum {\n");
 			for(auto& [value, name] : node.enum_type.fields) {
 				bool is_last = value == node.enum_type.fields.back().first;
@@ -297,7 +304,6 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 		}
 		case AstNodeDescriptor::STRUCT:
 		case AstNodeDescriptor::UNION: {
-			indent(output, depth);
 			if(node.descriptor == AstNodeDescriptor::STRUCT) {
 				fprintf(output, "struct");
 			} else {
@@ -312,7 +318,6 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 			break;
 		}
 		case AstNodeDescriptor::TYPEDEF: {
-			indent(output, depth);
 			printf("typedef %s", node.typedef_type.type_name.c_str());
 			fprintf(output, " %s", node.name.c_str());
 			break;
