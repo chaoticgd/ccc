@@ -174,21 +174,21 @@ static void print_types(const SymbolTable& symbol_table, bool verbose) {
 static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
 	std::vector<std::vector<StabsSymbol>> symbols;
 	
-	std::map<std::string, std::vector<AstNode>> per_file_ast;
+	std::vector<std::pair<std::string, std::vector<AstNode>>> per_file_ast;
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols.back());
 		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-		per_file_ast.emplace(fd.name, symbols_to_ast(symbols.back(), type_names));
+		per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), type_names));
 	}
 	
-	const std::map<std::string, AstNode> deduplicated_ast = deduplicate_ast(per_file_ast);
+	const std::vector<AstNode> deduplicated_ast = deduplicate_ast(per_file_ast);
 	
 	print_ast_begin(stdout);
-	for(const auto& [name, node] : deduplicated_ast) {
+	for(const AstNode& node : deduplicated_ast) {
 		assert(node.symbol);
 		if(verbose) {
-			printf("// %s\n", name.c_str());
+			printf("// %s\n", node.name.c_str());
 		}
 		if(node.conflicting_types) {
 			printf("// warning: multiple differing types with the same name, only one recovered\n");

@@ -225,13 +225,14 @@ static AstNode typedef_node(const std::string& type, const std::string& name) {
 	return node;
 }
 
-std::map<std::string, AstNode> deduplicate_ast(const std::map<std::string, std::vector<AstNode>>& per_file_ast) {
-	std::map<std::string, AstNode> deduplicated_ast;
+std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<AstNode>>>& per_file_ast) {
+	std::vector<AstNode> deduplicated_ast;
 	for(const auto& [file, ast] : per_file_ast) {
 		for(const AstNode& node : ast) {
-			auto iterator = deduplicated_ast.find(node.name);
+			auto iterator = std::find_if(BEGIN_END(deduplicated_ast),
+				[&](AstNode& other) { return other.name == node.name; });
 			if(iterator != deduplicated_ast.end()) {
-				AstNode& other = iterator->second;
+				AstNode& other = *iterator;
 				if(!compare_ast_nodes(node, other)) {
 					other.conflicting_types = true;
 				}
@@ -239,7 +240,7 @@ std::map<std::string, AstNode> deduplicate_ast(const std::map<std::string, std::
 			} else {
 				AstNode new_node = node;
 				new_node.source_files.emplace(file);
-				deduplicated_ast.emplace(node.name, std::move(new_node));
+				deduplicated_ast.emplace_back(std::move(new_node));
 			}
 		}
 	}

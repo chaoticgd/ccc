@@ -10,6 +10,7 @@
 #include <cstring>
 #include <assert.h>
 #include <iostream>
+#include <algorithm>
 #include <filesystem>
 #include <inttypes.h>
 
@@ -349,6 +350,6 @@ struct FieldInfo {
 	const std::string& name;
 };
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
-std::map<std::string, AstNode> deduplicate_ast(const std::map<std::string, std::vector<AstNode>>& per_file_ast);
+std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<AstNode>>>& per_file_ast);
 void print_ast_begin(FILE* output);
 void print_ast_node(FILE* output, const AstNode& node, int depth);
