@@ -258,18 +258,18 @@ void print_ast_begin(FILE* output) {
 	fprintf(output, "};\n");
 }
 
-void print_forward_declarations(const std::vector<AstNode>& ast_nodes) {
+void print_forward_declarations(FILE* output, const std::vector<AstNode>& ast_nodes) {
 	for(const AstNode& node : ast_nodes) {
 		bool print = true;
 		switch(node.descriptor) {
-			case AstNodeDescriptor::ENUM: printf("enum"); break;
-			case AstNodeDescriptor::STRUCT: printf("struct"); break;
-			case AstNodeDescriptor::UNION: printf("union"); break;
+			case AstNodeDescriptor::ENUM: fprintf(output, "enum"); break;
+			case AstNodeDescriptor::STRUCT: fprintf(output, "struct"); break;
+			case AstNodeDescriptor::UNION: fprintf(output, "union"); break;
 			default:
 				print = false;
 		}
 		if(print) {
-			printf(" %s;\n", node.name.c_str());
+			fprintf(output, " %s;\n", node.name.c_str());
 		}
 	}
 }

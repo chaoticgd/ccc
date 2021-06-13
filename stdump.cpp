@@ -145,7 +145,7 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 	std::vector<std::vector<StabsSymbol>> symbols;
 	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
-	print_forward_declarations(ast_nodes);
+	print_forward_declarations(stdout, ast_nodes);
 	print_ast_begin(stdout);
 	bool last_node_was_struct_or_union = true;
 	for(const AstNode& node : ast_nodes) {
@@ -202,7 +202,7 @@ static void print_c_test(const SymbolTable& symbol_table) {
 	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
 	print_ast_begin(stdout);
-	print_forward_declarations(ast_nodes);
+	print_forward_declarations(stdout, ast_nodes);
 	for(const AstNode& node : ast_nodes) {
 		assert(node.symbol);
 		printf("// %s\n", node.symbol->raw.c_str());
