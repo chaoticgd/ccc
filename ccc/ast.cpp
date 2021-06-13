@@ -260,7 +260,7 @@ void print_ast_begin(FILE* output) {
 static std::optional<std::string> encode_type_name(std::string name) {
 	bool changed = false;
 	for(char& c : name) {
-		if((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9')) {
+		if((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
 			c = '_';
 			changed = true;
 		}
