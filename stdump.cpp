@@ -293,6 +293,6 @@ void print_help() {
 	puts("                    Currently only symbols from the second file");
 	puts("                    descriptor are used.");
 	puts("");
-	puts(" --verbose, -v      Print out addition information e.g. the offsets of");
-	puts("                    various data structures in the input file.");
+	puts(" --verbose, -v      Print out additional information e.g. the offsets");
+	puts("                    of various data structures in the input file.");
 }
