@@ -319,7 +319,7 @@ enum class AstNodeDescriptor {
 };
 using EnumFields = std::vector<std::pair<s32, std::string>>;
 struct AstNode {
-	bool is_static;
+	bool is_static = false;
 	s32 offset;
 	s32 size;
 	std::string name;
@@ -346,7 +346,7 @@ struct AstNode {
 
 std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
 struct FieldInfo {
-	bool is_static;
+	bool is_static = false;
 	s32 offset;
 	s32 size;
 	const StabsType& type;
