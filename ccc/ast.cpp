@@ -127,6 +127,14 @@ static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, Typ
 	return iterator->second;
 }
 
+static std::string encode_type_name(std::string name) {
+	for(char& c : name) {
+		if((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9')) {
+			c = '_';
+		}
+	}
+	return name;
+}
 
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
 	switch(symbol.descriptor) {
@@ -144,7 +152,7 @@ std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std:
 			if(!symbol.type.has_body) {
 				return std::nullopt;
 			}
-			return stabs_field_to_ast({false, 0, 0, symbol.type, symbol.name}, type_names);
+			return stabs_field_to_ast({false, 0, 0, symbol.type, encode_type_name(symbol.name)}, type_names);
 		default:
 			verify_not_reached("error: Unexpected symbol descriptor: %c.\n", (s8) symbol.descriptor);
 	}
@@ -158,7 +166,7 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 	
 	if(!type.has_body) {
 		const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-		return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
+		return leaf_node(field.is_static, offset, size, type_name.first_part, encode_type_name(name), type_name.array_indices);
 	}
 	
 	switch(type.descriptor) {
@@ -169,11 +177,11 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 			for(const StabsField& child : type.struct_or_union.fields) {
 				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return struct_or_union_node(field.is_static, offset, size, is_struct, fields, name, {});
+			return struct_or_union_node(field.is_static, offset, size, is_struct, fields, encode_type_name(name), {});
 		}
 		default: {
 			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-			return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
+			return leaf_node(field.is_static, offset, size, type_name.first_part, encode_type_name(name), type_name.array_indices);
 		}
 	}
 }
