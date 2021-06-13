@@ -26,7 +26,7 @@ std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType
 	}
 	return type_names;
 }
-#include <stdint.h>
+
 const StabsType* find_type(StabsType* type, const std::map<s32, const StabsType*>& types, s32 outer_type_number) {
 	assert(type && !type->anonymous);
 	if(type->type_number == outer_type_number) {
