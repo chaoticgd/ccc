@@ -10,6 +10,7 @@ static AstNode struct_or_union_node(
 		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices);
+static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs);
 static void indent(FILE* output, s32 depth);
 
 s32 type_number_of(StabsType* type) {
@@ -224,6 +225,28 @@ static AstNode typedef_node(const std::string& type, const std::string& name) {
 	return node;
 }
 
+std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<AstNode>>>& per_file_ast) {
+	std::vector<AstNode> deduplicated_ast;
+	for(const auto& [file, ast] : per_file_ast) {
+		for(const AstNode& node : ast) {
+			auto iterator = std::find_if(BEGIN_END(deduplicated_ast),
+				[&](AstNode& other) { return other.name == node.name; });
+			if(iterator != deduplicated_ast.end()) {
+				AstNode& other = *iterator;
+				if(!compare_ast_nodes(node, other)) {
+					other.conflicting_types = true;
+				}
+				other.source_files.emplace(file);
+			} else {
+				AstNode new_node = node;
+				new_node.source_files.emplace(file);
+				deduplicated_ast.emplace_back(std::move(new_node));
+			}
+		}
+	}
+	return deduplicated_ast;
+}
+
 void print_ast_begin(FILE* output) {
 	fprintf(output, "struct ccc_int128 {\n");
 	fprintf(output, "\tlong long int lo;\n");
@@ -284,6 +307,34 @@ void print_ast_node(FILE* output, const AstNode& node, int depth) {
 		fprintf(output, "[%d]", index);
 	}
 	fprintf(output, ";\n");
+}
+
+static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs) {
+	if(lhs.offset != rhs.offset) return false;
+	if(lhs.size != rhs.size) return false;
+	if(lhs.name != rhs.name) return false;
+	if(lhs.descriptor != rhs.descriptor) return false;
+	switch(lhs.descriptor) {
+		case AstNodeDescriptor::LEAF:
+			if(lhs.leaf.type_name != rhs.leaf.type_name) return false;
+			break;
+		case AstNodeDescriptor::ENUM:
+			if(lhs.enum_type.fields != rhs.enum_type.fields) return false;
+			break;
+		case AstNodeDescriptor::STRUCT:
+		case AstNodeDescriptor::UNION:
+			if(lhs.struct_or_union.fields.size() != rhs.struct_or_union.fields.size()) return false;
+			for(size_t i = 0; i < lhs.struct_or_union.fields.size(); i++) {
+				const AstNode& lhs_field = lhs.struct_or_union.fields[i];
+				const AstNode& rhs_field = rhs.struct_or_union.fields[i];
+				if(!compare_ast_nodes(lhs_field, rhs_field)) return false;
+			}
+			break;
+		case AstNodeDescriptor::TYPEDEF:
+			if(lhs.typedef_type.type_name != rhs.typedef_type.type_name) return false;
+			break;
+	}
+	return true;
 }
 
 static void indent(FILE* output, s32 depth) {
