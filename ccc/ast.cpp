@@ -7,12 +7,13 @@ static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields&
 static AstNode typedef_node(const std::string& type, const std::string& name);
 static AstNode struct_or_union_node(
 		bool is_static, s32 offset, s32 size, bool is_struct,
+		const std::vector<AstBaseClass>& base_classes,
 		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices);
 static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs);
 
-s32 type_number_of(StabsType* type) {
+s32 type_number_of(const StabsType* type) {
 	verify(type && !type->anonymous, "error: Tried to access type number of anonymous or null type.\n");
 	return type->type_number;
 }
@@ -163,11 +164,20 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 		case StabsTypeDescriptor::STRUCT:
 		case StabsTypeDescriptor::UNION: {
 			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
+			std::vector<AstBaseClass> base_classes;
+			for(const StabsBaseClass& stabs_base_class : type.struct_or_union.base_classes) {
+				AstBaseClass base_class;
+				base_class.visibility = stabs_base_class.visibility;
+				base_class.offset = stabs_base_class.offset;
+				s32 base_class_type_number = type_number_of(&stabs_base_class.type);
+				base_class.type_name = lookup_type_name(base_class_type_number, type_names).first_part;
+				base_classes.emplace_back(std::move(base_class));
+			}
 			std::vector<AstNode> fields;
 			for(const StabsField& child : type.struct_or_union.fields) {
 				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset, child.size, child.type, child.name}, type_names));
 			}
-			return struct_or_union_node(field.is_static, offset, size, is_struct, fields, name, {});
+			return struct_or_union_node(field.is_static, offset, size, is_struct, base_classes, fields, name, {});
 		}
 		default: {
 			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
@@ -202,6 +212,7 @@ static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields&
 
 static AstNode struct_or_union_node(
 		bool is_static, s32 offset, s32 size, bool is_struct,
+		const std::vector<AstBaseClass>& base_classes,
 		const std::vector<AstNode>& fields,
 		const std::string& name,
 		const std::vector<s32>& array_indices) {
@@ -212,6 +223,7 @@ static AstNode struct_or_union_node(
 	node.name = name;
 	node.descriptor = is_struct ? AstNodeDescriptor::STRUCT : AstNodeDescriptor::UNION;
 	node.array_indices = {};
+	node.struct_or_union.base_classes = base_classes;
 	node.struct_or_union.fields = fields;
 	return node;
 }

@@ -266,7 +266,7 @@ enum class StabsFieldVisibility : s8 {
 
 struct StabsBaseClass {
 	s8 visibility;
-	s64 offset;
+	s32 offset;
 	StabsType type;
 };
 
@@ -319,7 +319,7 @@ enum class AstNodeDescriptor {
 using EnumFields = std::vector<std::pair<s32, std::string>>;
 struct AstBaseClass {
 	s8 visibility;
-	s64 offset;
+	s32 offset;
 	std::string type_name;
 };
 struct AstNode {

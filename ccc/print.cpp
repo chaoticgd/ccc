@@ -61,7 +61,19 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 			} else {
 				fprintf(output, "union");
 			}
-			fprintf(output, " %s {\n", node.name.c_str());
+			fprintf(output, " %s", node.name.c_str());
+			const std::vector<AstBaseClass>& base_classes = node.struct_or_union.base_classes;
+			if(base_classes.size() > 0) {
+				fprintf(output, " :");
+				for(size_t i = 0; i < base_classes.size(); i++) {
+					const AstBaseClass& base_class = base_classes[i];
+					fprintf(output, " /* %x */ %s", base_class.offset, base_class.type_name.c_str());
+					if(i != base_classes.size() - 1) {
+						fprintf(output, ",");
+					}
+				}
+			}
+			fprintf(output, " {\n");
 			for(const AstNode& child : node.struct_or_union.fields) {
 				print_ast_node(output, child, depth + 1, absolute_parent_offset + node.offset);
 			}
