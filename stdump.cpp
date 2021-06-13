@@ -8,28 +8,30 @@ void print_address(const char* name, u64 address) {
 }
 
 enum OutputMode : u32 {
-	OUTPUT_HELP = 0,
-	OUTPUT_SYMBOLS = 1,
-	OUTPUT_TYPES = 2,
-	OUTPUT_TEST = 4
+	OUTPUT_DEFAULT,
+	OUTPUT_HELP,
+	OUTPUT_SYMBOLS,
+	OUTPUT_TYPES,
+	OUTPUT_PER_FILE,
+	OUTPUT_TEST
 };
 
 struct Options {
-	OutputMode mode = OUTPUT_HELP;
+	OutputMode mode = OUTPUT_DEFAULT;
 	fs::path input_file;
 	bool verbose = false;
 };
 
-static Options parse_args(int argc, char** argv);
-static void print_symbols(Program& program, SymbolTable& symbol_table);
-static void print_types(const SymbolTable& symbol_table, bool verbose);
+static void print_symbols(SymbolTable& symbol_table);
 static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose);
-static void print_test(const SymbolTable& symbol_table, bool verbose);
+static void print_c_per_file(const SymbolTable& symbol_table, bool verbose);
+static void print_c_test(const SymbolTable& symbol_table);
+static Options parse_args(int argc, char** argv);
 static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
-	if(options.mode == OUTPUT_HELP) {
+	if(options.mode == OUTPUT_DEFAULT || options.mode == OUTPUT_HELP) {
 		print_help();
 		exit(1);
 	}
@@ -55,56 +57,23 @@ int main(int argc, char** argv) {
 		print_address("local symbol table", symbol_table.local_symbol_table_offset);
 		print_address("file descriptor table", symbol_table.file_descriptor_table_offset);
 	}
-	
-	if(options.mode & OUTPUT_SYMBOLS) {
-		print_symbols(program, symbol_table);
-	}
-	if(options.mode & OUTPUT_TYPES) {
-		print_c_deduplicated(symbol_table, options.verbose);
-	}
-	if(options.mode & OUTPUT_TEST) {
-		print_test(symbol_table, options.verbose);
+	switch(options.mode) {
+		case OUTPUT_SYMBOLS:
+			print_symbols(symbol_table);
+			break;
+		case OUTPUT_TYPES:
+			print_c_deduplicated(symbol_table, options.verbose);
+			break;
+		case OUTPUT_PER_FILE:
+			print_c_per_file(symbol_table, options.verbose);
+			break;
+		case OUTPUT_TEST:
+			print_c_test(symbol_table);
+			break;
 	}
 }
 
-static Options parse_args(int argc, char** argv) {
-	Options options;
-	for(int i = 1; i < argc; i++) {
-		std::string arg = argv[i];
-		if(arg == "--symbols" || arg == "-s") {
-			(u32&) options.mode |= OUTPUT_SYMBOLS;
-		}
-		if(arg == "--types" || arg == "-t") {
-			(u32&) options.mode |= OUTPUT_TYPES;
-		}
-		if(arg == "--test") {
-			(u32&) options.mode |= OUTPUT_TEST;
-		}
-		if(arg == "--verbose" || arg == "-v") {
-			options.verbose = true;
-		}
-	}
-	for(int i = 1; i < argc; i++) {
-		std::string arg = argv[i];
-		if(arg == "--symbols" || arg == "-s") {
-			continue;
-		}
-		if(arg == "--types" || arg == "-t") {
-			continue;
-		}
-		if(arg == "--test") {
-			continue;
-		}
-		if(arg == "--verbose" || arg == "-v") {
-			continue;
-		}
-		verify(options.input_file.empty(), "error: Multiple input files specified.\n");
-		options.input_file = arg;
-	}
-	return options;
-}
-
-static void print_symbols(Program& program, SymbolTable& symbol_table) {
+static void print_symbols(SymbolTable& symbol_table) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		printf("FILE %s:\n", fd.name.c_str());
 		for(Symbol& sym : fd.symbols) {
@@ -150,27 +119,6 @@ static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbo
 	return ast_nodes;
 }
 
-static void print_types(const SymbolTable& symbol_table, bool verbose) {
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
-		
-		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", fd.name.c_str());
-		printf("// *****************************************************************************\n");
-		printf("\n");
-		print_ast_begin(stdout);
-		for(const AstNode& node : ast_nodes) {
-			assert(node.symbol);
-			printf("// %s\n", node.symbol->raw.c_str());
-			print_ast_node(stdout, node, 0);
-			printf("\n");
-		}
-	}
-}
-
 static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
 	std::vector<std::vector<StabsSymbol>> symbols;
 	
@@ -206,7 +154,28 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 	}
 }
 
-static void print_test(const SymbolTable& symbol_table, bool verbose) {
+static void print_c_per_file(const SymbolTable& symbol_table, bool verbose) {
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
+		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
+		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
+		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
+		
+		printf("// *****************************************************************************\n");
+		printf("// FILE -- %s\n", fd.name.c_str());
+		printf("// *****************************************************************************\n");
+		printf("\n");
+		print_ast_begin(stdout);
+		for(const AstNode& node : ast_nodes) {
+			assert(node.symbol);
+			printf("// %s\n", node.symbol->raw.c_str());
+			print_ast_node(stdout, node, 0);
+			printf("\n");
+		}
+	}
+}
+
+static void print_c_test(const SymbolTable& symbol_table) {
 	const SymFileDescriptor& fd = symbol_table.files.at(1);
 	const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
@@ -248,6 +217,43 @@ static void print_test(const SymbolTable& symbol_table, bool verbose) {
 	}
 }
 
+static Options parse_args(int argc, char** argv) {
+	Options options;
+	auto only_one = [&]() {
+		verify(options.mode == OUTPUT_DEFAULT, "error: Multiple mode flags specified.\n");
+	};
+	for(int i = 1; i < argc; i++) {
+		std::string arg = argv[i];
+		if(arg == "--symbols" || arg == "-s") {
+			only_one();
+			options.mode = OUTPUT_SYMBOLS;
+			continue;
+		}
+		if(arg == "--types" || arg == "-t") {
+			only_one();
+			options.mode = OUTPUT_TYPES;
+			continue;
+		}
+		if(arg == "--per-file" || arg == "-p") {
+			only_one();
+			options.mode = OUTPUT_PER_FILE;
+			continue;
+		}
+		if(arg == "--test" || arg == "-t") {
+			only_one();
+			options.mode = OUTPUT_TEST;
+			continue;
+		}
+		if(arg == "--verbose" || arg == "-v") {
+			options.verbose = true;
+			continue;
+		}
+		verify(options.input_file.empty(), "error: Multiple input files specified.\n");
+		options.input_file = arg;
+	}
+	return options;
+}
+
 void print_help() {
 	puts("stdump: MIPS/GCC symbol table parser.");
 	puts("");
@@ -255,9 +261,19 @@ void print_help() {
 	puts(" --symbols, -s      Print a list of all the local symbols, grouped");
 	puts("                    by file descriptor.");
 	puts("");
-	puts(" --types, -t        TODO");
+	puts(" --types, -t        Print a deduplicated list of all the types defined");
+	puts("                    in the MIPS debug section as C data structures.");
 	puts("");
-	puts(" --test             TODO");
+	puts(" --per-file, -t     Print a list of all the types defined in the MIPS");
+	puts("                    debug section, where for each file descriptor");
+	puts("                    all types used are duplicated.");
+	puts("");
+	puts(" --test             Print a C++ program containing static assertions");
+	puts("                    to test if the offset and size of each field is");
+	puts("                    correct for a given platform/compiler.");
+	puts("");
+	puts("                    Currently only symbols from the second file");
+	puts("                    descriptor are used.");
 	puts("");
 	puts(" --verbose, -v      Print out addition information e.g. the offsets of");
 	puts("                    various data structures in the input file.");
