@@ -128,8 +128,8 @@ static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, Typ
 }
 
 std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
-	switch(symbol.descriptor) {
-		case StabsSymbolDescriptor::TYPE_NAME: {
+	if(symbol.type.has_body) {
+		if(symbol.type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
 			StabsType* referenced_type = symbol.type.type_reference.type.get();
 			if(!referenced_type || referenced_type->type_number == symbol.type.type_number) {
 				return std::nullopt;
@@ -138,14 +138,11 @@ std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std:
 				"error: Invalid type name: %s.\n", symbol.raw.c_str());
 			auto type_name = lookup_type_name(referenced_type->type_number, type_names);
 			return typedef_node(type_name.first_part, symbol.name);
+		} else {
+		return stabs_field_to_ast({false, 0, 0, symbol.type, symbol.name}, type_names);
 		}
-		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
-			if(!symbol.type.has_body) {
-				return std::nullopt;
-			}
-			return stabs_field_to_ast({false, 0, 0, symbol.type, symbol.name}, type_names);
-		default:
-			verify_not_reached("error: Unexpected symbol descriptor: %c.\n", (s8) symbol.descriptor);
+	} else {
+		return std::nullopt;
 	}
 }
 
@@ -161,6 +158,8 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 	}
 	
 	switch(type.descriptor) {
+		case StabsTypeDescriptor::ENUM:
+			return enum_node(field.is_static, offset, size, type.enum_type.fields, name);
 		case StabsTypeDescriptor::STRUCT:
 		case StabsTypeDescriptor::UNION: {
 			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
