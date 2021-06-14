@@ -21,12 +21,13 @@ struct Options {
 	OutputMode mode = OUTPUT_DEFAULT;
 	fs::path input_file;
 	bool verbose = false;
+	OutputLanguage language = OutputLanguage::CPP;
 };
 
 static void print_symbols(SymbolTable& symbol_table);
 static void print_files(SymbolTable& symbol_table);
-static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose);
-static void print_c_per_file(const SymbolTable& symbol_table, bool verbose);
+static void print_c_deduplicated(const SymbolTable& symbol_table, Options options);
+static void print_c_per_file(const SymbolTable& symbol_table, Options options);
 static void print_c_test(const SymbolTable& symbol_table);
 static Options parse_args(int argc, char** argv);
 static void print_help();
@@ -67,10 +68,10 @@ int main(int argc, char** argv) {
 			print_files(symbol_table);
 			break;
 		case OUTPUT_TYPES:
-			print_c_deduplicated(symbol_table, options.verbose);
+			print_c_deduplicated(symbol_table, options);
 			break;
 		case OUTPUT_PER_FILE:
-			print_c_per_file(symbol_table, options.verbose);
+			print_c_per_file(symbol_table, options);
 			break;
 		case OUTPUT_TEST:
 			print_c_test(symbol_table);
@@ -141,40 +142,13 @@ static std::vector<AstNode> build_deduplicated_ast(std::vector<std::vector<Stabs
 	return deduplicate_ast(per_file_ast);
 }
 
-static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) {
+static void print_c_deduplicated(const SymbolTable& symbol_table, Options options) {
 	std::vector<std::vector<StabsSymbol>> symbols;
 	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
-	
-	print_forward_declarations(stdout, ast_nodes);
-	print_ast_begin(stdout);
-	bool last_node_is_not_typedef = true;
-	for(const AstNode& node : ast_nodes) {
-		bool node_is_not_typedef = node.descriptor != AstNodeDescriptor::TYPEDEF;
-		if(node_is_not_typedef || last_node_is_not_typedef) {
-			printf("\n");
-		}
-		last_node_is_not_typedef = node_is_not_typedef;
-		
-		assert(node.symbol);
-		if(verbose) {
-			printf("// %s\n", node.name.c_str());
-		}
-		if(node.conflicting_types) {
-			printf("// warning: multiple differing types with the same name, only one recovered\n");
-		}
-		if(verbose) {
-			printf("// symbol:\n");
-			printf("//   %s\n", node.symbol->raw.c_str());
-			printf("// used by:\n");
-			for(const std::string& source_file : node.source_files) {
-				printf("//   %s\n", source_file.c_str());
-			}
-		}
-		print_ast_node(stdout, node, 0, 0);
-	}
+	print_ast(stdout, ast_nodes, options.language, options.verbose);
 }
 
-static void print_c_per_file(const SymbolTable& symbol_table, bool verbose) {
+static void print_c_per_file(const SymbolTable& symbol_table, Options options) {
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
@@ -185,13 +159,7 @@ static void print_c_per_file(const SymbolTable& symbol_table, bool verbose) {
 		printf("// FILE -- %s\n", fd.name.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		print_ast_begin(stdout);
-		for(const AstNode& node : ast_nodes) {
-			assert(node.symbol);
-			printf("// %s\n", node.symbol->raw.c_str());
-			print_ast_node(stdout, node, 0, 0);
-			printf("\n");
-		}
+		print_ast(stdout, ast_nodes, options.language, options.verbose);
 	}
 }
 
@@ -199,12 +167,12 @@ static void print_c_test(const SymbolTable& symbol_table) {
 	std::vector<std::vector<StabsSymbol>> symbols;
 	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
-	print_ast_begin(stdout);
-	print_forward_declarations(stdout, ast_nodes);
+	print_c_ast_begin(stdout);
+	print_c_forward_declarations(stdout, ast_nodes);
 	for(const AstNode& node : ast_nodes) {
 		assert(node.symbol);
 		printf("// %s\n", node.symbol->raw.c_str());
-		print_ast_node(stdout, node, 0, 0);
+		print_c_ast_node(stdout, node, 0, 0);
 		printf("\n");
 	}
 	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
@@ -256,6 +224,18 @@ static Options parse_args(int argc, char** argv) {
 			options.mode = OUTPUT_TEST;
 			continue;
 		}
+		if(arg == "--language" || arg == "-l") {
+			verify(i < argc - 1, "error: No language specified.\n");
+			std::string language = argv[++i];
+			if(language == "cpp") {
+				options.language = OutputLanguage::CPP;
+			} else if(language == "json") {
+				options.language = OutputLanguage::JSON;
+			} else {
+				verify_not_reached("error: Invalid language.\n");
+			}
+			continue;
+		}
 		if(arg == "--verbose" || arg == "-v") {
 			options.verbose = true;
 			continue;
@@ -282,12 +262,12 @@ void print_help() {
 	puts("                    debug section, where for each file descriptor");
 	puts("                    all types used are duplicated.");
 	puts("");
-	puts(" --test             Print a C++ program containing static assertions");
-	puts("                    to test if the offset and size of each field is");
-	puts("                    correct for a given platform/compiler.");
+	puts(" --test             Print a C++ source file containing static");
+	puts("                    assertions to test if the offset and size of each");
+	puts("                    field is correct for a given platform/compiler.");
 	puts("");
-	puts("                    Currently only symbols from the second file");
-	puts("                    descriptor are used.");
+	puts(" --language <lang>  Set the output language. <lang> can be set to");
+	puts("                    either cpp or json.");
 	puts("");
 	puts(" --verbose, -v      Print out additional information e.g. the offsets");
 	puts("                    of various data structures in the input file.");
