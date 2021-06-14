@@ -147,15 +147,13 @@ static void print_c_deduplicated(const SymbolTable& symbol_table, bool verbose) 
 	
 	print_forward_declarations(stdout, ast_nodes);
 	print_ast_begin(stdout);
-	bool last_node_was_struct_or_union = true;
+	bool last_node_is_not_typedef = true;
 	for(const AstNode& node : ast_nodes) {
-		bool node_is_struct_or_union =
-			node.descriptor == AstNodeDescriptor::STRUCT ||
-			node.descriptor == AstNodeDescriptor::UNION;
-		if(node_is_struct_or_union || last_node_was_struct_or_union) {
+		bool node_is_not_typedef = node.descriptor != AstNodeDescriptor::TYPEDEF;
+		if(node_is_not_typedef || last_node_is_not_typedef) {
 			printf("\n");
 		}
-		last_node_was_struct_or_union = node_is_struct_or_union;
+		last_node_is_not_typedef = node_is_not_typedef;
 		
 		assert(node.symbol);
 		if(verbose) {

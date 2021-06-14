@@ -44,7 +44,11 @@ void print_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_p
 			break;
 		}
 		case AstNodeDescriptor::ENUM: {
-			fprintf(output, "enum {\n");
+			if(node.name.empty()) {
+				fprintf(output, "enum {\n");
+			} else {
+				fprintf(output, "enum %s {\n", node.name.c_str());
+			}
 			for(auto& [value, field_name] : node.enum_type.fields) {
 				bool is_last = value == node.enum_type.fields.back().first;
 				indent(output, depth + 1);
