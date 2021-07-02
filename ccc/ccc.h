@@ -10,6 +10,7 @@
 #include <cstring>
 #include <assert.h>
 #include <iostream>
+#include <optional>
 #include <algorithm>
 #include <filesystem>
 #include <inttypes.h>
