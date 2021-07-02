@@ -219,7 +219,7 @@ static Options parse_args(int argc, char** argv) {
 			options.mode = OUTPUT_PER_FILE;
 			continue;
 		}
-		if(arg == "--test" || arg == "-t") {
+		if(arg == "--test") {
 			only_one();
 			options.mode = OUTPUT_TEST;
 			continue;
@@ -249,7 +249,7 @@ static Options parse_args(int argc, char** argv) {
 void print_help() {
 	puts("stdump: MIPS/GCC symbol table parser.");
 	puts("");
-	puts("OPTIONS:");
+	puts("MODES:");
 	puts(" --symbols, -s      Print a list of all the local symbols, grouped");
 	puts("                    by file descriptor.");
 	puts("");
@@ -258,7 +258,7 @@ void print_help() {
 	puts(" --types, -t        Print a deduplicated list of all the types defined");
 	puts("                    in the MIPS debug section as C data structures.");
 	puts("");
-	puts(" --per-file, -t     Print a list of all the types defined in the MIPS");
+	puts(" --per-file, -p     Print a list of all the types defined in the MIPS");
 	puts("                    debug section, where for each file descriptor");
 	puts("                    all types used are duplicated.");
 	puts("");
@@ -266,6 +266,7 @@ void print_help() {
 	puts("                    assertions to test if the offset and size of each");
 	puts("                    field is correct for a given platform/compiler.");
 	puts("");
+	puts("OPTIONS:");
 	puts(" --language <lang>  Set the output language. <lang> can be set to");
 	puts("                    either cpp or json.");
 	puts("");
