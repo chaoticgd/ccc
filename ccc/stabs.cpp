@@ -1,6 +1,7 @@
 #include "ccc.h"
 
 #include <algorithm>
+#include <string>
 
 static StabsType parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
