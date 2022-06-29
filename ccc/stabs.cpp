@@ -1,6 +1,8 @@
-#include "ccc.h"
+#include "stabs.h"
 
 #include <algorithm>
+
+namespace ccc {
 
 static StabsType parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
@@ -470,4 +472,6 @@ std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<Stabs
 		enumerate_numbered_types_recursive(output, symbol.type);
 	}
 	return output;
+}
+
 }

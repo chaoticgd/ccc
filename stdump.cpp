@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <set>
 
+using namespace ccc;
+
 void print_address(const char* name, u64 address) {
 	fprintf(stderr, "%32s @ 0x%08lx\n", name, address);
 }

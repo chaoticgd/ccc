@@ -9,6 +9,8 @@
 #include <string>
 #include <cstring>
 
+namespace ccc {
+
 buffer read_file_bin(fs::path const& filepath) {
 	std::ifstream ifs(filepath, std::ios::binary | std::ios::ate);
 
@@ -44,4 +46,6 @@ std::string read_string(const buffer& bytes, u64 offset) {
 		}
 	}
 	return result;
+}
+
 }

@@ -1,4 +1,6 @@
-#include "ccc.h"
+#include "ast.h"
+
+namespace ccc {
 
 static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr);
 static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names);
@@ -285,4 +287,6 @@ static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs) {
 			break;
 	}
 	return true;
+}
+
 }

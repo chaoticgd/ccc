@@ -1,4 +1,6 @@
-#include "ccc.h"
+#include "elf.h"
+
+namespace ccc {
 
 ProgramImage read_program_image(fs::path path) {
 	verify(fs::exists(path), "error: file doesn't exist\n");
@@ -128,4 +130,6 @@ void parse_elf_file(Program& program, u64 image_index) {
 		}();
 		program.sections.emplace_back(section);
 	}
+}
+
 }
