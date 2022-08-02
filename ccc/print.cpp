@@ -1,4 +1,6 @@
-#include "ccc.h"
+#include "print.h"
+
+namespace ccc {
 
 static void indent(FILE* output, s32 depth);
 
@@ -214,4 +216,6 @@ static void indent(FILE* output, s32 depth) {
 	for(s32 i = 0; i < depth; i++) {
 		fprintf(output, "\t");
 	}
+}
+
 }

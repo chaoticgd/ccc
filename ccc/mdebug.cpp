@@ -1,4 +1,6 @@
-#include "ccc.h"
+#include "mdebug.h"
+
+namespace ccc {
 
 packed_struct(SymbolicHeader,
 	s16 magic;
@@ -149,4 +151,6 @@ const char* symbol_class(SymbolClass symbol_class) {
 		case SymbolClass::COMPILER_VERSION_INFO: return "COMPILER_VERSION_INFO";
 		default: return nullptr;
 	}
+}
+
 }

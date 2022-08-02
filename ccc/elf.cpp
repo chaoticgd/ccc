@@ -1,4 +1,6 @@
-#include "ccc.h"
+#include "elf.h"
+
+namespace ccc {
 
 ProgramImage read_program_image(fs::path path) {
 	verify(fs::exists(path), "error: file doesn't exist\n");
@@ -110,7 +112,7 @@ void parse_elf_file(Program& program, u64 image_index) {
 	verify(ident.e_class == ElfIdentClass::B32, "error: Wrong ELF class (not 32 bit).\n");
 	
 	const auto& header = get_packed<ElfFileHeader32>(image.bytes, sizeof(ElfIdentHeader), "ELF file header");
-	verify(header.type == ElfFileType::EXEC, "error: ELF is not an executable.\n");
+	//verify(header.type == ElfFileType::EXEC, "error: ELF is not an executable.\n");
 	verify(header.machine == ElfMachine::MIPS, "error: Wrong architecture.\n");
 	
 	for(u32 i = 0; i < header.shnum; i++) {
@@ -128,4 +130,6 @@ void parse_elf_file(Program& program, u64 image_index) {
 		}();
 		program.sections.emplace_back(section);
 	}
+}
+
 }
