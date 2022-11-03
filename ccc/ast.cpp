@@ -54,12 +54,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 			case StabsTypeDescriptor::STRUCT: name.first_part += "struct "; break;
 			case StabsTypeDescriptor::UNION: name.first_part += "union "; break;
 		}
-		// FIXME: Actually check the bounds of long long int.
-		if(type.type_number == 6 && type.name == "long long int") {
-			name.first_part = "struct ccc_int128";
-		} else {
-			name.first_part += *type.name;
-		}
+		name.first_part += *type.name;
 		return name;
 	}
 	

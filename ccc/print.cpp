@@ -55,10 +55,6 @@ void print_ast(FILE* output, const std::vector<AstNode>& ast_nodes, OutputLangua
 
 void print_c_ast_begin(FILE* output) {
 	printf("\n");
-	fprintf(output, "struct ccc_int128 {\n");
-	fprintf(output, "\tlong int lo;\n");
-	fprintf(output, "\tlong int hi;\n");
-	fprintf(output, "};\n");
 }
 
 void print_c_forward_declarations(FILE* output, const std::vector<AstNode>& ast_nodes) {
