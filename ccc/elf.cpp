@@ -68,29 +68,6 @@ packed_struct(ElfProgramHeader32,
 	u32 align;  // 0x1c
 )
 
-enum class ElfSectionType : u32 {
-	NULL_SECTION = 0x0,
-	PROGBITS = 0x1,
-	SYMTAB = 0x2,
-	STRTAB = 0x3,
-	RELA = 0x4,
-	HASH = 0x5,
-	DYNAMIC = 0x6,
-	NOTE = 0x7,
-	NOBITS = 0x8,
-	REL = 0x9,
-	SHLIB = 0xa,
-	DYNSYM = 0xb,
-	INIT_ARRAY = 0xe,
-	FINI_ARRAY = 0xf,
-	PREINIT_ARRAY = 0x10,
-	GROUP = 0x11,
-	SYMTAB_SHNDX = 0x12,
-	NUM = 0x13,
-	LOOS = 0x60000000,
-	MIPS_DEBUG = 0x70000005
-};
-
 packed_struct(ElfSectionHeader32,
 	u32 name;            // 0x0
 	ElfSectionType type; // 0x4
@@ -112,23 +89,23 @@ void parse_elf_file(Program& program, u64 image_index) {
 	verify(ident.e_class == ElfIdentClass::B32, "error: Wrong ELF class (not 32 bit).\n");
 	
 	const auto& header = get_packed<ElfFileHeader32>(image.bytes, sizeof(ElfIdentHeader), "ELF file header");
-	//verify(header.type == ElfFileType::EXEC, "error: ELF is not an executable.\n");
 	verify(header.machine == ElfMachine::MIPS, "error: Wrong architecture.\n");
 	
-	for(u32 i = 0; i < header.shnum; i++) {
+	for(s32 i = 0; i < header.shnum; i++) {
 		u64 offset = header.shoff + i * sizeof(ElfSectionHeader32);
 		const auto& section_header = get_packed<ElfSectionHeader32>(image.bytes, offset, "ELF section header");
-		ProgramSection section;
+		ProgramSection& section = program.sections.emplace_back();
 		section.image = image_index;
 		section.file_offset = section_header.offset;
 		section.size = section_header.size;
-		section.type = [&]() {
-			switch(section_header.type) {
-				case ElfSectionType::MIPS_DEBUG: return ProgramSectionType::MIPS_DEBUG;
-				default:                         return ProgramSectionType::OTHER;
-			}
-		}();
-		program.sections.emplace_back(section);
+		section.type = section_header.type;
+		section.name_offset = section_header.name;
+	}
+	
+	if(header.shstrndx < program.sections.size()) {
+		for(ProgramSection& section : program.sections) {
+			section.name = read_string(image.bytes, program.sections[header.shstrndx].file_offset + section.name_offset);
+		}
 	}
 }
 

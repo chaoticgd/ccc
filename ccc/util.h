@@ -44,7 +44,7 @@ void verify_impl(const char* file, int line, bool condition, const char* error_m
 	}
 }
 #define verify(condition, ...) \
-	verify_impl(__FILE__, __LINE__, condition, __VA_ARGS__)
+	ccc::verify_impl(__FILE__, __LINE__, condition, __VA_ARGS__)
 template <typename... Args>
 [[noreturn]] void verify_not_reached_impl(const char* file, int line, const char* error_message, Args... args) {
 	fprintf(stderr, "[%s:%d] ", file, line);
@@ -52,7 +52,7 @@ template <typename... Args>
 	exit(1);
 }
 #define verify_not_reached(...) \
-	verify_not_reached_impl(__FILE__, __LINE__, __VA_ARGS__)
+	ccc::verify_not_reached_impl(__FILE__, __LINE__, __VA_ARGS__)
 #pragma GCC diagnostic pop
 
 #ifdef _MSC_VER

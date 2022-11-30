@@ -22,7 +22,12 @@ add_library(ccc STATIC
 	ccc/stabs.cpp
 	ccc/ast.cpp
 	ccc/print.cpp
+	ccc/insn.cpp
+	ccc/tables.cpp
 )
 
 add_executable(stdump stdump.cpp)
 target_link_libraries(stdump ccc)
+
+add_executable(objdump objdump.cpp)
+target_link_libraries(objdump ccc)

@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
 	SymbolTable symbol_table;
 	bool has_symbol_table = false;
 	for(ProgramSection& section : program.sections) {
-		if(section.type == ProgramSectionType::MIPS_DEBUG) {
+		if(section.type == ElfSectionType::MIPS_DEBUG) {
 			if(options.verbose) {
 				print_address("mdebug section", section.file_offset);
 			}
