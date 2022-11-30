@@ -3,7 +3,7 @@
 namespace ccc {
 
 ProgramImage read_program_image(fs::path path) {
-	verify(fs::exists(path), "error: file doesn't exist\n");
+	verify(fs::exists(path), "File doesn't exist.");
 
 	ProgramImage image;
 	image.bytes = read_file_bin(path);
@@ -85,11 +85,11 @@ void parse_elf_file(Program& program, u64 image_index) {
 	const ProgramImage& image = program.images[image_index];
 	
 	const auto& ident = get_packed<ElfIdentHeader>(image.bytes, 0, "ELF ident bytes");
-	verify(memcmp(ident.magic, "\x7f\x45\x4c\x46", 4) == 0, "error: Invalid ELF file.\n");
-	verify(ident.e_class == ElfIdentClass::B32, "error: Wrong ELF class (not 32 bit).\n");
+	verify(memcmp(ident.magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
+	verify(ident.e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
 	const auto& header = get_packed<ElfFileHeader32>(image.bytes, sizeof(ElfIdentHeader), "ELF file header");
-	verify(header.machine == ElfMachine::MIPS, "error: Wrong architecture.\n");
+	verify(header.machine == ElfMachine::MIPS, "Wrong architecture.");
 	
 	for(s32 i = 0; i < header.shnum; i++) {
 		u64 offset = header.shoff + i * sizeof(ElfSectionHeader32);

@@ -32,14 +32,14 @@ using s64 = int64_t;
 
 using buffer = std::vector<u8>;
 
-// Like assert, but for user errors.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
 template <typename... Args>
 void verify_impl(const char* file, int line, bool condition, const char* error_message, Args... args) {
 	if(!condition) {
-		fprintf(stderr, "[%s:%d] ", file, line);
+		fprintf(stderr, "[%s:%d] \033[31merror:\033[0m ", file, line);
 		fprintf(stderr, error_message, args...);
+	fprintf(stderr, "\n");
 		exit(1);
 	}
 }
@@ -47,8 +47,9 @@ void verify_impl(const char* file, int line, bool condition, const char* error_m
 	ccc::verify_impl(__FILE__, __LINE__, condition, __VA_ARGS__)
 template <typename... Args>
 [[noreturn]] void verify_not_reached_impl(const char* file, int line, const char* error_message, Args... args) {
-	fprintf(stderr, "[%s:%d] ", file, line);
+	fprintf(stderr, "[%s:%d] \033[31merror:\033[0m ", file, line);
 	fprintf(stderr, error_message, args...);
+	fprintf(stderr, "\n");
 	exit(1);
 }
 #define verify_not_reached(...) \
@@ -65,7 +66,7 @@ template <typename... Args>
 
 template <typename T>
 const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subject) {
-	verify(bytes.size() >= offset + sizeof(T), "error: Failed to read %s.\n", subject);
+	verify(bytes.size() >= offset + sizeof(T), "Failed to read %s.", subject);
 	return *(const T*) &bytes[offset];
 }
 

@@ -16,7 +16,7 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static void print_field(const StabsField& field);
 
 static const char* ERR_END_OF_INPUT =
-	"error: Unexpected end of input while parsing STAB type.\n";
+	"Unexpected end of input while parsing STAB type.";
 
 #define STABS_DEBUG(...) //__VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
@@ -27,7 +27,7 @@ std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
 	for(const Symbol& symbol : input) {
 		if(symbol.storage_type == SymbolType::NIL && (u32) symbol.storage_class == 0) {
 			if(symbol.string.size() == 0) {
-				verify(prefix.size() == 0, "error: Invalid STABS continuation.\n");
+				verify(prefix.size() == 0, "Invalid STABS continuation.");
 				continue;
 			}
 			// Some STABS symbols are split between multiple strings.
@@ -113,7 +113,7 @@ static StabsType parse_type(const char*& input) {
 				s64 value = eat_s64_literal(input);
 				type.enum_type.fields.emplace_back(value, name);
 				verify(eat_s8(input) == ',',
-					"error: Expecting ',' while parsing enum, got '%c' (%02hhx).",
+					"Expecting ',' while parsing enum, got '%c' (%02hhx)",
 					*input, *input);
 			}
 			STABS_DEBUG_PRINTF("}\n");
@@ -166,7 +166,7 @@ static StabsType parse_type(const char*& input) {
 				case 'e': // enum
 					break;
 				default:
-					verify_not_reached("error: Invalid cross reference type '%c'.\n",
+					verify_not_reached("Invalid cross reference type '%c'.",
 						type.cross_reference.type);
 			}
 			type.cross_reference.identifier = eat_identifier(input);
@@ -201,10 +201,10 @@ static StabsType parse_type(const char*& input) {
 			eat_s64_literal(input);
 			break;
 		case StabsTypeDescriptor::MEMBER: // @
-			verify(*input == 's', "error: Weird value following '@' type descriptor.\n");
+			verify(*input == 's', "Weird value following '@' type descriptor.");
 			break;
 		default:
-			verify_not_reached("error: Invalid type descriptor '%c' (%02x).\n",
+			verify_not_reached("Invalid type descriptor '%c' (%02x).",
 				(u32) type.descriptor, (u32) type.descriptor);
 	}
 	return type;
@@ -233,7 +233,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 				case StabsFieldVisibility::IGNORE:
 					break;
 				default:
-					verify_not_reached("error: Invalid field visibility.\n");
+					verify_not_reached("Invalid field visibility.");
 			}
 		}
 		if(*input == ':') {
@@ -258,7 +258,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 			field.size = eat_s64_literal(input);
 			expect_s8(input, ';', "field size");
 		} else {
-			verify_not_reached("error: Expected ':' or ',', got '%c' (%hhx).\n", *input, *input);
+			verify_not_reached("Expected ':' or ',', got '%c' (%hhx).", *input, *input);
 		}
 
 		STABS_DEBUG(print_field(field);)
@@ -304,7 +304,7 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 				case StabsFieldVisibility::IGNORE:
 					break;
 				default:
-					verify_not_reached("error: Invalid visibility for member function.\n");
+					verify_not_reached("Invalid visibility for member function.");
 			}
 			switch(eat_s8(input)) {
 				case 'A':
@@ -327,7 +327,7 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 				case '.':
 					break;
 				default:
-					verify_not_reached("error: Invalid member function modifiers.\n");
+					verify_not_reached("Invalid member function modifiers.");
 			}
 			switch(eat_s8(input)) {
 				case '*': // virtual member function
@@ -341,7 +341,7 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 				case '.': // normal member function
 					break;
 				default:
-					verify_not_reached("error: Invalid member function type.\n");
+					verify_not_reached("Invalid member function type.");
 			}
 			member_function.fields.emplace_back(std::move(field));
 		}
@@ -368,7 +368,7 @@ static s64 eat_s64_literal(const char*& input) {
 		}
 		number += *input;
 	}
-	verify(number.size() > 0, "error: Unexpected '%c' (%02hhx).\n", *input, *input);
+	verify(number.size() > 0, "Unexpected '%c' (%02hhx).", *input, *input);
 	try {
 		return std::stol(number);
 	} catch(std::out_of_range&) {
@@ -396,7 +396,7 @@ static std::string eat_identifier(const char*& input) {
 static void expect_s8(const char*& input, s8 expected, const char* subject) {
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	char val = *(input++);
-	verify(val == expected, "error: Expected '%c' in %s, got '%c'.\n", expected, subject, val);
+	verify(val == expected, "Expected '%c' in %s, got '%c'.", expected, subject, val);
 }
 
 static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
@@ -415,7 +415,7 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 		case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE:
 			break;
 		default:
-			verify_not_reached("error: Unknown symbol descriptor: %c.\n", (s8) descriptor);
+			verify_not_reached("Unknown symbol descriptor: %c.", (s8) descriptor);
 	}
 }
 

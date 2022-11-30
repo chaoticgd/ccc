@@ -3,7 +3,7 @@
 using namespace ccc;
 
 int main(int argc, char** argv) {
-	verify(argc == 2, "error: Incorrect number of arguments.\n");
+	verify(argc == 2, "Incorrect number of arguments.");
 	
 	Program program;
 	program.images.emplace_back(read_program_image(fs::path(argv[1])));

@@ -91,7 +91,7 @@ SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& 
 	SymbolTable symbol_table;
 	
 	const auto& hdrr = get_packed<SymbolicHeader>(image.bytes, section.file_offset, "MIPS debug section");
-	verify(hdrr.magic == 0x7009, "error: Invalid symbolic header.\n");
+	verify(hdrr.magic == 0x7009, "Invalid symbolic header.");
 	
 	symbol_table.procedure_descriptor_table_offset = hdrr.cb_pd_offset;
 	symbol_table.local_symbol_table_offset = hdrr.cb_sym_offset;
@@ -99,7 +99,7 @@ SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& 
 	for(s64 i = 0; i < hdrr.ifd_max; i++) {
 		u64 fd_offset = hdrr.cb_fd_offset + i * sizeof(FileDescriptorEntry);
 		const auto& fd_entry = get_packed<FileDescriptorEntry>(image.bytes, fd_offset, "file descriptor");
-		verify(fd_entry.f_big_endian == 0, "error: Not little endian or bad file descriptor table.\n");
+		verify(fd_entry.f_big_endian == 0, "Not little endian or bad file descriptor table.");
 		
 		SymFileDescriptor fd;
 		u64 file_name_offset = hdrr.cb_ss_offset + fd_entry.iss_base + fd_entry.rss;

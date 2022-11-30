@@ -197,7 +197,7 @@ static void print_c_test(const SymbolTable& symbol_table) {
 static Options parse_args(int argc, char** argv) {
 	Options options;
 	auto only_one = [&]() {
-		verify(options.mode == OUTPUT_DEFAULT, "error: Multiple mode flags specified.\n");
+		verify(options.mode == OUTPUT_DEFAULT, "Multiple mode flags specified.");
 	};
 	for(int i = 1; i < argc; i++) {
 		std::string arg = argv[i];
@@ -227,14 +227,14 @@ static Options parse_args(int argc, char** argv) {
 			continue;
 		}
 		if(arg == "--language" || arg == "-l") {
-			verify(i < argc - 1, "error: No language specified.\n");
+			verify(i < argc - 1, "No language specified.");
 			std::string language = argv[++i];
 			if(language == "cpp") {
 				options.language = OutputLanguage::CPP;
 			} else if(language == "json") {
 				options.language = OutputLanguage::JSON;
 			} else {
-				verify_not_reached("error: Invalid language.\n");
+				verify_not_reached("Invalid language.");
 			}
 			continue;
 		}
@@ -242,7 +242,7 @@ static Options parse_args(int argc, char** argv) {
 			options.verbose = true;
 			continue;
 		}
-		verify(options.input_file.empty(), "error: Multiple input files specified.\n");
+		verify(options.input_file.empty(), "Multiple input files specified.");
 		options.input_file = arg;
 	}
 	return options;
