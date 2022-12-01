@@ -3,8 +3,9 @@
 
 #include "util.h"
 #include "opcodes.h"
+#include "registers.h"
 
-namespace ccc {
+namespace ccc::mips {
 
 enum InsnClass {
 	INSN_CLASS_MIPS = 0,
@@ -26,28 +27,88 @@ enum InsnClass {
 	MAX_INSN_CLASS = 16
 };
 
-enum InsnType {
-	INSN_TYPE_IMM,
-	INSN_TYPE_JMP,
-	INSN_TYPE_REG,
-	INSN_TYPE_COP2_0,
-	INSN_TYPE_COP2_1,
-	INSN_TYPE_COP2_2,
-	INSN_TYPE_COP2_3,
-	INSN_TYPE_COP2_4,
-	INSN_TYPE_COP2_5,
-	INSN_TYPE_COP2_6,
-	INSN_TYPE_COP2_7,
-	INSN_TYPE_COP2_8,
-	INSN_TYPE_COP2_9,
-	INSN_TYPE_COP2_10,
-	INSN_TYPE_COP2_11,
-	INSN_TYPE_COP2_13,
-	INSN_TYPE_BAD
+enum InsnFormat {
+	INSN_FORMAT_IMM,
+	INSN_FORMAT_JMP,
+	INSN_FORMAT_REG,
+	INSN_FORMAT_COP2_0,
+	INSN_FORMAT_COP2_1,
+	INSN_FORMAT_COP2_2,
+	INSN_FORMAT_COP2_3,
+	INSN_FORMAT_COP2_4,
+	INSN_FORMAT_COP2_5,
+	INSN_FORMAT_COP2_6,
+	INSN_FORMAT_COP2_7,
+	INSN_FORMAT_COP2_8,
+	INSN_FORMAT_COP2_9,
+	INSN_FORMAT_COP2_10,
+	INSN_FORMAT_COP2_11,
+	INSN_FORMAT_COP2_13,
+	INSN_FORMAT_BAD
+};
+
+enum class InsnField {
+	NONE,
+	RS,
+	RT,
+	IMMED,
+	TARGET,
+	RD,
+	SA,
+	FUNC
+};
+
+enum class FlowDirection {
+	NONE = 0,
+	IN,
+	OUT,
+	INOUT
+};
+
+enum class FlowType {
+	IMMED,
+	REG,
+	FIXED_REG
+};
+
+struct FlowInfo {
+	FlowInfo()
+		: direction(FlowDirection::NONE) {}
+	FlowInfo(FlowDirection d, FlowType t, InsnField f, RegisterClass c, s32 i)
+		: direction(d), type(t), field(f), reg_class(c), reg_index(i) {}
+	FlowInfo(FlowDirection d, FlowType t, InsnField f)
+		: FlowInfo(d, t, f, RegisterClass::INVALID, -1) {}
+	// REG
+	FlowInfo(FlowDirection d, RegisterClass c, InsnField f)
+		: FlowInfo(d, FlowType::REG, f, c, -1) {}
+	// FIXED_REG
+	FlowInfo(FlowDirection d, GPR gpr)
+		: FlowInfo(d, FlowType::FIXED_REG, InsnField::NONE, RegisterClass::GPR, (s32) gpr) {}
+	FlowInfo(FlowDirection d, SpecialGPR sgpr)
+		: FlowInfo(d, FlowType::FIXED_REG, InsnField::NONE, RegisterClass::SPECIAL_GPR, (s32) sgpr) {}
+	
+	FlowDirection direction;
+	FlowType type;
+	InsnField field;
+	RegisterClass reg_class;
+	s32 reg_index;
+	
+	bool is_past_end() const { return direction == FlowDirection::NONE; }
+};
+
+enum class InsnType {
+	INVALD,
+	BRANCH, // branches, jumps
+	ARTMTC, // integer, floating point maths
+	LOADFM, // memory loads
+	STOREM, // memory stores
+	SYSTEM  // cache, pref
 };
 
 struct InsnInfo {
 	const char* mnemonic;
+	InsnType type;
+	FlowInfo data_flows[10];
 };
 
 struct Insn {
@@ -72,24 +133,6 @@ struct Insn {
 	
 	u32 value;
 };
-
-extern const InsnInfo* INSN_TABLES[MAX_INSN_CLASS];
-
-extern const InsnInfo MIPS_OPCODE_TABLE[MAX_OPCODE];
-extern const InsnInfo MIPS_SPECIAL_TABLE[MAX_SPECIAL];
-extern const InsnInfo MIPS_REGIMM_TABLE[MAX_REGIMM];
-extern const InsnInfo MMI_TABLE[MAX_MMI];
-extern const InsnInfo MMI0_TABLE[MAX_MMI0];
-extern const InsnInfo MMI1_TABLE[MAX_MMI1];
-extern const InsnInfo MMI2_TABLE[MAX_MMI2];
-extern const InsnInfo MMI3_TABLE[MAX_MMI3];
-extern const InsnInfo COP0_TABLE[MAX_COP0];
-extern const InsnInfo COP0_BC0_TABLE[MAX_BC0];
-extern const InsnInfo COP0_C0_TABLE[MAX_C0];
-extern const InsnInfo COP1_TABLE[MAX_COP1];
-extern const InsnInfo COP1_BC1_TABLE[MAX_BC1];
-extern const InsnInfo COP1_S_TABLE[MAX_S];
-extern const InsnInfo COP1_W_TABLE[MAX_W];
 
 }
 

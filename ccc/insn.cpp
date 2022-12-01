@@ -1,5 +1,7 @@
 #include "insn.h"
 
+#include "tables.h"
+
 #define OPCODE_MASK    0b11111100000000000000000000000000
 #define RS_MASK        0b00000011111000000000000000000000
 #define RT_MASK        0b00000000000111110000000000000000
@@ -9,7 +11,7 @@
 #define IMMEDIATE_MASK 0b00000000000000001111111111111111
 #define TARGET_MASK    0b00000011111111111111111111111111
 
-namespace ccc {
+namespace ccc::mips {
 
 Insn::Insn(u32 val) : value(val) {}
 
@@ -70,6 +72,7 @@ const InsnInfo& Insn::info() const {
 		case INSN_CLASS_COP1_BC1: return COP1_BC1_TABLE[rt()];
 		case INSN_CLASS_COP1_S: return COP1_S_TABLE[function()];
 		case INSN_CLASS_COP1_W: return COP1_W_TABLE[function()];
+		case INSN_CLASS_COP2: return MIPS_OPCODE_TABLE[OPCODE_COP2];
 		default: verify_not_reached("Invalid instruction %08x.", value);
 	}
 }

@@ -9,5 +9,7 @@
 #include "ast.h"
 #include "print.h"
 #include "insn.h"
+#include "registers.h"
+#include "tables.h"
 
 #endif
