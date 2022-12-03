@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
 					if(is_mem_access) {
 						printf("(");
 					} else {
-						printf(", ");
+						printf(",");
 					}
 				}
 				u32 field = insn.field(flow.field);
