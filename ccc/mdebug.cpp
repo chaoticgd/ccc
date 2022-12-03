@@ -31,20 +31,20 @@ packed_struct(SymbolicHeader,
 )
 
 packed_struct(ProcedureDescriptorEntry,
-	u32 adr;            // 0x00
-	s32 isym;           // 0x04
-	s32 iline;          // 0x08
-	s32 regmask;        // 0x0c
-	s32 regoffset;      // 0x10
-	s32 iopt;           // 0x14
-	s32 fregmask;       // 0x18
-	s32 fregoffset;     // 0x1c
-	s32 frameoffset;    // 0x20
-	s16 framereg;       // 0x24
-	s16 pcreg;          // 0x26
-	s32 ln_low;         // 0x28
-	s32 ln_high;        // 0x2c
-	s32 cb_line_offset; // 0x30
+	/* 0x00 */ u32 adr;
+	/* 0x04 */ s32 isym;
+	/* 0x08 */ s32 iline;
+	/* 0x0c */ s32 regmask;
+	/* 0x10 */ s32 regoffset;
+	/* 0x14 */ s32 iopt;
+	/* 0x18 */ s32 fregmask;
+	/* 0x1c */ s32 fregoffset;
+	/* 0x20 */ s32 frameoffset;
+	/* 0x24 */ s16 framereg;
+	/* 0x26 */ s16 pcreg;
+	/* 0x28 */ s32 ln_low;
+	/* 0x2c */ s32 ln_high;
+	/* 0x30 */ s32 cb_line_offset;
 )
 
 packed_struct(SymbolEntry,
@@ -58,32 +58,29 @@ packed_struct(SymbolEntry,
 static_assert(sizeof(SymbolEntry) == 0xc);
 
 packed_struct(FileDescriptorEntry,
-	u32 adr;              // 0x00
-	s32 rss;              // 0x04
-	s32 iss_base;         // 0x08
-	s32 cb_ss;            // 0x0c
-	s32 isym_base;        // 0x10
-	s32 csym;             // 0x14
-	s32 iline_base;       // 0x18
-	s32 cline;            // 0x1c
-	s32 iopt_base;        // 0x20
-	s32 copt;             // 0x24
-	s16 ipd_first;        // 0x28
-	s16 cpd;              // 0x2a
-	s32 iaux_base;        // 0x2c
-	s32 caux;             // 0x30
-	s32 rfd_base;         // 0x34
-	s32 crfd;             // 0x38
-	u32 lang : 5;         // 0x3c
-	u32 f_merge : 1;      // 0x3c
-	u32 f_readin : 1;     // 0x3c
-	u32 f_big_endian : 1; // 0x3c
-	u32 reserved_1 : 22;  // 0x4c
-	s32 cb_line_offset;   // 0x40
-	s32 cb_line;          // 0x44
-	//s16 reserved_2;       // 0x48
-	//s16 ifd;              // 0x4a
-	//SymbolEntry asym;     // 0x4c
+	/* 0x00 */ u32 adr;
+	/* 0x04 */ s32 rss;
+	/* 0x08 */ s32 iss_base;
+	/* 0x0c */ s32 cb_ss;
+	/* 0x10 */ s32 isym_base;
+	/* 0x14 */ s32 csym;
+	/* 0x18 */ s32 iline_base;
+	/* 0x1c */ s32 cline;
+	/* 0x20 */ s32 iopt_base;
+	/* 0x24 */ s32 copt;
+	/* 0x28 */ s16 ipd_first;
+	/* 0x2a */ s16 cpd;
+	/* 0x2c */ s32 iaux_base;
+	/* 0x30 */ s32 caux;
+	/* 0x34 */ s32 rfd_base;
+	/* 0x38 */ s32 crfd;
+	/* 0x3c */ u32 lang : 5;
+	/* 0x3c */ u32 f_merge : 1;
+	/* 0x3c */ u32 f_readin : 1;
+	/* 0x3c */ u32 f_big_endian : 1;
+	/* 0x4c */ u32 reserved_1 : 22;
+	/* 0x40 */ s32 cb_line_offset;
+	/* 0x44 */ s32 cb_line;
 )
 static_assert(sizeof(FileDescriptorEntry) == 0x48);
 

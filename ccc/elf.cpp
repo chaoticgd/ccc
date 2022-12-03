@@ -35,53 +35,53 @@ enum class ElfMachine : u16 {
 };
 
 packed_struct(ElfIdentHeader,
-	u8 magic[4];           // 0x0 7f 45 4c 46
-	ElfIdentClass e_class; // 0x4
-	u8 endianess;          // 0x5
-	u8 version;            // 0x6
-	u8 os_abi;             // 0x7
-	u8 abi_version;        // 0x8
-	u8 pad[7];             // 0x9
+	/* 0x0 */ u8 magic[4]; // 7f 45 4c 46
+	/* 0x4 */ ElfIdentClass e_class;
+	/* 0x5 */ u8 endianess;
+	/* 0x6 */ u8 version;
+	/* 0x7 */ u8 os_abi;
+	/* 0x8 */ u8 abi_version;
+	/* 0x9 */ u8 pad[7];
 )
 
 packed_struct(ElfFileHeader32,
-	ElfFileType type;   // 0x10
-	ElfMachine machine; // 0x12
-	u32 version;        // 0x14
-	u32 entry;          // 0x18
-	u32 phoff;          // 0x1c
-	u32 shoff;          // 0x20
-	u32 flags;          // 0x24
-	u16 ehsize;         // 0x28
-	u16 phentsize;      // 0x2a
-	u16 phnum;          // 0x2c
-	u16 shentsize;      // 0x2e
-	u16 shnum;          // 0x30
-	u16 shstrndx;       // 0x32
+	/* 0x10 */ ElfFileType type;
+	/* 0x12 */ ElfMachine machine;
+	/* 0x14 */ u32 version;
+	/* 0x18 */ u32 entry;
+	/* 0x1c */ u32 phoff;
+	/* 0x20 */ u32 shoff;
+	/* 0x24 */ u32 flags;
+	/* 0x28 */ u16 ehsize;
+	/* 0x2a */ u16 phentsize;
+	/* 0x2c */ u16 phnum;
+	/* 0x2e */ u16 shentsize;
+	/* 0x30 */ u16 shnum;
+	/* 0x32 */ u16 shstrndx;
 )
 
 packed_struct(ElfProgramHeader32,
-	u32 type;   // 0x0
-	u32 offset; // 0x4
-	u32 vaddr;  // 0x8
-	u32 paddr;  // 0xc
-	u32 filesz; // 0x10
-	u32 memsz;  // 0x14
-	u32 flags;  // 0x18
-	u32 align;  // 0x1c
+	/* 0x00 */ u32 type;
+	/* 0x04 */ u32 offset;
+	/* 0x08 */ u32 vaddr;
+	/* 0x0c */ u32 paddr;
+	/* 0x10 */ u32 filesz;
+	/* 0x14 */ u32 memsz;
+	/* 0x18 */ u32 flags;
+	/* 0x1c */ u32 align;
 )
 
 packed_struct(ElfSectionHeader32,
-	u32 name;            // 0x0
-	ElfSectionType type; // 0x4
-	u32 flags;           // 0x8
-	u32 addr;            // 0xc
-	u32 offset;          // 0x10
-	u32 size;            // 0x14
-	u32 link;            // 0x18
-	u32 info;            // 0x1c
-	u32 addralign;       // 0x20
-	u32 entsize;         // 0x24
+	/* 0x00 */ u32 name;
+	/* 0x04 */ ElfSectionType type;
+	/* 0x08 */ u32 flags;
+	/* 0x0c */ u32 addr;
+	/* 0x10 */ u32 offset;
+	/* 0x14 */ u32 size;
+	/* 0x18 */ u32 link;
+	/* 0x1c */ u32 info;
+	/* 0x20 */ u32 addralign;
+	/* 0x24 */ u32 entsize;
 )
 
 void parse_elf_file(Module& mod) {
