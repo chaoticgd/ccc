@@ -10,7 +10,7 @@ enum class RegisterClass {
 	GPR = 0,
 	SPECIAL_GPR = 1,
 	SCP = 2,
-	FPU = 3,
+	FPR = 3,
 	SPECIAL_FPU = 4,
 	VU0 = 5
 };
@@ -90,39 +90,39 @@ enum class ScpRegister {
 	RESERVED31 = 31
 };
 
-enum class FpuRegister {
-	FPR0 = 0,
-	FPR1 = 1,
-	FPR2 = 2,
-	FPR3 = 3,
-	FPR4 = 4,
-	FPR5 = 5,
-	FPR6 = 6,
-	FPR7 = 7,
-	FPR8 = 8,
-	FPR9 = 9,
-	FPR10 = 10,
-	FPR11 = 11,
-	FPR12 = 12,
-	FPR13 = 13,
-	FPR14 = 14,
-	FPR15 = 15,
-	FPR16 = 16,
-	FPR17 = 17,
-	FPR18 = 18,
-	FPR19 = 19,
-	FPR20 = 20,
-	FPR21 = 21,
-	FPR22 = 22,
-	FPR23 = 23,
-	FPR24 = 24,
-	FPR25 = 25,
-	FPR26 = 26,
-	FPR27 = 27,
-	FPR28 = 28,
-	FPR29 = 29,
-	FPR30 = 30,
-	FPR31 = 31
+enum class FPR {
+	R0 = 0,
+	R1 = 1,
+	R2 = 2,
+	R3 = 3,
+	R4 = 4,
+	R5 = 5,
+	R6 = 6,
+	R7 = 7,
+	R8 = 8,
+	R9 = 9,
+	R10 = 10,
+	R11 = 11,
+	R12 = 12,
+	R13 = 13,
+	R14 = 14,
+	R15 = 15,
+	R16 = 16,
+	R17 = 17,
+	R18 = 18,
+	R19 = 19,
+	R20 = 20,
+	R21 = 21,
+	R22 = 22,
+	R23 = 23,
+	R24 = 24,
+	R25 = 25,
+	R26 = 26,
+	R27 = 27,
+	R28 = 28,
+	R29 = 29,
+	R30 = 30,
+	R31 = 31
 };
 
 enum SpecialFpuRegister {
@@ -172,7 +172,7 @@ extern const u64 REGISTER_STRING_TABLE_SIZES[6];
 extern const char* GPR_STRINGS[32];
 extern const char* SPECIAL_GPR_STRINGS[6];
 extern const char* SCP_STRINGS[32];
-extern const char* FPU_STRINGS[32];
+extern const char* FPR_STRINGS[32];
 extern const char* SPECIAL_FPU_STRINGS[3];
 extern const char* VU0_STRINGS[32];
 
