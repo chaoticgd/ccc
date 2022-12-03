@@ -96,6 +96,8 @@ enum SpecialFpuRegister {
 	ACC
 };
 
+extern const char* GPR_STRINGS[32];
+
 }
 
 #endif

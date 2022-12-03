@@ -2,7 +2,7 @@
 #define _CCC_H
 
 #include "util.h"
-#include "coredata.h"
+#include "module.h"
 #include "elf.h"
 #include "mdebug.h"
 #include "stabs.h"

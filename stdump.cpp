@@ -41,18 +41,16 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 	
-	Program program;
-	program.images.emplace_back(read_program_image(options.input_file));
-	parse_elf_file(program, 0);
+	Module mod = loaders::read_elf_file(options.input_file);
 	
 	SymbolTable symbol_table;
 	bool has_symbol_table = false;
-	for(ProgramSection& section : program.sections) {
+	for(ModuleSection& section : mod.sections) {
 		if(section.type == ElfSectionType::MIPS_DEBUG) {
 			if(options.verbose) {
 				print_address("mdebug section", section.file_offset);
 			}
-			symbol_table = parse_symbol_table(program.images[0], section);
+			symbol_table = parse_mdebug_section(mod, section);
 			has_symbol_table = true;
 		}
 	}

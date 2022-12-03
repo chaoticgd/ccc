@@ -2,12 +2,11 @@
 #define _CCC_ELF_H
 
 #include "util.h"
-#include "coredata.h"
+#include "module.h"
 
-namespace ccc {
+namespace ccc::loaders {
 
-ProgramImage read_program_image(fs::path path);
-void parse_elf_file(Program& program, u64 image_index);
+Module read_elf_file(fs::path path);
 
 }
 

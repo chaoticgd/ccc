@@ -1,13 +1,16 @@
 #include "elf.h"
 
-namespace ccc {
+namespace ccc::loaders {
 
-ProgramImage read_program_image(fs::path path) {
+static void parse_elf_file(Module& mod);
+
+Module read_elf_file(fs::path path) {
 	verify(fs::exists(path), "File doesn't exist.");
 
-	ProgramImage image;
-	image.bytes = read_file_bin(path);
-	return image;
+	Module mod;
+	mod.image = read_file_bin(path);
+	parse_elf_file(mod);
+	return mod;
 }
 
 enum class ElfIdentClass : u8 {
@@ -81,30 +84,35 @@ packed_struct(ElfSectionHeader32,
 	u32 entsize;         // 0x24
 )
 
-void parse_elf_file(Program& program, u64 image_index) {
-	const ProgramImage& image = program.images[image_index];
-	
-	const auto& ident = get_packed<ElfIdentHeader>(image.bytes, 0, "ELF ident bytes");
+void parse_elf_file(Module& mod) {
+	const auto& ident = get_packed<ElfIdentHeader>(mod.image, 0, "ELF ident bytes");
 	verify(memcmp(ident.magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
 	verify(ident.e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
-	const auto& header = get_packed<ElfFileHeader32>(image.bytes, sizeof(ElfIdentHeader), "ELF file header");
+	const auto& header = get_packed<ElfFileHeader32>(mod.image, sizeof(ElfIdentHeader), "ELF file header");
 	verify(header.machine == ElfMachine::MIPS, "Wrong architecture.");
 	
-	for(s32 i = 0; i < header.shnum; i++) {
-		u64 offset = header.shoff + i * sizeof(ElfSectionHeader32);
-		const auto& section_header = get_packed<ElfSectionHeader32>(image.bytes, offset, "ELF section header");
-		ProgramSection& section = program.sections.emplace_back();
-		section.image = image_index;
+	for(u32 i = 0; i < header.phnum; i++) {
+		u64 header_offset = header.phoff + i * sizeof(ElfProgramHeader32);
+		const auto& program_header = get_packed<ElfProgramHeader32>(mod.image, header_offset, "ELF program header");
+		ModuleSegment& segment = mod.segments.emplace_back();
+		segment.file_offset = program_header.offset;
+		segment.size = program_header.filesz;
+	}
+	
+	for(u32 i = 0; i < header.shnum; i++) {
+		u64 header_offset = header.shoff + i * sizeof(ElfSectionHeader32);
+		const auto& section_header = get_packed<ElfSectionHeader32>(mod.image, header_offset, "ELF section header");
+		ModuleSection& section = mod.sections.emplace_back();
 		section.file_offset = section_header.offset;
 		section.size = section_header.size;
 		section.type = section_header.type;
 		section.name_offset = section_header.name;
 	}
 	
-	if(header.shstrndx < program.sections.size()) {
-		for(ProgramSection& section : program.sections) {
-			section.name = read_string(image.bytes, program.sections[header.shstrndx].file_offset + section.name_offset);
+	if(header.shstrndx < mod.sections.size()) {
+		for(ModuleSection& section : mod.sections) {
+			section.name = read_string(mod.image, mod.sections[header.shstrndx].file_offset + section.name_offset);
 		}
 	}
 }

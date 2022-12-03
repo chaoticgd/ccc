@@ -21,6 +21,7 @@ endif()
 
 add_library(ccc STATIC
 	ccc/util.cpp
+	ccc/module.cpp
 	ccc/elf.cpp
 	ccc/mdebug.cpp
 	ccc/stabs.cpp
@@ -28,6 +29,7 @@ add_library(ccc STATIC
 	ccc/print.cpp
 	ccc/insn.cpp
 	ccc/tables.cpp
+	ccc/registers.cpp
 )
 
 add_executable(stdump stdump.cpp)

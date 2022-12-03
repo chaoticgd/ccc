@@ -99,7 +99,8 @@ struct FlowInfo {
 enum class InsnType {
 	INVALD,
 	BRANCH, // branches, jumps
-	ARTMTC, // integer, floating point maths
+	CALL, // calls, syscalls
+	ARTMTC, // moves, integer arithmetic, floating point maths
 	LOADFM, // memory loads
 	STOREM, // memory stores
 	SYSTEM  // cache, pref
@@ -116,16 +117,18 @@ struct Insn {
 	
 	InsnClass iclass() const;
 	const InsnInfo& info() const;
-	u32 target_bytes() const;
 	
 	u32 opcode() const;
 	u32 rs() const;
 	u32 rt() const;
 	u32 rd() const;
 	u32 sa() const;
-	u32 function() const;
-	u32 immediate() const;
+	u32 func() const;
+	u32 immed() const;
 	u32 target_insns() const;
+	u32 target_bytes() const;
+	
+	u32 field(InsnField field) const;
 	
 	static Insn create_i_type(u32 op, u32 rs, u32 rt, u32 immediate);
 	static Insn create_j_type(u32 op, u32 target);

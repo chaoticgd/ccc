@@ -2,7 +2,7 @@
 #define _CCC_STABS_H
 
 #include "util.h"
-#include "coredata.h"
+#include "mdebug.h"
 
 namespace ccc {
 

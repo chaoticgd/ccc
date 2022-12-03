@@ -1,3 +1,6 @@
+#ifndef _CCC_TABLES_H
+#define _CCC_TABLES_H
+
 #include "insn.h"
 
 namespace ccc::mips {
@@ -21,3 +24,5 @@ extern const InsnInfo COP1_S_TABLE[MAX_S];
 extern const InsnInfo COP1_W_TABLE[MAX_W];
 
 }
+
+#endif

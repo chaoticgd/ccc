@@ -87,10 +87,10 @@ packed_struct(FileDescriptorEntry,
 )
 static_assert(sizeof(FileDescriptorEntry) == 0x48);
 
-SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& section) {
+SymbolTable parse_mdebug_section(const Module& module, const ModuleSection& section) {
 	SymbolTable symbol_table;
 	
-	const auto& hdrr = get_packed<SymbolicHeader>(image.bytes, section.file_offset, "MIPS debug section");
+	const auto& hdrr = get_packed<SymbolicHeader>(module.image, section.file_offset, "MIPS debug section");
 	verify(hdrr.magic == 0x7009, "Invalid symbolic header.");
 	
 	symbol_table.procedure_descriptor_table_offset = hdrr.cb_pd_offset;
@@ -98,21 +98,21 @@ SymbolTable parse_symbol_table(const ProgramImage& image, const ProgramSection& 
 	symbol_table.file_descriptor_table_offset = hdrr.cb_fd_offset;
 	for(s64 i = 0; i < hdrr.ifd_max; i++) {
 		u64 fd_offset = hdrr.cb_fd_offset + i * sizeof(FileDescriptorEntry);
-		const auto& fd_entry = get_packed<FileDescriptorEntry>(image.bytes, fd_offset, "file descriptor");
+		const auto& fd_entry = get_packed<FileDescriptorEntry>(module.image, fd_offset, "file descriptor");
 		verify(fd_entry.f_big_endian == 0, "Not little endian or bad file descriptor table.");
 		
 		SymFileDescriptor fd;
 		u64 file_name_offset = hdrr.cb_ss_offset + fd_entry.iss_base + fd_entry.rss;
-		fd.name = read_string(image.bytes, file_name_offset);
+		fd.name = read_string(module.image, file_name_offset);
 		fd.procedures = {fd_entry.ipd_first, fd_entry.ipd_first + fd_entry.cpd};
 		
 		for(s64 j = 0; j < fd_entry.csym; j++) {
 			u64 sym_offset = hdrr.cb_sym_offset + (fd_entry.isym_base + j) * sizeof(SymbolEntry);
-			const auto& sym_entry = get_packed<SymbolEntry>(image.bytes, sym_offset, "local symbol");
+			const auto& sym_entry = get_packed<SymbolEntry>(module.image, sym_offset, "local symbol");
 			
 			Symbol sym;
 			u64 string_offset = hdrr.cb_ss_offset + fd_entry.iss_base + sym_entry.iss;
-			sym.string = read_string(image.bytes, string_offset);
+			sym.string = read_string(module.image, string_offset);
 			sym.value = sym_entry.value;
 			sym.storage_type = (SymbolType) sym_entry.st;
 			sym.storage_class = (SymbolClass) sym_entry.sc;
