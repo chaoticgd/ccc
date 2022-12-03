@@ -52,8 +52,13 @@ struct Module {
 };
 
 void read_virtual(u8* dest, u32 address, u32 size, const std::vector<Module*>& modules);
-std::vector<u8> read_virtual_vector(u32 address, u32 size, const std::vector<Module*>& modules);
 
+template <typename T>
+std::vector<T> read_virtual_vector(u32 address, u32 count, const std::vector<Module*>& modules) {
+	std::vector<T> result(count);
+	read_virtual((u8*) result.data(), address, count * sizeof(T), modules);
+	return result;
+}
 };
 
 #endif

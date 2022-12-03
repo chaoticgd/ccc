@@ -11,5 +11,6 @@
 #include "insn.h"
 #include "registers.h"
 #include "tables.h"
+#include "ir.h"
 
 #endif

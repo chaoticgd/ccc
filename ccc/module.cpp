@@ -43,10 +43,4 @@ void read_virtual(u8* dest, u32 address, u32 size, const std::vector<Module*>& m
 	}
 }
 
-std::vector<u8> read_virtual_vector(u32 address, u32 size, const std::vector<Module*>& modules) {
-	std::vector<u8> bytes(size);
-	read_virtual(bytes.data(), address, size, modules);
-	return bytes;
-}
-
 }

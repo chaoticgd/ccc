@@ -3,6 +3,7 @@
 
 #include <map>
 #include <set>
+#include <span>
 #include <vector>
 #include <cstdio>
 #include <memory>
@@ -11,6 +12,7 @@
 #include <cstring>
 #include <assert.h>
 #include <iostream>
+#include <stdarg.h>
 #include <optional>
 #include <algorithm>
 #include <filesystem>
@@ -80,6 +82,9 @@ struct Range {
 
 #define BEGIN_END(x) (x).begin(), (x).end()
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+std::string string_format(const char* format, va_list args);
+std::string stringf(const char* format, ...);
 
 }
 

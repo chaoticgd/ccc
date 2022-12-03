@@ -9,7 +9,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 	message(FATAL_ERROR "In-tree build detected. You should do an out-of-tree build instead:\n\tcmake -S . -B bin/")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(MSVC)
@@ -30,6 +30,7 @@ add_library(ccc STATIC
 	ccc/insn.cpp
 	ccc/tables.cpp
 	ccc/registers.cpp
+	ccc/ir.cpp
 )
 
 add_executable(stdump stdump.cpp)

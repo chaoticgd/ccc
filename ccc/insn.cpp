@@ -13,6 +13,8 @@
 
 namespace ccc::mips {
 
+Insn::Insn() {}
+
 Insn::Insn(u32 val) : value(val) {}
 
 InsnClass Insn::iclass() const {

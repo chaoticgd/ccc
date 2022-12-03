@@ -113,6 +113,7 @@ struct InsnInfo {
 };
 
 struct Insn {
+	Insn();
 	Insn(u32 val);
 	
 	InsnClass iclass() const;

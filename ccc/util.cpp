@@ -48,4 +48,18 @@ std::string read_string(const buffer& bytes, u64 offset) {
 	return result;
 }
 
+std::string string_format(const char* format, va_list args) {
+	static char buffer[16 * 1024];
+	vsnprintf(buffer, 16 * 1024, format, args);
+	return std::string(buffer);
+}
+
+std::string stringf(const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	std::string string = string_format(format, args);
+	va_end(args);
+	return string;
+}
+
 }

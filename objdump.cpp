@@ -12,14 +12,20 @@ int main(int argc, char** argv) {
 	verify(text, "ELF contains no .text section!");
 	
 	u32 text_address = mod.file_offset_to_virtual_address(text->file_offset);
-	std::vector<u8> bytes = read_virtual_vector(text_address, text->size, modules);
+	std::vector<mips::Insn> insns = read_virtual_vector<mips::Insn>(text_address, text->size / 4, modules);
+	std::map<u32, ir::Function> funcs = ir::scan_for_functions(text_address, insns);
 	
-	for(u64 i = 0; i < text->size; i += 4) {
-		u32 insn_bytes = *(u32*) &bytes[i]; 
-		mips::Insn insn(insn_bytes);
+	for(u64 i = 0; i < text->size / 4; i++) {
+		mips::Insn insn = insns[i];
 		const mips::InsnInfo& info = insn.info();
 		u32 insn_address = text_address + i;
-		printf("%08x:\t\t%08x %s ", insn_address, insn_bytes, info.mnemonic);
+		
+		auto func = funcs.find(insn_address);
+		if(func != funcs.end()) {
+			printf("\t\t%s:\n", func->second.name.c_str());
+		}
+		
+		printf("%08x:\t\t%08x %s ", insn_address, insn.value, info.mnemonic);
 		for(s32 i = 0; i < 16 - strlen(info.mnemonic); i++) {
 			printf(" ");
 		}
