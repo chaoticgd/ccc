@@ -6,13 +6,13 @@
 namespace ccc::mips {
 
 enum class RegisterClass {
-	INVALID,
-	GPR,
-	SPECIAL_GPR,
-	SCP,
-	FPU,
-	SPECIAL_FPU,
-	VU0
+	INVALID = -1,
+	GPR = 0,
+	SPECIAL_GPR = 1,
+	SCP = 2,
+	FPU = 3,
+	SPECIAL_FPU = 4,
+	VU0 = 5
 };
 
 enum class GPR {
@@ -51,52 +51,130 @@ enum class GPR {
 	RA = 31
 };
 
-enum SpecialGPR {
-	PC,
-	HI,
-	LO,
-	HI1,
-	LO1,
-	SA
+enum class SpecialGPR {
+	PC = 0,
+	HI = 1,
+	LO = 2,
+	HI1 = 3,
+	LO1 = 4,
+	SA = 5
 };
 
-enum ScpRegister {
-	SCP_INDEX = 0,
-	SCP_RANDOM = 1,
-	SCP_ENTRYLO0 = 2,
-	SCP_ENTRYLO1 = 3,
-	SCP_CONTEXT = 4,
-	SCP_PAGEMASK =5,
-	SCP_WIRED = 6,
-	SCP_RESERVED7 = 7,
-	SCP_BADVADDR = 8,
-	SCP_COUNT = 9,
-	SCP_ENTRYHI = 10,
-	SCP_COMPARE = 11,
-	SCP_STATUS = 12,
-	SCP_CAUSE = 13,
-	SCP_EPC = 14,
-	SCP_PRID = 15,
-	SCP_CONFIG = 16,
-	SCP_RESERVED17 = 17,
-	SCP_BADPADDR = 23,
-	SCP_DEBUG = 24,
-	SCP_PERF = 25,
-	SCP_RESERVED26 = 26,
-	SCP_RESERVED27 = 27,
-	SCP_TAGLO = 28,
-	SCP_TAGHI = 29,
-	SCP_ERROREPC = 30,
-	SCP_RESERVED31 = 31
+enum class ScpRegister {
+	INDEX = 0,
+	RANDOM = 1,
+	ENTRYLO0 = 2,
+	ENTRYLO1 = 3,
+	CONTEXT = 4,
+	PAGEMASK = 5,
+	WIRED = 6,
+	RESERVED7 = 7,
+	BADVADDR = 8,
+	COUNT = 9,
+	ENTRYHI = 10,
+	COMPARE = 11,
+	STATUS = 12,
+	CAUSE = 13,
+	EPC = 14,
+	PRID = 15,
+	CONFIG = 16,
+	RESERVED17 = 17,
+	BADPADDR = 23,
+	DEBUG = 24,
+	PERF = 25,
+	RESERVED26 = 26,
+	RESERVED27 = 27,
+	TAGLO = 28,
+	TAGHI = 29,
+	ERROREPC = 30,
+	RESERVED31 = 31
+};
+
+enum class FpuRegister {
+	FPR0 = 0,
+	FPR1 = 1,
+	FPR2 = 2,
+	FPR3 = 3,
+	FPR4 = 4,
+	FPR5 = 5,
+	FPR6 = 6,
+	FPR7 = 7,
+	FPR8 = 8,
+	FPR9 = 9,
+	FPR10 = 10,
+	FPR11 = 11,
+	FPR12 = 12,
+	FPR13 = 13,
+	FPR14 = 14,
+	FPR15 = 15,
+	FPR16 = 16,
+	FPR17 = 17,
+	FPR18 = 18,
+	FPR19 = 19,
+	FPR20 = 20,
+	FPR21 = 21,
+	FPR22 = 22,
+	FPR23 = 23,
+	FPR24 = 24,
+	FPR25 = 25,
+	FPR26 = 26,
+	FPR27 = 27,
+	FPR28 = 28,
+	FPR29 = 29,
+	FPR30 = 30,
+	FPR31 = 31
 };
 
 enum SpecialFpuRegister {
-	FCR0,
-	FCR31,
-	ACC
+	FCR0 = 0,
+	FCR31 = 1,
+	ACC = 2
 };
 
+enum class Vu0Register {
+	VF0 = 0,
+	VF1 = 1,
+	VF2 = 2,
+	VF3 = 3,
+	VF4 = 4,
+	VF5 = 5,
+	VF6 = 6,
+	VF7 = 7,
+	VF8 = 8,
+	VF9 = 9,
+	VF10 = 10,
+	VF11 = 11,
+	VF12 = 12,
+	VF13 = 13,
+	VF14 = 14,
+	VF15 = 15,
+	VF16 = 16,
+	VF17 = 17,
+	VF18 = 18,
+	VF19 = 19,
+	VF20 = 20,
+	VF21 = 21,
+	VF22 = 22,
+	VF23 = 23,
+	VF24 = 24,
+	VF25 = 25,
+	VF26 = 26,
+	VF27 = 27,
+	VF28 = 28,
+	VF29 = 29,
+	VF30 = 30,
+	VF31 = 31
+};
+
+extern const char** REGISTER_STRING_TABLES[6];
+extern const u64 REGISTER_STRING_TABLE_SIZES[6];
+
 extern const char* GPR_STRINGS[32];
+extern const char* SPECIAL_GPR_STRINGS[6];
+extern const char* SCP_STRINGS[32];
+extern const char* FPU_STRINGS[32];
+extern const char* SPECIAL_FPU_STRINGS[3];
+extern const char* VU0_STRINGS[32];
 
 }
 

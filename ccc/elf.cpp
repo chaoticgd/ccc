@@ -98,6 +98,7 @@ void parse_elf_file(Module& mod) {
 		ModuleSegment& segment = mod.segments.emplace_back();
 		segment.file_offset = program_header.offset;
 		segment.size = program_header.filesz;
+		segment.virtual_address = program_header.vaddr;
 	}
 	
 	for(u32 i = 0; i < header.shnum; i++) {

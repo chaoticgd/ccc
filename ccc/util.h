@@ -79,6 +79,7 @@ struct Range {
 };
 
 #define BEGIN_END(x) (x).begin(), (x).end()
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 }
 

@@ -29,8 +29,9 @@ void read_virtual(u8* dest, u32 address, u32 size, const std::vector<Module*>& m
 				if(address >= segment.virtual_address && address < segment.virtual_address + segment.size) {
 					u32 offset = address - segment.virtual_address;
 					u32 copy_size = std::min(segment.size - offset, size);
-					verify(offset + copy_size <= module->image.size(), "Segment is bad or image is too small.");
-					memcpy(dest, &module->image[offset], copy_size);
+					verify(segment.file_offset + offset + copy_size <= module->image.size(), "Segment is bad or image is too small.");
+					memcpy(dest, &module->image[segment.file_offset + offset], copy_size);
+					dest += copy_size;
 					address += copy_size;
 					size -= copy_size;
 					mapped = true;

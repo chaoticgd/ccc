@@ -124,6 +124,7 @@ u32 Insn::field(InsnField field) const {
 		case InsnField::SA: return sa();
 		case InsnField::FUNC: return func();
 	}
+	return 0;
 }
 
 }
