@@ -113,7 +113,7 @@ void parse_elf_file(Module& mod) {
 	
 	if(header.shstrndx < mod.sections.size()) {
 		for(ModuleSection& section : mod.sections) {
-			section.name = read_string(mod.image, mod.sections[header.shstrndx].file_offset + section.name_offset);
+			section.name = get_string(mod.image, mod.sections[header.shstrndx].file_offset + section.name_offset);
 		}
 	}
 }

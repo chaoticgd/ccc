@@ -11,7 +11,7 @@
 
 namespace ccc {
 
-buffer read_file_bin(fs::path const& filepath) {
+std::vector<u8> read_file_bin(fs::path const& filepath) {
 	std::ifstream ifs(filepath, std::ios::binary | std::ios::ate);
 
 	if (!ifs)
@@ -25,7 +25,7 @@ buffer read_file_bin(fs::path const& filepath) {
 	if (size == 0)  // avoid undefined behavior
 		return {};
 
-	const buffer buf(size);
+	const std::vector<u8> buf(size);
 
 	if (!ifs.read((char*)buf.data(), buf.size()))
 		throw std::runtime_error(filepath.string() + ": " + std::strerror(errno));
@@ -33,17 +33,11 @@ buffer read_file_bin(fs::path const& filepath) {
 	return buf;
 }
 
-std::string read_string(const buffer& bytes, u64 offset) {
-	if(offset > bytes.size()) {
-		return "(unexpected eof)";
-	}
+std::string get_string(const std::vector<u8>& bytes, u64 offset) {
+	verify(offset < bytes.size(), "Offset of string is too large.");
 	std::string result;
-	for(u64 i = offset; i < bytes.size(); i++) {
-		if(bytes[i] == 0) {
-			break;
-		} else {
-			result += bytes[i];
-		}
+	for(u64 i = offset; i < bytes.size() && bytes[i] != '\0'; i++) {
+		result += bytes[i];
 	}
 	return result;
 }

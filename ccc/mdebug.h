@@ -35,18 +35,18 @@ struct Symbol {
 	u32 index;
 };
 
-struct SymFileDescriptor {
-	std::string name;
-	Range procedures;
-	std::vector<Symbol> symbols;
-};
-
 struct SymProcedureDescriptor {
 	std::string name;
+	u32 address;
+};
+
+struct SymFileDescriptor {
+	std::string name;
+	std::vector<Symbol> symbols;
+	std::vector<SymProcedureDescriptor> procedures;
 };
 
 struct SymbolTable {
-	std::vector<SymProcedureDescriptor> procedures;
 	std::vector<SymFileDescriptor> files;
 	u64 procedure_descriptor_table_offset;
 	u64 local_symbol_table_offset;
