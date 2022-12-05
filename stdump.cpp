@@ -84,6 +84,11 @@ int main(int argc, char** argv) {
 	type.storage_class = ast::StorageClass::TYPEDEF;
 	type.name = "hypervar";
 	
+	ast::BaseClass bc;
+	bc.offset = 0;
+	bc.type_name = "BaseThing";
+	type.base_classes.emplace_back(bc);
+	
 	auto name = std::make_unique<ast::TypeName>();
 	name->type_name = "Type";
 	name->name = "thing";

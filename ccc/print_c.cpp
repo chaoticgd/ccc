@@ -54,6 +54,15 @@ void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_leve
 			if(name_on_top) {
 				fprintf(dest, " %s", inline_struct.name.c_str());
 			}
+			if(!inline_struct.base_classes.empty()) {
+				fprintf(dest, " :");
+				for(const ast::BaseClass& base_class : inline_struct.base_classes) {
+					if(base_class.offset > -1) {
+						fprintf(dest, " /* 0x%03x */", base_class.offset);
+					}
+					fprintf(dest, " %s", base_class.type_name.c_str());
+				}
+			}
 			fprintf(dest, " {\n");
 			for(const std::unique_ptr<ast::Node>& field : inline_struct.fields) {
 				indent(dest, indentation_level + 1);
