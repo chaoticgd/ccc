@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <variant>
 #include <assert.h>
 #include <iostream>
 #include <stdarg.h>

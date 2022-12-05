@@ -26,11 +26,13 @@ add_library(ccc STATIC
 	ccc/mdebug.cpp
 	ccc/stabs.cpp
 	ccc/old_ast.cpp
-	ccc/print.cpp
+	ccc/old_print.cpp
 	ccc/insn.cpp
 	ccc/tables.cpp
 	ccc/registers.cpp
 	ccc/ir.cpp
+	ccc/ast.cpp
+	ccc/print_c.cpp
 )
 
 add_executable(stdump stdump.cpp)

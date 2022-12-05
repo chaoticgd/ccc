@@ -1,3 +1,6 @@
+#ifndef _CCC_OLD_PRINT_H
+#define _CCC_OLD_PRINT_H
+
 #include "util.h"
 #include "old_ast.h"
 
@@ -14,3 +17,5 @@ void print_c_forward_declarations(FILE* output, const std::vector<AstNode>& ast_
 void print_c_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset);
 
 }
+
+#endif

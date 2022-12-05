@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
 			print_files(symbol_table);
 			break;
 		case OUTPUT_TYPES:
-			print_c_deduplicated(symbol_table, options);
+			//print_c_deduplicated(symbol_table, options);
 			break;
 		case OUTPUT_PER_FILE:
 			print_c_per_file(symbol_table, options);
@@ -77,6 +77,32 @@ int main(int argc, char** argv) {
 			print_c_test(symbol_table);
 			break;
 	}
+	
+	ast::InlineStruct type;
+	type.storage_class = ast::StorageClass::TYPEDEF;
+	type.name = "hypervar";
+	
+	auto name = std::make_unique<ast::TypeName>();
+	name->type_name = "Type";
+	name->name = "thing";
+	type.fields.emplace_back(std::move(name));
+	
+	auto uni = std::make_unique<ast::InlineUnion>();
+	uni->name = "myunion";
+	
+	auto funp = std::make_unique<ast::FunctionPointer>();
+	funp->name = "hello";
+	
+	auto rt = std::make_unique<ast::TypeName>();
+	rt->type_name = "MaybeError";
+	funp->return_type = std::move(rt);
+	
+	uni->fields.emplace_back(std::move(funp));
+	
+	type.fields.emplace_back(std::move(uni));
+	
+	
+	print::print_ast_node_as_c(stdout, type);
 }
 
 static void print_symbols(SymbolTable& symbol_table) {
