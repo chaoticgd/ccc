@@ -16,7 +16,7 @@ static AstNode struct_or_union_node(
 static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs);
 
 s32 type_number_of(const StabsType* type) {
-	verify(type && !type->anonymous, "error: Tried to access type number of anonymous or null type.\n");
+	verify(type && !type->anonymous, "Tried to access type number of anonymous or null type.");
 	return type->type_number;
 }
 
@@ -35,7 +35,7 @@ const StabsType* find_type(StabsType* type, const std::map<s32, const StabsType*
 		return nullptr;
 	}
 	auto iterator = types.find(type->type_number);
-	verify(iterator != types.end(), "error: Tried to lookup undeclared type.\n");
+	verify(iterator != types.end(), "Tried to lookup undeclared type.");
 	assert(iterator->second);
 	return iterator->second;
 }
@@ -75,7 +75,7 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 			StabsType* index = type.array_type.index_type.get();
 			assert(index);
 			verify(index->descriptor == StabsTypeDescriptor::RANGE && index->range_type.low == 0,
-				"error: Invalid index type for array.\n");
+				"Invalid index type for array.");
 			name.array_indices.push_back(index->range_type.high + 1);
 			return name;
 		}
@@ -114,13 +114,13 @@ static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types
 			return type_name;
 		}
 		default:
-			verify_not_reached("error: Unexpected type descriptor.\n");
+			verify_not_reached("Unexpected type descriptor.");
 	}
 }
 
 static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, TypeName>& type_names) {
 	auto iterator = type_names.find(type_number);
-	verify(iterator != type_names.end(), "error: Undeclared type referenced: %d.\n", type_number);
+	verify(iterator != type_names.end(), "Undeclared type referenced: %d.", type_number);
 	return iterator->second;
 }
 

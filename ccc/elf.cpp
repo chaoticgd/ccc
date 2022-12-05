@@ -1,13 +1,16 @@
 #include "elf.h"
 
-namespace ccc {
+namespace ccc::loaders {
 
-ProgramImage read_program_image(fs::path path) {
-	verify(fs::exists(path), "error: file doesn't exist\n");
+static void parse_elf_file(Module& mod);
 
-	ProgramImage image;
-	image.bytes = read_file_bin(path);
-	return image;
+Module read_elf_file(fs::path path) {
+	verify(fs::exists(path), "File doesn't exist.");
+
+	Module mod;
+	mod.image = read_file_bin(path);
+	parse_elf_file(mod);
+	return mod;
 }
 
 enum class ElfIdentClass : u8 {
@@ -32,103 +35,86 @@ enum class ElfMachine : u16 {
 };
 
 packed_struct(ElfIdentHeader,
-	u8 magic[4];           // 0x0 7f 45 4c 46
-	ElfIdentClass e_class; // 0x4
-	u8 endianess;          // 0x5
-	u8 version;            // 0x6
-	u8 os_abi;             // 0x7
-	u8 abi_version;        // 0x8
-	u8 pad[7];             // 0x9
+	/* 0x0 */ u8 magic[4]; // 7f 45 4c 46
+	/* 0x4 */ ElfIdentClass e_class;
+	/* 0x5 */ u8 endianess;
+	/* 0x6 */ u8 version;
+	/* 0x7 */ u8 os_abi;
+	/* 0x8 */ u8 abi_version;
+	/* 0x9 */ u8 pad[7];
 )
 
 packed_struct(ElfFileHeader32,
-	ElfFileType type;   // 0x10
-	ElfMachine machine; // 0x12
-	u32 version;        // 0x14
-	u32 entry;          // 0x18
-	u32 phoff;          // 0x1c
-	u32 shoff;          // 0x20
-	u32 flags;          // 0x24
-	u16 ehsize;         // 0x28
-	u16 phentsize;      // 0x2a
-	u16 phnum;          // 0x2c
-	u16 shentsize;      // 0x2e
-	u16 shnum;          // 0x30
-	u16 shstrndx;       // 0x32
+	/* 0x10 */ ElfFileType type;
+	/* 0x12 */ ElfMachine machine;
+	/* 0x14 */ u32 version;
+	/* 0x18 */ u32 entry;
+	/* 0x1c */ u32 phoff;
+	/* 0x20 */ u32 shoff;
+	/* 0x24 */ u32 flags;
+	/* 0x28 */ u16 ehsize;
+	/* 0x2a */ u16 phentsize;
+	/* 0x2c */ u16 phnum;
+	/* 0x2e */ u16 shentsize;
+	/* 0x30 */ u16 shnum;
+	/* 0x32 */ u16 shstrndx;
 )
 
 packed_struct(ElfProgramHeader32,
-	u32 type;   // 0x0
-	u32 offset; // 0x4
-	u32 vaddr;  // 0x8
-	u32 paddr;  // 0xc
-	u32 filesz; // 0x10
-	u32 memsz;  // 0x14
-	u32 flags;  // 0x18
-	u32 align;  // 0x1c
+	/* 0x00 */ u32 type;
+	/* 0x04 */ u32 offset;
+	/* 0x08 */ u32 vaddr;
+	/* 0x0c */ u32 paddr;
+	/* 0x10 */ u32 filesz;
+	/* 0x14 */ u32 memsz;
+	/* 0x18 */ u32 flags;
+	/* 0x1c */ u32 align;
 )
-
-enum class ElfSectionType : u32 {
-	NULL_SECTION = 0x0,
-	PROGBITS = 0x1,
-	SYMTAB = 0x2,
-	STRTAB = 0x3,
-	RELA = 0x4,
-	HASH = 0x5,
-	DYNAMIC = 0x6,
-	NOTE = 0x7,
-	NOBITS = 0x8,
-	REL = 0x9,
-	SHLIB = 0xa,
-	DYNSYM = 0xb,
-	INIT_ARRAY = 0xe,
-	FINI_ARRAY = 0xf,
-	PREINIT_ARRAY = 0x10,
-	GROUP = 0x11,
-	SYMTAB_SHNDX = 0x12,
-	NUM = 0x13,
-	LOOS = 0x60000000,
-	MIPS_DEBUG = 0x70000005
-};
 
 packed_struct(ElfSectionHeader32,
-	u32 name;            // 0x0
-	ElfSectionType type; // 0x4
-	u32 flags;           // 0x8
-	u32 addr;            // 0xc
-	u32 offset;          // 0x10
-	u32 size;            // 0x14
-	u32 link;            // 0x18
-	u32 info;            // 0x1c
-	u32 addralign;       // 0x20
-	u32 entsize;         // 0x24
+	/* 0x00 */ u32 name;
+	/* 0x04 */ ElfSectionType type;
+	/* 0x08 */ u32 flags;
+	/* 0x0c */ u32 addr;
+	/* 0x10 */ u32 offset;
+	/* 0x14 */ u32 size;
+	/* 0x18 */ u32 link;
+	/* 0x1c */ u32 info;
+	/* 0x20 */ u32 addralign;
+	/* 0x24 */ u32 entsize;
 )
 
-void parse_elf_file(Program& program, u64 image_index) {
-	const ProgramImage& image = program.images[image_index];
+void parse_elf_file(Module& mod) {
+	const auto& ident = get_packed<ElfIdentHeader>(mod.image, 0, "ELF ident bytes");
+	verify(memcmp(ident.magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
+	verify(ident.e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
-	const auto& ident = get_packed<ElfIdentHeader>(image.bytes, 0, "ELF ident bytes");
-	verify(memcmp(ident.magic, "\x7f\x45\x4c\x46", 4) == 0, "error: Invalid ELF file.\n");
-	verify(ident.e_class == ElfIdentClass::B32, "error: Wrong ELF class (not 32 bit).\n");
+	const auto& header = get_packed<ElfFileHeader32>(mod.image, sizeof(ElfIdentHeader), "ELF file header");
+	verify(header.machine == ElfMachine::MIPS, "Wrong architecture.");
 	
-	const auto& header = get_packed<ElfFileHeader32>(image.bytes, sizeof(ElfIdentHeader), "ELF file header");
-	//verify(header.type == ElfFileType::EXEC, "error: ELF is not an executable.\n");
-	verify(header.machine == ElfMachine::MIPS, "error: Wrong architecture.\n");
+	for(u32 i = 0; i < header.phnum; i++) {
+		u64 header_offset = header.phoff + i * sizeof(ElfProgramHeader32);
+		const auto& program_header = get_packed<ElfProgramHeader32>(mod.image, header_offset, "ELF program header");
+		ModuleSegment& segment = mod.segments.emplace_back();
+		segment.file_offset = program_header.offset;
+		segment.size = program_header.filesz;
+		segment.virtual_address = program_header.vaddr;
+	}
 	
 	for(u32 i = 0; i < header.shnum; i++) {
-		u64 offset = header.shoff + i * sizeof(ElfSectionHeader32);
-		const auto& section_header = get_packed<ElfSectionHeader32>(image.bytes, offset, "ELF section header");
-		ProgramSection section;
-		section.image = image_index;
+		u64 header_offset = header.shoff + i * sizeof(ElfSectionHeader32);
+		const auto& section_header = get_packed<ElfSectionHeader32>(mod.image, header_offset, "ELF section header");
+		ModuleSection& section = mod.sections.emplace_back();
 		section.file_offset = section_header.offset;
 		section.size = section_header.size;
-		section.type = [&]() {
-			switch(section_header.type) {
-				case ElfSectionType::MIPS_DEBUG: return ProgramSectionType::MIPS_DEBUG;
-				default:                         return ProgramSectionType::OTHER;
-			}
-		}();
-		program.sections.emplace_back(section);
+		section.type = section_header.type;
+		section.name_offset = section_header.name;
+	}
+	
+	if(header.shstrndx < mod.sections.size()) {
+		for(ModuleSection& section : mod.sections) {
+			section.name = get_string(mod.image, mod.sections[header.shstrndx].file_offset + section.name_offset);
+		}
 	}
 }
 

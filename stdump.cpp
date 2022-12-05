@@ -41,18 +41,16 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 	
-	Program program;
-	program.images.emplace_back(read_program_image(options.input_file));
-	parse_elf_file(program, 0);
+	Module mod = loaders::read_elf_file(options.input_file);
 	
 	SymbolTable symbol_table;
 	bool has_symbol_table = false;
-	for(ProgramSection& section : program.sections) {
-		if(section.type == ProgramSectionType::MIPS_DEBUG) {
+	for(ModuleSection& section : mod.sections) {
+		if(section.type == ElfSectionType::MIPS_DEBUG) {
 			if(options.verbose) {
 				print_address("mdebug section", section.file_offset);
 			}
-			symbol_table = parse_symbol_table(program.images[0], section);
+			symbol_table = parse_mdebug_section(mod, section);
 			has_symbol_table = true;
 		}
 	}
@@ -197,7 +195,7 @@ static void print_c_test(const SymbolTable& symbol_table) {
 static Options parse_args(int argc, char** argv) {
 	Options options;
 	auto only_one = [&]() {
-		verify(options.mode == OUTPUT_DEFAULT, "error: Multiple mode flags specified.\n");
+		verify(options.mode == OUTPUT_DEFAULT, "Multiple mode flags specified.");
 	};
 	for(int i = 1; i < argc; i++) {
 		std::string arg = argv[i];
@@ -227,14 +225,14 @@ static Options parse_args(int argc, char** argv) {
 			continue;
 		}
 		if(arg == "--language" || arg == "-l") {
-			verify(i < argc - 1, "error: No language specified.\n");
+			verify(i < argc - 1, "No language specified.");
 			std::string language = argv[++i];
 			if(language == "cpp") {
 				options.language = OutputLanguage::CPP;
 			} else if(language == "json") {
 				options.language = OutputLanguage::JSON;
 			} else {
-				verify_not_reached("error: Invalid language.\n");
+				verify_not_reached("Invalid language.");
 			}
 			continue;
 		}
@@ -242,7 +240,7 @@ static Options parse_args(int argc, char** argv) {
 			options.verbose = true;
 			continue;
 		}
-		verify(options.input_file.empty(), "error: Multiple input files specified.\n");
+		verify(options.input_file.empty(), "Multiple input files specified.");
 		options.input_file = arg;
 	}
 	return options;
