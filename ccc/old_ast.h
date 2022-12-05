@@ -1,5 +1,5 @@
-#ifndef _CCC_AST_H
-#define _CCC_AST_H
+#ifndef _CCC_OLD_AST_H
+#define _CCC_OLD_AST_H
 
 #include "util.h"
 #include "stabs.h"

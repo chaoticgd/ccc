@@ -6,7 +6,7 @@
 #include "elf.h"
 #include "mdebug.h"
 #include "stabs.h"
-#include "ast.h"
+#include "old_ast.h"
 #include "print.h"
 #include "insn.h"
 #include "registers.h"
