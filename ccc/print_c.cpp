@@ -57,6 +57,9 @@ void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_leve
 			fprintf(dest, " {\n");
 			for(const std::unique_ptr<ast::Node>& field : inline_struct.fields) {
 				indent(dest, indentation_level + 1);
+				if(field->offset > -1) {
+					fprintf(dest, "/* 0x%03x */ ", field->offset);
+				}
 				assert(field.get());
 				print_ast_node_as_c(dest, *field.get(), indentation_level + 1);
 				fprintf(dest, ";\n");
@@ -79,6 +82,9 @@ void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_leve
 			fprintf(dest, " {\n");
 			for(const std::unique_ptr<ast::Node>& field : inline_union.fields) {
 				indent(dest, indentation_level + 1);
+				if(field->offset > -1) {
+					fprintf(dest, "/* 0x%03x */ ", field->offset);
+				}
 				assert(field.get());
 				print_ast_node_as_c(dest, *field.get(), indentation_level + 1);
 				fprintf(dest, ";\n");

@@ -87,6 +87,7 @@ int main(int argc, char** argv) {
 	auto name = std::make_unique<ast::TypeName>();
 	name->type_name = "Type";
 	name->name = "thing";
+	name->offset = 0;
 	type.fields.emplace_back(std::move(name));
 	
 	auto uni = std::make_unique<ast::InlineUnion>();
@@ -120,6 +121,7 @@ int main(int argc, char** argv) {
 	bf->name = "thisisabitfield";
 	bf->underlying_type = std::move(under);
 	bf->bits = 3;
+	bf->offset = 4;
 	
 	type.fields.emplace_back(std::move(bf));
 	
