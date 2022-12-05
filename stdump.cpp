@@ -78,6 +78,8 @@ int main(int argc, char** argv) {
 			break;
 	}
 	
+	// just for testing...
+	
 	ast::InlineStruct type;
 	type.storage_class = ast::StorageClass::TYPEDEF;
 	type.name = "hypervar";
@@ -98,6 +100,28 @@ int main(int argc, char** argv) {
 	funp->return_type = std::move(rt);
 	
 	uni->fields.emplace_back(std::move(funp));
+	
+	auto ptr = std::make_unique<ast::Pointer>();
+	ptr->name = "myint";
+	auto ity = std::make_unique<ast::TypeName>();
+	ity->type_name = "int";
+	ptr->value_type = std::move(ity);
+	
+	auto ar = std::make_unique<ast::Array>();
+	ar->element_type = std::move(ptr);
+	ar->element_count = 6;
+	
+	uni->fields.emplace_back(std::move(ar));
+	
+	auto under = std::make_unique<ast::TypeName>();
+	under->type_name = "int32_t";
+	
+	auto bf = std::make_unique<ast::BitField>();
+	bf->name = "thisisabitfield";
+	bf->underlying_type = std::move(under);
+	bf->bits = 3;
+	
+	type.fields.emplace_back(std::move(bf));
 	
 	type.fields.emplace_back(std::move(uni));
 	

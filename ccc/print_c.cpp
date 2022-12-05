@@ -8,15 +8,23 @@ static void indent(FILE* dest, s32 level);
 void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_level) {
 	switch(node.descriptor) {
 		case ast::ARRAY: {
-			const ast::Array& array = node.as<const ast::Array>();
+			const ast::Array& array = node.as<ast::Array>();
 			print_storage_class(dest, array.storage_class);
 			assert(array.element_type.get());
 			print_ast_node_as_c(dest, *array.element_type.get(), indentation_level);
 			fprintf(dest, "%s[%d]", array.name.c_str(), array.element_count);
 			break;
 		}
+		case ast::BITFIELD: {
+			const ast::BitField& bit_field = node.as<ast::BitField>();
+			assert(bit_field.underlying_type.get());
+			print_ast_node_as_c(dest, *bit_field.underlying_type.get());
+			fprintf(dest, "%s%s", bit_field.name.empty() ? "" : " ", bit_field.name.c_str());
+			printf(" : %d", bit_field.bits);
+			break;
+		}
 		case ast::FUNCTION_POINTER: {
-			const ast::FunctionPointer& function_pointer = node.as<const ast::FunctionPointer>();
+			const ast::FunctionPointer& function_pointer = node.as<ast::FunctionPointer>();
 			assert(function_pointer.return_type.get());
 			print_ast_node_as_c(dest, *function_pointer.return_type.get(), indentation_level);
 			fprintf(dest, " (*%s)(", function_pointer.name.c_str());
@@ -31,14 +39,14 @@ void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_leve
 			break;
 		}
 		case ast::INLINE_ENUM: {
-			const ast::InlineEnum& inline_enum = node.as<const ast::InlineEnum>();
+			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
 			fprintf(dest, "enum {\n");
 			indent(dest, indentation_level);
 			fprintf(dest, "}\n");
 			break;
 		}
 		case ast::INLINE_STRUCT: {
-			const ast::InlineStruct& inline_struct = node.as<const ast::InlineStruct>();
+			const ast::InlineStruct& inline_struct = node.as<ast::InlineStruct>();
 			assert(!inline_struct.name.empty());
 			print_storage_class(dest, inline_struct.storage_class);
 			fprintf(dest, "struct");
@@ -61,7 +69,7 @@ void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_leve
 			break;
 		}
 		case ast::INLINE_UNION: {
-			const ast::InlineUnion& inline_union = node.as<const ast::InlineUnion>();
+			const ast::InlineUnion& inline_union = node.as<ast::InlineUnion>();
 			print_storage_class(dest, inline_union.storage_class);
 			fprintf(dest, "union");
 			bool name_on_top = indentation_level == 0 && inline_union.storage_class != ast::StorageClass::TYPEDEF;
@@ -83,15 +91,15 @@ void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_leve
 			break;
 		}
 		case ast::POINTER: {
-			const ast::Pointer& pointer = node.as<const ast::Pointer>();
+			const ast::Pointer& pointer = node.as<ast::Pointer>();
 			assert(pointer.value_type.get());
 			print_ast_node_as_c(dest, *pointer.value_type.get(), indentation_level);
 			fprintf(dest, "*");
-			fprintf(dest, "%s%s%s", pointer.name.c_str(), pointer.name.empty() ? "" : " ", pointer.name.c_str());
+			fprintf(dest, "%s%s", pointer.name.empty() ? "" : " ", pointer.name.c_str());
 			break;
 		}
 		case ast::TYPE_NAME: {
-			const ast::TypeName& type_name = node.as<const ast::TypeName>();
+			const ast::TypeName& type_name = node.as<ast::TypeName>();
 			fprintf(dest, "%s%s%s", type_name.type_name.c_str(), type_name.name.empty() ? "" : " ", type_name.name.c_str());
 			break;
 		}
