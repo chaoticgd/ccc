@@ -11,7 +11,6 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
-static std::string eat_dodgy_identifier(const char*& input);
 static void expect_s8(const char*& input, s8 expected, const char* subject);
 static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static void print_field(const StabsField& field);
@@ -59,7 +58,7 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 	
 	StabsSymbol symbol;
 	symbol.raw = std::string(input);
-	symbol.name = eat_dodgy_identifier(input);
+	symbol.name = eat_identifier(input);
 	expect_s8(input, ':', "identifier");
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	if(*input >= '0' && *input <= '9') {
@@ -378,38 +377,24 @@ static s64 eat_s64_literal(const char*& input) {
 	}
 }
 
+// The complexity here is because the input may contain an unescaped namespace
+// separator '::' even if the field terminator is supposed to be a colon.
 static std::string eat_identifier(const char*& input) {
 	std::string identifier;
 	bool first = true;
+	s32 template_depth = 0;
 	for(; *input != '\0'; input++) {
-		bool valid_char = false;
-		valid_char |= isprint(*input) && *input != ':' && *input != ';';
-		valid_char |= !first && isalnum(*input);
-		if(valid_char) {
-			identifier += *input;
-		} else {
-			return identifier;
+		if(*input == '<') {
+			template_depth++;
 		}
-		first = false;
-	}
-	verify_not_reached(ERR_END_OF_INPUT);
-}
-
-// Used when the input may contain an unescaped namespace separator '::' but the
-// field terminator is supposed to be a colon. Who designed this!?
-static std::string eat_dodgy_identifier(const char*& input) {
-	std::string identifier;
-	bool first = true;
-	for(; *input != '\0'; input++) {
+		if(*input == '>') {
+			template_depth--;
+		}
 		bool valid_char = false;
-		bool double_colon = input[0] == ':' && input[1] == ':';
-		valid_char |= isprint(*input) && (*input != ':' || double_colon) && *input != ';';
+		valid_char |= isprint(*input) && (*input != ':' || template_depth != 0) && *input != ';';
 		valid_char |= !first && isalnum(*input);
 		if(valid_char) {
 			identifier += *input;
-			if(double_colon) {
-				identifier += *(++input);
-			}
 		} else {
 			return identifier;
 		}
