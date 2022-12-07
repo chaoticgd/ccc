@@ -64,10 +64,11 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
+	print_cpp_storage_class(dest, node.storage_class);
+	
 	switch(node.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
-			print_cpp_storage_class(dest, array.storage_class);
 			assert(array.element_type.get());
 			print_cpp_ast_node(dest, *array.element_type.get(), name, indentation_level, digits_for_offset);
 			fprintf(dest, "[%d]", array.element_count);
@@ -105,7 +106,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		case ast::INLINE_ENUM: {
 			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
 			fprintf(dest, "enum");
-			bool name_on_top = indentation_level == 0 && inline_enum.storage_class != ast::StorageClass::TYPEDEF;
+			bool name_on_top = (indentation_level == 0) && (inline_enum.storage_class != ast::StorageClass::TYPEDEF);
 			if(name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
@@ -125,9 +126,8 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		}
 		case ast::INLINE_STRUCT: {
 			const ast::InlineStruct& inline_struct = node.as<ast::InlineStruct>();
-			print_cpp_storage_class(dest, inline_struct.storage_class);
 			fprintf(dest, "struct");
-			bool name_on_top = indentation_level == 0 && inline_struct.storage_class != ast::StorageClass::TYPEDEF;
+			bool name_on_top = (indentation_level == 0) && (inline_struct.storage_class != ast::StorageClass::TYPEDEF);
 			if(name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
@@ -157,7 +157,6 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		}
 		case ast::INLINE_UNION: {
 			const ast::InlineUnion& inline_union = node.as<ast::InlineUnion>();
-			print_cpp_storage_class(dest, inline_union.storage_class);
 			fprintf(dest, "union");
 			bool name_on_top = indentation_level == 0 && inline_union.storage_class != ast::StorageClass::TYPEDEF;
 			if(name_on_top) {

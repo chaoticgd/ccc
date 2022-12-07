@@ -44,6 +44,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			assert(type.type_reference.type.get());
 			result = stabs_type_to_ast(*type.type_reference.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(depth == 0) {
+				result->storage_class = StorageClass::TYPEDEF;
+			}
 			break;
 		}
 		case StabsTypeDescriptor::ARRAY: {
