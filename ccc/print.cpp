@@ -28,22 +28,25 @@ void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& 
 			for(size_t i = 0; i < nodes.size(); i++) {
 				const std::unique_ptr<ast::Node>& node = nodes[i];
 				assert(node.get());
-				bool multiline =
-					node->descriptor == ast::INLINE_ENUM ||
+				bool is_struct_or_union =
 					node->descriptor == ast::INLINE_STRUCT ||
 					node->descriptor == ast::INLINE_UNION;
+				bool multiline =
+					node->descriptor == ast::INLINE_ENUM ||
+					is_struct_or_union;
 				if(!last_was_multiline && multiline) {
 					fprintf(dest, "\n");
 				}
 				VariableName name{nullptr};
 				s32 digits_for_offset = 0;
-				if((node->descriptor == ast::INLINE_STRUCT
-					|| node->descriptor == ast::INLINE_UNION)
-					&& node->size_bits > 0) {
+				if(is_struct_or_union && node->size_bits > 0) {
 					digits_for_offset = (s32) ceilf(log2(node->size_bits / 8.f) / 4.f);
 				}
 				print_cpp_ast_node(stdout, *node.get(), name, 0, digits_for_offset);
 				fprintf(dest, ";\n");
+				if(is_struct_or_union) {
+					fprintf(dest, "static_assert(sizeof(%s) == 0x%x);\n", node->name.c_str(), node->size_bits / 8);
+				}
 				if(multiline && i != nodes.size() - 1) {
 					fprintf(dest, "\n");
 				}
