@@ -47,9 +47,9 @@ struct StabsMemberFunction;
 struct StabsType {
 	// The name field is only populated for root types and cross references.
 	std::optional<std::string> name;
-	bool anonymous;
-	s32 type_number;
-	bool has_body;
+	bool anonymous = false;
+	s32 type_number = -1;
+	bool has_body = false;
 	// If !has_body, everything below isn't filled in.
 	StabsTypeDescriptor descriptor;
 	// Tagged "union" based on the value of the type descriptor.
@@ -110,8 +110,8 @@ struct StabsField {
 	StabsFieldVisibility visibility = StabsFieldVisibility::NONE;
 	StabsType type;
 	bool is_static = false;
-	s32 offset = 0;
-	s32 size = 0;
+	s32 offset_bits = 0;
+	s32 size_bits = 0;
 	std::string type_name;
 };
 

@@ -5,7 +5,12 @@
 
 namespace ccc::print {
 
-void print_ast_node_as_c(FILE* dest, const ast::Node& node, s32 indentation_level = 0);
+struct VariableName {
+	const std::string* identifier;
+	s32 pointer_count = 0;
+};
+
+void print_ast_node_as_c(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level = 0);
 
 }
 

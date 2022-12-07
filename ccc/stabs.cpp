@@ -244,7 +244,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		if(field.name.size() >= 1 && field.name[0] == '$') {
 			// Not sure.
 			expect_s8(input, ',', "field type");
-			field.offset = eat_s64_literal(input);
+			field.offset_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "field offset");
 		} else if(*input == ':') {
 			input++;
@@ -253,9 +253,9 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 			expect_s8(input, ';', "identifier");
 		} else if(*input == ',') {
 			input++;
-			field.offset = eat_s64_literal(input);
+			field.offset_bits = eat_s64_literal(input);
 			expect_s8(input, ',', "field offset");
-			field.size = eat_s64_literal(input);
+			field.size_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "field size");
 		} else {
 			verify_not_reached("Expected ':' or ',', got '%c' (%hhx).", *input, *input);
@@ -428,7 +428,7 @@ void print_stabs_type(const StabsType& type) {
 }
 
 static void print_field(const StabsField& field) {
-	printf("\t%04x %04x %04x %04x %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
+	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
 }
 
 static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& output, const StabsType& type);

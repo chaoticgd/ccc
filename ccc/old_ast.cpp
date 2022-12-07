@@ -171,7 +171,7 @@ static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>
 			}
 			std::vector<AstNode> fields;
 			for(const StabsField& child : type.struct_or_union.fields) {
-				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset, child.size, child.type, child.name}, type_names));
+				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset_bits, child.size_bits, child.type, child.name}, type_names));
 			}
 			return struct_or_union_node(field.is_static, offset, size, is_struct, base_classes, fields, name, {});
 		}

@@ -77,63 +77,6 @@ int main(int argc, char** argv) {
 			print_c_test(symbol_table);
 			break;
 	}
-	
-	// just for testing...
-	
-	ast::InlineStruct type;
-	type.storage_class = ast::StorageClass::TYPEDEF;
-	type.name = "hypervar";
-	
-	ast::BaseClass bc;
-	bc.offset = 0;
-	bc.type_name = "BaseThing";
-	type.base_classes.emplace_back(bc);
-	
-	auto name = std::make_unique<ast::TypeName>();
-	name->type_name = "Type";
-	name->name = "thing";
-	name->offset = 0;
-	type.fields.emplace_back(std::move(name));
-	
-	auto uni = std::make_unique<ast::InlineUnion>();
-	uni->name = "myunion";
-	
-	auto funp = std::make_unique<ast::FunctionPointer>();
-	funp->name = "hello";
-	
-	auto rt = std::make_unique<ast::TypeName>();
-	rt->type_name = "MaybeError";
-	funp->return_type = std::move(rt);
-	
-	uni->fields.emplace_back(std::move(funp));
-	
-	auto ptr = std::make_unique<ast::Pointer>();
-	ptr->name = "myint";
-	auto ity = std::make_unique<ast::TypeName>();
-	ity->type_name = "int";
-	ptr->value_type = std::move(ity);
-	
-	auto ar = std::make_unique<ast::Array>();
-	ar->element_type = std::move(ptr);
-	ar->element_count = 6;
-	
-	uni->fields.emplace_back(std::move(ar));
-	
-	auto under = std::make_unique<ast::TypeName>();
-	under->type_name = "int32_t";
-	
-	auto bf = std::make_unique<ast::BitField>();
-	bf->name = "thisisabitfield";
-	bf->underlying_type = std::move(under);
-	bf->bits = 3;
-	bf->offset = 4;
-	
-	type.fields.emplace_back(std::move(bf));
-	
-	type.fields.emplace_back(std::move(uni));
-	
-	
-	print::print_ast_node_as_c(stdout, type);
 }
 
 static void print_symbols(SymbolTable& symbol_table) {
@@ -166,7 +109,7 @@ static void print_files(SymbolTable& symbol_table) {
 	}
 }
 
-static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, TypeName>& type_names) {
+static std::vector<std::shared_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*> stabs_types) {
 	auto is_data_type = [&](const StabsSymbol& symbol) {
 		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
 			&& (u32) symbol.mdebug_symbol.storage_class == 0
@@ -174,79 +117,83 @@ static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbo
 				|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
 	};
 	
-	std::vector<AstNode> ast_nodes;
+	std::vector<std::shared_ptr<ast::Node>> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
 		if(is_data_type(symbol)) {
-			std::optional<AstNode> node = stabs_symbol_to_ast(symbol, type_names);
-			if(node.has_value()) {
-				node->top_level = true;
-				node->symbol = &symbol;
-				ast_nodes.emplace_back(std::move(*node));
+			std::shared_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
+			if(node != nullptr) {
+				//node->top_level = true;
+				//node->symbol = &symbol;
+				ast_nodes.emplace_back(std::move(node));
 			}
 		}
 	}
 	return ast_nodes;
 }
 
-static std::vector<AstNode> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table) {
-	std::vector<std::pair<std::string, std::vector<AstNode>>> per_file_ast;
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols.back());
-		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-		per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), type_names));
-	}
-	return deduplicate_ast(per_file_ast);
+static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table) {
+	//std::vector<std::pair<std::string, <std::unique_ptr<ast::Node>>> per_file_ast;
+	//for(const SymFileDescriptor& fd : symbol_table.files) {
+	//	symbols.emplace_back(parse_stabs_symbols(fd.symbols));
+	//	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols.back());
+	//	const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
+	//	//per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), type_names));
+	//}
+	return {};//return deduplicate_ast(per_file_ast);
 }
 
 static void print_c_deduplicated(const SymbolTable& symbol_table, Options options) {
 	std::vector<std::vector<StabsSymbol>> symbols;
-	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
-	print_ast(stdout, ast_nodes, options.language, options.verbose);
+	//const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
+	//print_ast(stdout, ast_nodes, options.language, options.verbose);
 }
 
 static void print_c_per_file(const SymbolTable& symbol_table, Options options) {
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
+		const std::vector<std::shared_ptr<ast::Node>> ast_nodes = symbols_to_ast(symbols, types);
 		
 		printf("// *****************************************************************************\n");
 		printf("// FILE -- %s\n", fd.name.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		print_ast(stdout, ast_nodes, options.language, options.verbose);
+		for(auto& node : ast_nodes) {
+			print::VariableName name{nullptr};
+			print::print_ast_node_as_c(stdout, *node, name);
+			printf(";\n\n");
+		}
+		printf("\n");
 	}
 }
 
 static void print_c_test(const SymbolTable& symbol_table) {
 	std::vector<std::vector<StabsSymbol>> symbols;
-	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
+	const std::vector<std::unique_ptr<ast::Node>> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
 	
-	print_c_ast_begin(stdout);
-	print_c_forward_declarations(stdout, ast_nodes);
-	for(const AstNode& node : ast_nodes) {
-		assert(node.symbol);
-		printf("// %s\n", node.symbol->raw.c_str());
-		print_c_ast_node(stdout, node, 0, 0);
-		printf("\n");
-	}
-	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
-	for(const AstNode& node : ast_nodes) {
-		if(node.descriptor == AstNodeDescriptor::STRUCT) {
-			for(const AstNode& field : node.struct_or_union.fields) {
-				if(!field.is_static) {
-					printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
-						node.name.c_str(), field.name.c_str(),
-						node.name.c_str(), field.name.c_str(), field.offset / 8);
-					printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
-						node.name.c_str(), field.name.c_str(),
-						node.name.c_str(), field.name.c_str(), field.size / 8);
-				}
-			}
-		}
-	}
+	//print_c_ast_begin(stdout);
+	//print_c_forward_declarations(stdout, ast_nodes);
+	//for(const AstNode& node : ast_nodes) {
+	//	assert(node.symbol);
+	//	printf("// %s\n", node.symbol->raw.c_str());
+	//	print_c_ast_node(stdout, node, 0, 0);
+	//	printf("\n");
+	//}
+	//printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
+	//for(const AstNode& node : ast_nodes) {
+	//	if(node.descriptor == AstNodeDescriptor::STRUCT) {
+	//		for(const AstNode& field : node.struct_or_union.fields) {
+	//			if(!field.is_static) {
+	//				printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
+	//					node.name.c_str(), field.name.c_str(),
+	//					node.name.c_str(), field.name.c_str(), field.offset / 8);
+	//				printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
+	//					node.name.c_str(), field.name.c_str(),
+	//					node.name.c_str(), field.name.c_str(), field.size / 8);
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 static Options parse_args(int argc, char** argv) {
