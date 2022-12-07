@@ -215,14 +215,15 @@ static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class)
 }
 
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
-	if(name.identifier != nullptr && (flags & INSERT_SPACE_TO_LEFT) && !name.identifier->empty()) {
+	bool has_name = name.identifier != nullptr && !name.identifier->empty();
+	if(has_name && (flags & INSERT_SPACE_TO_LEFT)) {
 		fprintf(dest, " ");
 	}
 	for(s32 i = (s32) name.pointer_chars.size() - 1; i >= 0; i--) {
 		fprintf(dest, "%c", name.pointer_chars[i]);
 	}
 	name.pointer_chars.clear();
-	if(name.identifier != nullptr) {
+	if(has_name) {
 		fprintf(dest, "%s", name.identifier->c_str());
 		name.identifier = nullptr;
 		if((flags & INSERT_SPACE_TO_RIGHT) && name.identifier->empty()) {

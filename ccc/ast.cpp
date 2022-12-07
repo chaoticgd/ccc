@@ -10,7 +10,7 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::
 	}
 	
 	auto node = stabs_type_to_ast(symbol.type, stabs_types, 0, 0);
-	node->name = symbol.name;
+	node->name = (symbol.name == " ") ? "" : symbol.name;
 	return node;
 }
 
@@ -166,7 +166,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map
 	// Bitfields
 	if(field.offset_bits % 8 != 0 || field.size_bits % 8 != 0) {
 		std::unique_ptr<BitField> bitfield = std::make_unique<BitField>();
-		bitfield->name = field.name;
+		bitfield->name = (field.name == " ") ? "" : field.name;
 		bitfield->relative_offset_bytes = field.offset_bits / 8;
 		bitfield->absolute_offset_bytes = absolute_parent_offset_bytes + bitfield->relative_offset_bytes;
 		bitfield->size_bits = field.size_bits;
@@ -182,7 +182,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map
 	s32 relative_offset_bytes = field.offset_bits / 8;
 	s32 absolute_offset_bytes = absolute_parent_offset_bytes + relative_offset_bytes;
 	std::unique_ptr<Node> child = stabs_type_to_ast(field.type, stabs_types, absolute_offset_bytes, depth + 1);
-	child->name = field.name;
+	child->name = (field.name == " ") ? "" : field.name;
 	child->relative_offset_bytes = relative_offset_bytes;
 	child->absolute_offset_bytes = absolute_offset_bytes;
 	child->size_bits = field.size_bits;
