@@ -9,7 +9,7 @@ enum class OutputLanguage {
 	CPP, JSON
 };
 
-void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, OutputLanguage language);
+void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, OutputLanguage language, bool verbose);
 
 }
 

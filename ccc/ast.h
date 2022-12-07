@@ -33,6 +33,10 @@ struct Node {
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
 	
+	const StabsSymbol* symbol = nullptr;
+	bool conflicting_types = false;
+	std::vector<std::string> source_files;
+	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
 	virtual ~Node() {}
@@ -67,7 +71,6 @@ struct BitField : Node {
 
 struct Function : Node {
 	std::unique_ptr<Node> return_type;
-	std::optional<std::vector<std::unique_ptr<Node>>> parameter_types;
 	
 	Function() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
@@ -119,7 +122,8 @@ struct TypeName : Node {
 std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
-std::vector<Node> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<Node>>>& per_file_ast);
+std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
+static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
 
 }
 

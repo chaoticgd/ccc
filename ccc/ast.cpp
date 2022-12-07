@@ -11,6 +11,7 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::
 	
 	auto node = stabs_type_to_ast(symbol.type, stabs_types, 0, 0);
 	node->name = (symbol.name == " ") ? "" : symbol.name;
+	node->symbol = &symbol;
 	return node;
 }
 
@@ -192,8 +193,111 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map
 	return child;
 }
 
-std::vector<Node> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<Node>>>& per_file_ast) {
-	return {};
+std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
+	std::vector<std::unique_ptr<Node>> deduplicated_nodes;
+	std::map<std::string, size_t> name_to_deduplicated_index;
+	for(auto& [file_name, ast_nodes] : per_file_ast) {
+		for(std::unique_ptr<Node>& node : ast_nodes) {
+			auto existing_node_index = name_to_deduplicated_index.find(node->name);
+			if(existing_node_index == name_to_deduplicated_index.end()) {
+				std::string name = node->name;
+				size_t index = deduplicated_nodes.size();
+				node->source_files.emplace_back(file_name);
+				deduplicated_nodes.emplace_back(std::move(node));
+				name_to_deduplicated_index[name] = index;
+			} else {
+				std::unique_ptr<Node>& existing_node = deduplicated_nodes[existing_node_index->second];
+				if(!compare_ast_nodes(*existing_node.get(), *node.get())) {
+					existing_node->conflicting_types = true;
+				}
+				existing_node->source_files.emplace_back(file_name);
+			}
+		}
+	}
+	return deduplicated_nodes;
+}
+
+static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
+	if(lhs.descriptor != rhs.descriptor) return false;
+	if(lhs.storage_class != rhs.storage_class) return false;
+	if(lhs.name != rhs.name) return false;
+	if(lhs.relative_offset_bytes != rhs.relative_offset_bytes) return false;
+	if(lhs.absolute_offset_bytes != rhs.absolute_offset_bytes) return false;
+	if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return false;
+	if(lhs.size_bits != rhs.size_bits) return false;
+	switch(lhs.descriptor) {
+		case ARRAY: {
+			const Array& array_lhs = lhs.as<Array>();
+			const Array& array_rhs = rhs.as<Array>();
+			if(!compare_ast_nodes(*array_lhs.element_type.get(), *array_lhs.element_type.get())) return false;
+			if(array_lhs.element_count != array_rhs.element_count) return false;
+			break;
+		}
+		case BITFIELD: {
+			const BitField& bitfield_lhs = lhs.as<BitField>();
+			const BitField& bitfield_rhs = rhs.as<BitField>();
+			if(!compare_ast_nodes(*bitfield_lhs.underlying_type.get(), *bitfield_rhs.underlying_type.get())) return false;
+			break;
+		}
+		case FUNCTION: {
+			const Function& function_lhs = lhs.as<Function>();
+			const Function& function_rhs = rhs.as<Function>();
+			if(!compare_ast_nodes(*function_lhs.return_type.get(), *function_rhs.return_type.get())) return false;
+			break;
+		}
+		case INLINE_ENUM: {
+			const InlineEnum& enum_lhs = lhs.as<InlineEnum>();
+			const InlineEnum& enum_rhs = rhs.as<InlineEnum>();
+			if(enum_lhs.constants != enum_rhs.constants) return false;
+			break;
+		}
+		case INLINE_STRUCT: {
+			const InlineStruct& struct_lhs = lhs.as<InlineStruct>();
+			const InlineStruct& struct_rhs = rhs.as<InlineStruct>();
+			if(struct_lhs.base_classes.size() != struct_rhs.base_classes.size()) return false;
+			for(size_t i = 0; i < struct_lhs.base_classes.size(); i++) {
+				const BaseClass& base_class_lhs = struct_lhs.base_classes[i];
+				const BaseClass& base_class_rhs = struct_rhs.base_classes[i];
+				if(base_class_lhs.visibility != base_class_rhs.visibility) return false;
+				if(base_class_lhs.offset != base_class_rhs.offset) return false;
+				if(base_class_lhs.type_name != base_class_rhs.type_name) return false;
+			}
+			if(struct_lhs.fields.size() != struct_rhs.fields.size()) return false;
+			for(size_t i = 0; i < struct_lhs.fields.size(); i++) {
+				if(!compare_ast_nodes(*struct_lhs.fields[i].get(), *struct_rhs.fields[i].get())) return false;
+			}
+			break;
+		}
+		case INLINE_UNION: {
+			const InlineUnion& union_lhs = lhs.as<InlineUnion>();
+			const InlineUnion& union_rhs = rhs.as<InlineUnion>();
+			if(union_lhs.fields.size() != union_rhs.fields.size()) return false;
+			for(size_t i = 0; i < union_lhs.fields.size(); i++) {
+				if(!compare_ast_nodes(*union_lhs.fields[i].get(), *union_rhs.fields[i].get())) return false;
+			}
+			break;
+		}
+		case POINTER: {
+			const Pointer& pointer_lhs = lhs.as<Pointer>();
+			const Pointer& pointer_rhs = rhs.as<Pointer>();
+			if(!compare_ast_nodes(*pointer_lhs.value_type.get(), *pointer_rhs.value_type.get())) return false;
+			break;
+		}
+		case REFERENCE: {
+			const Reference& reference_lhs = lhs.as<Reference>();
+			const Reference& reference_rhs = rhs.as<Reference>();
+			if(!compare_ast_nodes(*reference_lhs.value_type.get(), *reference_rhs.value_type.get())) return false;
+			break;
+		}
+		case TYPE_NAME: {
+			const TypeName& typename_lhs = lhs.as<TypeName>();
+			const TypeName& typename_rhs = rhs.as<TypeName>();
+			if(typename_lhs.type_name != typename_rhs.type_name) return false;
+			break;
+		}
+	}
+	
+	return true;
 }
 
 }

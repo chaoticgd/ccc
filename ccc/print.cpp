@@ -21,7 +21,7 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
 static void indent(FILE* dest, s32 level);
 
-void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, OutputLanguage language) {
+void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, OutputLanguage language, bool verbose) {
 	switch(language) {
 		case OutputLanguage::CPP: {
 			bool last_was_multiline = true;
@@ -36,6 +36,16 @@ void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& 
 					is_struct_or_union;
 				if(!last_was_multiline && multiline) {
 					fprintf(dest, "\n");
+				}
+				if(node->conflicting_types) {
+					fprintf(dest, "// warning: multiple differing types with the same name, only one recovered\n");
+				}
+				if(verbose) {
+					fprintf(dest, "symbol: %s\n", node->symbol->raw.c_str());
+					fprintf(dest, "source files:\n");
+					for(const std::string& source_file : node->source_files) {
+						fprintf(dest, "  %s\n", source_file.c_str());
+					}
 				}
 				VariableName name{nullptr};
 				s32 digits_for_offset = 0;
@@ -88,19 +98,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
 			fprintf(dest, " (");
 			print_cpp_variable_name(dest, name, NO_PRINT_FLAGS);
-			fprintf(dest, ")(");
-			if(function.parameter_types.has_value()) {
-				for(size_t i = 0; i < function.parameter_types->size(); i++) {
-					assert((*function.parameter_types)[i].get());
-					print_cpp_ast_node(dest, *(*function.parameter_types)[i].get(), dummy, indentation_level, digits_for_offset);
-					if(i != function.parameter_types->size() - 1) {
-						fprintf(dest, ", ");
-					}
-				}
-			} else {
-				fprintf(dest, "/* parameters unknown */");
-			}
-			fprintf(dest, ")");
+			fprintf(dest, ")(/* parameters unknown */)");
 			break;
 		}
 		case ast::INLINE_ENUM: {
