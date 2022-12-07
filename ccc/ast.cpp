@@ -79,6 +79,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		}
 		case StabsTypeDescriptor::STRUCT: {
 			auto inline_struct = std::make_unique<ast::InlineStruct>();
+			inline_struct->size_bits = (s32) type.struct_or_union.size * 8;
 			for(const StabsBaseClass& stabs_base_class : type.struct_or_union.base_classes) {
 				ast::BaseClass& ast_base_class = inline_struct->base_classes.emplace_back();
 				ast_base_class.visibility = stabs_base_class.visibility;
@@ -95,6 +96,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		}
 		case StabsTypeDescriptor::UNION: {
 			auto inline_union = std::make_unique<ast::InlineUnion>();
+			inline_union->size_bits = (s32) type.struct_or_union.size * 8;
 			for(const StabsField& field : type.struct_or_union.fields) {
 				inline_union->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth));
 			}

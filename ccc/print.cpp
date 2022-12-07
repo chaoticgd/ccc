@@ -1,5 +1,7 @@
 #include "print.h"
 
+#include <cmath>
+
 namespace ccc {
 	
 struct VariableName {
@@ -13,17 +15,18 @@ enum VariableNamePrintFlags {
 	INSERT_SPACE_TO_RIGHT = (1 << 1)
 };
 
-static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level);
+static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset);
 static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
-static void print_cpp_offset(FILE* dest, const ast::Node& node);
+static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
 static void indent(FILE* dest, s32 level);
 
 void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, OutputLanguage language) {
 	switch(language) {
 		case OutputLanguage::CPP: {
 			bool last_was_multiline = true;
-			for(const std::unique_ptr<ast::Node>& node : nodes) {
+			for(size_t i = 0; i < nodes.size(); i++) {
+				const std::unique_ptr<ast::Node>& node = nodes[i];
 				assert(node.get());
 				bool multiline =
 					node->descriptor == ast::INLINE_ENUM ||
@@ -33,9 +36,15 @@ void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& 
 					fprintf(dest, "\n");
 				}
 				VariableName name{nullptr};
-				print_cpp_ast_node(stdout, *node.get(), name, 0);
+				s32 digits_for_offset = 0;
+				if((node->descriptor == ast::INLINE_STRUCT
+					|| node->descriptor == ast::INLINE_UNION)
+					&& node->size_bits > 0) {
+					digits_for_offset = (s32) ceilf(log2(node->size_bits / 8.f) / 4.f);
+				}
+				print_cpp_ast_node(stdout, *node.get(), name, 0, digits_for_offset);
 				fprintf(dest, ";\n");
-				if(multiline) {
+				if(multiline && i != nodes.size() - 1) {
 					fprintf(dest, "\n");
 				}
 				last_was_multiline = multiline;
@@ -48,7 +57,7 @@ void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& 
 	}
 }
 
-static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level) {
+static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
@@ -57,14 +66,14 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			const ast::Array& array = node.as<ast::Array>();
 			print_cpp_storage_class(dest, array.storage_class);
 			assert(array.element_type.get());
-			print_cpp_ast_node(dest, *array.element_type.get(), name, indentation_level);
+			print_cpp_ast_node(dest, *array.element_type.get(), name, indentation_level, digits_for_offset);
 			fprintf(dest, "[%d]", array.element_count);
 			break;
 		}
 		case ast::BITFIELD: {
 			const ast::BitField& bit_field = node.as<ast::BitField>();
 			assert(bit_field.underlying_type.get());
-			print_cpp_ast_node(dest, *bit_field.underlying_type.get(), name, indentation_level);
+			print_cpp_ast_node(dest, *bit_field.underlying_type.get(), name, indentation_level, digits_for_offset);
 			printf(" : %d", bit_field.size_bits);
 			break;
 		}
@@ -72,14 +81,14 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			const ast::Function& function = node.as<ast::Function>();
 			assert(function.return_type.get());
 			VariableName dummy{nullptr};
-			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level);
+			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
 			fprintf(dest, " (");
 			print_cpp_variable_name(dest, name, NO_PRINT_FLAGS);
 			fprintf(dest, ")(");
 			if(function.parameter_types.has_value()) {
 				for(size_t i = 0; i < function.parameter_types->size(); i++) {
 					assert((*function.parameter_types)[i].get());
-					print_cpp_ast_node(dest, *(*function.parameter_types)[i].get(), dummy, indentation_level);
+					print_cpp_ast_node(dest, *(*function.parameter_types)[i].get(), dummy, indentation_level, digits_for_offset);
 					if(i != function.parameter_types->size() - 1) {
 						fprintf(dest, ", ");
 					}
@@ -132,8 +141,8 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			for(const std::unique_ptr<ast::Node>& field : inline_struct.fields) {
 				assert(field.get());
 				indent(dest, indentation_level + 1);
-				print_cpp_offset(dest, *field.get());
-				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1);
+				print_cpp_offset(dest, *field.get(), digits_for_offset);
+				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
 				fprintf(dest, ";\n");
 			}
 			indent(dest, indentation_level);
@@ -155,8 +164,8 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			for(const std::unique_ptr<ast::Node>& field : inline_union.fields) {
 				assert(field.get());
 				indent(dest, indentation_level + 1);
-				print_cpp_offset(dest, *field.get());
-				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1);
+				print_cpp_offset(dest, *field.get(), digits_for_offset);
+				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
 				fprintf(dest, ";\n");
 			}
 			indent(dest, indentation_level);
@@ -170,7 +179,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			const ast::Pointer& pointer = node.as<ast::Pointer>();
 			assert(pointer.value_type.get());
 			name.pointer_count++;
-			print_cpp_ast_node(dest, *pointer.value_type.get(), name, indentation_level);
+			print_cpp_ast_node(dest, *pointer.value_type.get(), name, indentation_level, digits_for_offset);
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
@@ -211,9 +220,10 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
 	}
 }
 
-static void print_cpp_offset(FILE* dest, const ast::Node& node) {
+static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset) {
 	if(node.absolute_offset_bytes > -1) {
-		fprintf(dest, "/* 0x%03x", node.absolute_offset_bytes);
+		assert(digits_for_offset > -1 && digits_for_offset < 100);
+		fprintf(dest, "/* 0x%0*x", digits_for_offset, node.absolute_offset_bytes);
 		if(node.bitfield_offset_bits > -1) {
 			fprintf(dest, ":%d", node.bitfield_offset_bits);
 		}
