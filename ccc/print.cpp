@@ -6,7 +6,7 @@ namespace ccc {
 	
 struct VariableName {
 	const std::string* identifier;
-	s32 pointer_count = 0;
+	std::vector<s8> pointer_chars;
 };
 
 enum VariableNamePrintFlags {
@@ -118,6 +118,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 				indent(dest, indentation_level + 1);
 				fprintf(dest, "%s = %d%s\n", name.c_str(), number, is_last ? "" : ",");
 			}
+			indent(dest, indentation_level);
 			fprintf(dest, "}");
 			if(!name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
@@ -180,8 +181,16 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		case ast::POINTER: {
 			const ast::Pointer& pointer = node.as<ast::Pointer>();
 			assert(pointer.value_type.get());
-			name.pointer_count++;
+			name.pointer_chars.emplace_back('*');
 			print_cpp_ast_node(dest, *pointer.value_type.get(), name, indentation_level, digits_for_offset);
+			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			break;
+		}
+		case ast::REFERENCE: {
+			const ast::Reference& reference = node.as<ast::Reference>();
+			assert(reference.value_type.get());
+			name.pointer_chars.emplace_back('&');
+			print_cpp_ast_node(dest, *reference.value_type.get(), name, indentation_level, digits_for_offset);
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
@@ -209,10 +218,10 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
 	if(name.identifier != nullptr && (flags & INSERT_SPACE_TO_LEFT) && !name.identifier->empty()) {
 		fprintf(dest, " ");
 	}
-	while(name.pointer_count > 0) {
-		fprintf(dest, "*");
-		name.pointer_count--;
+	for(s32 i = (s32) name.pointer_chars.size() - 1; i >= 0; i--) {
+		fprintf(dest, "%c", name.pointer_chars[i]);
 	}
+	name.pointer_chars.clear();
 	if(name.identifier != nullptr) {
 		fprintf(dest, "%s", name.identifier->c_str());
 		name.identifier = nullptr;

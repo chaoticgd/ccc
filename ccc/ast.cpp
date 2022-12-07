@@ -118,17 +118,18 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			result = std::move(type_name);
 			break;
 		}
-		case StabsTypeDescriptor::REFERENCE: {
-			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = "REFERENCE";
-			result = std::move(type_name);
-			break;
-		}
 		case StabsTypeDescriptor::POINTER: {
 			auto pointer = std::make_unique<ast::Pointer>();
 			assert(type.reference_or_pointer.value_type.get());
 			pointer->value_type = stabs_type_to_ast(*type.reference_or_pointer.value_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
 			result = std::move(pointer);
+			break;
+		}
+		case StabsTypeDescriptor::REFERENCE: {
+			auto reference = std::make_unique<ast::Reference>();
+			assert(type.reference_or_pointer.value_type.get());
+			reference->value_type = stabs_type_to_ast(*type.reference_or_pointer.value_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			result = std::move(reference);
 			break;
 		}
 		case StabsTypeDescriptor::SLASH: {

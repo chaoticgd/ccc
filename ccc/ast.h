@@ -16,7 +16,7 @@ enum class StorageClass {
 };
 
 enum NodeDescriptor {
-	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT, INLINE_UNION, POINTER, TYPE_NAME
+	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT, INLINE_UNION, POINTER, REFERENCE, TYPE_NAME
 };
 
 struct Node {
@@ -100,6 +100,13 @@ struct Pointer : Node {
 	
 	Pointer() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER;
+};
+
+struct Reference : Node {
+	std::unique_ptr<Node> value_type;
+	
+	Reference() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = REFERENCE;
 };
 
 struct TypeName : Node {
