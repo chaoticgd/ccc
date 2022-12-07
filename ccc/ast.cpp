@@ -15,6 +15,8 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::
 }
 
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth) {
+	verify(depth < 1000, "Infinite recursion for type '%c'.", type.descriptor);
+	
 	// This makes sure that if types are referenced by their number, their name
 	// is shown instead their entire contents.
 	if(depth > 0 && type.name.has_value()) {
@@ -43,6 +45,11 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 	switch(type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			assert(type.type_reference.type.get());
+			if(type.type_reference.type->type_number == type.type_number) {
+				auto type_name = std::make_unique<ast::TypeName>();
+				type_name->type_name = stringf("CCC_BADTYPEREFERENCE");
+				return type_name;
+			}
 			result = stabs_type_to_ast(*type.type_reference.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
 			if(depth == 0) {
 				result->storage_class = StorageClass::TYPEDEF;
