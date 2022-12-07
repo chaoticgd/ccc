@@ -41,10 +41,8 @@ void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& 
 					fprintf(dest, "// warning: multiple differing types with the same name, only one recovered\n");
 				}
 				if(verbose) {
-					fprintf(dest, "symbol: %s\n", node->symbol->raw.c_str());
-					fprintf(dest, "source files:\n");
-					for(const std::string& source_file : node->source_files) {
-						fprintf(dest, "  %s\n", source_file.c_str());
+					if(node->symbol != nullptr) {
+						fprintf(dest, "// symbol: %s\n", node->symbol->raw.c_str());
 					}
 				}
 				VariableName name{nullptr};
@@ -54,9 +52,6 @@ void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& 
 				}
 				print_cpp_ast_node(stdout, *node.get(), name, 0, digits_for_offset);
 				fprintf(dest, ";\n");
-				if(is_struct_or_union) {
-					fprintf(dest, "static_assert(sizeof(%s) == 0x%x);\n", node->name.c_str(), node->size_bits / 8);
-				}
 				if(multiline && i != nodes.size() - 1) {
 					fprintf(dest, "\n");
 				}
@@ -108,7 +103,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			if(name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
-			printf(" {\n");
+			printf(" { // 0x%x\n", inline_enum.size_bits / 8);
 			for(size_t i = 0; i < inline_enum.constants.size(); i++) {
 				s32 number = inline_enum.constants[i].first;
 				const std::string& name = inline_enum.constants[i].second;
@@ -139,7 +134,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 					fprintf(dest, " %s", base_class.type_name.c_str());
 				}
 			}
-			fprintf(dest, " {\n");
+			fprintf(dest, " { // 0x%x\n", inline_struct.size_bits / 8);
 			for(const std::unique_ptr<ast::Node>& field : inline_struct.fields) {
 				assert(field.get());
 				indent(dest, indentation_level + 1);
@@ -231,7 +226,7 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
 }
 
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset) {
-	if(node.absolute_offset_bytes > -1) {
+	if(node.storage_class != ast::StorageClass::STATIC && node.absolute_offset_bytes > -1) {
 		assert(digits_for_offset > -1 && digits_for_offset < 100);
 		fprintf(dest, "/* 0x%0*x", digits_for_offset, node.absolute_offset_bytes);
 		if(node.bitfield_offset_bits > -1) {

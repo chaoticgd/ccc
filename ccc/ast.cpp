@@ -202,7 +202,6 @@ std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::st
 			if(existing_node_index == name_to_deduplicated_index.end()) {
 				std::string name = node->name;
 				size_t index = deduplicated_nodes.size();
-				node->source_files.emplace_back(file_name);
 				deduplicated_nodes.emplace_back(std::move(node));
 				name_to_deduplicated_index[name] = index;
 			} else {
@@ -210,7 +209,6 @@ std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::st
 				if(!compare_ast_nodes(*existing_node.get(), *node.get())) {
 					existing_node->conflicting_types = true;
 				}
-				existing_node->source_files.emplace_back(file_name);
 			}
 		}
 	}

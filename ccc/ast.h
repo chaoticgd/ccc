@@ -35,7 +35,6 @@ struct Node {
 	
 	const StabsSymbol* symbol = nullptr;
 	bool conflicting_types = false;
-	std::vector<std::string> source_files;
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
