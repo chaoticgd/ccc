@@ -116,6 +116,7 @@ static StabsType parse_type(const char*& input) {
 					"Expecting ',' while parsing enum, got '%c' (%02hhx)",
 					*input, *input);
 			}
+			input++;
 			STABS_DEBUG_PRINTF("}\n");
 			break;
 		case StabsTypeDescriptor::FUNCTION: // f
@@ -244,7 +245,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		if(field.name.size() >= 1 && field.name[0] == '$') {
 			// Not sure.
 			expect_s8(input, ',', "field type");
-			field.offset = eat_s64_literal(input);
+			field.offset_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "field offset");
 		} else if(*input == ':') {
 			input++;
@@ -253,9 +254,9 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 			expect_s8(input, ';', "identifier");
 		} else if(*input == ',') {
 			input++;
-			field.offset = eat_s64_literal(input);
+			field.offset_bits = eat_s64_literal(input);
 			expect_s8(input, ',', "field offset");
-			field.size = eat_s64_literal(input);
+			field.size_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "field size");
 		} else {
 			verify_not_reached("Expected ':' or ',', got '%c' (%hhx).", *input, *input);
@@ -376,12 +377,21 @@ static s64 eat_s64_literal(const char*& input) {
 	}
 }
 
+// The complexity here is because the input may contain an unescaped namespace
+// separator '::' even if the field terminator is supposed to be a colon.
 static std::string eat_identifier(const char*& input) {
 	std::string identifier;
 	bool first = true;
+	s32 template_depth = 0;
 	for(; *input != '\0'; input++) {
+		if(*input == '<') {
+			template_depth++;
+		}
+		if(*input == '>') {
+			template_depth--;
+		}
 		bool valid_char = false;
-		valid_char |= isprint(*input) && *input != ':' && *input != ';';
+		valid_char |= isprint(*input) && (*input != ':' || template_depth != 0) && *input != ';';
 		valid_char |= !first && isalnum(*input);
 		if(valid_char) {
 			identifier += *input;
@@ -392,6 +402,7 @@ static std::string eat_identifier(const char*& input) {
 	}
 	verify_not_reached(ERR_END_OF_INPUT);
 }
+
 
 static void expect_s8(const char*& input, s8 expected, const char* subject) {
 	verify(*input != '\0', ERR_END_OF_INPUT);
@@ -428,7 +439,7 @@ void print_stabs_type(const StabsType& type) {
 }
 
 static void print_field(const StabsField& field) {
-	printf("\t%04x %04x %04x %04x %s\n", field.offset / 8, field.size / 8, field.offset, field.size, field.name.c_str());
+	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
 }
 
 static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& output, const StabsType& type);

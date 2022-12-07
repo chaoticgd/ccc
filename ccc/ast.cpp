@@ -1,286 +1,300 @@
 #include "ast.h"
 
-namespace ccc {
+namespace ccc::ast {
 
-static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr);
-static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names);
-static AstNode leaf_node(bool is_static, s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices);
-static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields& fields, const std::string& name);
-static AstNode typedef_node(const std::string& type, const std::string& name);
-static AstNode struct_or_union_node(
-		bool is_static, s32 offset, s32 size, bool is_struct,
-		const std::vector<AstBaseClass>& base_classes,
-		const std::vector<AstNode>& fields,
-		const std::string& name,
-		const std::vector<s32>& array_indices);
-static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs);
-
-s32 type_number_of(const StabsType* type) {
-	verify(type && !type->anonymous, "Tried to access type number of anonymous or null type.");
-	return type->type_number;
-}
-
-std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types) {
-	std::map<s32, TypeName> type_names;
-	for(auto& [type_number, type] : types) {
-		assert(type);
-		type_names[type_number] = resolve_c_type_name(types, type);
+std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
+	if(!symbol.type.has_body) {
+		auto node = std::make_unique<TypeName>();
+		node->type_name = symbol.name;
+		return node;
 	}
-	return type_names;
-}
-
-const StabsType* find_type(StabsType* type, const std::map<s32, const StabsType*>& types, s32 outer_type_number) {
-	assert(type && !type->anonymous);
-	if(type->type_number == outer_type_number) {
-		return nullptr;
-	}
-	auto iterator = types.find(type->type_number);
-	verify(iterator != types.end(), "Tried to lookup undeclared type.");
-	assert(iterator->second);
-	return iterator->second;
-}
-
-// FIXME: Detect indirect recusion e.g. type mappings 1 -> 2, 2 -> 1.
-static TypeName resolve_c_type_name(const std::map<s32, const StabsType*>& types, const StabsType* type_ptr) {
-	if(!type_ptr) {
-		return {"/* error: null type */ void*", {}};
-	}
-	const StabsType& type = *type_ptr;
 	
-	if(type.name.has_value() && type.descriptor != StabsTypeDescriptor::CROSS_REFERENCE) {
-		TypeName name;
-		switch(type.descriptor) {
-			case StabsTypeDescriptor::ENUM: name.first_part += "enum "; break;
-			case StabsTypeDescriptor::STRUCT: name.first_part += "struct "; break;
-			case StabsTypeDescriptor::UNION: name.first_part += "union "; break;
-		}
-		name.first_part += *type.name;
-		return name;
+	auto node = stabs_type_to_ast(symbol.type, stabs_types, 0, 0);
+	node->name = (symbol.name == " ") ? "" : symbol.name;
+	node->symbol = &symbol;
+	return node;
+}
+
+std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth) {
+	verify(depth < 1000, "Infinite recursion for type '%c'.", type.descriptor);
+	
+	// This makes sure that if types are referenced by their number, their name
+	// is shown instead their entire contents.
+	if(depth > 0 && type.name.has_value()) {
+		auto type_name = std::make_unique<ast::TypeName>();
+		type_name->type_name = *type.name;
+		return type_name;
 	}
 	
 	if(!type.has_body) {
-		TypeName name;
-		name.first_part = "/* error: no body */ void*";
-		return name;
+		auto stabs_type = stabs_types.find(type.type_number);
+		if(type.anonymous || stabs_type == stabs_types.end() || !stabs_type->second) {
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d)", type.type_number);
+			return type_name;
+		}
+		if(!stabs_type->second->has_body) {
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->type_name = stringf("CCC_BADRECURSION");
+			return type_name;
+		}
+		return stabs_type_to_ast(*stabs_type->second, stabs_types, absolute_parent_offset_bytes, depth + 1);
 	}
+	
+	std::unique_ptr<Node> result;
 	
 	switch(type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
-			auto inner_type = find_type(type.type_reference.type.get(), types, type.type_number);
-			return resolve_c_type_name(types, inner_type);
+			assert(type.type_reference.type.get());
+			if(type.type_reference.type->type_number == type.type_number) {
+				auto type_name = std::make_unique<ast::TypeName>();
+				type_name->type_name = stringf("CCC_BADTYPEREFERENCE");
+				return type_name;
+			}
+			result = stabs_type_to_ast(*type.type_reference.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(depth == 0) {
+				result->storage_class = StorageClass::TYPEDEF;
+			}
+			break;
 		}
 		case StabsTypeDescriptor::ARRAY: {
-			auto inner_type = find_type(type.array_type.element_type.get(), types, type.type_number);
-			TypeName name = resolve_c_type_name(types, inner_type);
-			StabsType* index = type.array_type.index_type.get();
-			assert(index);
-			verify(index->descriptor == StabsTypeDescriptor::RANGE && index->range_type.low == 0,
+			auto array = std::make_unique<ast::Array>();
+			assert(type.array_type.element_type.get());
+			array->element_type = stabs_type_to_ast(*type.array_type.element_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			const StabsType* index = type.array_type.index_type.get();
+			verify(index && index->descriptor == StabsTypeDescriptor::RANGE && index->range_type.low == 0,
 				"Invalid index type for array.");
-			name.array_indices.push_back(index->range_type.high + 1);
-			return name;
+			array->element_count = index->range_type.high + 1;
+			result = std::move(array);
+			break;
+		}
+		case StabsTypeDescriptor::ENUM: {
+			auto inline_enum = std::make_unique<ast::InlineEnum>();
+			inline_enum->constants = type.enum_type.fields;
+			result = std::move(inline_enum);
+			break;
 		}
 		case StabsTypeDescriptor::FUNCTION: {
-			return {"/* function */ void*", {}};
+			auto function = std::make_unique<ast::Function>();
+			assert(type.function_type.type.get());
+			function->return_type = stabs_type_to_ast(*type.function_type.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			result = std::move(function);
+			break;
 		}
 		case StabsTypeDescriptor::RANGE: {
-			return {"/* range */ void*", {}};
+			auto type_name = std::make_unique<ast::TypeName>();
+			verify(type.name.has_value(), "Encountered RANGE type with no name.");
+			type_name->type_name = *type.name;
+			result = std::move(type_name);
+			break;
 		}
 		case StabsTypeDescriptor::STRUCT: {
-			return {"/* struct */ void*", {}};
+			auto inline_struct = std::make_unique<ast::InlineStruct>();
+			inline_struct->size_bits = (s32) type.struct_or_union.size * 8;
+			for(const StabsBaseClass& stabs_base_class : type.struct_or_union.base_classes) {
+				ast::BaseClass& ast_base_class = inline_struct->base_classes.emplace_back();
+				ast_base_class.visibility = stabs_base_class.visibility;
+				ast_base_class.offset = stabs_base_class.offset;
+				auto base_class_type = stabs_type_to_ast(stabs_base_class.type, stabs_types, absolute_parent_offset_bytes, depth + 1);
+				assert(base_class_type->descriptor == TYPE_NAME);
+				ast_base_class.type_name = base_class_type->as<TypeName>().type_name;
+			}
+			for(const StabsField& field : type.struct_or_union.fields) {
+				inline_struct->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth));
+			}
+			result = std::move(inline_struct);
+			break;
 		}
 		case StabsTypeDescriptor::UNION: {
-			return {"/* union */ void*", {}};
+			auto inline_union = std::make_unique<ast::InlineUnion>();
+			inline_union->size_bits = (s32) type.struct_or_union.size * 8;
+			for(const StabsField& field : type.struct_or_union.fields) {
+				inline_union->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth));
+			}
+			result = std::move(inline_union);
+			break;
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
-			TypeName type_name;
-			type_name.first_part = type.cross_reference.identifier;
-			return type_name;
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->type_name = type.cross_reference.identifier;
+			result = std::move(type_name);
+			break;
 		}
 		case StabsTypeDescriptor::METHOD: {
-			TypeName type_name;
-			type_name.first_part = std::string("<err method>");
-			return type_name;
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->type_name = "METHOD";
+			result = std::move(type_name);
+			break;
 		}
-		case StabsTypeDescriptor::REFERENCE:
 		case StabsTypeDescriptor::POINTER: {
-			auto inner_type = find_type(type.reference_or_pointer.value_type.get(), types, type.type_number);
-			TypeName name = resolve_c_type_name(types, inner_type);
-			name.first_part += (s8) type.descriptor;
-			return name;
+			auto pointer = std::make_unique<ast::Pointer>();
+			assert(type.reference_or_pointer.value_type.get());
+			pointer->value_type = stabs_type_to_ast(*type.reference_or_pointer.value_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			result = std::move(pointer);
+			break;
+		}
+		case StabsTypeDescriptor::REFERENCE: {
+			auto reference = std::make_unique<ast::Reference>();
+			assert(type.reference_or_pointer.value_type.get());
+			reference->value_type = stabs_type_to_ast(*type.reference_or_pointer.value_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			result = std::move(reference);
+			break;
+		}
+		case StabsTypeDescriptor::SLASH: {
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->type_name = "SLASH";
+			result = std::move(type_name);
+			break;
 		}
 		case StabsTypeDescriptor::MEMBER: {
-			TypeName type_name;
-			type_name.first_part = std::string("<err member>");
-			return type_name;
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->type_name = "MEMBER";
+			result = std::move(type_name);
+			break;
 		}
-		default:
-			verify_not_reached("Unexpected type descriptor.");
-	}
-}
-
-static const TypeName& lookup_type_name(s32 type_number, const std::map<s32, TypeName>& type_names) {
-	auto iterator = type_names.find(type_number);
-	verify(iterator != type_names.end(), "Undeclared type referenced: %d.", type_number);
-	return iterator->second;
-}
-
-std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names) {
-	if(symbol.type.has_body) {
-		if(symbol.type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
-			StabsType* referenced_type = symbol.type.type_reference.type.get();
-			if(!referenced_type || referenced_type->type_number == symbol.type.type_number) {
-				return std::nullopt;
-			}
-			verify(!symbol.type.anonymous && referenced_type && !referenced_type->anonymous,
-				"error: Invalid type name: %s.\n", symbol.raw.c_str());
-			auto type_name = lookup_type_name(referenced_type->type_number, type_names);
-			return typedef_node(type_name.first_part, symbol.name);
-		} else {
-		return stabs_field_to_ast({false, 0, 0, symbol.type, symbol.name}, type_names);
-		}
-	} else {
-		return std::nullopt;
-	}
-}
-
-static AstNode stabs_field_to_ast(FieldInfo field, const std::map<s32, TypeName>& type_names) {
-	s32 offset = field.offset;
-	s32 size = field.size;
-	const StabsType& type = field.type;
-	const std::string& name = field.name;
-	
-	if(!type.has_body) {
-		const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-		return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
 	}
 	
-	switch(type.descriptor) {
-		case StabsTypeDescriptor::ENUM:
-			return enum_node(field.is_static, offset, size, type.enum_type.fields, name);
-		case StabsTypeDescriptor::STRUCT:
-		case StabsTypeDescriptor::UNION: {
-			bool is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
-			std::vector<AstBaseClass> base_classes;
-			for(const StabsBaseClass& stabs_base_class : type.struct_or_union.base_classes) {
-				AstBaseClass base_class;
-				base_class.visibility = stabs_base_class.visibility;
-				base_class.offset = stabs_base_class.offset;
-				s32 base_class_type_number = type_number_of(&stabs_base_class.type);
-				base_class.type_name = lookup_type_name(base_class_type_number, type_names).first_part;
-				base_classes.emplace_back(std::move(base_class));
-			}
-			std::vector<AstNode> fields;
-			for(const StabsField& child : type.struct_or_union.fields) {
-				fields.emplace_back(stabs_field_to_ast({child.is_static, child.offset, child.size, child.type, child.name}, type_names));
-			}
-			return struct_or_union_node(field.is_static, offset, size, is_struct, base_classes, fields, name, {});
-		}
-		default: {
-			const TypeName& type_name = lookup_type_name(type.type_number, type_names);
-			return leaf_node(field.is_static, offset, size, type_name.first_part, name, type_name.array_indices);
-		}
+	if(result == nullptr) {
+		auto bad = std::make_unique<ast::TypeName>();
+		bad->type_name = "CCC_BADTYPEINFO";
+		return bad;
 	}
+	
+	return result;
 }
 
-static AstNode leaf_node(bool is_static, s32 offset, s32 size, const std::string& type, const std::string& name, const std::vector<s32>& array_indices) {
-	AstNode node;
-	node.is_static = is_static;
-	node.offset = offset;
-	node.size = size;
-	node.name = name;
-	node.descriptor = AstNodeDescriptor::LEAF;
-	node.array_indices = array_indices;
-	node.leaf.type_name = type;
-	return node;
+std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth) {
+	// Bitfields
+	if(field.offset_bits % 8 != 0 || field.size_bits % 8 != 0) {
+		std::unique_ptr<BitField> bitfield = std::make_unique<BitField>();
+		bitfield->name = (field.name == " ") ? "" : field.name;
+		bitfield->relative_offset_bytes = field.offset_bits / 8;
+		bitfield->absolute_offset_bytes = absolute_parent_offset_bytes + bitfield->relative_offset_bytes;
+		bitfield->size_bits = field.size_bits;
+		bitfield->underlying_type = stabs_type_to_ast(field.type, stabs_types, bitfield->absolute_offset_bytes, depth + 1);
+		bitfield->bitfield_offset_bits = field.offset_bits % 8;
+		if(field.is_static) {
+			bitfield->storage_class = ast::StorageClass::STATIC;
+		}
+		return bitfield;
+	}
+	
+	// Normal fields
+	s32 relative_offset_bytes = field.offset_bits / 8;
+	s32 absolute_offset_bytes = absolute_parent_offset_bytes + relative_offset_bytes;
+	std::unique_ptr<Node> child = stabs_type_to_ast(field.type, stabs_types, absolute_offset_bytes, depth + 1);
+	child->name = (field.name == " ") ? "" : field.name;
+	child->relative_offset_bytes = relative_offset_bytes;
+	child->absolute_offset_bytes = absolute_offset_bytes;
+	child->size_bits = field.size_bits;
+	if(field.is_static) {
+		child->storage_class = ast::StorageClass::STATIC;
+	}
+	return child;
 }
 
-static AstNode enum_node(bool is_static, s32 offset, s32 size, const EnumFields& fields, const std::string& name) {
-	AstNode node;
-	node.is_static = is_static;
-	node.offset = offset;
-	node.size = size;
-	node.name = name;
-	node.descriptor = AstNodeDescriptor::ENUM;
-	node.array_indices = {};
-	node.enum_type.fields = fields;
-	return node;
-}
-
-static AstNode struct_or_union_node(
-		bool is_static, s32 offset, s32 size, bool is_struct,
-		const std::vector<AstBaseClass>& base_classes,
-		const std::vector<AstNode>& fields,
-		const std::string& name,
-		const std::vector<s32>& array_indices) {
-	AstNode node;
-	node.is_static = is_static;
-	node.offset = offset;
-	node.size = size;
-	node.name = name;
-	node.descriptor = is_struct ? AstNodeDescriptor::STRUCT : AstNodeDescriptor::UNION;
-	node.array_indices = {};
-	node.struct_or_union.base_classes = base_classes;
-	node.struct_or_union.fields = fields;
-	return node;
-}
-
-static AstNode typedef_node(const std::string& type, const std::string& name) {
-	AstNode node;
-	node.offset = 0;
-	node.size = 0;
-	node.name = name;
-	node.descriptor = AstNodeDescriptor::TYPEDEF;
-	node.typedef_type.type_name = type;
-	return node;
-}
-
-std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<AstNode>>>& per_file_ast) {
-	std::vector<AstNode> deduplicated_ast;
-	for(const auto& [file, ast] : per_file_ast) {
-		for(const AstNode& node : ast) {
-			auto iterator = std::find_if(BEGIN_END(deduplicated_ast),
-				[&](AstNode& other) { return other.name == node.name; });
-			if(iterator != deduplicated_ast.end()) {
-				AstNode& other = *iterator;
-				if(!compare_ast_nodes(node, other)) {
-					other.conflicting_types = true;
-				}
-				other.source_files.emplace(file);
+std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
+	std::vector<std::unique_ptr<Node>> deduplicated_nodes;
+	std::map<std::string, size_t> name_to_deduplicated_index;
+	for(auto& [file_name, ast_nodes] : per_file_ast) {
+		for(std::unique_ptr<Node>& node : ast_nodes) {
+			auto existing_node_index = name_to_deduplicated_index.find(node->name);
+			if(existing_node_index == name_to_deduplicated_index.end()) {
+				std::string name = node->name;
+				size_t index = deduplicated_nodes.size();
+				deduplicated_nodes.emplace_back(std::move(node));
+				name_to_deduplicated_index[name] = index;
 			} else {
-				AstNode new_node = node;
-				new_node.source_files.emplace(file);
-				deduplicated_ast.emplace_back(std::move(new_node));
+				std::unique_ptr<Node>& existing_node = deduplicated_nodes[existing_node_index->second];
+				if(!compare_ast_nodes(*existing_node.get(), *node.get())) {
+					existing_node->conflicting_types = true;
+				}
 			}
 		}
 	}
-	return deduplicated_ast;
+	return deduplicated_nodes;
 }
 
-static bool compare_ast_nodes(const AstNode& lhs, const AstNode& rhs) {
-	if(lhs.offset != rhs.offset) return false;
-	if(lhs.size != rhs.size) return false;
-	if(lhs.name != rhs.name) return false;
+static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 	if(lhs.descriptor != rhs.descriptor) return false;
+	if(lhs.storage_class != rhs.storage_class) return false;
+	if(lhs.name != rhs.name) return false;
+	if(lhs.relative_offset_bytes != rhs.relative_offset_bytes) return false;
+	if(lhs.absolute_offset_bytes != rhs.absolute_offset_bytes) return false;
+	if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return false;
+	if(lhs.size_bits != rhs.size_bits) return false;
 	switch(lhs.descriptor) {
-		case AstNodeDescriptor::LEAF:
-			if(lhs.leaf.type_name != rhs.leaf.type_name) return false;
+		case ARRAY: {
+			const Array& array_lhs = lhs.as<Array>();
+			const Array& array_rhs = rhs.as<Array>();
+			if(!compare_ast_nodes(*array_lhs.element_type.get(), *array_lhs.element_type.get())) return false;
+			if(array_lhs.element_count != array_rhs.element_count) return false;
 			break;
-		case AstNodeDescriptor::ENUM:
-			if(lhs.enum_type.fields != rhs.enum_type.fields) return false;
+		}
+		case BITFIELD: {
+			const BitField& bitfield_lhs = lhs.as<BitField>();
+			const BitField& bitfield_rhs = rhs.as<BitField>();
+			if(!compare_ast_nodes(*bitfield_lhs.underlying_type.get(), *bitfield_rhs.underlying_type.get())) return false;
 			break;
-		case AstNodeDescriptor::STRUCT:
-		case AstNodeDescriptor::UNION:
-			if(lhs.struct_or_union.fields.size() != rhs.struct_or_union.fields.size()) return false;
-			for(size_t i = 0; i < lhs.struct_or_union.fields.size(); i++) {
-				const AstNode& lhs_field = lhs.struct_or_union.fields[i];
-				const AstNode& rhs_field = rhs.struct_or_union.fields[i];
-				if(!compare_ast_nodes(lhs_field, rhs_field)) return false;
+		}
+		case FUNCTION: {
+			const Function& function_lhs = lhs.as<Function>();
+			const Function& function_rhs = rhs.as<Function>();
+			if(!compare_ast_nodes(*function_lhs.return_type.get(), *function_rhs.return_type.get())) return false;
+			break;
+		}
+		case INLINE_ENUM: {
+			const InlineEnum& enum_lhs = lhs.as<InlineEnum>();
+			const InlineEnum& enum_rhs = rhs.as<InlineEnum>();
+			if(enum_lhs.constants != enum_rhs.constants) return false;
+			break;
+		}
+		case INLINE_STRUCT: {
+			const InlineStruct& struct_lhs = lhs.as<InlineStruct>();
+			const InlineStruct& struct_rhs = rhs.as<InlineStruct>();
+			if(struct_lhs.base_classes.size() != struct_rhs.base_classes.size()) return false;
+			for(size_t i = 0; i < struct_lhs.base_classes.size(); i++) {
+				const BaseClass& base_class_lhs = struct_lhs.base_classes[i];
+				const BaseClass& base_class_rhs = struct_rhs.base_classes[i];
+				if(base_class_lhs.visibility != base_class_rhs.visibility) return false;
+				if(base_class_lhs.offset != base_class_rhs.offset) return false;
+				if(base_class_lhs.type_name != base_class_rhs.type_name) return false;
+			}
+			if(struct_lhs.fields.size() != struct_rhs.fields.size()) return false;
+			for(size_t i = 0; i < struct_lhs.fields.size(); i++) {
+				if(!compare_ast_nodes(*struct_lhs.fields[i].get(), *struct_rhs.fields[i].get())) return false;
 			}
 			break;
-		case AstNodeDescriptor::TYPEDEF:
-			if(lhs.typedef_type.type_name != rhs.typedef_type.type_name) return false;
+		}
+		case INLINE_UNION: {
+			const InlineUnion& union_lhs = lhs.as<InlineUnion>();
+			const InlineUnion& union_rhs = rhs.as<InlineUnion>();
+			if(union_lhs.fields.size() != union_rhs.fields.size()) return false;
+			for(size_t i = 0; i < union_lhs.fields.size(); i++) {
+				if(!compare_ast_nodes(*union_lhs.fields[i].get(), *union_rhs.fields[i].get())) return false;
+			}
 			break;
+		}
+		case POINTER: {
+			const Pointer& pointer_lhs = lhs.as<Pointer>();
+			const Pointer& pointer_rhs = rhs.as<Pointer>();
+			if(!compare_ast_nodes(*pointer_lhs.value_type.get(), *pointer_rhs.value_type.get())) return false;
+			break;
+		}
+		case REFERENCE: {
+			const Reference& reference_lhs = lhs.as<Reference>();
+			const Reference& reference_rhs = rhs.as<Reference>();
+			if(!compare_ast_nodes(*reference_lhs.value_type.get(), *reference_rhs.value_type.get())) return false;
+			break;
+		}
+		case TYPE_NAME: {
+			const TypeName& typename_lhs = lhs.as<TypeName>();
+			const TypeName& typename_rhs = rhs.as<TypeName>();
+			if(typename_lhs.type_name != typename_rhs.type_name) return false;
+			break;
+		}
 	}
+	
 	return true;
 }
 

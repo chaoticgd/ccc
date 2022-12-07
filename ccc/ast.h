@@ -4,58 +4,125 @@
 #include "util.h"
 #include "stabs.h"
 
-namespace ccc {
+namespace ccc::ast {
 
-struct TypeName {
-	std::string first_part;
-	std::vector<s32> array_indices;
+enum class StorageClass {
+	NONE,
+	TYPEDEF,
+	EXTERN,
+	STATIC,
+	AUTO,
+	REGISTER
 };
-enum class AstNodeDescriptor {
-	LEAF, ENUM, STRUCT, UNION, TYPEDEF
+
+enum NodeDescriptor {
+	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT, INLINE_UNION, POINTER, REFERENCE, TYPE_NAME
 };
-using EnumFields = std::vector<std::pair<s32, std::string>>;
-struct AstBaseClass {
+
+struct Node {
+	NodeDescriptor descriptor;
+	StorageClass storage_class = StorageClass::NONE;
+	
+	// If the name isn't populated for a given node, the name from the last
+	// ancestor to have one should be used i.e. when processing the tree you
+	// should pass the name down.
+	std::string name;
+	
+	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
+	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
+	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
+	s32 size_bits = -1;
+	
+	const StabsSymbol* symbol = nullptr;
+	bool conflicting_types = false;
+	
+	Node(NodeDescriptor d) : descriptor(d) {}
+	Node(const Node& rhs) = default;
+	virtual ~Node() {}
+	
+	template <typename SubType>
+	SubType& as() { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<SubType*>(this); }
+	
+	template <typename SubType>
+	const SubType& as() const { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<const SubType*>(this); }
+};
+
+struct BaseClass {
 	s8 visibility;
-	s32 offset;
+	s32 offset = -1;
 	std::string type_name;
 };
-struct AstNode {
-	bool is_static = false;
-	s32 offset;
-	s32 size;
-	std::string name;
-	AstNodeDescriptor descriptor;
-	std::vector<s32> array_indices;
-	bool top_level = false;
-	struct {
-		std::string type_name;
-	} leaf;
-	struct {
-		EnumFields fields;
-	} enum_type;
-	struct {
-		std::vector<AstBaseClass> base_classes;
-		std::vector<AstNode> fields;
-	} struct_or_union;
-	struct {
-		std::string type_name;
-	} typedef_type;
-	const StabsSymbol* symbol = nullptr;
-	// Fields below populated by deduplicate_type.
-	std::set<std::string> source_files;
-	bool conflicting_types = false; // Are there other differing types with the same name?
+
+struct Array : Node {
+	std::unique_ptr<Node> element_type;
+	s32 element_count = -1;
+	
+	Array() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = ARRAY;
 };
 
-std::map<s32, TypeName> resolve_c_type_names(const std::map<s32, const StabsType*>& types);
-struct FieldInfo {
-	bool is_static = false;
-	s32 offset;
-	s32 size;
-	const StabsType& type;
-	const std::string& name;
+struct BitField : Node {
+	std::unique_ptr<Node> underlying_type;
+	
+	BitField() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = BITFIELD;
 };
-std::optional<AstNode> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, TypeName>& type_names);
-std::vector<AstNode> deduplicate_ast(const std::vector<std::pair<std::string, std::vector<AstNode>>>& per_file_ast);
+
+struct Function : Node {
+	std::unique_ptr<Node> return_type;
+	
+	Function() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
+};
+
+struct InlineEnum : Node {
+	std::vector<std::pair<s32, std::string>> constants;
+	
+	InlineEnum() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_ENUM;
+};
+
+struct InlineStruct : Node {
+	std::vector<BaseClass> base_classes;
+	std::vector<std::unique_ptr<Node>> fields;
+	
+	InlineStruct() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT;
+};
+
+struct InlineUnion : Node {
+	std::vector<std::unique_ptr<Node>> fields;
+	
+	InlineUnion() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_UNION;
+};
+
+struct Pointer : Node {
+	std::unique_ptr<Node> value_type;
+	
+	Pointer() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = POINTER;
+};
+
+struct Reference : Node {
+	std::unique_ptr<Node> value_type;
+	
+	Reference() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = REFERENCE;
+};
+
+struct TypeName : Node {
+	std::string type_name;
+	
+	TypeName() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
+};
+
+std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
+std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
+std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
+std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
+static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
 
 }
 

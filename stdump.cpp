@@ -15,8 +15,7 @@ enum OutputMode : u32 {
 	OUTPUT_SYMBOLS,
 	OUTPUT_FILES,
 	OUTPUT_TYPES,
-	OUTPUT_PER_FILE,
-	OUTPUT_TEST
+	OUTPUT_PER_FILE
 };
 
 struct Options {
@@ -28,9 +27,10 @@ struct Options {
 
 static void print_symbols(SymbolTable& symbol_table);
 static void print_files(SymbolTable& symbol_table);
-static void print_c_deduplicated(const SymbolTable& symbol_table, Options options);
-static void print_c_per_file(const SymbolTable& symbol_table, Options options);
-static void print_c_test(const SymbolTable& symbol_table);
+static void print_deduplicated(const SymbolTable& symbol_table, Options options);
+static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
+static std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*> stabs_types);
+static void print_per_file(const SymbolTable& symbol_table, Options options);
 static Options parse_args(int argc, char** argv);
 static void print_help();
 
@@ -61,6 +61,9 @@ int main(int argc, char** argv) {
 		print_address("file descriptor table", symbol_table.file_descriptor_table_offset);
 	}
 	switch(options.mode) {
+		case OUTPUT_DEFAULT:
+		case OUTPUT_HELP:
+			break;
 		case OUTPUT_SYMBOLS:
 			print_symbols(symbol_table);
 			break;
@@ -68,13 +71,10 @@ int main(int argc, char** argv) {
 			print_files(symbol_table);
 			break;
 		case OUTPUT_TYPES:
-			print_c_deduplicated(symbol_table, options);
+			print_deduplicated(symbol_table, options);
 			break;
 		case OUTPUT_PER_FILE:
-			print_c_per_file(symbol_table, options);
-			break;
-		case OUTPUT_TEST:
-			print_c_test(symbol_table);
+			print_per_file(symbol_table, options);
 			break;
 	}
 }
@@ -109,7 +109,23 @@ static void print_files(SymbolTable& symbol_table) {
 	}
 }
 
-static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, TypeName>& type_names) {
+static void print_deduplicated(const SymbolTable& symbol_table, Options options) {
+	std::vector<std::vector<StabsSymbol>> symbols;
+	const std::vector<std::unique_ptr<ast::Node>> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
+	print_ast_nodes(stdout, ast_nodes, options.language, options.verbose);
+}
+
+static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table) {
+	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
+		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols.back());
+		per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), types));
+	}
+	return deduplicate_ast(per_file_ast);
+}
+
+static std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*> stabs_types) {
 	auto is_data_type = [&](const StabsSymbol& symbol) {
 		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
 			&& (u32) symbol.mdebug_symbol.storage_class == 0
@@ -117,78 +133,30 @@ static std::vector<AstNode> symbols_to_ast(const std::vector<StabsSymbol>& symbo
 				|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
 	};
 	
-	std::vector<AstNode> ast_nodes;
+	std::vector<std::unique_ptr<ast::Node>> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
 		if(is_data_type(symbol)) {
-			std::optional<AstNode> node = stabs_symbol_to_ast(symbol, type_names);
-			if(node.has_value()) {
-				node->top_level = true;
-				node->symbol = &symbol;
-				ast_nodes.emplace_back(std::move(*node));
+			std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
+			if(node != nullptr) {
+				ast_nodes.emplace_back(std::move(node));
 			}
 		}
 	}
 	return ast_nodes;
 }
 
-static std::vector<AstNode> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table) {
-	std::vector<std::pair<std::string, std::vector<AstNode>>> per_file_ast;
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols.back());
-		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-		per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), type_names));
-	}
-	return deduplicate_ast(per_file_ast);
-}
-
-static void print_c_deduplicated(const SymbolTable& symbol_table, Options options) {
-	std::vector<std::vector<StabsSymbol>> symbols;
-	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
-	print_ast(stdout, ast_nodes, options.language, options.verbose);
-}
-
-static void print_c_per_file(const SymbolTable& symbol_table, Options options) {
+static void print_per_file(const SymbolTable& symbol_table, Options options) {
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-		const std::map<s32, TypeName> type_names = resolve_c_type_names(types);
-		const std::vector<AstNode> ast_nodes = symbols_to_ast(symbols, type_names);
+		const std::vector<std::unique_ptr<ast::Node>> ast_nodes = symbols_to_ast(symbols, types);
 		
 		printf("// *****************************************************************************\n");
 		printf("// FILE -- %s\n", fd.name.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		print_ast(stdout, ast_nodes, options.language, options.verbose);
-	}
-}
-
-static void print_c_test(const SymbolTable& symbol_table) {
-	std::vector<std::vector<StabsSymbol>> symbols;
-	const std::vector<AstNode> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
-	
-	print_c_ast_begin(stdout);
-	print_c_forward_declarations(stdout, ast_nodes);
-	for(const AstNode& node : ast_nodes) {
-		assert(node.symbol);
-		printf("// %s\n", node.symbol->raw.c_str());
-		print_c_ast_node(stdout, node, 0, 0);
+		print_ast_nodes(stdout, ast_nodes, options.language, options.verbose);
 		printf("\n");
-	}
-	printf("#define CCC_OFFSETOF(type, field) ((int) &((type*) 0)->field)\n");
-	for(const AstNode& node : ast_nodes) {
-		if(node.descriptor == AstNodeDescriptor::STRUCT) {
-			for(const AstNode& field : node.struct_or_union.fields) {
-				if(!field.is_static) {
-					printf("typedef int o_%s__%s[(CCC_OFFSETOF(%s,%s)==%d)?1:-1];\n",
-						node.name.c_str(), field.name.c_str(),
-						node.name.c_str(), field.name.c_str(), field.offset / 8);
-					printf("typedef int s_%s__%s[(sizeof(%s().%s)==%d)?1:-1];\n",
-						node.name.c_str(), field.name.c_str(),
-						node.name.c_str(), field.name.c_str(), field.size / 8);
-				}
-			}
-		}
 	}
 }
 
@@ -217,11 +185,6 @@ static Options parse_args(int argc, char** argv) {
 		if(arg == "--per-file" || arg == "-p") {
 			only_one();
 			options.mode = OUTPUT_PER_FILE;
-			continue;
-		}
-		if(arg == "--test") {
-			only_one();
-			options.mode = OUTPUT_TEST;
 			continue;
 		}
 		if(arg == "--language" || arg == "-l") {
@@ -261,10 +224,6 @@ void print_help() {
 	puts(" --per-file, -p     Print a list of all the types defined in the MIPS");
 	puts("                    debug section, where for each file descriptor");
 	puts("                    all types used are duplicated.");
-	puts("");
-	puts(" --test             Print a C++ source file containing static");
-	puts("                    assertions to test if the offset and size of each");
-	puts("                    field is correct for a given platform/compiler.");
 	puts("");
 	puts("OPTIONS:");
 	puts(" --language <lang>  Set the output language. <lang> can be set to");

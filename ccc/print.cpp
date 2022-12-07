@@ -1,216 +1,244 @@
 #include "print.h"
 
+#include <cmath>
+
 namespace ccc {
+	
+struct VariableName {
+	const std::string* identifier;
+	std::vector<s8> pointer_chars;
+};
 
-static void indent(FILE* output, s32 depth);
+enum VariableNamePrintFlags {
+	NO_PRINT_FLAGS = 0,
+	INSERT_SPACE_TO_LEFT = (1 << 0),
+	INSERT_SPACE_TO_RIGHT = (1 << 1)
+};
 
-static void print_json_ast_node(FILE* output, const AstNode& node, s32 depth);
+static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset);
+static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class);
+static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
+static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
+static void indent(FILE* dest, s32 level);
 
-void print_ast(FILE* output, const std::vector<AstNode>& ast_nodes, OutputLanguage language, bool verbose) {
+void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, OutputLanguage language, bool verbose) {
 	switch(language) {
 		case OutputLanguage::CPP: {
-			print_c_forward_declarations(stdout, ast_nodes);
-			print_c_ast_begin(stdout);
-			bool last_node_is_not_typedef = true;
-			for(const AstNode& node : ast_nodes) {
-				bool node_is_not_typedef = node.descriptor != AstNodeDescriptor::TYPEDEF;
-				if(node_is_not_typedef || last_node_is_not_typedef) {
-					printf("\n");
+			bool last_was_multiline = true;
+			for(size_t i = 0; i < nodes.size(); i++) {
+				const std::unique_ptr<ast::Node>& node = nodes[i];
+				assert(node.get());
+				bool is_struct_or_union =
+					node->descriptor == ast::INLINE_STRUCT ||
+					node->descriptor == ast::INLINE_UNION;
+				bool multiline =
+					node->descriptor == ast::INLINE_ENUM ||
+					is_struct_or_union;
+				if(!last_was_multiline && multiline) {
+					fprintf(dest, "\n");
 				}
-				last_node_is_not_typedef = node_is_not_typedef;
-				
-				assert(node.symbol);
+				if(node->conflicting_types) {
+					fprintf(dest, "// warning: multiple differing types with the same name, only one recovered\n");
+				}
 				if(verbose) {
-					printf("// %s\n", node.name.c_str());
-				}
-				if(node.conflicting_types) {
-					printf("// warning: multiple differing types with the same name, only one recovered\n");
-				}
-				if(verbose) {
-					printf("// symbol:\n");
-					printf("//   %s\n", node.symbol->raw.c_str());
-					printf("// used by:\n");
-					for(const std::string& source_file : node.source_files) {
-						printf("//   %s\n", source_file.c_str());
+					if(node->symbol != nullptr) {
+						fprintf(dest, "// symbol: %s\n", node->symbol->raw.c_str());
 					}
 				}
-				print_c_ast_node(stdout, node, 0, 0);
+				VariableName name{nullptr};
+				s32 digits_for_offset = 0;
+				if(is_struct_or_union && node->size_bits > 0) {
+					digits_for_offset = (s32) ceilf(log2(node->size_bits / 8.f) / 4.f);
+				}
+				print_cpp_ast_node(stdout, *node.get(), name, 0, digits_for_offset);
+				fprintf(dest, ";\n");
+				if(multiline && i != nodes.size() - 1) {
+					fprintf(dest, "\n");
+				}
+				last_was_multiline = multiline;
 			}
 			break;
 		}
 		case OutputLanguage::JSON: {
-			fprintf(output, "[\n");
-			for(size_t i = 0; i < ast_nodes.size(); i++) {
-				bool is_last = i == ast_nodes.size() - 1;
-				print_json_ast_node(output, ast_nodes[i], 1);
-				if(!is_last) {
-					fprintf(output, ",");
-				}
-				fprintf(output, "\n");
-			}
-			fprintf(output, "]\n");
+			break;
 		}
 	}
 }
 
-void print_c_ast_begin(FILE* output) {
-	printf("\n");
-}
-
-void print_c_forward_declarations(FILE* output, const std::vector<AstNode>& ast_nodes) {
-	for(const AstNode& node : ast_nodes) {
-		bool print = true;
-		switch(node.descriptor) {
-			case AstNodeDescriptor::ENUM: fprintf(output, "enum"); break;
-			case AstNodeDescriptor::STRUCT: fprintf(output, "struct"); break;
-			case AstNodeDescriptor::UNION: fprintf(output, "union"); break;
-			default:
-				print = false;
-		}
-		if(print) {
-			fprintf(output, " %s;\n", node.name.c_str());
-		}
-	}
-}
-
-void print_c_ast_node(FILE* output, const AstNode& node, s32 depth, s32 absolute_parent_offset) {
-	indent(output, depth);
-	if(node.is_static) {
-		fprintf(output, "static ");
-	}
+static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset) {
+	VariableName this_name{&node.name};
+	VariableName& name = node.name.empty() ? parent_name : this_name;
+	
+	print_cpp_storage_class(dest, node.storage_class);
+	
 	switch(node.descriptor) {
-		case AstNodeDescriptor::LEAF: {
-			if(!node.is_static) {
-				fprintf(output, "/* %3x */ ", (absolute_parent_offset + node.offset) / 8);
+		case ast::ARRAY: {
+			const ast::Array& array = node.as<ast::Array>();
+			assert(array.element_type.get());
+			print_cpp_ast_node(dest, *array.element_type.get(), name, indentation_level, digits_for_offset);
+			fprintf(dest, "[%d]", array.element_count);
+			break;
+		}
+		case ast::BITFIELD: {
+			const ast::BitField& bit_field = node.as<ast::BitField>();
+			assert(bit_field.underlying_type.get());
+			print_cpp_ast_node(dest, *bit_field.underlying_type.get(), name, indentation_level, digits_for_offset);
+			printf(" : %d", bit_field.size_bits);
+			break;
+		}
+		case ast::FUNCTION: {
+			const ast::Function& function = node.as<ast::Function>();
+			assert(function.return_type.get());
+			VariableName dummy{nullptr};
+			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
+			fprintf(dest, " (");
+			print_cpp_variable_name(dest, name, NO_PRINT_FLAGS);
+			fprintf(dest, ")(/* parameters unknown */)");
+			break;
+		}
+		case ast::INLINE_ENUM: {
+			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
+			fprintf(dest, "enum");
+			bool name_on_top = (indentation_level == 0) && (inline_enum.storage_class != ast::StorageClass::TYPEDEF);
+			if(name_on_top) {
+				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
-			if(node.leaf.type_name.size() > 0) {
-				fprintf(output, "%s", node.leaf.type_name.c_str());
-			} else {
-				fprintf(output, "/* error: empty type string */ int");
+			printf(" { // 0x%x\n", inline_enum.size_bits / 8);
+			for(size_t i = 0; i < inline_enum.constants.size(); i++) {
+				s32 number = inline_enum.constants[i].first;
+				const std::string& name = inline_enum.constants[i].second;
+				bool is_last = i == inline_enum.constants.size() - 1;
+				indent(dest, indentation_level + 1);
+				fprintf(dest, "%s = %d%s\n", name.c_str(), number, is_last ? "" : ",");
+			}
+			indent(dest, indentation_level);
+			fprintf(dest, "}");
+			if(!name_on_top) {
+				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
 			break;
 		}
-		case AstNodeDescriptor::ENUM: {
-			if(node.name.empty()) {
-				fprintf(output, "enum {\n");
-			} else {
-				fprintf(output, "enum %s {\n", node.name.c_str());
+		case ast::INLINE_STRUCT: {
+			const ast::InlineStruct& inline_struct = node.as<ast::InlineStruct>();
+			fprintf(dest, "struct");
+			bool name_on_top = (indentation_level == 0) && (inline_struct.storage_class != ast::StorageClass::TYPEDEF);
+			if(name_on_top) {
+				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
-			for(auto& [value, field_name] : node.enum_type.fields) {
-				bool is_last = value == node.enum_type.fields.back().first;
-				indent(output, depth + 1);
-				fprintf(output, "%s = %d%s\n", field_name.c_str(), value, is_last ? "" : ",");
-			}
-			indent(output, depth);
-			printf("}");
-			break;
-		}
-		case AstNodeDescriptor::STRUCT:
-		case AstNodeDescriptor::UNION: {
-			if(node.descriptor == AstNodeDescriptor::STRUCT) {
-				fprintf(output, "struct");
-			} else {
-				fprintf(output, "union");
-			}
-			fprintf(output, " %s", node.name.c_str());
-			const std::vector<AstBaseClass>& base_classes = node.struct_or_union.base_classes;
-			if(base_classes.size() > 0) {
-				fprintf(output, " :");
-				for(size_t i = 0; i < base_classes.size(); i++) {
-					const AstBaseClass& base_class = base_classes[i];
-					fprintf(output, " /* %x */ %s", base_class.offset, base_class.type_name.c_str());
-					if(i != base_classes.size() - 1) {
-						fprintf(output, ",");
+			if(!inline_struct.base_classes.empty()) {
+				fprintf(dest, " :");
+				for(const ast::BaseClass& base_class : inline_struct.base_classes) {
+					if(base_class.offset > -1) {
+						fprintf(dest, " /* 0x%03x */", base_class.offset);
 					}
+					fprintf(dest, " %s", base_class.type_name.c_str());
 				}
 			}
-			fprintf(output, " {\n");
-			for(const AstNode& child : node.struct_or_union.fields) {
-				print_c_ast_node(output, child, depth + 1, absolute_parent_offset + node.offset);
+			fprintf(dest, " { // 0x%x\n", inline_struct.size_bits / 8);
+			for(const std::unique_ptr<ast::Node>& field : inline_struct.fields) {
+				assert(field.get());
+				indent(dest, indentation_level + 1);
+				print_cpp_offset(dest, *field.get(), digits_for_offset);
+				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
+				fprintf(dest, ";\n");
 			}
-			indent(output, depth);
-			printf("}");
+			indent(dest, indentation_level);
+			fprintf(dest, "}");
+			if(!name_on_top) {
+				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			}
 			break;
 		}
-		case AstNodeDescriptor::TYPEDEF: {
-			printf("typedef %s", node.typedef_type.type_name.c_str());
-			fprintf(output, " %s", node.name.c_str());
+		case ast::INLINE_UNION: {
+			const ast::InlineUnion& inline_union = node.as<ast::InlineUnion>();
+			fprintf(dest, "union");
+			bool name_on_top = indentation_level == 0 && inline_union.storage_class != ast::StorageClass::TYPEDEF;
+			if(name_on_top) {
+				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			}
+			fprintf(dest, " {\n");
+			for(const std::unique_ptr<ast::Node>& field : inline_union.fields) {
+				assert(field.get());
+				indent(dest, indentation_level + 1);
+				print_cpp_offset(dest, *field.get(), digits_for_offset);
+				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
+				fprintf(dest, ";\n");
+			}
+			indent(dest, indentation_level);
+			fprintf(dest, "}");
+			if(!name_on_top) {
+				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			}
+			break;
+		}
+		case ast::POINTER: {
+			const ast::Pointer& pointer = node.as<ast::Pointer>();
+			assert(pointer.value_type.get());
+			name.pointer_chars.emplace_back('*');
+			print_cpp_ast_node(dest, *pointer.value_type.get(), name, indentation_level, digits_for_offset);
+			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			break;
+		}
+		case ast::REFERENCE: {
+			const ast::Reference& reference = node.as<ast::Reference>();
+			assert(reference.value_type.get());
+			name.pointer_chars.emplace_back('&');
+			print_cpp_ast_node(dest, *reference.value_type.get(), name, indentation_level, digits_for_offset);
+			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			break;
+		}
+		case ast::TYPE_NAME: {
+			const ast::TypeName& type_name = node.as<ast::TypeName>();
+			fprintf(dest, "%s", type_name.type_name.c_str());
+			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
 	}
-	if(!node.top_level) {
-		fprintf(output, " %s", node.name.c_str());
-	}
-	for(s32 index : node.array_indices) {
-		fprintf(output, "[%d]", index);
-	}
-	fprintf(output, ";\n");
 }
 
-static void print_json_ast_node(FILE* output, const AstNode& node, s32 depth) {
-	indent(output, depth); fprintf(output, "{\n");
-	if(node.is_static) {
-		indent(output, depth + 1); fprintf(output, "\"is_static\": true,\n");
-	} else {
-		indent(output, depth + 1); fprintf(output, "\"is_static\": false,\n");
-		indent(output, depth + 1); fprintf(output, "\"offset\": %d,\n", node.offset);
-		indent(output, depth + 1); fprintf(output, "\"size\": %d,\n", node.size);
+static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class) {
+	switch(storage_class) {
+		case ast::StorageClass::NONE: break;
+		case ast::StorageClass::TYPEDEF: fprintf(dest, "typedef "); break;
+		case ast::StorageClass::EXTERN: fprintf(dest, "extern "); break;
+		case ast::StorageClass::STATIC: fprintf(dest, "static "); break;
+		case ast::StorageClass::AUTO: fprintf(dest, "auto "); break;
+		case ast::StorageClass::REGISTER: fprintf(dest, "register "); break;
 	}
-	indent(output, depth + 1); fprintf(output, "\"name\": \"%s\",\n", node.name.c_str());
-	switch(node.descriptor) {
-		case AstNodeDescriptor::LEAF: {
-			indent(output, depth + 1); fprintf(output, "\"type\": \"leaf\",\n");
-			indent(output, depth + 1); fprintf(output, "\"type_name\": \"%s\",\n", node.leaf.type_name.c_str());
-			break;
-		}
-		case AstNodeDescriptor::ENUM: {
-			indent(output, depth + 1); fprintf(output, "\"type\": \"leaf\",\n");
-			break;
-		}
-		case AstNodeDescriptor::STRUCT:
-		case AstNodeDescriptor::UNION: {
-			bool is_struct = node.descriptor == AstNodeDescriptor::STRUCT;
-			indent(output, depth + 1); fprintf(output, "\"type\": \"%s\",\n", is_struct ? "struct" : "union");
-			indent(output, depth + 1); fprintf(output, "\"base_classes\": [\n");
-			const auto& base_classes = node.struct_or_union.base_classes;
-			for(size_t i = 0; i < base_classes.size(); i++) {
-				bool is_last = i == base_classes.size() - 1;
-				const AstBaseClass& base_class = base_classes[i];
-				indent(output, depth + 2); fprintf(output, "{\n");
-				indent(output, depth + 3); fprintf(output, "\"offset\": %d,\n", base_class.offset);
-				indent(output, depth + 3); fprintf(output, "\"type_name\": \"%s\"\n", base_class.type_name.c_str());
-				indent(output, depth + 2); fprintf(output, "}%s\n", is_last ? "" : ",");
-			}
-			indent(output, depth + 1); fprintf(output, "],\n");
-			indent(output, depth + 1); fprintf(output, "\"fields\": [\n");
-			for(size_t i = 0; i < node.struct_or_union.fields.size(); i++) {
-				bool is_last = i == node.struct_or_union.fields.size() - 1;
-				const AstNode& child_node = node.struct_or_union.fields[i];
-				print_json_ast_node(output, child_node, depth + 2);
-				if(!is_last) {
-					fprintf(output, ",");
-				}
-				fprintf(output, "\n");
-			}
-			indent(output, depth + 1); fprintf(output, "],\n");
-			break;
-		}
-		case AstNodeDescriptor::TYPEDEF: {
-			indent(output, depth + 1); fprintf(output, "\"type\": \"typedef\",\n");
-			indent(output, depth + 1); fprintf(output, "\"type_name\": \"%s\",\n", node.typedef_type.type_name.c_str());
-			break;
-		}
-	}
-	if(node.symbol) {
-		indent(output, depth + 1); fprintf(output, "\"stabs_symbol\": \"%s\",\n", node.symbol->raw.c_str());
-	}
-	indent(output, depth + 1); fprintf(output, "\"conflicting_types\": %s\n", node.conflicting_types ? "true" : "false");
-	indent(output, depth); fprintf(output, "}");
 }
 
-static void indent(FILE* output, s32 depth) {
-	for(s32 i = 0; i < depth; i++) {
-		fprintf(output, "\t");
+static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
+	bool has_name = name.identifier != nullptr && !name.identifier->empty();
+	if(has_name && (flags & INSERT_SPACE_TO_LEFT)) {
+		fprintf(dest, " ");
+	}
+	for(s32 i = (s32) name.pointer_chars.size() - 1; i >= 0; i--) {
+		fprintf(dest, "%c", name.pointer_chars[i]);
+	}
+	name.pointer_chars.clear();
+	if(has_name) {
+		fprintf(dest, "%s", name.identifier->c_str());
+		name.identifier = nullptr;
+		if((flags & INSERT_SPACE_TO_RIGHT) && name.identifier->empty()) {
+			fprintf(dest, " ");
+		}
+	}
+}
+
+static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset) {
+	if(node.storage_class != ast::StorageClass::STATIC && node.absolute_offset_bytes > -1) {
+		assert(digits_for_offset > -1 && digits_for_offset < 100);
+		fprintf(dest, "/* 0x%0*x", digits_for_offset, node.absolute_offset_bytes);
+		if(node.bitfield_offset_bits > -1) {
+			fprintf(dest, ":%d", node.bitfield_offset_bits);
+		}
+		fprintf(dest, " */ ");
+	}
+}
+
+static void indent(FILE* dest, s32 level) {
+	for(s32 i = 0; i < level; i++) {
+		fputc('\t', dest);
 	}
 }
 
