@@ -201,8 +201,15 @@ static StabsType parse_type(const char*& input) {
 			// Not sure.
 			eat_s64_literal(input);
 			break;
-		case StabsTypeDescriptor::MEMBER: // @
-			verify(*input == 's', "Weird value following '@' type descriptor.");
+		case StabsTypeDescriptor::TYPE_ATTRIBUTE: // @
+			verify(*input == 's', "Weird value following '@' type descriptor. Please make a bug report!");
+			input++;
+			type.size_type_attribute.size_bits = eat_s64_literal(input);
+			expect_s8(input, ';', "type attribute");
+			type.size_type_attribute.type = std::make_unique<StabsType>(parse_type(input));
+			break;
+		case StabsTypeDescriptor::BUILT_IN:
+			type.built_in.type_id = eat_s64_literal(input);
 			break;
 		default:
 			verify_not_reached("Invalid type descriptor '%c' (%02x).",
@@ -346,7 +353,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 			}
 			member_function_set.overloads.emplace_back(std::move(field));
 		}
-		STABS_DEBUG_PRINTF("member func: %s\n", member_function.name.c_str());
+		STABS_DEBUG_PRINTF("member func: %s\n", member_function_set.name.c_str());
 		member_functions.emplace_back(std::move(member_function_set));
 	}
 	return member_functions;

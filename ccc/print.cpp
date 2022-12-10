@@ -117,7 +117,11 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			if(name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
-			printf(" { // 0x%x\n", inline_enum.size_bits / 8);
+			fprintf(dest, " {");
+			if(inline_enum.size_bits > -1) {
+				printf(" // 0x%x", inline_enum.size_bits / 8);
+			}
+			fprintf(dest, "\n");
 			for(size_t i = 0; i < inline_enum.constants.size(); i++) {
 				s32 number = inline_enum.constants[i].first;
 				const std::string& name = inline_enum.constants[i].second;

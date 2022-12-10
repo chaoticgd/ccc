@@ -89,8 +89,11 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		}
 		case StabsTypeDescriptor::RANGE: {
 			auto type_name = std::make_unique<ast::TypeName>();
-			verify(type.name.has_value(), "Encountered RANGE type with no name.");
-			type_name->type_name = *type.name;
+			if(type.name.has_value()) {
+				type_name->type_name = *type.name;
+			} else {
+				type_name->type_name = "CCC_RANGE";
+			}
 			result = std::move(type_name);
 			break;
 		}
@@ -171,9 +174,15 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			result = std::move(type_name);
 			break;
 		}
-		case StabsTypeDescriptor::MEMBER: {
+		case StabsTypeDescriptor::TYPE_ATTRIBUTE: {
+			assert(type.size_type_attribute.type.get());
+			result = stabs_type_to_ast(*type.size_type_attribute.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			result->size_bits = type.size_type_attribute.size_bits;
+			break;
+		}
+		case StabsTypeDescriptor::BUILT_IN: {
 			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = "CCC_MEMBERNOTIMPLEMENTED";
+			type_name->type_name = "CCC_BUILTIN";
 			result = std::move(type_name);
 			break;
 		}

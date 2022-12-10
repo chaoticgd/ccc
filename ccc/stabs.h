@@ -34,7 +34,8 @@ enum class StabsTypeDescriptor : s8 {
 	REFERENCE = '&',
 	POINTER = '*',
 	SLASH = '/',
-	MEMBER = '@'
+	TYPE_ATTRIBUTE = '@',
+	BUILT_IN = '-'
 };
 
 struct StabsBaseClass;
@@ -89,6 +90,13 @@ struct StabsType {
 	struct {
 		std::unique_ptr<StabsType> value_type;
 	} reference_or_pointer;
+	struct {
+		s64 size_bits;
+		std::unique_ptr<StabsType> type;
+	} size_type_attribute;
+	struct {
+		s64 type_id;
+	} built_in;
 };
 
 enum class StabsFieldVisibility : s8 {
