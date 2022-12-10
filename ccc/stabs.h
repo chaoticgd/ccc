@@ -39,7 +39,7 @@ enum class StabsTypeDescriptor : s8 {
 
 struct StabsBaseClass;
 struct StabsField;
-struct StabsMemberFunction;
+struct StabsMemberFunctionSet;
 
 // e.g. for "123=*456" 123 would be the type_number, the type descriptor would
 // be of type POINTER and reference_or_pointer.value_type would point to a type
@@ -75,7 +75,7 @@ struct StabsType {
 		s64 size;
 		std::vector<StabsBaseClass> base_classes;
 		std::vector<StabsField> fields;
-		std::vector<StabsMemberFunction> member_functions;
+		std::vector<StabsMemberFunctionSet> member_functions;
 	} struct_or_union;
 	struct {
 		char type;
@@ -115,16 +115,16 @@ struct StabsField {
 	std::string type_name;
 };
 
-struct StabsMemberFunctionField {
+struct StabsMemberFunctionOverload {
 	StabsType type;
 	StabsFieldVisibility visibility;
 	bool is_const;
 	bool is_volatile;
 };
 
-struct StabsMemberFunction {
+struct StabsMemberFunctionSet {
 	std::string name;
-	std::vector<StabsMemberFunctionField> fields;
+	std::vector<StabsMemberFunctionOverload> overloads;
 };
 
 struct StabsSymbol {

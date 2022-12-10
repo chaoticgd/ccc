@@ -7,7 +7,7 @@ namespace ccc {
 
 static StabsType parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
-static std::vector<StabsMemberFunction> parse_member_functions(const char*& input);
+static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input);
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
@@ -269,20 +269,20 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 	return fields;
 }
 
-static std::vector<StabsMemberFunction> parse_member_functions(const char*& input) {
+static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input) {
 	if(*input == ',') {
 		return {};
 	}
 	
-	std::vector<StabsMemberFunction> member_functions;
+	std::vector<StabsMemberFunctionSet> member_functions;
 	while(*input != '\0') {
 		if(*input == ';') {
 			input++;
 			break;
 		}
 		const char* before = input;
-		StabsMemberFunction member_function;
-		member_function.name = eat_identifier(input);
+		StabsMemberFunctionSet member_function_set;
+		member_function_set.name = eat_identifier(input);
 		expect_s8(input, ':', "member function");
 		expect_s8(input, ':', "member function");
 		while(*input != '\0') {
@@ -291,7 +291,7 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 				break;
 			}
 			
-			StabsMemberFunctionField field;
+			StabsMemberFunctionOverload field;
 			field.type = parse_type(input);
 			
 			expect_s8(input, ':', "member function");
@@ -344,10 +344,10 @@ static std::vector<StabsMemberFunction> parse_member_functions(const char*& inpu
 				default:
 					verify_not_reached("Invalid member function type.");
 			}
-			member_function.fields.emplace_back(std::move(field));
+			member_function_set.overloads.emplace_back(std::move(field));
 		}
 		STABS_DEBUG_PRINTF("member func: %s\n", member_function.name.c_str());
-		member_functions.emplace_back(std::move(member_function));
+		member_functions.emplace_back(std::move(member_function_set));
 	}
 	return member_functions;
 }
@@ -465,9 +465,9 @@ static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& 
 	for(const StabsField& field : type.struct_or_union.fields) {
 		enumerate_numbered_types_recursive(output, field.type);
 	}
-	for(const StabsMemberFunction& member_functions : type.struct_or_union.member_functions) {
-		for(const StabsMemberFunctionField& field : member_functions.fields) {
-			enumerate_numbered_types_recursive(output, field.type);
+	for(const StabsMemberFunctionSet& member_functions : type.struct_or_union.member_functions) {
+		for(const StabsMemberFunctionOverload& overload : member_functions.overloads) {
+			enumerate_numbered_types_recursive(output, overload.type);
 		}
 	}
 	enumerate_unique_ptr(output, type.method.return_type);

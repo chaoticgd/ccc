@@ -70,6 +70,7 @@ struct BitField : Node {
 
 struct Function : Node {
 	std::unique_ptr<Node> return_type;
+	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	
 	Function() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
@@ -85,6 +86,7 @@ struct InlineEnum : Node {
 struct InlineStruct : Node {
 	std::vector<BaseClass> base_classes;
 	std::vector<std::unique_ptr<Node>> fields;
+	std::vector<std::unique_ptr<Node>> member_functions;
 	
 	InlineStruct() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT;
@@ -92,6 +94,7 @@ struct InlineStruct : Node {
 
 struct InlineUnion : Node {
 	std::vector<std::unique_ptr<Node>> fields;
+	std::vector<std::unique_ptr<Node>> member_functions;
 	
 	InlineUnion() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_UNION;

@@ -12,7 +12,8 @@ struct VariableName {
 enum VariableNamePrintFlags {
 	NO_PRINT_FLAGS = 0,
 	INSERT_SPACE_TO_LEFT = (1 << 0),
-	INSERT_SPACE_TO_RIGHT = (1 << 1)
+	INSERT_SPACE_TO_RIGHT = (1 << 1),
+	BRACKETS_IF_POINTER = (1 << 2)
 };
 
 static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset);
@@ -91,9 +92,22 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			assert(function.return_type.get());
 			VariableName dummy{nullptr};
 			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
-			fprintf(dest, " (");
-			print_cpp_variable_name(dest, name, NO_PRINT_FLAGS);
-			fprintf(dest, ")(/* parameters unknown */)");
+			fprintf(dest, " ");
+			print_cpp_variable_name(dest, name, NO_PRINT_FLAGS | BRACKETS_IF_POINTER);
+			fprintf(dest, "(");
+			if(function.parameters.has_value()) {
+				for(size_t i = 0; i < function.parameters->size(); i++) {
+					assert((*function.parameters)[i].get());
+					VariableName dummy{nullptr};
+					print_cpp_ast_node(dest, *(*function.parameters)[i].get(), dummy, indentation_level, digits_for_offset);
+					if(i != function.parameters->size() - 1) {
+						fprintf(dest, ", ");
+					}
+				}
+			} else {
+				fprintf(dest, "/* parameters unknown */");
+			}
+			fprintf(dest, ")");
 			break;
 		}
 		case ast::INLINE_ENUM: {
@@ -142,6 +156,18 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
 				fprintf(dest, ";\n");
 			}
+			if(!inline_struct.member_functions.empty()) {
+				if(!inline_struct.fields.empty()) {
+					indent(dest, indentation_level + 1);
+					fprintf(dest, "\n");
+				}
+				for(size_t i = 0; i < inline_struct.member_functions.size(); i++) {
+					assert(inline_struct.member_functions[i].get());
+					indent(dest, indentation_level + 1);
+					print_cpp_ast_node(dest, *inline_struct.member_functions[i].get(), name, indentation_level + 1, digits_for_offset);
+					fprintf(dest, ";\n");
+				}
+			}
 			indent(dest, indentation_level);
 			fprintf(dest, "}");
 			if(!name_on_top) {
@@ -163,6 +189,18 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 				print_cpp_offset(dest, *field.get(), digits_for_offset);
 				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
 				fprintf(dest, ";\n");
+			}
+			if(!inline_union.member_functions.empty()) {
+				if(!inline_union.fields.empty()) {
+					indent(dest, indentation_level + 1);
+					fprintf(dest, "\n");
+				}
+				for(size_t i = 0; i < inline_union.member_functions.size(); i++) {
+					assert(inline_union.member_functions[i].get());
+					indent(dest, indentation_level + 1);
+					print_cpp_ast_node(dest, *inline_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset);
+					fprintf(dest, ";\n");
+				}
 			}
 			indent(dest, indentation_level);
 			fprintf(dest, "}");
@@ -209,8 +247,12 @@ static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class)
 
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
 	bool has_name = name.identifier != nullptr && !name.identifier->empty();
+	bool has_brackets = (flags & BRACKETS_IF_POINTER) && !name.pointer_chars.empty();
 	if(has_name && (flags & INSERT_SPACE_TO_LEFT)) {
 		fprintf(dest, " ");
+	}
+	if(has_brackets) {
+		fprintf(dest, "(");
 	}
 	for(s32 i = (s32) name.pointer_chars.size() - 1; i >= 0; i--) {
 		fprintf(dest, "%c", name.pointer_chars[i]);
@@ -222,6 +264,9 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
 		if((flags & INSERT_SPACE_TO_RIGHT) && name.identifier->empty()) {
 			fprintf(dest, " ");
 		}
+	}
+	if(has_brackets) {
+		fprintf(dest, ")");
 	}
 }
 

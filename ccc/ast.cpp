@@ -16,6 +16,12 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::
 }
 
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth) {
+	if(depth > 5){
+		auto type_name = std::make_unique<ast::TypeName>();
+		type_name->type_name = stringf("CCC_INFRECURSION(%d)", type.type_number);
+		return type_name;
+	}
+	
 	verify(depth < 1000, "Infinite recursion for type '%c'.", type.descriptor);
 	
 	// This makes sure that if types are referenced by their number, their name
@@ -100,7 +106,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 				ast_base_class.type_name = base_class_type->as<TypeName>().type_name;
 			}
 			for(const StabsField& field : type.struct_or_union.fields) {
-				inline_struct->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth));
+				inline_struct->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth + 1));
+			}
+			for(const StabsMemberFunctionSet& function_set : type.struct_or_union.member_functions) {
+				for(const StabsMemberFunctionOverload& overload : function_set.overloads) {
+					auto node = stabs_type_to_ast(overload.type, stabs_types, absolute_parent_offset_bytes, depth + 1);
+					node->name = function_set.name;
+					inline_struct->member_functions.emplace_back(std::move(node));
+				}
 			}
 			result = std::move(inline_struct);
 			break;
@@ -109,7 +122,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			auto inline_union = std::make_unique<ast::InlineUnion>();
 			inline_union->size_bits = (s32) type.struct_or_union.size * 8;
 			for(const StabsField& field : type.struct_or_union.fields) {
-				inline_union->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth));
+				inline_union->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth + 1));
+			}
+			for(const StabsMemberFunctionSet& function_set : type.struct_or_union.member_functions) {
+				for(const StabsMemberFunctionOverload& overload : function_set.overloads) {
+					auto node = stabs_type_to_ast(overload.type, stabs_types, absolute_parent_offset_bytes, depth + 1);
+					node->name = function_set.name;
+					inline_union->member_functions.emplace_back(std::move(node));
+				}
 			}
 			result = std::move(inline_union);
 			break;
@@ -121,9 +141,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			break;
 		}
 		case StabsTypeDescriptor::METHOD: {
-			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = "METHOD";
-			result = std::move(type_name);
+			assert(type.method.return_type.get());
+			auto function = std::make_unique<ast::Function>();
+			function->return_type = stabs_type_to_ast(*type.method.return_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			function->parameters.emplace();
+			for(const StabsType& parameter_type : type.method.parameter_types) {
+				function->parameters->emplace_back(stabs_type_to_ast(parameter_type, stabs_types, absolute_parent_offset_bytes, depth + 1));
+			}
+			result = std::move(function);
 			break;
 		}
 		case StabsTypeDescriptor::POINTER: {
@@ -142,13 +167,13 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		}
 		case StabsTypeDescriptor::SLASH: {
 			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = "SLASH";
+			type_name->type_name = "CCC_SLASHNOTIMPLEMENTED";
 			result = std::move(type_name);
 			break;
 		}
 		case StabsTypeDescriptor::MEMBER: {
 			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = "MEMBER";
+			type_name->type_name = "CCC_MEMBERNOTIMPLEMENTED";
 			result = std::move(type_name);
 			break;
 		}
@@ -227,7 +252,7 @@ static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 		case ARRAY: {
 			const Array& array_lhs = lhs.as<Array>();
 			const Array& array_rhs = rhs.as<Array>();
-			if(!compare_ast_nodes(*array_lhs.element_type.get(), *array_lhs.element_type.get())) return false;
+			if(!compare_ast_nodes(*array_lhs.element_type.get(), *array_rhs.element_type.get())) return false;
 			if(array_lhs.element_count != array_rhs.element_count) return false;
 			break;
 		}
@@ -241,6 +266,14 @@ static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 			const Function& function_lhs = lhs.as<Function>();
 			const Function& function_rhs = rhs.as<Function>();
 			if(!compare_ast_nodes(*function_lhs.return_type.get(), *function_rhs.return_type.get())) return false;
+			if(function_lhs.parameters.has_value() && function_rhs.parameters.has_value()) {
+				if(function_lhs.parameters->size() != function_rhs.parameters->size()) return false;
+				for(size_t i = 0; i < function_lhs.parameters->size(); i++) {
+					if(!compare_ast_nodes(*(*function_lhs.parameters)[i].get(), *(*function_rhs.parameters)[i].get())) return false;
+				}
+			} else if(function_lhs.parameters.has_value() != function_rhs.parameters.has_value()) {
+				return false;
+			}
 			break;
 		}
 		case INLINE_ENUM: {
@@ -264,6 +297,10 @@ static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 			for(size_t i = 0; i < struct_lhs.fields.size(); i++) {
 				if(!compare_ast_nodes(*struct_lhs.fields[i].get(), *struct_rhs.fields[i].get())) return false;
 			}
+			if(struct_lhs.member_functions.size() != struct_rhs.member_functions.size()) return false;
+			for(size_t i = 0; i < struct_lhs.member_functions.size(); i++) {
+				if(!compare_ast_nodes(*struct_lhs.member_functions[i].get(), *struct_rhs.member_functions[i].get())) return false;
+			}
 			break;
 		}
 		case INLINE_UNION: {
@@ -272,6 +309,10 @@ static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 			if(union_lhs.fields.size() != union_rhs.fields.size()) return false;
 			for(size_t i = 0; i < union_lhs.fields.size(); i++) {
 				if(!compare_ast_nodes(*union_lhs.fields[i].get(), *union_rhs.fields[i].get())) return false;
+			}
+			if(union_lhs.member_functions.size() != union_rhs.member_functions.size()) return false;
+			for(size_t i = 0; i < union_lhs.member_functions.size(); i++) {
+				if(!compare_ast_nodes(*union_lhs.member_functions[i].get(), *union_rhs.member_functions[i].get())) return false;
 			}
 			break;
 		}
