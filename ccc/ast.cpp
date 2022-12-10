@@ -9,17 +9,21 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::
 		return node;
 	}
 	
-	auto node = stabs_type_to_ast(symbol.type, stabs_types, 0, 0);
-	node->name = (symbol.name == " ") ? "" : symbol.name;
-	node->symbol = &symbol;
-	return node;
+	try {
+		auto node = stabs_type_to_ast(symbol.type, stabs_types, 0, 0);
+		node->name = (symbol.name == " ") ? "" : symbol.name;
+		node->symbol = &symbol;
+		return node;
+	} catch(std::runtime_error& e) {
+		auto error = std::make_unique<ast::TypeName>();
+		error->type_name = e.what();
+		return error;
+	}
 }
 
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth) {
 	if(depth > 1000) {
-		auto type_name = std::make_unique<ast::TypeName>();
-		type_name->type_name = stringf("CCC_BADRECURSION");
-		return type_name;
+		throw std::runtime_error("CCC_BADRECURSION");
 	}
 	
 	// This makes sure that if types are referenced by their number, their name
@@ -35,6 +39,11 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		if(type.anonymous || stabs_type == stabs_types.end() || !stabs_type->second) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d)", type.type_number);
+			return type_name;
+		}
+		if(!stabs_type->second->has_body) {
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->type_name = stringf("CCC_BADRECURSION");
 			return type_name;
 		}
 		return stabs_type_to_ast(*stabs_type->second, stabs_types, absolute_parent_offset_bytes, depth + 1);
