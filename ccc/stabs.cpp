@@ -483,6 +483,7 @@ static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& 
 		enumerate_numbered_types_recursive(output, parameter_type);
 	}
 	enumerate_unique_ptr(output, type.reference_or_pointer.value_type);
+	enumerate_unique_ptr(output, type.size_type_attribute.type);
 }
 
 std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols) {
