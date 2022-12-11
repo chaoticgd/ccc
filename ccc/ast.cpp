@@ -15,7 +15,7 @@ std::set<std::pair<std::string, RangeClass>> symbols_to_builtins(const std::vect
 std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types) {
 	std::vector<std::unique_ptr<ast::Node>> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
-		if(is_data_type(symbol) && !is_builtin_type(symbol)) {
+		if(is_data_type(symbol) && symbol.name != "void") {
 			std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
 			if(node != nullptr) {
 				ast_nodes.emplace_back(std::move(node));
@@ -34,8 +34,8 @@ bool is_data_type(const StabsSymbol& symbol) {
 
 
 bool is_builtin_type(const StabsSymbol& symbol) {
-	return symbol.type.descriptor == StabsTypeDescriptor::RANGE
-		&& symbol.type.range_type.range_class != RangeClass::UNKNOWN_PROBABLY_ARRAY;
+	return (symbol.type.descriptor == StabsTypeDescriptor::RANGE
+		&& symbol.type.range_type.range_class != RangeClass::UNKNOWN_PROBABLY_ARRAY);
 }
 
 std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
@@ -47,8 +47,10 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::
 	
 	try {
 		auto node = stabs_type_to_ast(symbol.type, stabs_types, 0, 0);
-		node->name = (symbol.name == " ") ? "" : symbol.name;
-		node->symbol = &symbol;
+		if(node != nullptr) {
+			node->name = (symbol.name == " ") ? "" : symbol.name;
+			node->symbol = &symbol;
+		}
 		return node;
 	} catch(std::runtime_error& e) {
 		auto error = std::make_unique<ast::TypeName>();
@@ -86,6 +88,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			assert(type.type_reference.type.get());
 			result = stabs_type_to_ast(*type.type_reference.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(result == nullptr) {
+				return nullptr;
+			}
 			if(depth == 0) {
 				result->storage_class = StorageClass::TYPEDEF;
 			}
@@ -95,6 +100,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			auto array = std::make_unique<ast::Array>();
 			assert(type.array_type.element_type.get());
 			array->element_type = stabs_type_to_ast(*type.array_type.element_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(array->element_type == nullptr) {
+				return nullptr;
+			}
 			const StabsType* index = type.array_type.index_type.get();
 			// The low and high values are not wrong in this case.
 			verify(index && index->descriptor == StabsTypeDescriptor::RANGE && index->range_type.low_maybe_wrong == 0,
@@ -113,33 +121,24 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			auto function = std::make_unique<ast::Function>();
 			assert(type.function_type.type.get());
 			function->return_type = stabs_type_to_ast(*type.function_type.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(function->return_type == nullptr) {
+				return nullptr;
+			}
 			result = std::move(function);
 			break;
 		}
 		case StabsTypeDescriptor::RANGE: {
-			auto type_name = std::make_unique<ast::TypeName>();
-			switch(type.range_type.range_class) {
-				case RangeClass::UNSIGNED_8: type_name->type_name = "CCC_UNSIGNED_8"; break;
-				case RangeClass::SIGNED_8: type_name->type_name = "CCC_SIGNED_8"; break;
-				case RangeClass::UNSIGNED_16: type_name->type_name = "CCC_UNSIGNED_16"; break;
-				case RangeClass::SIGNED_16: type_name->type_name = "CCC_SIGNED_16"; break;
-				case RangeClass::UNSIGNED_32: type_name->type_name = "CCC_UNSIGNED_32"; break;
-				case RangeClass::SIGNED_32: type_name->type_name = "CCC_SIGNED_32"; break;
-				case RangeClass::FLOAT_32: type_name->type_name = "CCC_FLOAT_32"; break;
-				case RangeClass::UNSIGNED_64: type_name->type_name = "CCC_UNSIGNED_64"; break;
-				case RangeClass::SIGNED_64: type_name->type_name = "CCC_SIGNED_64"; break;
-				case RangeClass::FLOAT_64: type_name->type_name = "CCC_FLOAT_64"; break;
-				case RangeClass::UNSIGNED_128: type_name->type_name = "CCC_UNSIGNED_128"; break;
-				case RangeClass::SIGNED_128: type_name->type_name = "CCC_SIGNED_128"; break;
-				case RangeClass::UNKNOWN_PROBABLY_ARRAY: type_name->type_name = "CCC_RANGE"; break;
+			if(depth >= 2) {
+				auto type_name = std::make_unique<ast::TypeName>();
+				if(type.name.has_value()) {
+					type_name->type_name = *type.name;
+				} else {
+					type_name->type_name = "CCC_RANGE";
+				}
+				return type_name;
+			} else {
+				return nullptr;
 			}
-			//if(type.name.has_value()) {
-			//	type_name->type_name = *type.name;
-			//} else {
-			//	type_name->type_name = "CCC_RANGE";
-			//}
-			result = std::move(type_name);
-			break;
 		}
 		case StabsTypeDescriptor::STRUCT: {
 			auto inline_struct = std::make_unique<ast::InlineStructOrUnion>();
@@ -150,6 +149,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 				ast_base_class.visibility = stabs_base_class.visibility;
 				ast_base_class.offset = stabs_base_class.offset;
 				auto base_class_type = stabs_type_to_ast(stabs_base_class.type, stabs_types, absolute_parent_offset_bytes, depth + 1);
+				if(base_class_type == nullptr) {
+					return nullptr;
+				}
 				assert(base_class_type->descriptor == TYPE_NAME);
 				ast_base_class.type_name = base_class_type->as<TypeName>().type_name;
 			}
@@ -159,6 +161,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			for(const StabsMemberFunctionSet& function_set : type.struct_or_union.member_functions) {
 				for(const StabsMemberFunctionOverload& overload : function_set.overloads) {
 					auto node = stabs_type_to_ast(overload.type, stabs_types, absolute_parent_offset_bytes, depth + 1);
+					if(node == nullptr) {
+						return nullptr;
+					}
 					node->name = function_set.name;
 					inline_struct->member_functions.emplace_back(std::move(node));
 				}
@@ -171,11 +176,18 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			inline_union->is_union = true;
 			inline_union->size_bits = (s32) type.struct_or_union.size * 8;
 			for(const StabsField& field : type.struct_or_union.fields) {
-				inline_union->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth + 1));
+				auto node = stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth + 1);
+				if(node == nullptr) {
+					return nullptr;
+				}
+				inline_union->fields.emplace_back(std::move(node));
 			}
 			for(const StabsMemberFunctionSet& function_set : type.struct_or_union.member_functions) {
 				for(const StabsMemberFunctionOverload& overload : function_set.overloads) {
 					auto node = stabs_type_to_ast(overload.type, stabs_types, absolute_parent_offset_bytes, depth + 1);
+					if(node == nullptr) {
+						return nullptr;
+					}
 					node->name = function_set.name;
 					inline_union->member_functions.emplace_back(std::move(node));
 				}
@@ -193,9 +205,16 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			assert(type.method.return_type.get());
 			auto function = std::make_unique<ast::Function>();
 			function->return_type = stabs_type_to_ast(*type.method.return_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(function->return_type == nullptr) {
+				return nullptr;
+			}
 			function->parameters.emplace();
 			for(const StabsType& parameter_type : type.method.parameter_types) {
-				function->parameters->emplace_back(stabs_type_to_ast(parameter_type, stabs_types, absolute_parent_offset_bytes, depth + 1));
+				auto node = stabs_type_to_ast(parameter_type, stabs_types, absolute_parent_offset_bytes, depth + 1);
+				if(node == nullptr) {
+					return nullptr;
+				}
+				function->parameters->emplace_back(std::move(node));
 			}
 			result = std::move(function);
 			break;
@@ -204,6 +223,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			auto pointer = std::make_unique<ast::Pointer>();
 			assert(type.reference_or_pointer.value_type.get());
 			pointer->value_type = stabs_type_to_ast(*type.reference_or_pointer.value_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(pointer->value_type == nullptr) {
+				return nullptr;
+			}
 			result = std::move(pointer);
 			break;
 		}
@@ -211,20 +233,29 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			auto reference = std::make_unique<ast::Reference>();
 			assert(type.reference_or_pointer.value_type.get());
 			reference->value_type = stabs_type_to_ast(*type.reference_or_pointer.value_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(reference->value_type == nullptr) {
+				return nullptr;
+			}
 			result = std::move(reference);
 			break;
 		}
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: {
 			assert(type.size_type_attribute.type.get());
 			result = stabs_type_to_ast(*type.size_type_attribute.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
+			if(result == nullptr) {
+				return nullptr;
+			}
 			result->size_bits = type.size_type_attribute.size_bits;
 			break;
 		}
 		case StabsTypeDescriptor::BUILT_IN: {
-			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = "CCC_BUILTIN";
-			result = std::move(type_name);
-			break;
+			if(depth >= 2) {
+				auto type_name = std::make_unique<ast::TypeName>();
+				type_name->type_name = "CCC_BUILTIN";
+				return type_name;
+			} else {
+				return nullptr;
+			}
 		}
 	}
 	

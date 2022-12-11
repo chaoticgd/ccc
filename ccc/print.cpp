@@ -39,7 +39,7 @@ void print_cpp_abi_information(FILE* dest, const std::set<std::pair<std::string,
 			case RangeClass::FLOAT_64: range_string = "64-bit floating point"; break;
 			case RangeClass::UNSIGNED_128: range_string = "128-bit unsigned integer"; break;
 			case RangeClass::SIGNED_128: range_string = "128-bit signed integer"; break;
-			case RangeClass::UNKNOWN_PROBABLY_ARRAY: range_string = ""; break;
+			case RangeClass::UNKNOWN_PROBABLY_ARRAY: range_string = "error"; break;
 		}
 		fprintf(dest, "//   %-25s%s\n", type.c_str(), range_string);
 	}
