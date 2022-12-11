@@ -120,7 +120,8 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			break;
 		}
 		case StabsTypeDescriptor::STRUCT: {
-			auto inline_struct = std::make_unique<ast::InlineStruct>();
+			auto inline_struct = std::make_unique<ast::InlineStructOrUnion>();
+			inline_struct->is_union = false;
 			inline_struct->size_bits = (s32) type.struct_or_union.size * 8;
 			for(const StabsBaseClass& stabs_base_class : type.struct_or_union.base_classes) {
 				ast::BaseClass& ast_base_class = inline_struct->base_classes.emplace_back();
@@ -144,7 +145,8 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			break;
 		}
 		case StabsTypeDescriptor::UNION: {
-			auto inline_union = std::make_unique<ast::InlineUnion>();
+			auto inline_union = std::make_unique<ast::InlineStructOrUnion>();
+			inline_union->is_union = true;
 			inline_union->size_bits = (s32) type.struct_or_union.size * 8;
 			for(const StabsField& field : type.struct_or_union.fields) {
 				inline_union->fields.emplace_back(stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth + 1));
@@ -307,9 +309,9 @@ static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 			if(enum_lhs.constants != enum_rhs.constants) return false;
 			break;
 		}
-		case INLINE_STRUCT: {
-			const InlineStruct& struct_lhs = lhs.as<InlineStruct>();
-			const InlineStruct& struct_rhs = rhs.as<InlineStruct>();
+		case INLINE_STRUCT_OR_UNION: {
+			const InlineStructOrUnion& struct_lhs = lhs.as<InlineStructOrUnion>();
+			const InlineStructOrUnion& struct_rhs = rhs.as<InlineStructOrUnion>();
 			if(struct_lhs.base_classes.size() != struct_rhs.base_classes.size()) return false;
 			for(size_t i = 0; i < struct_lhs.base_classes.size(); i++) {
 				const BaseClass& base_class_lhs = struct_lhs.base_classes[i];
@@ -325,19 +327,6 @@ static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 			if(struct_lhs.member_functions.size() != struct_rhs.member_functions.size()) return false;
 			for(size_t i = 0; i < struct_lhs.member_functions.size(); i++) {
 				if(!compare_ast_nodes(*struct_lhs.member_functions[i].get(), *struct_rhs.member_functions[i].get())) return false;
-			}
-			break;
-		}
-		case INLINE_UNION: {
-			const InlineUnion& union_lhs = lhs.as<InlineUnion>();
-			const InlineUnion& union_rhs = rhs.as<InlineUnion>();
-			if(union_lhs.fields.size() != union_rhs.fields.size()) return false;
-			for(size_t i = 0; i < union_lhs.fields.size(); i++) {
-				if(!compare_ast_nodes(*union_lhs.fields[i].get(), *union_rhs.fields[i].get())) return false;
-			}
-			if(union_lhs.member_functions.size() != union_rhs.member_functions.size()) return false;
-			for(size_t i = 0; i < union_lhs.member_functions.size(); i++) {
-				if(!compare_ast_nodes(*union_lhs.member_functions[i].get(), *union_rhs.member_functions[i].get())) return false;
 			}
 			break;
 		}

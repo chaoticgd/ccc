@@ -27,12 +27,9 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 	for(size_t i = 0; i < nodes.size(); i++) {
 		const std::unique_ptr<ast::Node>& node = nodes[i];
 		assert(node.get());
-		bool is_struct_or_union =
-			node->descriptor == ast::INLINE_STRUCT ||
-			node->descriptor == ast::INLINE_UNION;
 		bool multiline =
 			node->descriptor == ast::INLINE_ENUM ||
-			is_struct_or_union;
+			node->descriptor == ast::INLINE_STRUCT_OR_UNION;
 		if(!last_was_multiline && multiline) {
 			fprintf(dest, "\n");
 		}
@@ -46,7 +43,7 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 		}
 		VariableName name{nullptr};
 		s32 digits_for_offset = 0;
-		if(is_struct_or_union && node->size_bits > 0) {
+		if(node->descriptor == ast::INLINE_STRUCT_OR_UNION && node->size_bits > 0) {
 			digits_for_offset = (s32) ceilf(log2(node->size_bits / 8.f) / 4.f);
 		}
 		print_cpp_ast_node(stdout, *node.get(), name, 0, digits_for_offset, flags);
@@ -128,80 +125,54 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			}
 			break;
 		}
-		case ast::INLINE_STRUCT: {
-			const ast::InlineStruct& inline_struct = node.as<ast::InlineStruct>();
-			fprintf(dest, "struct");
-			bool name_on_top = (indentation_level == 0) && (inline_struct.storage_class != ast::StorageClass::TYPEDEF);
+		case ast::INLINE_STRUCT_OR_UNION: {
+			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
+			if(struct_or_union.is_union) {
+				fprintf(dest, "union");
+			} else {
+				fprintf(dest, "struct");
+			}
+			bool name_on_top = (indentation_level == 0) && (struct_or_union.storage_class != ast::StorageClass::TYPEDEF);
 			if(name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
-			if(!inline_struct.base_classes.empty()) {
+			// Print base classes.
+			if(!struct_or_union.base_classes.empty()) {
 				fprintf(dest, " :");
-				for(const ast::BaseClass& base_class : inline_struct.base_classes) {
+				for(const ast::BaseClass& base_class : struct_or_union.base_classes) {
 					if(base_class.offset > -1) {
 						fprintf(dest, " /* 0x%03x */", base_class.offset);
 					}
 					fprintf(dest, " %s", base_class.type_name.c_str());
 				}
 			}
-			fprintf(dest, " { // 0x%x\n", inline_struct.size_bits / 8);
-			for(const std::unique_ptr<ast::Node>& field : inline_struct.fields) {
+			fprintf(dest, " { // 0x%x\n", struct_or_union.size_bits / 8);
+			// Print fields.
+			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
 				assert(field.get());
 				indent(dest, indentation_level + 1);
 				print_cpp_offset(dest, *field.get(), digits_for_offset);
 				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset, flags);
 				fprintf(dest, ";\n");
 			}
-			if(!(flags & PRINT_OMIT_MEMBER_FUNCTIONS) && !inline_struct.member_functions.empty()) {
-				if(!inline_struct.fields.empty()) {
-					indent(dest, indentation_level + 1);
-					fprintf(dest, "\n");
-				}
-				for(size_t i = 0; i < inline_struct.member_functions.size(); i++) {
-					if((flags & PRINT_INCLUDE_SPECIAL_FUNCTIONS)
-						|| (inline_struct.member_functions[i]->name != "__as"
-							&& inline_struct.member_functions[i]->name != inline_struct.name)) {
-						assert(inline_struct.member_functions[i].get());
+			// Print member functions.
+			if(!(flags & PRINT_OMIT_MEMBER_FUNCTIONS) && !struct_or_union.member_functions.empty()) {
+				bool first = true;
+				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
+					ast::Function& member_func = struct_or_union.member_functions[i]->as<ast::Function>();
+					bool is_special = member_func.name == "__as"
+							|| (member_func.name == struct_or_union.name
+								&& (member_func.parameters.has_value()
+									|| member_func.parameters->size() == 0));
+					if((flags & PRINT_INCLUDE_SPECIAL_FUNCTIONS) || !is_special) {
+						if(first && !struct_or_union.fields.empty()) {
+							indent(dest, indentation_level + 1);
+							fprintf(dest, "\n");
+							first = false;
+						}
+						assert(struct_or_union.member_functions[i].get());
 						indent(dest, indentation_level + 1);
-						print_cpp_ast_node(dest, *inline_struct.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
-						fprintf(dest, ";\n");
-					}
-				}
-			}
-			indent(dest, indentation_level);
-			fprintf(dest, "}");
-			if(!name_on_top) {
-				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
-			}
-			break;
-		}
-		case ast::INLINE_UNION: {
-			const ast::InlineUnion& inline_union = node.as<ast::InlineUnion>();
-			fprintf(dest, "union");
-			bool name_on_top = indentation_level == 0 && inline_union.storage_class != ast::StorageClass::TYPEDEF;
-			if(name_on_top) {
-				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
-			}
-			fprintf(dest, " {\n");
-			for(const std::unique_ptr<ast::Node>& field : inline_union.fields) {
-				assert(field.get());
-				indent(dest, indentation_level + 1);
-				print_cpp_offset(dest, *field.get(), digits_for_offset);
-				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset, flags);
-				fprintf(dest, ";\n");
-			}
-			if(!(flags & PRINT_OMIT_MEMBER_FUNCTIONS) && !inline_union.member_functions.empty()) {
-				if(!inline_union.fields.empty()) {
-					indent(dest, indentation_level + 1);
-					fprintf(dest, "\n");
-				}
-				for(size_t i = 0; i < inline_union.member_functions.size(); i++) {
-					if((flags & PRINT_INCLUDE_SPECIAL_FUNCTIONS)
-						|| (inline_union.member_functions[i]->name != "__as"
-							&& inline_union.member_functions[i]->name != inline_union.name)) {
-						assert(inline_union.member_functions[i].get());
-						indent(dest, indentation_level + 1);
-						print_cpp_ast_node(dest, *inline_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
+						print_cpp_ast_node(dest, *struct_or_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
 						fprintf(dest, ";\n");
 					}
 				}

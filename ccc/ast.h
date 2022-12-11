@@ -16,7 +16,7 @@ enum class StorageClass {
 };
 
 enum NodeDescriptor {
-	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT, INLINE_UNION, POINTER, REFERENCE, TYPE_NAME
+	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT_OR_UNION, POINTER, REFERENCE, TYPE_NAME
 };
 
 struct Node {
@@ -83,21 +83,14 @@ struct InlineEnum : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_ENUM;
 };
 
-struct InlineStruct : Node {
+struct InlineStructOrUnion : Node {
+	bool is_union = false;
 	std::vector<BaseClass> base_classes;
 	std::vector<std::unique_ptr<Node>> fields;
 	std::vector<std::unique_ptr<Node>> member_functions;
 	
-	InlineStruct() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT;
-};
-
-struct InlineUnion : Node {
-	std::vector<std::unique_ptr<Node>> fields;
-	std::vector<std::unique_ptr<Node>> member_functions;
-	
-	InlineUnion() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_UNION;
+	InlineStructOrUnion() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT_OR_UNION;
 };
 
 struct Pointer : Node {
