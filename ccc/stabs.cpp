@@ -208,7 +208,7 @@ static StabsType parse_type(const char*& input) {
 			type.built_in.type_id = eat_s64_literal(input);
 			break;
 		default:
-			verify_not_reached("Invalid type descriptor '%c' (%02x). Please submit a bug report!",
+			verify_not_reached("Invalid type descriptor '%c' (%02x). Please file a bug report!",
 				(u32) type.descriptor, (u32) type.descriptor);
 	}
 	return type;
