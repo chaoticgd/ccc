@@ -16,7 +16,7 @@ enum class StorageClass {
 };
 
 enum NodeDescriptor {
-	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT, INLINE_UNION, POINTER, REFERENCE, TYPE_NAME
+	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT_OR_UNION, POINTER, REFERENCE, TYPE_NAME
 };
 
 struct Node {
@@ -70,6 +70,7 @@ struct BitField : Node {
 
 struct Function : Node {
 	std::unique_ptr<Node> return_type;
+	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	
 	Function() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
@@ -82,19 +83,14 @@ struct InlineEnum : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_ENUM;
 };
 
-struct InlineStruct : Node {
+struct InlineStructOrUnion : Node {
+	bool is_union = false;
 	std::vector<BaseClass> base_classes;
 	std::vector<std::unique_ptr<Node>> fields;
+	std::vector<std::unique_ptr<Node>> member_functions;
 	
-	InlineStruct() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT;
-};
-
-struct InlineUnion : Node {
-	std::vector<std::unique_ptr<Node>> fields;
-	
-	InlineUnion() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_UNION;
+	InlineStructOrUnion() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT_OR_UNION;
 };
 
 struct Pointer : Node {
@@ -118,6 +114,10 @@ struct TypeName : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
 };
 
+std::set<std::pair<std::string, RangeClass>> symbols_to_builtins(const std::vector<StabsSymbol>& symbols);
+std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types);
+bool is_data_type(const StabsSymbol& symbol);
+bool is_builtin_type(const StabsSymbol& symbol);
 std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);

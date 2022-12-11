@@ -33,13 +33,22 @@ enum class StabsTypeDescriptor : s8 {
 	METHOD = '#',
 	REFERENCE = '&',
 	POINTER = '*',
-	SLASH = '/',
-	MEMBER = '@'
+	TYPE_ATTRIBUTE = '@',
+	BUILT_IN = '-'
+};
+
+enum class RangeClass {
+	UNSIGNED_8, SIGNED_8,
+	UNSIGNED_16, SIGNED_16,
+	UNSIGNED_32, SIGNED_32, FLOAT_32,
+	UNSIGNED_64, SIGNED_64, FLOAT_64,
+	UNSIGNED_128, SIGNED_128,
+	UNKNOWN_PROBABLY_ARRAY
 };
 
 struct StabsBaseClass;
 struct StabsField;
-struct StabsMemberFunction;
+struct StabsMemberFunctionSet;
 
 // e.g. for "123=*456" 123 would be the type_number, the type descriptor would
 // be of type POINTER and reference_or_pointer.value_type would point to a type
@@ -68,14 +77,15 @@ struct StabsType {
 	} function_type;
 	struct {
 		std::unique_ptr<StabsType> type;
-		s64 low;
-		s64 high;
+		s64 low_maybe_wrong;
+		s64 high_maybe_wrong;
+		RangeClass range_class;
 	} range_type;
 	struct {
 		s64 size;
 		std::vector<StabsBaseClass> base_classes;
 		std::vector<StabsField> fields;
-		std::vector<StabsMemberFunction> member_functions;
+		std::vector<StabsMemberFunctionSet> member_functions;
 	} struct_or_union;
 	struct {
 		char type;
@@ -89,6 +99,13 @@ struct StabsType {
 	struct {
 		std::unique_ptr<StabsType> value_type;
 	} reference_or_pointer;
+	struct {
+		s64 size_bits;
+		std::unique_ptr<StabsType> type;
+	} size_type_attribute;
+	struct {
+		s64 type_id;
+	} built_in;
 };
 
 enum class StabsFieldVisibility : s8 {
@@ -115,16 +132,16 @@ struct StabsField {
 	std::string type_name;
 };
 
-struct StabsMemberFunctionField {
+struct StabsMemberFunctionOverload {
 	StabsType type;
 	StabsFieldVisibility visibility;
 	bool is_const;
 	bool is_volatile;
 };
 
-struct StabsMemberFunction {
+struct StabsMemberFunctionSet {
 	std::string name;
-	std::vector<StabsMemberFunctionField> fields;
+	std::vector<StabsMemberFunctionOverload> overloads;
 };
 
 struct StabsSymbol {
