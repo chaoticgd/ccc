@@ -25,7 +25,7 @@ std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
 	std::vector<StabsSymbol> output;
 	std::string prefix;
 	for(const Symbol& symbol : input) {
-		if(symbol.storage_type == SymbolType::NIL) {
+		if(symbol.storage_type == SymbolType::NIL && symbol.storage_class != SymbolClass::COMPILER_VERSION_INFO) {
 			if(symbol.string.empty()) {
 				verify(prefix.empty(), "Invalid STABS continuation.");
 				continue;
@@ -36,7 +36,7 @@ std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
 			} else {
 				std::string symbol_string = prefix + symbol.string;
 				prefix = "";
-				if(symbol_string[0] == '$' || symbol_string[0] == '@') {
+				if(symbol_string[0] == '$') {
 					continue;
 				}
 				StabsSymbol stabs_symbol = parse_stabs_symbol(symbol_string.c_str());
