@@ -25,9 +25,9 @@ std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
 	std::vector<StabsSymbol> output;
 	std::string prefix;
 	for(const Symbol& symbol : input) {
-		if(symbol.storage_type == SymbolType::NIL && (u32) symbol.storage_class == 0) {
-			if(symbol.string.size() == 0) {
-				verify(prefix.size() == 0, "Invalid STABS continuation.");
+		if(symbol.storage_type == SymbolType::NIL) {
+			if(symbol.string.empty()) {
+				verify(prefix.empty(), "Invalid STABS continuation.");
 				continue;
 			}
 			// Some STABS symbols are split between multiple strings.
@@ -36,17 +36,12 @@ std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
 			} else {
 				std::string symbol_string = prefix + symbol.string;
 				prefix = "";
-				if(symbol_string[0] == '$') {
+				if(symbol_string[0] == '$' || symbol_string[0] == '@') {
 					continue;
 				}
 				StabsSymbol stabs_symbol = parse_stabs_symbol(symbol_string.c_str());
 				stabs_symbol.mdebug_symbol = symbol;
-				switch(stabs_symbol.descriptor) {
-					case StabsSymbolDescriptor::TYPE_NAME:
-					case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
-						output.emplace_back(std::move(stabs_symbol));
-						break;
-				}
+				output.emplace_back(std::move(stabs_symbol));
 			}
 		}
 	}
@@ -72,7 +67,14 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 		input++;
 	}
 	symbol.type = parse_type(input);
-	symbol.type.name = symbol.name;
+	// This is a bit of hack to make it so variable names aren't used as type
+	// names e.g.the STABS symbol "somevar:P123=*456" may be referenced by the
+	// type number 123, but the type name is not "somevar".
+	bool is_type = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME
+		|| symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
+	if(is_type) {
+		symbol.type.name = symbol.name;
+	}
 	return symbol;
 }
 
@@ -454,7 +456,7 @@ static void enumerate_unique_ptr(std::map<s32, const StabsType*>& output, const 
 }
 
 static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& output, const StabsType& type) {
-	if(!type.anonymous) {
+	if(!type.anonymous && type.has_body) {
 		output.emplace(type.type_number, &type);
 	}
 	enumerate_unique_ptr(output, type.type_reference.type);

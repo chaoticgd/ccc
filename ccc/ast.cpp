@@ -56,14 +56,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 	
 	if(!type.has_body) {
 		auto stabs_type = stabs_types.find(type.type_number);
-		if(type.anonymous || stabs_type == stabs_types.end() || !stabs_type->second) {
+		if(type.anonymous || stabs_type == stabs_types.end() || !stabs_type->second || !stabs_type->second->has_body) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d)", type.type_number);
-			return type_name;
-		}
-		if(!stabs_type->second->has_body) {
-			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = stringf("CCC_BADRECURSION");
 			return type_name;
 		}
 		return stabs_type_to_ast(*stabs_type->second, stabs_types, absolute_parent_offset_bytes, depth + 1);
