@@ -21,7 +21,8 @@ enum Flags {
 	NO_FLAGS = 0,
 	FLAG_PER_FILE = (1 << 0),
 	FLAG_VERBOSE = (1 << 1),
-	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 2)
+	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 2),
+	FLAG_INCLUDE_SPECIAL_FUNCTIONS = (1 << 3)
 };
 
 struct Options {
@@ -34,6 +35,7 @@ static void print_deduplicated(const SymbolTable& symbol_table, Options options)
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
 static void print_per_file(const SymbolTable& symbol_table, Options options);
 static void print_cpp(SymbolTable& symbol_table, u32 flags);
+static u32 build_print_flags(u32 flags);
 static void print_symbols(SymbolTable& symbol_table);
 static void list_files(SymbolTable& symbol_table);
 static SymbolTable read_symbol_table(const fs::path& input_file);
@@ -78,10 +80,7 @@ static void print_cpp(SymbolTable& symbol_table, u32 flags) {
 			per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(fd_symbols, types));
 		}
 		std::vector<std::unique_ptr<ast::Node>> ast_nodes = deduplicate_ast(per_file_ast);
-		u32 print_flags = NO_PRINT_FLAGS;
-		if(flags & FLAG_VERBOSE) print_flags |= PRINT_VERBOSE;
-		if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) print_flags |= PRINT_OMIT_MEMBER_FUNCTIONS;
-		print_cpp_ast_nodes(stdout, ast_nodes, print_flags);
+		print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(flags));
 	} else {
 		for(const SymFileDescriptor& fd : symbol_table.files) {
 			const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
@@ -92,13 +91,18 @@ static void print_cpp(SymbolTable& symbol_table, u32 flags) {
 			printf("// FILE -- %s\n", fd.name.c_str());
 			printf("// *****************************************************************************\n");
 			printf("\n");
-			u32 print_flags = NO_PRINT_FLAGS;
-			if(flags & FLAG_VERBOSE) print_flags |= PRINT_VERBOSE;
-			if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) print_flags |= PRINT_OMIT_MEMBER_FUNCTIONS;
-			print_cpp_ast_nodes(stdout, ast_nodes, print_flags);
+			print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(flags));
 			printf("\n");
 		}
 	}
+}
+
+static u32 build_print_flags(u32 flags) {
+	u32 print_flags = NO_PRINT_FLAGS;
+	if(flags & FLAG_VERBOSE) print_flags |= PRINT_VERBOSE;
+	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) print_flags |= PRINT_OMIT_MEMBER_FUNCTIONS;
+	if(flags & FLAG_INCLUDE_SPECIAL_FUNCTIONS) print_flags |= PRINT_INCLUDE_SPECIAL_FUNCTIONS;
+	return print_flags;
 }
 
 static void print_symbols(SymbolTable& symbol_table) {
@@ -161,6 +165,8 @@ static Options parse_args(int argc, char** argv) {
 			options.flags |= FLAG_VERBOSE;
 		} else if(strcmp(flag, "--omit-member-functions") == 0) {
 			options.flags |= FLAG_OMIT_MEMBER_FUNCTIONS;
+		} else if(strcmp(flag, "--include-special-functions") == 0) {
+			options.flags |= FLAG_INCLUDE_SPECIAL_FUNCTIONS;
 		} else {
 			options.mode = OutputMode::BAD_COMMAND;
 			return options;
@@ -181,11 +187,8 @@ static void print_help() {
 	puts("    --per-file                    Do not deduplicate types from files.");
 	puts("    --verbose                     Print additional information such as the raw");
 	puts("                                  STABS symbol along with each type.");
-	//puts("    --use-fixed-width-types       Replace C built-in types with those from");
-	//puts("                                  stdint.h e.g. int32_t instead of int.");
 	puts("    --omit-member-functions       Do not print member functions.");
-	//puts("    --include-special-functions   Include auto-generated member functions.");
-	//puts("    --do-not-recover-templates    Skip generating template types.");
+	puts("    --include-special-functions   Include auto-generated member functions.");
 	puts("");
 	puts("  print_symbols <input file>");
 	puts("    List all of the local symbols for each file descriptor.");

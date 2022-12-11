@@ -158,10 +158,14 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 					fprintf(dest, "\n");
 				}
 				for(size_t i = 0; i < inline_struct.member_functions.size(); i++) {
-					assert(inline_struct.member_functions[i].get());
-					indent(dest, indentation_level + 1);
-					print_cpp_ast_node(dest, *inline_struct.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
-					fprintf(dest, ";\n");
+					if((flags & PRINT_INCLUDE_SPECIAL_FUNCTIONS)
+						|| (inline_struct.member_functions[i]->name != "__as"
+							&& inline_struct.member_functions[i]->name != inline_struct.name)) {
+						assert(inline_struct.member_functions[i].get());
+						indent(dest, indentation_level + 1);
+						print_cpp_ast_node(dest, *inline_struct.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
+						fprintf(dest, ";\n");
+					}
 				}
 			}
 			indent(dest, indentation_level);
@@ -192,10 +196,14 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 					fprintf(dest, "\n");
 				}
 				for(size_t i = 0; i < inline_union.member_functions.size(); i++) {
-					assert(inline_union.member_functions[i].get());
-					indent(dest, indentation_level + 1);
-					print_cpp_ast_node(dest, *inline_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
-					fprintf(dest, ";\n");
+					if((flags & PRINT_INCLUDE_SPECIAL_FUNCTIONS)
+						|| (inline_union.member_functions[i]->name != "__as"
+							&& inline_union.member_functions[i]->name != inline_union.name)) {
+						assert(inline_union.member_functions[i].get());
+						indent(dest, indentation_level + 1);
+						print_cpp_ast_node(dest, *inline_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
+						fprintf(dest, ";\n");
+					}
 				}
 			}
 			indent(dest, indentation_level);
