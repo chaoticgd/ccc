@@ -74,11 +74,6 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 	switch(type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			assert(type.type_reference.type.get());
-			if(type.type_reference.type->type_number == type.type_number) {
-				auto type_name = std::make_unique<ast::TypeName>();
-				type_name->type_name = stringf("CCC_BADTYPEREFERENCE");
-				return type_name;
-			}
 			result = stabs_type_to_ast(*type.type_reference.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
 			if(depth == 0) {
 				result->storage_class = StorageClass::TYPEDEF;
