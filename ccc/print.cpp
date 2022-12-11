@@ -184,9 +184,10 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
 					ast::Function& member_func = struct_or_union.member_functions[i]->as<ast::Function>();
 					bool is_special = member_func.name == "__as"
-							|| (member_func.name == struct_or_union.name
-								&& (member_func.parameters.has_value()
-									|| member_func.parameters->size() == 0));
+						|| member_func.name.starts_with("$")
+						|| (member_func.name == struct_or_union.name
+							&& (member_func.parameters.has_value()
+								|| member_func.parameters->size() == 0));
 					if((flags & PRINT_INCLUDE_SPECIAL_FUNCTIONS) || !is_special) {
 						if(first && !struct_or_union.fields.empty()) {
 							indent(dest, indentation_level + 1);
