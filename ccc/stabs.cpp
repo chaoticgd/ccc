@@ -8,6 +8,7 @@ namespace ccc {
 static StabsType parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
 static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input);
+static RangeClass classify_range(const std::string& low, const std::string& high);
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
@@ -100,14 +101,16 @@ static StabsType parse_type(const char*& input) {
 		type.descriptor = (StabsTypeDescriptor) eat_s8(input);
 	}
 	switch(type.descriptor) {
-		case StabsTypeDescriptor::TYPE_REFERENCE: // 0..9
+		case StabsTypeDescriptor::TYPE_REFERENCE: { // 0..9
 			type.type_reference.type = std::make_unique<StabsType>(parse_type(input));
 			break;
-		case StabsTypeDescriptor::ARRAY: // a
+		}
+		case StabsTypeDescriptor::ARRAY: { // a
 			type.array_type.index_type = std::make_unique<StabsType>(parse_type(input));
 			type.array_type.element_type = std::make_unique<StabsType>(parse_type(input));
 			break;
-		case StabsTypeDescriptor::ENUM: // e
+		}
+		case StabsTypeDescriptor::ENUM: { // e
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
 				std::string name = eat_identifier(input);
@@ -121,18 +124,26 @@ static StabsType parse_type(const char*& input) {
 			input++;
 			STABS_DEBUG_PRINTF("}\n");
 			break;
-		case StabsTypeDescriptor::FUNCTION: // f
+		}
+		case StabsTypeDescriptor::FUNCTION: { // f
 			type.function_type.type = std::make_unique<StabsType>(parse_type(input));
 			break;
-		case StabsTypeDescriptor::RANGE: // r
+		}
+		case StabsTypeDescriptor::RANGE: { // r
 			type.range_type.type = std::make_unique<StabsType>(parse_type(input));
 			expect_s8(input, ';', "range type descriptor");
-			type.range_type.low = eat_s64_literal(input);
+			std::string low = eat_identifier(input);
 			expect_s8(input, ';', "low range value");
-			type.range_type.high = eat_s64_literal(input);
+			std::string high = eat_identifier(input);
 			expect_s8(input, ';', "high range value");
+			try {
+			type.range_type.low_maybe_wrong = std::stoi(low);
+			type.range_type.high_maybe_wrong = std::stoi(high);
+			} catch(std::out_of_range&) {/* this case doesn't matter */}
+			type.range_type.range_class = classify_range(low, high);
 			break;
-		case StabsTypeDescriptor::STRUCT: // s
+		}
+		case StabsTypeDescriptor::STRUCT: { // s
 			STABS_DEBUG_PRINTF("struct {\n");
 			type.struct_or_union.size = eat_s64_literal(input);
 			if(*input == '!') {
@@ -154,14 +165,16 @@ static StabsType parse_type(const char*& input) {
 			type.struct_or_union.member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
 			break;
-		case StabsTypeDescriptor::UNION: // u
+		}
+		case StabsTypeDescriptor::UNION: { // u
 			STABS_DEBUG_PRINTF("union {\n");
 			type.struct_or_union.size = eat_s64_literal(input);
 			type.struct_or_union.fields = parse_field_list(input);
 			type.struct_or_union.member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
 			break;
-		case StabsTypeDescriptor::CROSS_REFERENCE: // x
+		}
+		case StabsTypeDescriptor::CROSS_REFERENCE: { // x
 			type.cross_reference.type = eat_s8(input);
 			switch(type.cross_reference.type) {
 				case 's': // struct
@@ -176,7 +189,8 @@ static StabsType parse_type(const char*& input) {
 			type.name = type.cross_reference.identifier;
 			expect_s8(input, ':', "cross reference");
 			break;
-		case StabsTypeDescriptor::METHOD: // #
+		}
+		case StabsTypeDescriptor::METHOD: { // #
 			if(*input == '#') {
 				input++;
 				type.method.return_type = std::make_unique<StabsType>(parse_type(input));
@@ -195,23 +209,28 @@ static StabsType parse_type(const char*& input) {
 				}
 			}
 			break;
+		}
 		case StabsTypeDescriptor::REFERENCE: // &
-		case StabsTypeDescriptor::POINTER: // *
+		case StabsTypeDescriptor::POINTER: { // *
 			type.reference_or_pointer.value_type = std::make_unique<StabsType>(parse_type(input));
 			break;
-		case StabsTypeDescriptor::TYPE_ATTRIBUTE: // @
+		}
+		case StabsTypeDescriptor::TYPE_ATTRIBUTE: { // @
 			verify(*input == 's', "Weird value following '@' type descriptor. Please submit a bug report!");
 			input++;
 			type.size_type_attribute.size_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "type attribute");
 			type.size_type_attribute.type = std::make_unique<StabsType>(parse_type(input));
 			break;
-		case StabsTypeDescriptor::BUILT_IN:
+		}
+		case StabsTypeDescriptor::BUILT_IN: { // -
 			type.built_in.type_id = eat_s64_literal(input);
 			break;
-		default:
+		}
+		default: {
 			verify_not_reached("Invalid type descriptor '%c' (%02x). Please file a bug report!",
 				(u32) type.descriptor, (u32) type.descriptor);
+		}
 	}
 	return type;
 }
@@ -355,6 +374,55 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 		member_functions.emplace_back(std::move(member_function_set));
 	}
 	return member_functions;
+}
+
+static RangeClass classify_range(const std::string& low, const std::string& high) {
+	// Handle some special cases and values that are too large to easily store
+	// in a 64-bit integer.
+	static const struct { const char* low; const char* high; RangeClass classification; } strings[] = {
+		{"4", "0", RangeClass::FLOAT_32},
+		{"000000000000000000000000", "001777777777777777777777", RangeClass::UNSIGNED_64},
+		{"00000000000000000000000000000000000000000000", "00000000000000000000001777777777777777777777", RangeClass::UNSIGNED_64},
+		{"001000000000000000000000", "000777777777777777777777", RangeClass::SIGNED_64},
+		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", RangeClass::SIGNED_64},
+		{"8", "0", RangeClass::FLOAT_64},
+		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", RangeClass::UNSIGNED_128},
+		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", RangeClass::SIGNED_128}
+	};
+	
+	for(const auto& range : strings) {
+		if(strcmp(range.low, low.c_str()) == 0 && strcmp(range.high, high.c_str()) == 0) {
+			return range.classification;
+		}
+	}
+	
+	// For smaller values we actually parse the bounds as integers.
+	s64 low_value = 0;
+	s64 high_value = 0;
+	try {
+		low_value = std::stol(low, nullptr, low[0] == '0' ? 8 : 10);
+		high_value = std::stol(high, nullptr, high[0] == '0' ? 8 : 10);
+	} catch(std::out_of_range&) {
+		return RangeClass::UNKNOWN_PROBABLY_ARRAY;
+	}
+	
+	static const struct { s64 low; s64 high; RangeClass classification; } integers[] = {
+		{0, 255, RangeClass::UNSIGNED_8},
+		{-128, 127, RangeClass::SIGNED_8},
+		{0, 65535, RangeClass::UNSIGNED_16},
+		{-32768, 32767, RangeClass::SIGNED_16},
+		{0, 4294967295, RangeClass::UNSIGNED_32},
+		{-2147483648, 2147483647, RangeClass::SIGNED_32},
+	};
+	
+	// Then compare those integers.
+	for(const auto& range : integers) {
+		if((range.low == low_value || range.low == -low_value) && range.high == high_value) {
+			return range.classification;
+		}
+	}
+	
+	return RangeClass::UNKNOWN_PROBABLY_ARRAY;
 }
 
 static s8 eat_s8(const char*& input) {

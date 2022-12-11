@@ -80,9 +80,10 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			assert(type.array_type.element_type.get());
 			array->element_type = stabs_type_to_ast(*type.array_type.element_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
 			const StabsType* index = type.array_type.index_type.get();
-			verify(index && index->descriptor == StabsTypeDescriptor::RANGE && index->range_type.low == 0,
+			// The low and high values are not wrong in this case.
+			verify(index && index->descriptor == StabsTypeDescriptor::RANGE && index->range_type.low_maybe_wrong == 0,
 				"Invalid index type for array.");
-			array->element_count = index->range_type.high + 1;
+			array->element_count = index->range_type.high_maybe_wrong + 1;
 			result = std::move(array);
 			break;
 		}
@@ -101,11 +102,26 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 		}
 		case StabsTypeDescriptor::RANGE: {
 			auto type_name = std::make_unique<ast::TypeName>();
-			if(type.name.has_value()) {
-				type_name->type_name = *type.name;
-			} else {
-				type_name->type_name = "CCC_RANGE";
+			switch(type.range_type.range_class) {
+				case RangeClass::UNSIGNED_8: type_name->type_name = "CCC_UNSIGNED_8"; break;
+				case RangeClass::SIGNED_8: type_name->type_name = "CCC_SIGNED_8"; break;
+				case RangeClass::UNSIGNED_16: type_name->type_name = "CCC_UNSIGNED_16"; break;
+				case RangeClass::SIGNED_16: type_name->type_name = "CCC_SIGNED_16"; break;
+				case RangeClass::UNSIGNED_32: type_name->type_name = "CCC_UNSIGNED_32"; break;
+				case RangeClass::SIGNED_32: type_name->type_name = "CCC_SIGNED_32"; break;
+				case RangeClass::FLOAT_32: type_name->type_name = "CCC_FLOAT_32"; break;
+				case RangeClass::UNSIGNED_64: type_name->type_name = "CCC_UNSIGNED_64"; break;
+				case RangeClass::SIGNED_64: type_name->type_name = "CCC_SIGNED_64"; break;
+				case RangeClass::FLOAT_64: type_name->type_name = "CCC_FLOAT_64"; break;
+				case RangeClass::UNSIGNED_128: type_name->type_name = "CCC_UNSIGNED_128"; break;
+				case RangeClass::SIGNED_128: type_name->type_name = "CCC_SIGNED_128"; break;
+				case RangeClass::UNKNOWN_PROBABLY_ARRAY: type_name->type_name = "CCC_RANGE"; break;
 			}
+			//if(type.name.has_value()) {
+			//	type_name->type_name = *type.name;
+			//} else {
+			//	type_name->type_name = "CCC_RANGE";
+			//}
 			result = std::move(type_name);
 			break;
 		}

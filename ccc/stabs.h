@@ -37,6 +37,15 @@ enum class StabsTypeDescriptor : s8 {
 	BUILT_IN = '-'
 };
 
+enum class RangeClass {
+	UNSIGNED_8, SIGNED_8,
+	UNSIGNED_16, SIGNED_16,
+	UNSIGNED_32, SIGNED_32, FLOAT_32,
+	UNSIGNED_64, SIGNED_64, FLOAT_64,
+	UNSIGNED_128, SIGNED_128,
+	UNKNOWN_PROBABLY_ARRAY
+};
+
 struct StabsBaseClass;
 struct StabsField;
 struct StabsMemberFunctionSet;
@@ -68,8 +77,9 @@ struct StabsType {
 	} function_type;
 	struct {
 		std::unique_ptr<StabsType> type;
-		s64 low;
-		s64 high;
+		s64 low_maybe_wrong;
+		s64 high_maybe_wrong;
+		RangeClass range_class;
 	} range_type;
 	struct {
 		s64 size;
