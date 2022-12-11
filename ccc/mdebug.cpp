@@ -117,17 +117,18 @@ SymbolTable parse_mdebug_section(const Module& module, const ModuleSection& sect
 		}
 		
 		// Read procedure descriptors.
-		for(s64 j = 0; j < fd_entry.cpd; j++) {
-			u64 pd_offset = hdrr.cb_pd_offset + (fd_entry.ipd_first + j) * sizeof(ProcedureDescriptorEntry);
-			auto pd_entry = get_packed<ProcedureDescriptorEntry>(module.image, pd_offset, "procedure descriptor");
-			
-			u64 sym_offset = hdrr.cb_sym_offset + (fd_entry.isym_base + pd_entry.isym) * sizeof(SymbolEntry);
-			const auto& sym_entry = get_packed<SymbolEntry>(module.image, sym_offset, "local symbol");
-			
-			SymProcedureDescriptor& pd = fd.procedures.emplace_back();
-			pd.name = get_string(module.image, hdrr.cb_ss_offset + fd_entry.iss_base + sym_entry.iss);
-			pd.address = pd_entry.adr;
-		}
+		// This is buggy.
+		//for(s64 j = 0; j < fd_entry.cpd; j++) {
+		//	u64 pd_offset = hdrr.cb_pd_offset + (fd_entry.ipd_first + j) * sizeof(ProcedureDescriptorEntry);
+		//	auto pd_entry = get_packed<ProcedureDescriptorEntry>(module.image, pd_offset, "procedure descriptor");
+		//	
+		//	u64 sym_offset = hdrr.cb_sym_offset + (fd_entry.isym_base + pd_entry.isym) * sizeof(SymbolEntry);
+		//	const auto& sym_entry = get_packed<SymbolEntry>(module.image, sym_offset, "local symbol");
+		//	
+		//	SymProcedureDescriptor& pd = fd.procedures.emplace_back();
+		//	pd.name = get_string(module.image, hdrr.cb_ss_offset + fd_entry.iss_base + sym_entry.iss);
+		//	pd.address = pd_entry.adr;
+		//}
 		
 		symbol_table.files.emplace_back(fd);
 	}

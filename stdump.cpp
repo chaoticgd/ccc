@@ -170,7 +170,7 @@ static Options parse_args(int argc, char** argv) {
 	return options;
 }
 
-void print_help() {
+static void print_help() {
 	puts("stdump -- https://github.com/chaoticgd/ccc");
 	puts("  MIPS/STABS symbol table parser.");
 	puts("");
