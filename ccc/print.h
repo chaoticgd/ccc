@@ -5,11 +5,13 @@
 
 namespace ccc {
 
-enum class OutputLanguage {
-	CPP, JSON
+enum PrintFlags {
+	NO_PRINT_FLAGS = 0,
+	PRINT_VERBOSE = (1 << 0),
+	PRINT_OMIT_MEMBER_FUNCTIONS = (1 << 1)
 };
 
-void print_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, OutputLanguage language, bool verbose);
+void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, u32 flags);
 
 }
 

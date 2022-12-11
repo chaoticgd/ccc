@@ -2,6 +2,26 @@
 
 namespace ccc::ast {
 
+std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types) {
+	auto is_data_type = [](const StabsSymbol& symbol) {
+		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
+			&& (u32) symbol.mdebug_symbol.storage_class == 0
+			&& (symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
+				|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
+	};
+	
+	std::vector<std::unique_ptr<ast::Node>> ast_nodes;
+	for(const StabsSymbol& symbol : symbols) {
+		if(is_data_type(symbol)) {
+			std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
+			if(node != nullptr) {
+				ast_nodes.emplace_back(std::move(node));
+			}
+		}
+	}
+	return ast_nodes;
+}
+
 std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
 	if(!symbol.type.has_body) {
 		auto node = std::make_unique<TypeName>();
@@ -168,12 +188,6 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			assert(type.reference_or_pointer.value_type.get());
 			reference->value_type = stabs_type_to_ast(*type.reference_or_pointer.value_type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
 			result = std::move(reference);
-			break;
-		}
-		case StabsTypeDescriptor::SLASH: {
-			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->type_name = "CCC_SLASHNOTIMPLEMENTED";
-			result = std::move(type_name);
 			break;
 		}
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: {

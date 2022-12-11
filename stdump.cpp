@@ -9,73 +9,95 @@ void print_address(const char* name, u64 address) {
 	fprintf(stderr, "%32s @ 0x%08lx\n", name, address);
 }
 
-enum OutputMode : u32 {
-	OUTPUT_DEFAULT,
-	OUTPUT_HELP,
-	OUTPUT_SYMBOLS,
-	OUTPUT_FILES,
-	OUTPUT_TYPES,
-	OUTPUT_PER_FILE
+enum class OutputMode {
+	PRINT_CPP,
+	PRINT_SYMBOLS,
+	LIST_FILES,
+	HELP,
+	BAD_COMMAND
+};
+
+enum Flags {
+	NO_FLAGS = 0,
+	FLAG_PER_FILE = (1 << 0),
+	FLAG_VERBOSE = (1 << 1),
+	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 2)
 };
 
 struct Options {
-	OutputMode mode = OUTPUT_DEFAULT;
+	OutputMode mode = OutputMode::BAD_COMMAND;
 	fs::path input_file;
-	bool verbose = false;
-	OutputLanguage language = OutputLanguage::CPP;
+	u32 flags;
 };
 
-static void print_symbols(SymbolTable& symbol_table);
-static void print_files(SymbolTable& symbol_table);
 static void print_deduplicated(const SymbolTable& symbol_table, Options options);
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
-static std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*> stabs_types);
 static void print_per_file(const SymbolTable& symbol_table, Options options);
+static void print_cpp(SymbolTable& symbol_table, u32 flags);
+static void print_symbols(SymbolTable& symbol_table);
+static void list_files(SymbolTable& symbol_table);
+static SymbolTable read_symbol_table(const fs::path& input_file);
 static Options parse_args(int argc, char** argv);
 static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
-	if(options.mode == OUTPUT_DEFAULT || options.mode == OUTPUT_HELP) {
-		print_help();
-		exit(1);
-	}
-	
-	Module mod = loaders::read_elf_file(options.input_file);
-	
-	SymbolTable symbol_table;
-	bool has_symbol_table = false;
-	for(ModuleSection& section : mod.sections) {
-		if(section.type == ElfSectionType::MIPS_DEBUG) {
-			if(options.verbose) {
-				print_address("mdebug section", section.file_offset);
-			}
-			symbol_table = parse_mdebug_section(mod, section);
-			has_symbol_table = true;
+	switch(options.mode) {
+		case OutputMode::PRINT_CPP: {
+			SymbolTable symbol_table = read_symbol_table(options.input_file);
+			print_cpp(symbol_table, options.flags);
+			return 0;
+		}
+		case OutputMode::PRINT_SYMBOLS: {
+			SymbolTable symbol_table = read_symbol_table(options.input_file);
+			print_symbols(symbol_table);
+			return 0;
+		}
+		case OutputMode::LIST_FILES: {
+			SymbolTable symbol_table = read_symbol_table(options.input_file);
+			return 0;
+		}
+		case OutputMode::HELP: {
+			print_help();
+			return 0;
+		}
+		case OutputMode::BAD_COMMAND: {
+			print_help();
+			return 1;
 		}
 	}
-	verify(has_symbol_table, "No symbol table.\n");
-	if(options.verbose) {
-		print_address("procedure descriptor table", symbol_table.procedure_descriptor_table_offset);
-		print_address("local symbol table", symbol_table.local_symbol_table_offset);
-		print_address("file descriptor table", symbol_table.file_descriptor_table_offset);
-	}
-	switch(options.mode) {
-		case OUTPUT_DEFAULT:
-		case OUTPUT_HELP:
-			break;
-		case OUTPUT_SYMBOLS:
-			print_symbols(symbol_table);
-			break;
-		case OUTPUT_FILES:
-			print_files(symbol_table);
-			break;
-		case OUTPUT_TYPES:
-			print_deduplicated(symbol_table, options);
-			break;
-		case OUTPUT_PER_FILE:
-			print_per_file(symbol_table, options);
-			break;
+}
+
+static void print_cpp(SymbolTable& symbol_table, u32 flags) {
+	if((flags & FLAG_PER_FILE) == 0) {
+		std::vector<std::vector<StabsSymbol>> symbols;
+		std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
+		for(const SymFileDescriptor& fd : symbol_table.files) {
+			std::vector<StabsSymbol>& fd_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols));
+			const std::map<s32, const StabsType*> types = enumerate_numbered_types(fd_symbols);
+			per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(fd_symbols, types));
+		}
+		std::vector<std::unique_ptr<ast::Node>> ast_nodes = deduplicate_ast(per_file_ast);
+		u32 print_flags = NO_PRINT_FLAGS;
+		if(flags & FLAG_VERBOSE) print_flags |= PRINT_VERBOSE;
+		if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) print_flags |= PRINT_OMIT_MEMBER_FUNCTIONS;
+		print_cpp_ast_nodes(stdout, ast_nodes, print_flags);
+	} else {
+		for(const SymFileDescriptor& fd : symbol_table.files) {
+			const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
+			const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
+			const std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
+			
+			printf("// *****************************************************************************\n");
+			printf("// FILE -- %s\n", fd.name.c_str());
+			printf("// *****************************************************************************\n");
+			printf("\n");
+			u32 print_flags = NO_PRINT_FLAGS;
+			if(flags & FLAG_VERBOSE) print_flags |= PRINT_VERBOSE;
+			if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) print_flags |= PRINT_OMIT_MEMBER_FUNCTIONS;
+			print_cpp_ast_nodes(stdout, ast_nodes, print_flags);
+			printf("\n");
+		}
 	}
 }
 
@@ -103,132 +125,74 @@ static void print_symbols(SymbolTable& symbol_table) {
 	}
 }
 
-static void print_files(SymbolTable& symbol_table) {
+static void list_files(SymbolTable& symbol_table) {
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		printf("%s\n", fd.name.c_str());
 	}
 }
 
-static void print_deduplicated(const SymbolTable& symbol_table, Options options) {
-	std::vector<std::vector<StabsSymbol>> symbols;
-	const std::vector<std::unique_ptr<ast::Node>> ast_nodes = build_deduplicated_ast(symbols, symbol_table);
-	print_ast_nodes(stdout, ast_nodes, options.language, options.verbose);
-}
-
-static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table) {
-	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		symbols.emplace_back(parse_stabs_symbols(fd.symbols));
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols.back());
-		per_file_ast.emplace_back(fd.name, symbols_to_ast(symbols.back(), types));
-	}
-	return deduplicate_ast(per_file_ast);
-}
-
-static std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*> stabs_types) {
-	auto is_data_type = [&](const StabsSymbol& symbol) {
-		return symbol.mdebug_symbol.storage_type == SymbolType::NIL
-			&& (u32) symbol.mdebug_symbol.storage_class == 0
-			&& (symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
-				|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
-	};
-	
-	std::vector<std::unique_ptr<ast::Node>> ast_nodes;
-	for(const StabsSymbol& symbol : symbols) {
-		if(is_data_type(symbol)) {
-			std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
-			if(node != nullptr) {
-				ast_nodes.emplace_back(std::move(node));
-			}
-		}
-	}
-	return ast_nodes;
-}
-
-static void print_per_file(const SymbolTable& symbol_table, Options options) {
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-		const std::vector<std::unique_ptr<ast::Node>> ast_nodes = symbols_to_ast(symbols, types);
-		
-		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", fd.name.c_str());
-		printf("// *****************************************************************************\n");
-		printf("\n");
-		print_ast_nodes(stdout, ast_nodes, options.language, options.verbose);
-		printf("\n");
-	}
+static SymbolTable read_symbol_table(const fs::path& input_file) {
+	Module mod = loaders::read_elf_file(input_file);
+	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+	verify(mdebug_section, "No .mdebug section.");
+	return parse_mdebug_section(mod, *mdebug_section);
 }
 
 static Options parse_args(int argc, char** argv) {
 	Options options;
-	auto only_one = [&]() {
-		verify(options.mode == OUTPUT_DEFAULT, "Multiple mode flags specified.");
-	};
-	for(int i = 1; i < argc; i++) {
-		std::string arg = argv[i];
-		if(arg == "--symbols" || arg == "-s") {
-			only_one();
-			options.mode = OUTPUT_SYMBOLS;
-			continue;
-		}
-		if(arg == "--files" || arg == "-f") {
-			only_one();
-			options.mode = OUTPUT_FILES;
-			continue;
-		}
-		if(arg == "--types" || arg == "-t") {
-			only_one();
-			options.mode = OUTPUT_TYPES;
-			continue;
-		}
-		if(arg == "--per-file" || arg == "-p") {
-			only_one();
-			options.mode = OUTPUT_PER_FILE;
-			continue;
-		}
-		if(arg == "--language" || arg == "-l") {
-			verify(i < argc - 1, "No language specified.");
-			std::string language = argv[++i];
-			if(language == "cpp") {
-				options.language = OutputLanguage::CPP;
-			} else if(language == "json") {
-				options.language = OutputLanguage::JSON;
-			} else {
-				verify_not_reached("Invalid language.");
-			}
-			continue;
-		}
-		if(arg == "--verbose" || arg == "-v") {
-			options.verbose = true;
-			continue;
-		}
-		verify(options.input_file.empty(), "Multiple input files specified.");
-		options.input_file = arg;
+	if(argc < 2) {
+		return options;
 	}
+	const char* command = argv[1];
+	if(strcmp(command, "print_cpp") == 0) {
+		options.mode = OutputMode::PRINT_CPP;
+	} else if(strcmp(command, "print_symbols") == 0) {
+		options.mode = OutputMode::PRINT_SYMBOLS;
+	} else if(strcmp(command, "list_files") == 0) {
+		options.mode = OutputMode::LIST_FILES;
+	} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
+		options.mode = OutputMode::HELP;
+	}
+	for(s32 i = 2; i < argc - 1; i++) {
+		const char* flag = argv[i];
+		if(strcmp(flag, "--per-file") == 0) {
+			options.flags |= FLAG_PER_FILE;
+		} else if(strcmp(flag, "--verbose") == 0) {
+			options.flags |= FLAG_VERBOSE;
+		} else if(strcmp(flag, "--omit-member-functions") == 0) {
+			options.flags |= FLAG_OMIT_MEMBER_FUNCTIONS;
+		} else {
+			options.mode = OutputMode::BAD_COMMAND;
+			return options;
+		}
+	}
+	options.input_file = fs::path(std::string(argv[argc - 1]));
 	return options;
 }
 
 void print_help() {
-	puts("stdump: MIPS/GCC symbol table parser.");
+	puts("stdump -- https://github.com/chaoticgd/ccc");
+	puts("  MIPS/STABS symbol table parser.");
 	puts("");
-	puts("MODES:");
-	puts(" --symbols, -s      Print a list of all the local symbols, grouped");
-	puts("                    by file descriptor.");
+	puts("Commands:");
+	puts("  print_cpp [options] <input file>");
+	puts("    Print all the types recovered from the STABS symbols as C++.");
 	puts("");
-	puts(" --files, -f        Print a list of all the file descriptors.");
+	puts("    --per-file                    Do not deduplicate types from files.");
+	puts("    --verbose                     Print additional information such as the raw");
+	puts("                                  STABS symbol along with each type.");
+	//puts("    --use-fixed-width-types       Replace C built-in types with those from");
+	//puts("                                  stdint.h e.g. int32_t instead of int.");
+	puts("    --omit-member-functions       Do not print member functions.");
+	//puts("    --include-special-functions   Include auto-generated member functions.");
+	//puts("    --do-not-recover-templates    Skip generating template types.");
 	puts("");
-	puts(" --types, -t        Print a deduplicated list of all the types defined");
-	puts("                    in the MIPS debug section as C data structures.");
+	puts("  print_symbols <input file>");
+	puts("    List all of the local symbols for each file descriptor.");
 	puts("");
-	puts(" --per-file, -p     Print a list of all the types defined in the MIPS");
-	puts("                    debug section, where for each file descriptor");
-	puts("                    all types used are duplicated.");
+	puts("  list_files <input_file>");
+	puts("    List the names of each of the source files.");
 	puts("");
-	puts("OPTIONS:");
-	puts(" --language <lang>  Set the output language. <lang> can be set to");
-	puts("                    either cpp or json.");
-	puts("");
-	puts(" --verbose, -v      Print out additional information e.g. the offsets");
-	puts("                    of various data structures in the input file.");
+	puts("  help | --help | -h");
+	puts("    Print this help message.");
 }

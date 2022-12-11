@@ -33,7 +33,6 @@ enum class StabsTypeDescriptor : s8 {
 	METHOD = '#',
 	REFERENCE = '&',
 	POINTER = '*',
-	SLASH = '/',
 	TYPE_ATTRIBUTE = '@',
 	BUILT_IN = '-'
 };

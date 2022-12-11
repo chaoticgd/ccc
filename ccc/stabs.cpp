@@ -197,12 +197,8 @@ static StabsType parse_type(const char*& input) {
 		case StabsTypeDescriptor::POINTER: // *
 			type.reference_or_pointer.value_type = std::make_unique<StabsType>(parse_type(input));
 			break;
-		case StabsTypeDescriptor::SLASH: // /
-			// Not sure.
-			eat_s64_literal(input);
-			break;
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: // @
-			verify(*input == 's', "Weird value following '@' type descriptor. Please make a bug report!");
+			verify(*input == 's', "Weird value following '@' type descriptor. Please submit a bug report!");
 			input++;
 			type.size_type_attribute.size_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "type attribute");
@@ -212,7 +208,7 @@ static StabsType parse_type(const char*& input) {
 			type.built_in.type_id = eat_s64_literal(input);
 			break;
 		default:
-			verify_not_reached("Invalid type descriptor '%c' (%02x).",
+			verify_not_reached("Invalid type descriptor '%c' (%02x). Please submit a bug report!",
 				(u32) type.descriptor, (u32) type.descriptor);
 	}
 	return type;
