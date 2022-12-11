@@ -1,2 +1,4 @@
-./stdump --test $1 > /tmp/ccc_test.cpp
-ee-g++ -c /tmp/ccc_test.cpp -o /dev/null
+for elf in test/*; do
+	echo "**** TESTING FILE '$elf' ****";
+	./bin/stdump print_cpp $elf;
+done
