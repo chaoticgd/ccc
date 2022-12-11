@@ -34,7 +34,7 @@ struct Options {
 static void print_deduplicated(const SymbolTable& symbol_table, Options options);
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
 static void print_per_file(const SymbolTable& symbol_table, Options options);
-static void print_cpp(SymbolTable& symbol_table, u32 flags);
+static void print_cpp(SymbolTable& symbol_table, const Options& options);
 static u32 build_print_flags(u32 flags);
 static void print_symbols(SymbolTable& symbol_table);
 static void list_files(SymbolTable& symbol_table);
@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
 	switch(options.mode) {
 		case OutputMode::PRINT_CPP: {
 			SymbolTable symbol_table = read_symbol_table(options.input_file);
-			print_cpp(symbol_table, options.flags);
+			print_cpp(symbol_table, options);
 			return 0;
 		}
 		case OutputMode::PRINT_SYMBOLS: {
@@ -70,8 +70,8 @@ int main(int argc, char** argv) {
 	}
 }
 
-static void print_cpp(SymbolTable& symbol_table, u32 flags) {
-	if((flags & FLAG_PER_FILE) == 0) {
+static void print_cpp(SymbolTable& symbol_table, const Options& options) {
+	if((options.flags & FLAG_PER_FILE) == 0) {
 		std::vector<std::vector<StabsSymbol>> symbols;
 		std::set<std::pair<std::string, RangeClass>> builtins;
 		std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
@@ -88,11 +88,14 @@ static void print_cpp(SymbolTable& symbol_table, u32 flags) {
 		std::vector<std::unique_ptr<ast::Node>> ast_nodes = deduplicate_ast(per_file_ast);
 		
 		if(!builtins.empty()) {
-			print_cpp_abi_information(stdout, builtins);
+			print_cpp_comment_block_beginning(stdout, options.input_file);
+			print_cpp_comment_block_builtin_types(stdout, builtins);
 			printf("\n");
 		}
-		print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(flags));
+		print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(options.flags));
 	} else {
+		print_cpp_comment_block_beginning(stdout, options.input_file);
+		printf("\n");
 		for(const SymFileDescriptor& fd : symbol_table.files) {
 			const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 			const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
@@ -103,11 +106,9 @@ static void print_cpp(SymbolTable& symbol_table, u32 flags) {
 			printf("// FILE -- %s\n", fd.name.c_str());
 			printf("// *****************************************************************************\n");
 			printf("\n");
-			if(!builtins.empty()) {
-				print_cpp_abi_information(stdout, builtins);
-				printf("\n");
-			}
-			print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(flags));
+			print_cpp_comment_block_builtin_types(stdout, builtins);
+			printf("\n");
+			print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(options.flags));
 			printf("\n");
 		}
 	}

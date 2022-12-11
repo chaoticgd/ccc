@@ -1,6 +1,7 @@
 #include "print.h"
 
 #include <cmath>
+#include <chrono>
 
 namespace ccc {
 	
@@ -22,8 +23,20 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
 static void indent(FILE* dest, s32 level);
 
-void print_cpp_abi_information(FILE* dest, const std::set<std::pair<std::string, RangeClass>>& builtins) {
-	fprintf(dest, "// ABI information:\n");
+void print_cpp_comment_block_beginning(FILE* dest, const fs::path& input_file) {
+	fprintf(dest, "// File written by stdump");
+	time_t cftime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	tm* t = std::localtime(&cftime);
+	if(t) {
+		fprintf(dest, " on %04d-%02d-%02d", 1900 + t->tm_year, t->tm_mon + 1, t->tm_mday);
+	}
+	fprintf(dest, "\n// \n");
+	fprintf(dest, "// Input file:\n");
+	fprintf(dest, "//   %s\n", input_file.filename().string().c_str());
+}
+
+void print_cpp_comment_block_builtin_types(FILE* dest, const std::set<std::pair<std::string, RangeClass>>& builtins) {
+	fprintf(dest, "// Built-in types:\n");
 	for(const auto& [type, range_class] : builtins) {
 		const char* range_string;
 		switch(range_class) {
