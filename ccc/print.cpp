@@ -22,6 +22,29 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
 static void indent(FILE* dest, s32 level);
 
+void print_cpp_abi_information(FILE* dest, const std::set<std::pair<std::string, RangeClass>>& builtins) {
+	fprintf(dest, "// ABI information:\n");
+	for(const auto& [type, range_class] : builtins) {
+		const char* range_string;
+		switch(range_class) {
+			case RangeClass::UNSIGNED_8: range_string = "8-bit unsigned integer"; break;
+			case RangeClass::SIGNED_8: range_string = "8-bit signed integer"; break;
+			case RangeClass::UNSIGNED_16: range_string = "16-bit unsigned integer"; break;
+			case RangeClass::SIGNED_16: range_string = "16-bit signed integer"; break;
+			case RangeClass::UNSIGNED_32: range_string = "32-bit unsigned integer"; break;
+			case RangeClass::SIGNED_32: range_string = "32-bit signed integer"; break;
+			case RangeClass::FLOAT_32: range_string = "32-bit floating point"; break;
+			case RangeClass::UNSIGNED_64: range_string = "64-bit unsigned integer"; break;
+			case RangeClass::SIGNED_64: range_string = "64-bit signed integer"; break;
+			case RangeClass::FLOAT_64: range_string = "64-bit floating point"; break;
+			case RangeClass::UNSIGNED_128: range_string = "128-bit unsigned integer"; break;
+			case RangeClass::SIGNED_128: range_string = "128-bit signed integer"; break;
+			case RangeClass::UNKNOWN_PROBABLY_ARRAY: range_string = ""; break;
+		}
+		fprintf(dest, "//   %-25s%s\n", type.c_str(), range_string);
+	}
+}
+
 void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, u32 flags) {
 	bool last_was_multiline = true;
 	for(size_t i = 0; i < nodes.size(); i++) {

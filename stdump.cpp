@@ -73,24 +73,40 @@ int main(int argc, char** argv) {
 static void print_cpp(SymbolTable& symbol_table, u32 flags) {
 	if((flags & FLAG_PER_FILE) == 0) {
 		std::vector<std::vector<StabsSymbol>> symbols;
+		std::set<std::pair<std::string, RangeClass>> builtins;
 		std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
 		for(const SymFileDescriptor& fd : symbol_table.files) {
-			std::vector<StabsSymbol>& fd_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols));
-			const std::map<s32, const StabsType*> types = enumerate_numbered_types(fd_symbols);
-			per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(fd_symbols, types));
+			std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols));
+			const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
+			const std::set<std::pair<std::string, RangeClass>> per_file_builtins = ast::symbols_to_builtins(per_file_symbols);
+			for(auto& builtin : per_file_builtins) {
+				builtins.emplace(builtin);
+			}
+			per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
 		}
+		
 		std::vector<std::unique_ptr<ast::Node>> ast_nodes = deduplicate_ast(per_file_ast);
+		
+		if(!builtins.empty()) {
+			print_cpp_abi_information(stdout, builtins);
+			printf("\n");
+		}
 		print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(flags));
 	} else {
 		for(const SymFileDescriptor& fd : symbol_table.files) {
 			const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
 			const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
+			const std::set<std::pair<std::string, RangeClass>> builtins = ast::symbols_to_builtins(symbols);
 			const std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
 			
 			printf("// *****************************************************************************\n");
 			printf("// FILE -- %s\n", fd.name.c_str());
 			printf("// *****************************************************************************\n");
 			printf("\n");
+			if(!builtins.empty()) {
+				print_cpp_abi_information(stdout, builtins);
+				printf("\n");
+			}
 			print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(flags));
 			printf("\n");
 		}
