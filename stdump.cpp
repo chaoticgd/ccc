@@ -111,6 +111,7 @@ static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& opt
 	
 	if(!builtins.empty()) {
 		print_cpp_comment_block_beginning(stdout, options.input_file);
+		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
 		print_cpp_comment_block_builtin_types(stdout, builtins);
 		printf("\n");
 	}
@@ -136,6 +137,7 @@ static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options
 		printf("// FILE -- %s\n", fd.name.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
+		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
 		print_cpp_comment_block_builtin_types(stdout, builtins);
 		printf("\n");
 		print_cpp_ast_nodes(stdout, ast_nodes, options.flags & FLAG_VERBOSE);

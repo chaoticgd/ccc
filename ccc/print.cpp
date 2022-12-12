@@ -35,6 +35,27 @@ void print_cpp_comment_block_beginning(FILE* dest, const fs::path& input_file) {
 	fprintf(dest, "//   %s\n", input_file.filename().string().c_str());
 }
 
+void print_cpp_comment_block_compiler_version_info(FILE* dest, const SymbolTable& symbol_table) {
+	std::set<std::string> compiler_version_info;
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		bool known = false;
+		for(const Symbol& symbol : fd.symbols) {
+			if(symbol.storage_class == SymbolClass::COMPILER_VERSION_INFO && symbol.string != "@stabs") {
+				known = true;
+				compiler_version_info.emplace(symbol.string);
+			}
+		}
+		if(!known) {
+			compiler_version_info.emplace("unknown");
+		}
+	}
+	
+	fprintf(dest, "// Toolchain version(s):\n");
+	for(const std::string& string : compiler_version_info) {
+		fprintf(dest, "//   %s\n", string.c_str());
+	}
+}
+
 void print_cpp_comment_block_builtin_types(FILE* dest, const std::set<std::pair<std::string, RangeClass>>& builtins) {
 	fprintf(dest, "// Built-in types:\n");
 	for(const auto& [type, range_class] : builtins) {
