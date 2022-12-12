@@ -147,6 +147,12 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		}
 		case ast::NodeDescriptor::INLINE_STRUCT_OR_UNION: {
 			auto& struct_or_union = ast_node.as<ast::InlineStructOrUnion>();
+			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
+				// This allows us to deduplicate types with vtables.
+				if(node->name.starts_with("$vf")) {
+					node->name = "CCC_VTABLE";
+				}
+			}
 			if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) {
 				struct_or_union.member_functions.clear();
 			} else if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) {
@@ -164,8 +170,6 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 					if(should_remove) {
 						struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
 						i--;
-					} else if(function.name.starts_with("$vf")) {
-						function.name = "CCC_VTABLE";
 					}
 				}
 			}
