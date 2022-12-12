@@ -50,6 +50,9 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::
 		if(node != nullptr) {
 			node->name = (symbol.name == " ") ? "" : symbol.name;
 			node->symbol = &symbol;
+			if(symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
+				node->storage_class = StorageClass::TYPEDEF;
+			}
 		}
 		return node;
 	} catch(std::runtime_error& e) {
@@ -90,9 +93,6 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			result = stabs_type_to_ast(*type.type_reference.type.get(), stabs_types, absolute_parent_offset_bytes, depth + 1);
 			if(result == nullptr) {
 				return nullptr;
-			}
-			if(depth == 0) {
-				result->storage_class = StorageClass::TYPEDEF;
 			}
 			break;
 		}
