@@ -86,6 +86,7 @@ static void print_cpp(SymbolTable& symbol_table, const Options& options) {
 		}
 		
 		for(auto& [file, per_file_ast_nodes] : per_file_ast) {
+			ast::remove_duplicate_enums(per_file_ast_nodes);
 			for(std::unique_ptr<ast::Node>& ast_node : per_file_ast_nodes) {
 				filter_ast_by_flags(*ast_node.get(), options.flags);
 			}
@@ -118,6 +119,7 @@ static void print_cpp(SymbolTable& symbol_table, const Options& options) {
 			const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
 			const std::set<std::pair<std::string, RangeClass>> builtins = ast::symbols_to_builtins(symbols);
 			std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
+			ast::remove_duplicate_enums(ast_nodes);
 			
 			for(std::unique_ptr<ast::Node>& ast_node : ast_nodes) {
 				filter_ast_by_flags(*ast_node.get(), options.flags);

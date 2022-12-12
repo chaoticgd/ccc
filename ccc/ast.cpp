@@ -66,7 +66,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 	
 	// This makes sure that if types are referenced by their number, their name
 	// is shown instead their entire contents.
-	if(depth > 0 && type.name.has_value()) {
+	if(depth > 0 && type.name.has_value() && type.name != "" && type.name != " ") {
 		auto type_name = std::make_unique<ast::TypeName>();
 		type_name->type_name = *type.name;
 		return type_name;
@@ -296,6 +296,31 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map
 		child->storage_class = ast::StorageClass::STATIC;
 	}
 	return child;
+}
+
+// Some enums have two symbols associated with them: One named " " and another
+// one referencing the first.
+void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
+	for(size_t i = 0; i < ast_nodes.size(); i++) {
+		Node& node = *ast_nodes[i].get();
+		if(node.descriptor == NodeDescriptor::INLINE_ENUM && (node.name == "" || node.name == " ")) {
+			bool match = false;
+			for(std::unique_ptr<Node>& other : ast_nodes) {
+				bool is_match = other.get() != &node
+					&& other->descriptor == NodeDescriptor::INLINE_ENUM
+					&& (other->name != "" && other->name != " ")
+					&& other->as<InlineEnum>().constants == node.as<InlineEnum>().constants;
+				if(is_match) {
+					match = true;
+					break;
+				}
+			}
+			if(match) {
+				ast_nodes.erase(ast_nodes.begin() + i);
+				i--;
+			}
+		}
+	}
 }
 
 std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
