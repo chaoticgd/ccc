@@ -85,14 +85,25 @@ static void print_cpp(SymbolTable& symbol_table, const Options& options) {
 			per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
 		}
 		
-		std::vector<std::unique_ptr<ast::Node>> ast_nodes = deduplicate_ast(per_file_ast);
+		std::vector<std::vector<std::unique_ptr<ast::Node>>> ast_nodes = deduplicate_ast(per_file_ast);
 		
 		if(!builtins.empty()) {
 			print_cpp_comment_block_beginning(stdout, options.input_file);
 			print_cpp_comment_block_builtin_types(stdout, builtins);
 			printf("\n");
 		}
-		print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(options.flags));
+		
+		// The ast_nodes variable groups types by their name, so duplicates are
+		// stored together. We flatten these into a single list for printing.
+		std::vector<std::unique_ptr<ast::Node>> flat_ast_nodes;
+		for(std::vector<std::unique_ptr<ast::Node>>& versions : ast_nodes) {
+			bool warn_duplicates = versions.size() > 1;
+			for(std::unique_ptr<ast::Node>& ast_node : versions) {
+				flat_ast_nodes.emplace_back(std::move(ast_node));
+			}
+		}
+		
+		print_cpp_ast_nodes(stdout, flat_ast_nodes, build_print_flags(options.flags));
 	} else {
 		print_cpp_comment_block_beginning(stdout, options.input_file);
 		printf("\n");

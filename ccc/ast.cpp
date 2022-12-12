@@ -298,8 +298,8 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map
 	return child;
 }
 
-std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
-	std::vector<std::unique_ptr<Node>> deduplicated_nodes;
+std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
+	std::vector<std::vector<std::unique_ptr<Node>>> deduplicated_nodes;
 	std::map<std::string, size_t> name_to_deduplicated_index;
 	for(auto& [file_name, ast_nodes] : per_file_ast) {
 		for(std::unique_ptr<Node>& node : ast_nodes) {
@@ -307,12 +307,21 @@ std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::st
 			if(existing_node_index == name_to_deduplicated_index.end()) {
 				std::string name = node->name;
 				size_t index = deduplicated_nodes.size();
-				deduplicated_nodes.emplace_back(std::move(node));
+				deduplicated_nodes.emplace_back().emplace_back(std::move(node));
 				name_to_deduplicated_index[name] = index;
 			} else {
-				std::unique_ptr<Node>& existing_node = deduplicated_nodes[existing_node_index->second];
-				if(!compare_ast_nodes(*existing_node.get(), *node.get())) {
-					existing_node->conflicting_types = true;
+				std::vector<std::unique_ptr<Node>>& existing_nodes = deduplicated_nodes[existing_node_index->second];
+				bool match = false;
+				for(std::unique_ptr<Node>& existing_node : existing_nodes) {
+					auto compare_result = compare_ast_nodes(*existing_node.get(), *node.get());
+					if(compare_result.has_value()) {
+						existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+					} else {
+						match = true;
+					}
+				}
+				if(!match) {
+					existing_nodes.emplace_back(std::move(node));
 				}
 			}
 		}
@@ -320,90 +329,121 @@ std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::st
 	return deduplicated_nodes;
 }
 
-static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
-	if(lhs.descriptor != rhs.descriptor) return false;
-	if(lhs.storage_class != rhs.storage_class) return false;
-	if(lhs.name != rhs.name) return false;
-	if(lhs.relative_offset_bytes != rhs.relative_offset_bytes) return false;
-	if(lhs.absolute_offset_bytes != rhs.absolute_offset_bytes) return false;
-	if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return false;
-	if(lhs.size_bits != rhs.size_bits) return false;
+static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
+	if(lhs.descriptor != rhs.descriptor) return CompareFailReason::DESCRIPTOR;
+	if(lhs.storage_class != rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
+	if(lhs.name != rhs.name) return CompareFailReason::NAME;
+	if(lhs.relative_offset_bytes != rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
+	if(lhs.absolute_offset_bytes != rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
+	if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
+	if(lhs.size_bits != rhs.size_bits) return CompareFailReason::SIZE_BITS;
 	switch(lhs.descriptor) {
 		case ARRAY: {
 			const Array& array_lhs = lhs.as<Array>();
 			const Array& array_rhs = rhs.as<Array>();
-			if(!compare_ast_nodes(*array_lhs.element_type.get(), *array_rhs.element_type.get())) return false;
-			if(array_lhs.element_count != array_rhs.element_count) return false;
+			auto element_compare = compare_ast_nodes(*array_lhs.element_type.get(), *array_rhs.element_type.get());
+			if(element_compare.has_value()) return element_compare;
+			if(array_lhs.element_count != array_rhs.element_count) return CompareFailReason::ARRAY_ELEMENT_COUNT;
 			break;
 		}
 		case BITFIELD: {
 			const BitField& bitfield_lhs = lhs.as<BitField>();
 			const BitField& bitfield_rhs = rhs.as<BitField>();
-			if(!compare_ast_nodes(*bitfield_lhs.underlying_type.get(), *bitfield_rhs.underlying_type.get())) return false;
+			auto bitfield_compare = compare_ast_nodes(*bitfield_lhs.underlying_type.get(), *bitfield_rhs.underlying_type.get());
+			if(bitfield_compare.has_value()) return bitfield_compare;
 			break;
 		}
 		case FUNCTION: {
 			const Function& function_lhs = lhs.as<Function>();
 			const Function& function_rhs = rhs.as<Function>();
-			if(!compare_ast_nodes(*function_lhs.return_type.get(), *function_rhs.return_type.get())) return false;
+			auto return_compare = compare_ast_nodes(*function_lhs.return_type.get(), *function_rhs.return_type.get());
+			if(return_compare.has_value()) return return_compare;
 			if(function_lhs.parameters.has_value() && function_rhs.parameters.has_value()) {
-				if(function_lhs.parameters->size() != function_rhs.parameters->size()) return false;
+				if(function_lhs.parameters->size() != function_rhs.parameters->size()) return CompareFailReason::FUNCTION_PARAMAETER_SIZE;
 				for(size_t i = 0; i < function_lhs.parameters->size(); i++) {
-					if(!compare_ast_nodes(*(*function_lhs.parameters)[i].get(), *(*function_rhs.parameters)[i].get())) return false;
+					auto parameter_compare = compare_ast_nodes(*(*function_lhs.parameters)[i].get(), *(*function_rhs.parameters)[i].get());
+					if(parameter_compare.has_value()) return parameter_compare;
 				}
 			} else if(function_lhs.parameters.has_value() != function_rhs.parameters.has_value()) {
-				return false;
+				return CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE;
 			}
 			break;
 		}
 		case INLINE_ENUM: {
 			const InlineEnum& enum_lhs = lhs.as<InlineEnum>();
 			const InlineEnum& enum_rhs = rhs.as<InlineEnum>();
-			if(enum_lhs.constants != enum_rhs.constants) return false;
+			if(enum_lhs.constants != enum_rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
 			break;
 		}
 		case INLINE_STRUCT_OR_UNION: {
 			const InlineStructOrUnion& struct_lhs = lhs.as<InlineStructOrUnion>();
 			const InlineStructOrUnion& struct_rhs = rhs.as<InlineStructOrUnion>();
-			if(struct_lhs.base_classes.size() != struct_rhs.base_classes.size()) return false;
+			if(struct_lhs.base_classes.size() != struct_rhs.base_classes.size()) return CompareFailReason::BASE_CLASS_SIZE;
 			for(size_t i = 0; i < struct_lhs.base_classes.size(); i++) {
 				const BaseClass& base_class_lhs = struct_lhs.base_classes[i];
 				const BaseClass& base_class_rhs = struct_rhs.base_classes[i];
-				if(base_class_lhs.visibility != base_class_rhs.visibility) return false;
-				if(base_class_lhs.offset != base_class_rhs.offset) return false;
-				if(base_class_lhs.type_name != base_class_rhs.type_name) return false;
+				if(base_class_lhs.visibility != base_class_rhs.visibility) return CompareFailReason::BASE_CLASS_VISIBILITY;
+				if(base_class_lhs.offset != base_class_rhs.offset) return CompareFailReason::BASE_CLASS_OFFSET;
+				if(base_class_lhs.type_name != base_class_rhs.type_name) return CompareFailReason::BASE_CLASS_TYPE_NAME;
 			}
-			if(struct_lhs.fields.size() != struct_rhs.fields.size()) return false;
+			if(struct_lhs.fields.size() != struct_rhs.fields.size()) return CompareFailReason::FIELDS_SIZE;
 			for(size_t i = 0; i < struct_lhs.fields.size(); i++) {
-				if(!compare_ast_nodes(*struct_lhs.fields[i].get(), *struct_rhs.fields[i].get())) return false;
+				auto field_compare = compare_ast_nodes(*struct_lhs.fields[i].get(), *struct_rhs.fields[i].get());
+				if(field_compare.has_value()) return field_compare;
 			}
-			if(struct_lhs.member_functions.size() != struct_rhs.member_functions.size()) return false;
+			if(struct_lhs.member_functions.size() != struct_rhs.member_functions.size()) return CompareFailReason::MEMBER_FUNCTION_SIZE;
 			for(size_t i = 0; i < struct_lhs.member_functions.size(); i++) {
-				if(!compare_ast_nodes(*struct_lhs.member_functions[i].get(), *struct_rhs.member_functions[i].get())) return false;
+				auto member_function_compare = compare_ast_nodes(*struct_lhs.member_functions[i].get(), *struct_rhs.member_functions[i].get());
+				if(member_function_compare.has_value()) return member_function_compare;
 			}
 			break;
 		}
 		case POINTER: {
 			const Pointer& pointer_lhs = lhs.as<Pointer>();
 			const Pointer& pointer_rhs = rhs.as<Pointer>();
-			if(!compare_ast_nodes(*pointer_lhs.value_type.get(), *pointer_rhs.value_type.get())) return false;
+			auto pointer_compare = compare_ast_nodes(*pointer_lhs.value_type.get(), *pointer_rhs.value_type.get());
+			if(pointer_compare.has_value()) return pointer_compare;
 			break;
 		}
 		case REFERENCE: {
 			const Reference& reference_lhs = lhs.as<Reference>();
 			const Reference& reference_rhs = rhs.as<Reference>();
-			if(!compare_ast_nodes(*reference_lhs.value_type.get(), *reference_rhs.value_type.get())) return false;
+			auto reference_compare = compare_ast_nodes(*reference_lhs.value_type.get(), *reference_rhs.value_type.get());
+			if(reference_compare.has_value()) return reference_compare;
 			break;
 		}
 		case TYPE_NAME: {
 			const TypeName& typename_lhs = lhs.as<TypeName>();
 			const TypeName& typename_rhs = rhs.as<TypeName>();
-			if(typename_lhs.type_name != typename_rhs.type_name) return false;
+			if(typename_lhs.type_name != typename_rhs.type_name) return CompareFailReason::TYPE_NAME;
 			break;
 		}
 	}
-	
-	return true;
+	return std::nullopt;
+}
+
+static const char* compare_fail_reason_to_string(CompareFailReason reason) {
+	switch(reason) {
+		case CompareFailReason::DESCRIPTOR: return "descriptor";
+		case CompareFailReason::STORAGE_CLASS: return "storage class";
+		case CompareFailReason::NAME: return "name";
+		case CompareFailReason::RELATIVE_OFFSET_BYTES: return "relative offset bytes";
+		case CompareFailReason::ABSOLUTE_OFFSET_BYTES: return "absolute offset bytes";
+		case CompareFailReason::BITFIELD_OFFSET_BITS: return "bitfield offset bits";
+		case CompareFailReason::SIZE_BITS: return "size bits";
+		case CompareFailReason::ARRAY_ELEMENT_COUNT: return "array element count";
+		case CompareFailReason::FUNCTION_PARAMAETER_SIZE: return "function paramaeter size";
+		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameters has value";
+		case CompareFailReason::ENUM_CONSTANTS: return "enum constants";
+		case CompareFailReason::BASE_CLASS_SIZE: return "base class size";
+		case CompareFailReason::BASE_CLASS_VISIBILITY: return "base class visibility";
+		case CompareFailReason::BASE_CLASS_OFFSET: return "base class offset";
+		case CompareFailReason::BASE_CLASS_TYPE_NAME: return "base class type name";
+		case CompareFailReason::FIELDS_SIZE: return "fields size";
+		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function size";
+		case CompareFailReason::TYPE_NAME: return "type name";
+	}
+	return "";
 }
 
 }
