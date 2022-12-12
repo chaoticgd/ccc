@@ -344,6 +344,7 @@ std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std:
 							&& existing_node->name.empty();
 						if(!is_anonymous_enum) {
 							existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+							node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
 						}
 					} else {
 						match = true;
@@ -453,23 +454,23 @@ static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, 
 
 static const char* compare_fail_reason_to_string(CompareFailReason reason) {
 	switch(reason) {
-		case CompareFailReason::DESCRIPTOR: return "descriptor";
-		case CompareFailReason::STORAGE_CLASS: return "storage class";
-		case CompareFailReason::NAME: return "name";
-		case CompareFailReason::RELATIVE_OFFSET_BYTES: return "relative offset bytes";
-		case CompareFailReason::ABSOLUTE_OFFSET_BYTES: return "absolute offset bytes";
-		case CompareFailReason::BITFIELD_OFFSET_BITS: return "bitfield offset bits";
-		case CompareFailReason::SIZE_BITS: return "size bits";
-		case CompareFailReason::ARRAY_ELEMENT_COUNT: return "array element count";
-		case CompareFailReason::FUNCTION_PARAMAETER_SIZE: return "function paramaeter size";
-		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameters has value";
+		case CompareFailReason::DESCRIPTOR: return "descriptors";
+		case CompareFailReason::STORAGE_CLASS: return "storage classes";
+		case CompareFailReason::NAME: return "names";
+		case CompareFailReason::RELATIVE_OFFSET_BYTES: return "relative offsets";
+		case CompareFailReason::ABSOLUTE_OFFSET_BYTES: return "absolute offsets";
+		case CompareFailReason::BITFIELD_OFFSET_BITS: return "bitfield offsets";
+		case CompareFailReason::SIZE_BITS: return "sizes";
+		case CompareFailReason::ARRAY_ELEMENT_COUNT: return "array element counts";
+		case CompareFailReason::FUNCTION_PARAMAETER_SIZE: return "function paramaeter sizes";
+		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameters";
 		case CompareFailReason::ENUM_CONSTANTS: return "enum constants";
-		case CompareFailReason::BASE_CLASS_SIZE: return "base class size";
-		case CompareFailReason::BASE_CLASS_VISIBILITY: return "base class visibility";
-		case CompareFailReason::BASE_CLASS_OFFSET: return "base class offset";
-		case CompareFailReason::BASE_CLASS_TYPE_NAME: return "base class type name";
-		case CompareFailReason::FIELDS_SIZE: return "fields size";
-		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function size";
+		case CompareFailReason::BASE_CLASS_SIZE: return "base class sizes";
+		case CompareFailReason::BASE_CLASS_VISIBILITY: return "base class visibility values";
+		case CompareFailReason::BASE_CLASS_OFFSET: return "base class offsets";
+		case CompareFailReason::BASE_CLASS_TYPE_NAME: return "base class type names";
+		case CompareFailReason::FIELDS_SIZE: return "fields sizes";
+		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function sizes";
 		case CompareFailReason::TYPE_NAME: return "type name";
 	}
 	return "";
