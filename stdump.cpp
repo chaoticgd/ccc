@@ -162,20 +162,30 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 			if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) {
 				struct_or_union.member_functions.clear();
 			} else if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) {
-				bool default_number_of_function =
-					struct_or_union.member_functions.size() == 3;
+				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
+					return function.name == "__as"
+						|| function.name == "operator_"
+						|| function.name.starts_with("$")
+						|| (function.name == name_no_template_args
+							&& function.parameters->size() == 0);
+				};
+				
 				std::string name_no_template_args =
 					ast_node.name.substr(0, ast_node.name.find("<"));
+				bool only_special_functions = true;
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
 					ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-					bool should_remove = function.name == "__as"
-						|| (default_number_of_function
-							&& function.name == name_no_template_args)
-						|| function.name == "operator="
-						|| function.name.starts_with("$_");
-					if(should_remove) {
-						struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
-						i--;
+					if(!is_special(function, name_no_template_args)) {
+						only_special_functions = false;
+					}
+				}
+				if(only_special_functions) {
+					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
+						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
+						if(is_special(function, name_no_template_args)) {
+							struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
+							i--;
+						}
 					}
 				}
 			}
