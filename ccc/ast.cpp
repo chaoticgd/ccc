@@ -315,7 +315,11 @@ std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std:
 				for(std::unique_ptr<Node>& existing_node : existing_nodes) {
 					auto compare_result = compare_ast_nodes(*existing_node.get(), *node.get());
 					if(compare_result.has_value()) {
-						existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+						bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
+							&& existing_node->name.empty();
+						if(!is_anonymous_enum) {
+							existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+						}
 					} else {
 						match = true;
 					}

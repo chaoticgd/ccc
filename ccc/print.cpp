@@ -17,7 +17,7 @@ enum VariableNamePrintFlags {
 	BRACKETS_IF_POINTER = (1 << 2)
 };
 
-static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset, u32 flags);
+static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset);
 static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
@@ -58,7 +58,7 @@ void print_cpp_comment_block_builtin_types(FILE* dest, const std::set<std::pair<
 	}
 }
 
-void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, u32 flags) {
+void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& nodes, bool verbose) {
 	bool last_was_multiline = true;
 	for(size_t i = 0; i < nodes.size(); i++) {
 		const std::unique_ptr<ast::Node>& node = nodes[i];
@@ -72,17 +72,15 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 		if(node->compare_fail_reason) {
 			fprintf(dest, "// warning: multiple differing types with the same name (%s not equal)\n", node->compare_fail_reason);
 		}
-		if(flags & PRINT_VERBOSE) {
-			if(node->symbol != nullptr) {
-				fprintf(dest, "// symbol: %s\n", node->symbol->raw.c_str());
-			}
+		if(verbose && node->symbol != nullptr) {
+			fprintf(dest, "// symbol: %s\n", node->symbol->raw.c_str());
 		}
 		VariableName name{nullptr};
 		s32 digits_for_offset = 0;
 		if(node->descriptor == ast::INLINE_STRUCT_OR_UNION && node->size_bits > 0) {
 			digits_for_offset = (s32) ceilf(log2(node->size_bits / 8.f) / 4.f);
 		}
-		print_cpp_ast_node(stdout, *node.get(), name, 0, digits_for_offset, flags);
+		print_cpp_ast_node(stdout, *node.get(), name, 0, digits_for_offset);
 		fprintf(dest, ";\n");
 		if(multiline && i != nodes.size() - 1) {
 			fprintf(dest, "\n");
@@ -91,7 +89,7 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 	}
 }
 
-static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset, u32 flags) {
+static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
@@ -101,14 +99,14 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
 			assert(array.element_type.get());
-			print_cpp_ast_node(dest, *array.element_type.get(), name, indentation_level, digits_for_offset, flags);
+			print_cpp_ast_node(dest, *array.element_type.get(), name, indentation_level, digits_for_offset);
 			fprintf(dest, "[%d]", array.element_count);
 			break;
 		}
 		case ast::BITFIELD: {
 			const ast::BitField& bit_field = node.as<ast::BitField>();
 			assert(bit_field.underlying_type.get());
-			print_cpp_ast_node(dest, *bit_field.underlying_type.get(), name, indentation_level, digits_for_offset, flags);
+			print_cpp_ast_node(dest, *bit_field.underlying_type.get(), name, indentation_level, digits_for_offset);
 			printf(" : %d", bit_field.size_bits);
 			break;
 		}
@@ -116,7 +114,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			const ast::Function& function = node.as<ast::Function>();
 			assert(function.return_type.get());
 			VariableName dummy{nullptr};
-			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset, flags);
+			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
 			fprintf(dest, " ");
 			print_cpp_variable_name(dest, name, BRACKETS_IF_POINTER);
 			fprintf(dest, "(");
@@ -124,7 +122,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 				for(size_t i = 0; i < function.parameters->size(); i++) {
 					assert((*function.parameters)[i].get());
 					VariableName dummy{nullptr};
-					print_cpp_ast_node(dest, *(*function.parameters)[i].get(), dummy, indentation_level, digits_for_offset, flags);
+					print_cpp_ast_node(dest, *(*function.parameters)[i].get(), dummy, indentation_level, digits_for_offset);
 					if(i != function.parameters->size() - 1) {
 						fprintf(dest, ", ");
 					}
@@ -188,30 +186,21 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 				assert(field.get());
 				indent(dest, indentation_level + 1);
 				print_cpp_offset(dest, *field.get(), digits_for_offset);
-				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset, flags);
+				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
 				fprintf(dest, ";\n");
 			}
 			// Print member functions.
-			if(!(flags & PRINT_OMIT_MEMBER_FUNCTIONS) && !struct_or_union.member_functions.empty()) {
-				bool first = true;
+			if(!struct_or_union.member_functions.empty()) {
+				if(!struct_or_union.fields.empty()) {
+					indent(dest, indentation_level + 1);
+					fprintf(dest, "\n");
+				}
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
 					ast::Function& member_func = struct_or_union.member_functions[i]->as<ast::Function>();
-					bool is_special = member_func.name == "__as"
-						|| member_func.name.starts_with("$")
-						|| (member_func.name == struct_or_union.name
-							&& (member_func.parameters.has_value()
-								|| member_func.parameters->size() == 0));
-					if((flags & PRINT_INCLUDE_SPECIAL_FUNCTIONS) || !is_special) {
-						if(first && !struct_or_union.fields.empty()) {
-							indent(dest, indentation_level + 1);
-							fprintf(dest, "\n");
-							first = false;
-						}
-						assert(struct_or_union.member_functions[i].get());
-						indent(dest, indentation_level + 1);
-						print_cpp_ast_node(dest, *struct_or_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset, flags);
-						fprintf(dest, ";\n");
-					}
+					assert(struct_or_union.member_functions[i].get());
+					indent(dest, indentation_level + 1);
+					print_cpp_ast_node(dest, *struct_or_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset);
+					fprintf(dest, ";\n");
 				}
 			}
 			indent(dest, indentation_level);
@@ -225,7 +214,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			const ast::Pointer& pointer = node.as<ast::Pointer>();
 			assert(pointer.value_type.get());
 			name.pointer_chars.emplace_back('*');
-			print_cpp_ast_node(dest, *pointer.value_type.get(), name, indentation_level, digits_for_offset, flags);
+			print_cpp_ast_node(dest, *pointer.value_type.get(), name, indentation_level, digits_for_offset);
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
@@ -233,7 +222,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			const ast::Reference& reference = node.as<ast::Reference>();
 			assert(reference.value_type.get());
 			name.pointer_chars.emplace_back('&');
-			print_cpp_ast_node(dest, *reference.value_type.get(), name, indentation_level, digits_for_offset, flags);
+			print_cpp_ast_node(dest, *reference.value_type.get(), name, indentation_level, digits_for_offset);
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
