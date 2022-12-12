@@ -61,6 +61,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::LIST_FILES: {
 			SymbolTable symbol_table = read_symbol_table(options.input_file);
+			list_files(symbol_table);
 			return 0;
 		}
 		case OutputMode::HELP: {
