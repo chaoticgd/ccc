@@ -157,7 +157,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 					bool should_remove = function.name == "__as"
 						|| (default_number_of_function
 							&& function.name == name_no_template_args)
-						|| function.name == "operator=";
+						|| function.name == "operator="
+						|| function.name.starts_with("$_");
 					if(should_remove) {
 						struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
 						i--;
