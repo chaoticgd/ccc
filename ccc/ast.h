@@ -32,9 +32,10 @@ struct Node {
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
+	bool is_constructor = false;
 	
 	const StabsSymbol* symbol = nullptr;
-	bool conflicting_types = false;
+	const char* compare_fail_reason = nullptr;
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -119,10 +120,32 @@ std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSy
 bool is_data_type(const StabsSymbol& symbol);
 bool is_builtin_type(const StabsSymbol& symbol);
 std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
-std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
+std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
-std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
-static bool compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
+void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
+std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
+enum class CompareFailReason {
+	DESCRIPTOR,
+	STORAGE_CLASS,
+	NAME,
+	RELATIVE_OFFSET_BYTES,
+	ABSOLUTE_OFFSET_BYTES,
+	BITFIELD_OFFSET_BITS,
+	SIZE_BITS,
+	ARRAY_ELEMENT_COUNT,
+	FUNCTION_PARAMAETER_SIZE,
+	FUNCTION_PARAMETERS_HAS_VALUE,
+	ENUM_CONSTANTS,
+	BASE_CLASS_SIZE,
+	BASE_CLASS_VISIBILITY,
+	BASE_CLASS_OFFSET,
+	BASE_CLASS_TYPE_NAME,
+	FIELDS_SIZE,
+	MEMBER_FUNCTION_SIZE,
+	TYPE_NAME
+};
+static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
+static const char* compare_fail_reason_to_string(CompareFailReason reason);
 
 }
 

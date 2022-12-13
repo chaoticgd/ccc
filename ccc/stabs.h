@@ -58,6 +58,7 @@ struct StabsType {
 	std::optional<std::string> name;
 	bool anonymous = false;
 	s32 type_number = -1;
+	bool is_typedef = false;
 	bool has_body = false;
 	// If !has_body, everything below isn't filled in.
 	StabsTypeDescriptor descriptor;
@@ -152,7 +153,7 @@ struct StabsSymbol {
 	Symbol mdebug_symbol;
 };
 
-std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input);
+std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language);
 StabsSymbol parse_stabs_symbol(const char* input);
 void print_stabs_type(const StabsType& type);
 std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols);

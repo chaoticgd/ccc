@@ -40,10 +40,18 @@ struct SymProcedureDescriptor {
 	u32 address;
 };
 
+enum class SourceLanguage {
+	C,
+	CPP,
+	ASSEMBLY,
+	UNKNOWN
+};
+
 struct SymFileDescriptor {
 	std::string name;
 	std::vector<Symbol> symbols;
 	std::vector<SymProcedureDescriptor> procedures;
+	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
 };
 
 struct SymbolTable {

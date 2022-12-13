@@ -22,7 +22,7 @@ enum Flags {
 	FLAG_PER_FILE = (1 << 0),
 	FLAG_VERBOSE = (1 << 1),
 	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 2),
-	FLAG_INCLUDE_SPECIAL_FUNCTIONS = (1 << 3)
+	FLAG_INCLUDE_GENERATED_FUNCTIONS = (1 << 3)
 };
 
 struct Options {
@@ -33,9 +33,9 @@ struct Options {
 
 static void print_deduplicated(const SymbolTable& symbol_table, Options options);
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
-static void print_per_file(const SymbolTable& symbol_table, Options options);
-static void print_cpp(SymbolTable& symbol_table, const Options& options);
-static u32 build_print_flags(u32 flags);
+static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options);
+static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options);
+static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 static void print_symbols(SymbolTable& symbol_table);
 static void list_files(SymbolTable& symbol_table);
 static SymbolTable read_symbol_table(const fs::path& input_file);
@@ -47,7 +47,11 @@ int main(int argc, char** argv) {
 	switch(options.mode) {
 		case OutputMode::PRINT_CPP: {
 			SymbolTable symbol_table = read_symbol_table(options.input_file);
-			print_cpp(symbol_table, options);
+			if(!(options.flags & FLAG_PER_FILE)) {
+				print_cpp_deduplicated(symbol_table, options);
+			} else {
+				print_cpp_per_file(symbol_table, options);
+			}
 			return 0;
 		}
 		case OutputMode::PRINT_SYMBOLS: {
@@ -57,6 +61,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::LIST_FILES: {
 			SymbolTable symbol_table = read_symbol_table(options.input_file);
+			list_files(symbol_table);
 			return 0;
 		}
 		case OutputMode::HELP: {
@@ -70,56 +75,139 @@ int main(int argc, char** argv) {
 	}
 }
 
-static void print_cpp(SymbolTable& symbol_table, const Options& options) {
-	if((options.flags & FLAG_PER_FILE) == 0) {
-		std::vector<std::vector<StabsSymbol>> symbols;
-		std::set<std::pair<std::string, RangeClass>> builtins;
-		std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
-		for(const SymFileDescriptor& fd : symbol_table.files) {
-			std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols));
-			const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
-			const std::set<std::pair<std::string, RangeClass>> per_file_builtins = ast::symbols_to_builtins(per_file_symbols);
-			for(auto& builtin : per_file_builtins) {
-				builtins.emplace(builtin);
-			}
-			per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
+
+static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options) {
+	std::vector<std::vector<StabsSymbol>> symbols;
+	std::set<std::pair<std::string, RangeClass>> builtins;
+	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols, fd.detected_language));
+		const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
+		const std::set<std::pair<std::string, RangeClass>> per_file_builtins = ast::symbols_to_builtins(per_file_symbols);
+		for(auto& builtin : per_file_builtins) {
+			builtins.emplace(builtin);
 		}
-		
-		std::vector<std::unique_ptr<ast::Node>> ast_nodes = deduplicate_ast(per_file_ast);
-		
-		if(!builtins.empty()) {
-			print_cpp_comment_block_beginning(stdout, options.input_file);
-			print_cpp_comment_block_builtin_types(stdout, builtins);
-			printf("\n");
+		per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
+	}
+	
+	for(auto& [file, per_file_ast_nodes] : per_file_ast) {
+		ast::remove_duplicate_enums(per_file_ast_nodes);
+		for(std::unique_ptr<ast::Node>& ast_node : per_file_ast_nodes) {
+			filter_ast_by_flags(*ast_node.get(), options.flags);
 		}
-		print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(options.flags));
-	} else {
+	}
+	
+	std::vector<std::vector<std::unique_ptr<ast::Node>>> ast_nodes = deduplicate_ast(per_file_ast);
+	
+	// The ast_nodes variable groups types by their name, so duplicates are
+	// stored together. We flatten these into a single list for printing.
+	std::vector<std::unique_ptr<ast::Node>> flat_ast_nodes;
+	for(std::vector<std::unique_ptr<ast::Node>>& versions : ast_nodes) {
+		bool warn_duplicates = versions.size() > 1;
+		for(std::unique_ptr<ast::Node>& ast_node : versions) {
+			flat_ast_nodes.emplace_back(std::move(ast_node));
+		}
+	}
+	
+	if(!builtins.empty()) {
 		print_cpp_comment_block_beginning(stdout, options.input_file);
+		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
+		print_cpp_comment_block_builtin_types(stdout, builtins);
 		printf("\n");
-		for(const SymFileDescriptor& fd : symbol_table.files) {
-			const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
-			const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-			const std::set<std::pair<std::string, RangeClass>> builtins = ast::symbols_to_builtins(symbols);
-			const std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
-			
-			printf("// *****************************************************************************\n");
-			printf("// FILE -- %s\n", fd.name.c_str());
-			printf("// *****************************************************************************\n");
-			printf("\n");
-			print_cpp_comment_block_builtin_types(stdout, builtins);
-			printf("\n");
-			print_cpp_ast_nodes(stdout, ast_nodes, build_print_flags(options.flags));
-			printf("\n");
+	}
+	
+	print_cpp_ast_nodes(stdout, flat_ast_nodes, options.flags & FLAG_VERBOSE);
+}
+
+static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options) {
+	print_cpp_comment_block_beginning(stdout, options.input_file);
+	printf("\n");
+	for(const SymFileDescriptor& fd : symbol_table.files) {
+		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols, fd.detected_language);
+		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
+		const std::set<std::pair<std::string, RangeClass>> builtins = ast::symbols_to_builtins(symbols);
+		std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
+		ast::remove_duplicate_enums(ast_nodes);
+		
+		for(std::unique_ptr<ast::Node>& ast_node : ast_nodes) {
+			filter_ast_by_flags(*ast_node.get(), options.flags);
 		}
+		
+		printf("// *****************************************************************************\n");
+		printf("// FILE -- %s\n", fd.name.c_str());
+		printf("// *****************************************************************************\n");
+		printf("\n");
+		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
+		print_cpp_comment_block_builtin_types(stdout, builtins);
+		printf("\n");
+		print_cpp_ast_nodes(stdout, ast_nodes, options.flags & FLAG_VERBOSE);
+		printf("\n");
 	}
 }
 
-static u32 build_print_flags(u32 flags) {
-	u32 print_flags = NO_PRINT_FLAGS;
-	if(flags & FLAG_VERBOSE) print_flags |= PRINT_VERBOSE;
-	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) print_flags |= PRINT_OMIT_MEMBER_FUNCTIONS;
-	if(flags & FLAG_INCLUDE_SPECIAL_FUNCTIONS) print_flags |= PRINT_INCLUDE_SPECIAL_FUNCTIONS;
-	return print_flags;
+static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
+	switch(ast_node.descriptor) {
+		case ast::NodeDescriptor::ARRAY:
+		case ast::NodeDescriptor::BITFIELD:
+		case ast::NodeDescriptor::FUNCTION:
+		case ast::NodeDescriptor::INLINE_ENUM: {
+			break;
+		}
+		case ast::NodeDescriptor::INLINE_STRUCT_OR_UNION: {
+			auto& struct_or_union = ast_node.as<ast::InlineStructOrUnion>();
+			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
+				// This allows us to deduplicate types with vtables.
+				if(node->name.starts_with("$vf")) {
+					node->name = "CCC_VTABLE";
+				}
+			}
+			if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) {
+				struct_or_union.member_functions.clear();
+			} else if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) {
+				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
+					return function.name == "operator="
+						|| function.name.starts_with("$")
+						|| (function.name == name_no_template_args
+							&& function.parameters->size() == 0);
+				};
+				
+				std::string name_no_template_args =
+					ast_node.name.substr(0, ast_node.name.find("<"));
+				bool only_special_functions = true;
+				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
+					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
+						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
+						if(!is_special(function, name_no_template_args)) {
+							only_special_functions = false;
+						}
+					}
+				}
+				if(only_special_functions) {
+					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
+						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
+							ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
+							if(is_special(function, name_no_template_args)) {
+								struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
+								i--;
+							}
+						}
+					}
+				}
+			}
+			break;
+		}
+		case ast::NodeDescriptor::POINTER: {
+			filter_ast_by_flags(*ast_node.as<ast::Pointer>().value_type.get(), flags);
+			break;
+		}
+		case ast::NodeDescriptor::REFERENCE: {
+			filter_ast_by_flags(*ast_node.as<ast::Reference>().value_type.get(), flags);
+			break;
+		}
+		case ast::NodeDescriptor::TYPE_NAME: {
+			break;
+		}
+	}
 }
 
 static void print_symbols(SymbolTable& symbol_table) {
@@ -182,8 +270,8 @@ static Options parse_args(int argc, char** argv) {
 			options.flags |= FLAG_VERBOSE;
 		} else if(strcmp(flag, "--omit-member-functions") == 0) {
 			options.flags |= FLAG_OMIT_MEMBER_FUNCTIONS;
-		} else if(strcmp(flag, "--include-special-functions") == 0) {
-			options.flags |= FLAG_INCLUDE_SPECIAL_FUNCTIONS;
+		} else if(strcmp(flag, "--include-generated-functions") == 0) {
+			options.flags |= FLAG_INCLUDE_GENERATED_FUNCTIONS;
 		} else {
 			options.mode = OutputMode::BAD_COMMAND;
 			return options;
@@ -205,7 +293,8 @@ static void print_help() {
 	puts("    --verbose                     Print additional information such as the raw");
 	puts("                                  STABS symbol along with each type.");
 	puts("    --omit-member-functions       Do not print member functions.");
-	puts("    --include-special-functions   Include auto-generated member functions.");
+	puts("    --include-generated-functions Include member functions that are likely");
+	puts("                                  auto-generated.");
 	puts("");
 	puts("  print_symbols <input file>");
 	puts("    List all of the local symbols for each file descriptor.");
