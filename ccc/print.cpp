@@ -8,12 +8,12 @@ namespace ccc {
 struct VariableName {
 	const std::string* identifier;
 	std::vector<s8> pointer_chars;
+	std::vector<s32> array_indices;
 };
 
 enum VariableNamePrintFlags {
 	NO_VAR_PRINT_FLAGS = 0,
 	INSERT_SPACE_TO_LEFT = (1 << 0),
-	INSERT_SPACE_TO_RIGHT = (1 << 1),
 	BRACKETS_IF_POINTER = (1 << 2)
 };
 
@@ -120,8 +120,8 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
 			assert(array.element_type.get());
+			name.array_indices.emplace_back(array.element_count);
 			print_cpp_ast_node(dest, *array.element_type.get(), name, indentation_level, digits_for_offset);
-			fprintf(dest, "[%d]", array.element_count);
 			break;
 		}
 		case ast::BITFIELD: {
@@ -283,10 +283,11 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
 	if(has_name) {
 		fprintf(dest, "%s", name.identifier->c_str());
 		name.identifier = nullptr;
-		if((flags & INSERT_SPACE_TO_RIGHT) && name.identifier->empty()) {
-			fprintf(dest, " ");
-		}
 	}
+	for(s32 index : name.array_indices) {
+		fprintf(dest, "[%d]", index);
+	}
+	name.array_indices.clear();
 	if(has_brackets) {
 		fprintf(dest, ")");
 	}
