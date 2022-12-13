@@ -166,7 +166,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 			} else if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) {
 				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
 					return function.name == "__as"
-						|| function.name == "operator_"
+						|| function.name == "operator="
 						|| function.name.starts_with("$")
 						|| (function.name == name_no_template_args
 							&& function.parameters->size() == 0);
@@ -176,17 +176,21 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 					ast_node.name.substr(0, ast_node.name.find("<"));
 				bool only_special_functions = true;
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-					if(!is_special(function, name_no_template_args)) {
-						only_special_functions = false;
+					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
+						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
+						if(!is_special(function, name_no_template_args)) {
+							only_special_functions = false;
+						}
 					}
 				}
 				if(only_special_functions) {
 					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-						if(is_special(function, name_no_template_args)) {
-							struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
-							i--;
+						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
+							ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
+							if(is_special(function, name_no_template_args)) {
+								struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
+								i--;
+							}
 						}
 					}
 				}
