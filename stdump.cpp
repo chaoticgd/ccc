@@ -165,8 +165,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 				struct_or_union.member_functions.clear();
 			} else if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) {
 				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
-					return function.name == "__as"
-						|| function.name == "operator="
+					return function.name == "operator="
 						|| function.name.starts_with("$")
 						|| (function.name == name_no_template_args
 							&& function.parameters->size() == 0);

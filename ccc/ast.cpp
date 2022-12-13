@@ -150,12 +150,13 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 				return nullptr;
 			}
 		}
-		case StabsTypeDescriptor::STRUCT: {
-			auto inline_struct = std::make_unique<ast::InlineStructOrUnion>();
-			inline_struct->is_union = false;
-			inline_struct->size_bits = (s32) type.struct_or_union.size * 8;
+		case StabsTypeDescriptor::STRUCT:
+		case StabsTypeDescriptor::UNION: {
+			auto struct_or_union = std::make_unique<ast::InlineStructOrUnion>();
+			struct_or_union->is_union = type.descriptor == StabsTypeDescriptor::UNION;
+			struct_or_union->size_bits = (s32) type.struct_or_union.size * 8;
 			for(const StabsBaseClass& stabs_base_class : type.struct_or_union.base_classes) {
-				ast::BaseClass& ast_base_class = inline_struct->base_classes.emplace_back();
+				ast::BaseClass& ast_base_class = struct_or_union->base_classes.emplace_back();
 				ast_base_class.visibility = stabs_base_class.visibility;
 				ast_base_class.offset = stabs_base_class.offset;
 				auto base_class_type = stabs_type_to_ast(stabs_base_class.type, stabs_types, absolute_parent_offset_bytes, depth + 1, true);
@@ -171,50 +172,37 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 				if(node == nullptr) {
 					return nullptr;
 				}
-				inline_struct->fields.emplace_back(std::move(node));
+				struct_or_union->fields.emplace_back(std::move(node));
 			}
 			AST_DEBUG_PRINTF("%-*s endfields\n", depth * 4, "");
 			AST_DEBUG_PRINTF("%-*s beginmemberfuncs\n", depth * 4, "");
+			std::string struct_or_union_name_no_template_parameters;
+			if(type.name.has_value()) {
+				struct_or_union_name_no_template_parameters =
+					type.name->substr(0, type.name->find("<"));
+			}
 			for(const StabsMemberFunctionSet& function_set : type.struct_or_union.member_functions) {
 				for(const StabsMemberFunctionOverload& overload : function_set.overloads) {
 					auto node = stabs_type_to_ast(overload.type, stabs_types, absolute_parent_offset_bytes, depth + 1, true);
 					if(node == nullptr) {
 						return nullptr;
 					}
-					node->name = function_set.name;
-					inline_struct->member_functions.emplace_back(std::move(node));
-				}
-			}
-			AST_DEBUG_PRINTF("%-*s endmemberfuncs\n", depth * 4, "");
-			result = std::move(inline_struct);
-			break;
-		}
-		case StabsTypeDescriptor::UNION: {
-			auto inline_union = std::make_unique<ast::InlineStructOrUnion>();
-			inline_union->is_union = true;
-			inline_union->size_bits = (s32) type.struct_or_union.size * 8;
-			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
-			for(const StabsField& field : type.struct_or_union.fields) {
-				auto node = stabs_field_to_ast(field, stabs_types, absolute_parent_offset_bytes, depth);
-				if(node == nullptr) {
-					return nullptr;
-				}
-				inline_union->fields.emplace_back(std::move(node));
-			}
-			AST_DEBUG_PRINTF("%-*s endfields\n", depth * 4, "");
-			AST_DEBUG_PRINTF("%-*s beginmemberfuncs\n", depth * 4, "");
-			for(const StabsMemberFunctionSet& function_set : type.struct_or_union.member_functions) {
-				for(const StabsMemberFunctionOverload& overload : function_set.overloads) {
-					auto node = stabs_type_to_ast(overload.type, stabs_types, absolute_parent_offset_bytes, depth + 1, true);
-					if(node == nullptr) {
-						return nullptr;
+					if(function_set.name == "__as") {
+						node->name = "operator=";
+					} else {
+						node->name = function_set.name;
 					}
-					node->name = function_set.name;
-					inline_union->member_functions.emplace_back(std::move(node));
+					bool is_constructor = false;
+					if(type.name.has_value()) {
+						is_constructor |= function_set.name == type.name;
+						is_constructor |= function_set.name == struct_or_union_name_no_template_parameters;
+					}
+					node->is_constructor = is_constructor;
+					struct_or_union->member_functions.emplace_back(std::move(node));
 				}
 			}
 			AST_DEBUG_PRINTF("%-*s endmemberfuncs\n", depth * 4, "");
-			result = std::move(inline_union);
+			result = std::move(struct_or_union);
 			break;
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {

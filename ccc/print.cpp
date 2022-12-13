@@ -133,10 +133,12 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		}
 		case ast::FUNCTION: {
 			const ast::Function& function = node.as<ast::Function>();
-			assert(function.return_type.get());
-			VariableName dummy{nullptr};
-			print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
-			fprintf(dest, " ");
+			if(!function.is_constructor) {
+				assert(function.return_type.get());
+				VariableName dummy{nullptr};
+				print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
+				fprintf(dest, " ");
+			}
 			print_cpp_variable_name(dest, name, BRACKETS_IF_POINTER);
 			fprintf(dest, "(");
 			if(function.parameters.has_value()) {

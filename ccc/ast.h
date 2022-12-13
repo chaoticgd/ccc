@@ -32,6 +32,7 @@ struct Node {
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
+	bool is_constructor = false;
 	
 	const StabsSymbol* symbol = nullptr;
 	const char* compare_fail_reason = nullptr;
