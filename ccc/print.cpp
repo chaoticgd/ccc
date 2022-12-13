@@ -196,7 +196,7 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 				fprintf(dest, " :");
 				for(const ast::BaseClass& base_class : struct_or_union.base_classes) {
 					if(base_class.offset > -1) {
-						fprintf(dest, " /* 0x%03x */", base_class.offset);
+						fprintf(dest, " /* 0x%0*x */", digits_for_offset, base_class.offset);
 					}
 					fprintf(dest, " %s", base_class.type_name.c_str());
 				}
