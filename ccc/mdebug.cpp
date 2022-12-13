@@ -103,6 +103,17 @@ SymbolTable parse_mdebug_section(const Module& module, const ModuleSection& sect
 		SymFileDescriptor fd;
 		fd.name = get_string(module.image, hdrr.cb_ss_offset + fd_entry.iss_base + fd_entry.rss);
 		
+		// Try to detect the source language.
+		std::string lower_name = fd.name;
+		for(char& c : lower_name) c = tolower(c);
+		if(lower_name.ends_with(".c")) {
+			fd.detected_language = SourceLanguage::C;
+		} else if(lower_name.ends_with(".cpp") || lower_name.ends_with(".cxx")) {
+			fd.detected_language = SourceLanguage::CPP;
+		} else if(lower_name.ends_with(".s") || lower_name.ends_with(".asm")) {
+			fd.detected_language = SourceLanguage::ASSEMBLY;
+		}
+		
 		// Read symbols.
 		for(s64 j = 0; j < fd_entry.csym; j++) {
 			u64 sym_offset = hdrr.cb_sym_offset + (fd_entry.isym_base + j) * sizeof(SymbolEntry);

@@ -81,7 +81,7 @@ static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& opt
 	std::set<std::pair<std::string, RangeClass>> builtins;
 	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
 	for(const SymFileDescriptor& fd : symbol_table.files) {
-		std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols));
+		std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols, fd.detected_language));
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
 		const std::set<std::pair<std::string, RangeClass>> per_file_builtins = ast::symbols_to_builtins(per_file_symbols);
 		for(auto& builtin : per_file_builtins) {
@@ -123,7 +123,7 @@ static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	printf("\n");
 	for(const SymFileDescriptor& fd : symbol_table.files) {
-		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols);
+		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols, fd.detected_language);
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
 		const std::set<std::pair<std::string, RangeClass>> builtins = ast::symbols_to_builtins(symbols);
 		std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);

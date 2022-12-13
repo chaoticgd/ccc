@@ -22,7 +22,7 @@ static const char* ERR_END_OF_INPUT =
 #define STABS_DEBUG(...) //__VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
-std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
+std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language) {
 	std::vector<StabsSymbol> output;
 	std::string prefix;
 	bool last_symbol_was_end = false;
@@ -31,7 +31,9 @@ std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
 			   (symbol.storage_type == SymbolType::NIL
 				&& symbol.storage_class != SymbolClass::COMPILER_VERSION_INFO)
 			|| (last_symbol_was_end
-				&& symbol.storage_type == SymbolType::LABEL);
+				&& symbol.storage_type == SymbolType::LABEL
+				&& (detected_language == SourceLanguage::C
+					|| detected_language == SourceLanguage::CPP));
 		if(correct_type) {
 			// Some STABS symbols are split between multiple strings.
 			if(!symbol.string.empty()) {
