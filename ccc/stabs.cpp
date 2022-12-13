@@ -25,26 +25,37 @@ static const char* ERR_END_OF_INPUT =
 std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input) {
 	std::vector<StabsSymbol> output;
 	std::string prefix;
+	bool last_symbol_was_end = false;
 	for(const Symbol& symbol : input) {
-		if(symbol.storage_type == SymbolType::NIL && symbol.storage_class != SymbolClass::COMPILER_VERSION_INFO) {
-			if(symbol.string.empty()) {
-				verify(prefix.empty(), "Invalid STABS continuation.");
-				continue;
-			}
+		bool correct_type =
+			   (symbol.storage_type == SymbolType::NIL
+				&& symbol.storage_class != SymbolClass::COMPILER_VERSION_INFO)
+			|| (last_symbol_was_end
+				&& symbol.storage_type == SymbolType::LABEL);
+		if(correct_type) {
 			// Some STABS symbols are split between multiple strings.
-			if(symbol.string[symbol.string.size() - 1] == '\\') {
-				prefix += symbol.string.substr(0, symbol.string.size() - 1);
-			} else {
-				std::string symbol_string = prefix + symbol.string;
-				prefix = "";
-				if(symbol_string[0] == '$') {
-					continue;
+			if(!symbol.string.empty()) {
+				if(symbol.string[symbol.string.size() - 1] == '\\') {
+					prefix += symbol.string.substr(0, symbol.string.size() - 1);
+				} else {
+					std::string symbol_string = prefix + symbol.string;
+					prefix.clear();
+					bool stab_valid = true;
+					stab_valid &= symbol_string[0] != '$';
+					stab_valid &= symbol_string != "gcc2_compiled.";
+					stab_valid &= symbol_string != "__gnu_compiled_c";
+					stab_valid &= symbol_string != "__gnu_compiled_cpp";
+					if(stab_valid) {
+						StabsSymbol stabs_symbol = parse_stabs_symbol(symbol_string.c_str());
+						stabs_symbol.mdebug_symbol = symbol;
+						output.emplace_back(std::move(stabs_symbol));
+					}
 				}
-				StabsSymbol stabs_symbol = parse_stabs_symbol(symbol_string.c_str());
-				stabs_symbol.mdebug_symbol = symbol;
-				output.emplace_back(std::move(stabs_symbol));
+			} else {
+				verify(prefix.empty(), "Invalid STABS continuation.");
 			}
 		}
+		last_symbol_was_end = (symbol.storage_type == SymbolType::END);
 	}
 	return output;
 }
