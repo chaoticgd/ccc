@@ -76,6 +76,7 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 	if(is_type) {
 		symbol.type.name = symbol.name;
 	}
+	symbol.type.is_typedef = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME;
 	return symbol;
 }
 

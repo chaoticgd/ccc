@@ -58,6 +58,7 @@ struct StabsType {
 	std::optional<std::string> name;
 	bool anonymous = false;
 	s32 type_number = -1;
+	bool is_typedef = false;
 	bool has_body = false;
 	// If !has_body, everything below isn't filled in.
 	StabsTypeDescriptor descriptor;
