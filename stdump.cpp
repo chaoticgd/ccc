@@ -81,22 +81,35 @@ static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& opt
 	std::set<std::pair<std::string, RangeClass>> builtins;
 	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
 	for(const SymFileDescriptor& fd : symbol_table.files) {
+		// Parse the stab strings into a data structure that's vaguely
+		// one-to-one with the text-based representation.
 		std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols, fd.detected_language));
+		// In stabs, types can be referenced by their number from other stabs,
+		// so here we build a map of type numbers to the parsed type.
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
+		// Generate a list of built-in types e.g. integers, floats and bools.
 		const std::set<std::pair<std::string, RangeClass>> per_file_builtins = ast::symbols_to_builtins(per_file_symbols);
 		for(auto& builtin : per_file_builtins) {
 			builtins.emplace(builtin);
 		}
+		// Convert the stabs data structure to a more standard C AST.
 		per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
 	}
 	
 	for(auto& [file, per_file_ast_nodes] : per_file_ast) {
+		// Some enums have two separate stabs generated for them, one with a
+		// name of " ", where one stab references the other. Remove these
+		// duplicate AST nodes.
 		ast::remove_duplicate_enums(per_file_ast_nodes);
 		for(std::unique_ptr<ast::Node>& ast_node : per_file_ast_nodes) {
+			// Filter the AST depending on the command-line flags parsed,
+			// removing things the user didn't ask for.
 			filter_ast_by_flags(*ast_node.get(), options.flags);
 		}
 	}
 	
+	// Deduplicate types from different translation units, preserving multiple
+	// copies of types that actually differ.
 	std::vector<std::vector<std::unique_ptr<ast::Node>>> ast_nodes = deduplicate_ast(per_file_ast);
 	
 	// The ast_nodes variable groups types by their name, so duplicates are
@@ -109,13 +122,13 @@ static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& opt
 		}
 	}
 	
+	// Print out the result.
+	print_cpp_comment_block_beginning(stdout, options.input_file);
+	print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
 	if(!builtins.empty()) {
-		print_cpp_comment_block_beginning(stdout, options.input_file);
-		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
 		print_cpp_comment_block_builtin_types(stdout, builtins);
-		printf("\n");
 	}
-	
+	printf("\n");
 	print_cpp_ast_nodes(stdout, flat_ast_nodes, options.flags & FLAG_VERBOSE);
 }
 

@@ -74,7 +74,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			|| (depth > 0 && type.is_root);
 		bool is_name_empty = type.name == "" || type.name == " ";
 		// Unfortunately, a common case seems to be that __builtin_va_list is
-		// indistinguishable from void*, so we prevent it from being out to
+		// indistinguishable from void*, so we prevent it from being output to
 		// avoid confusion.
 		bool is_va_list = type.name == "__builtin_va_list";
 		if((substitute_type_name || always_substitute) && !is_name_empty && !is_va_list) {
