@@ -11,6 +11,7 @@ void print_address(const char* name, u64 address) {
 
 enum class OutputMode {
 	PRINT_CPP,
+	PRINT_GHIDRA,
 	PRINT_SYMBOLS,
 	LIST_FILES,
 	HELP,
@@ -36,6 +37,7 @@ static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vecto
 static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options);
 static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options);
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
+static void print_ghidra(SymbolTable& symbol_table, const Options& options);
 static void print_symbols(SymbolTable& symbol_table);
 static void list_files(SymbolTable& symbol_table);
 static SymbolTable read_symbol_table(const fs::path& input_file);
@@ -52,6 +54,11 @@ int main(int argc, char** argv) {
 			} else {
 				print_cpp_per_file(symbol_table, options);
 			}
+			return 0;
+		}
+		case OutputMode::PRINT_GHIDRA: {
+			SymbolTable symbol_table = read_symbol_table(options.input_file);
+			print_ghidra(symbol_table, options);
 			return 0;
 		}
 		case OutputMode::PRINT_SYMBOLS: {
@@ -223,6 +230,11 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 	}
 }
 
+static void print_ghidra(SymbolTable& symbol_table, const Options& options) {
+	print_ghidra_prologue(stdout, options.input_file);
+	print_ghidra_epilogue(stdout);
+}
+
 static void print_symbols(SymbolTable& symbol_table) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
 		printf("FILE %s:\n", fd.name.c_str());
@@ -268,6 +280,8 @@ static Options parse_args(int argc, char** argv) {
 	const char* command = argv[1];
 	if(strcmp(command, "print_cpp") == 0) {
 		options.mode = OutputMode::PRINT_CPP;
+	} else if(strcmp(command, "print_ghidra") == 0) {
+		options.mode = OutputMode::PRINT_GHIDRA;
 	} else if(strcmp(command, "print_symbols") == 0) {
 		options.mode = OutputMode::PRINT_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {

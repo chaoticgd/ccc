@@ -1,5 +1,5 @@
-#ifndef _CCC_PRINT_H
-#define _CCC_PRINT_H
+#ifndef _CCC_PRINT_CPP_H
+#define _CCC_PRINT_CPP_H
 
 #include "ast.h"
 
