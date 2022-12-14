@@ -12,7 +12,7 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 ## Building
 
-	cmake -B . bin/
+	cmake -B bin/
 	cmake --build bin/
 
 ## Resources
