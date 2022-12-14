@@ -152,8 +152,8 @@ static StabsType parse_type(const char*& input) {
 			std::string high = eat_identifier(input);
 			expect_s8(input, ';', "high range value");
 			try {
-			type.range_type.low_maybe_wrong = std::stoi(low);
-			type.range_type.high_maybe_wrong = std::stoi(high);
+				type.range_type.low_maybe_wrong = std::stoi(low);
+				type.range_type.high_maybe_wrong = std::stoi(high);
 			} catch(std::out_of_range&) {/* this case doesn't matter */}
 			type.range_type.range_class = classify_range(low, high);
 			break;

@@ -79,8 +79,8 @@ struct StabsType {
 	} function_type;
 	struct {
 		std::unique_ptr<StabsType> type;
-		s64 low_maybe_wrong;
-		s64 high_maybe_wrong;
+		s64 low_maybe_wrong = 0;
+		s64 high_maybe_wrong = 0;
 		RangeClass range_class;
 	} range_type;
 	struct {
