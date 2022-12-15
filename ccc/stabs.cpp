@@ -5,7 +5,9 @@
 
 namespace ccc {
 
-static StabsType parse_type(const char*& input);
+// parse_stabs_symbols
+// parse_stabs_symbol
+static std::unique_ptr<StabsType> parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
 static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input);
 static RangeClass classify_range(const std::string& low, const std::string& high);
@@ -87,80 +89,96 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 	bool is_type = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME
 		|| symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
 	if(is_type) {
-		symbol.type.name = symbol.name;
+		symbol.type->name = symbol.name;
 	}
-	symbol.type.is_typedef = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME;
-	symbol.type.is_root = true;
+	symbol.type->is_typedef = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME;
+	symbol.type->is_root = true;
 	return symbol;
 }
 
-static StabsType parse_type(const char*& input) {
-	StabsType type;
+static std::unique_ptr<StabsType> parse_type(const char*& input) {
+	StabsTypeInfo info;
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	if(*input >= '0' && *input <= '9') {
-		type.anonymous = false;
-		type.type_number = eat_s64_literal(input);
+		info.anonymous = false;
+		info.type_number = eat_s64_literal(input);
 		if(*input != '=') {
-			type.has_body = false;
-			return type;
+			info.has_body = false;
+			return std::make_unique<StabsType>(info);
 		}
 		input++;
 	} else {
-		type.anonymous = true;
+		info.anonymous = true;
 	}
-	type.has_body = true;
+	info.has_body = true;
 	verify(*input != '\0', ERR_END_OF_INPUT);
+	
+	StabsTypeDescriptor descriptor;
 	if(*input >= '0' && *input <= '9') {
-		type.descriptor = StabsTypeDescriptor::TYPE_REFERENCE;
+		descriptor = StabsTypeDescriptor::TYPE_REFERENCE;
 	} else {
-		type.descriptor = (StabsTypeDescriptor) eat_s8(input);
+		descriptor = (StabsTypeDescriptor) eat_s8(input);
 	}
-	switch(type.descriptor) {
+	
+	std::unique_ptr<StabsType> type;
+	
+	switch(descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: { // 0..9
-			type.type_reference.type = std::make_unique<StabsType>(parse_type(input));
+			auto type_reference = std::make_unique<StabsTypeReferenceType>(info);
+			type_reference->type = parse_type(input);
+			type = std::move(type_reference);
 			break;
 		}
 		case StabsTypeDescriptor::ARRAY: { // a
-			type.array_type.index_type = std::make_unique<StabsType>(parse_type(input));
-			type.array_type.element_type = std::make_unique<StabsType>(parse_type(input));
+			auto array = std::make_unique<StabsArrayType>(info);
+			array->index_type = parse_type(input);
+			array->element_type = parse_type(input);
+			type = std::move(array);
 			break;
 		}
 		case StabsTypeDescriptor::ENUM: { // e
+			auto enum_type = std::make_unique<StabsEnumType>(info);
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
 				std::string name = eat_identifier(input);
 				expect_s8(input, ':', "identifier");
 				s64 value = eat_s64_literal(input);
-				type.enum_type.fields.emplace_back(value, name);
+				enum_type->fields.emplace_back(value, name);
 				verify(eat_s8(input) == ',',
 					"Expecting ',' while parsing enum, got '%c' (%02hhx)",
 					*input, *input);
 			}
 			input++;
 			STABS_DEBUG_PRINTF("}\n");
+			type = std::move(enum_type);
 			break;
 		}
 		case StabsTypeDescriptor::FUNCTION: { // f
-			type.function_type.type = std::make_unique<StabsType>(parse_type(input));
+			auto function = std::make_unique<StabsFunctionType>(info);
+			function->return_type = parse_type(input);
+			type = std::move(function);
 			break;
 		}
 		case StabsTypeDescriptor::RANGE: { // r
-			type.range_type.type = std::make_unique<StabsType>(parse_type(input));
+			auto range = std::make_unique<StabsRangeType>(info);
+			range->type = parse_type(input);
 			expect_s8(input, ';', "range type descriptor");
 			std::string low = eat_identifier(input);
 			expect_s8(input, ';', "low range value");
 			std::string high = eat_identifier(input);
 			expect_s8(input, ';', "high range value");
 			try {
-			type.range_type.low_maybe_wrong = std::stoi(low);
-			type.range_type.high_maybe_wrong = std::stoi(high);
-			} catch(std::out_of_range&) {/* this case doesn't matter */}
-			type.range_type.range_class = classify_range(low, high);
+				range->low_maybe_wrong = std::stoi(low);
+				range->high_maybe_wrong = std::stoi(high);
+			} catch(std::out_of_range&) { /* this case doesn't matter */ }
+			range->range_class = classify_range(low, high);
+			type = std::move(range);
 			break;
 		}
 		case StabsTypeDescriptor::STRUCT: { // s
+			auto struct_type = std::make_unique<StabsStructType>(info);
 			STABS_DEBUG_PRINTF("struct {\n");
-			type.struct_or_union.size = eat_s64_literal(input);
+			struct_type->size = eat_s64_literal(input);
 			if(*input == '!') {
 				input++;
 				s64 base_class_count = eat_s64_literal(input);
@@ -173,78 +191,96 @@ static StabsType parse_type(const char*& input) {
 					expect_s8(input, ',', "base class section");
 					base_class.type = parse_type(input);
 					expect_s8(input, ';', "base class section");
-					type.struct_or_union.base_classes.emplace_back(std::move(base_class));
+					struct_type->base_classes.emplace_back(std::move(base_class));
 				}
 			}
-			type.struct_or_union.fields = parse_field_list(input);
-			type.struct_or_union.member_functions = parse_member_functions(input);
+			struct_type->fields = parse_field_list(input);
+			struct_type->member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
+			type = std::move(struct_type);
 			break;
 		}
 		case StabsTypeDescriptor::UNION: { // u
+			auto union_type = std::make_unique<StabsUnionType>(info);
 			STABS_DEBUG_PRINTF("union {\n");
-			type.struct_or_union.size = eat_s64_literal(input);
-			type.struct_or_union.fields = parse_field_list(input);
-			type.struct_or_union.member_functions = parse_member_functions(input);
+			union_type->size = eat_s64_literal(input);
+			union_type->fields = parse_field_list(input);
+			union_type->member_functions = parse_member_functions(input);
 			STABS_DEBUG_PRINTF("}\n");
+			type = std::move(union_type);
 			break;
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: { // x
-			type.cross_reference.type = eat_s8(input);
-			switch(type.cross_reference.type) {
+			auto cross_reference = std::make_unique<StabsCrossReferenceType>(info);
+			cross_reference->type = eat_s8(input);
+			switch(cross_reference->type) {
 				case 's': // struct
 				case 'u': // union
 				case 'e': // enum
 					break;
 				default:
 					verify_not_reached("Invalid cross reference type '%c'.",
-						type.cross_reference.type);
+						cross_reference->type);
 			}
-			type.cross_reference.identifier = eat_identifier(input);
-			type.name = type.cross_reference.identifier;
+			cross_reference->identifier = eat_identifier(input);
+			cross_reference->name = cross_reference->identifier;
 			expect_s8(input, ':', "cross reference");
+			type = std::move(cross_reference);
 			break;
 		}
 		case StabsTypeDescriptor::METHOD: { // #
+			auto method = std::make_unique<StabsMethodType>(info);
 			if(*input == '#') {
 				input++;
-				type.method.return_type = std::make_unique<StabsType>(parse_type(input));
+				method->return_type = parse_type(input);
 				expect_s8(input, ';', "method");
 			} else {
-				type.method.class_type = std::make_unique<StabsType>(parse_type(input));
+				method->class_type = parse_type(input);
 				expect_s8(input, ',', "method");
-				type.method.return_type = std::make_unique<StabsType>(parse_type(input));
+				method->return_type = parse_type(input);
 				while(*input != '\0') {
 					if(*input == ';') {
 						input++;
 						break;
 					}
 					expect_s8(input, ',', "method");
-					type.method.parameter_types.emplace_back(parse_type(input));
+					method->parameter_types.emplace_back(parse_type(input));
 				}
 			}
+			type = std::move(method);
 			break;
 		}
-		case StabsTypeDescriptor::REFERENCE: // &
+		case StabsTypeDescriptor::REFERENCE: { // &
+			auto reference = std::make_unique<StabsReferenceType>(info);
+			reference->value_type = parse_type(input);
+			type = std::move(reference);
+			break;
+		}
 		case StabsTypeDescriptor::POINTER: { // *
-			type.reference_or_pointer.value_type = std::make_unique<StabsType>(parse_type(input));
+			auto pointer = std::make_unique<StabsPointerType>(info);
+			pointer->value_type = parse_type(input);
+			type = std::move(pointer);
 			break;
 		}
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: { // @
+			auto type_attribute = std::make_unique<StabsSizeTypeAttributeType>(info);
 			verify(*input == 's', "Weird value following '@' type descriptor. Please submit a bug report!");
 			input++;
-			type.size_type_attribute.size_bits = eat_s64_literal(input);
+			type_attribute->size_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "type attribute");
-			type.size_type_attribute.type = std::make_unique<StabsType>(parse_type(input));
+			type_attribute->type = parse_type(input);
+			type = std::move(type_attribute);
 			break;
 		}
 		case StabsTypeDescriptor::BUILT_IN: { // -
-			type.built_in.type_id = eat_s64_literal(input);
+			auto built_in = std::make_unique<StabsBuiltInType>(info);
+			built_in->type_id = eat_s64_literal(input);
+			type = std::move(built_in);
 			break;
 		}
 		default: {
 			verify_not_reached("Invalid type descriptor '%c' (%02x). Please file a bug report!",
-				(u32) type.descriptor, (u32) type.descriptor);
+				(u32) descriptor, (u32) descriptor);
 		}
 	}
 	return type;
@@ -518,59 +554,14 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 	}
 }
 
-void print_stabs_type(const StabsType& type) {
-	printf("type descriptor: %c\n", (s8) type.descriptor);
-	printf("fields (offset, size, offset in bits, size in bits, name):\n");
-	for(const StabsField& field : type.struct_or_union.fields) {
-		print_field(field);
-	}
-}
-
 static void print_field(const StabsField& field) {
 	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
-}
-
-static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& output, const StabsType& type);
-
-static void enumerate_unique_ptr(std::map<s32, const StabsType*>& output, const std::unique_ptr<StabsType>& type) {
-	if(type.get()) {
-		enumerate_numbered_types_recursive(output, *type.get());
-	}
-}
-
-static void enumerate_numbered_types_recursive(std::map<s32, const StabsType*>& output, const StabsType& type) {
-	if(!type.anonymous && type.has_body) {
-		output.emplace(type.type_number, &type);
-	}
-	enumerate_unique_ptr(output, type.type_reference.type);
-	enumerate_unique_ptr(output, type.array_type.index_type);
-	enumerate_unique_ptr(output, type.array_type.element_type);
-	enumerate_unique_ptr(output, type.function_type.type);
-	enumerate_unique_ptr(output, type.range_type.type);
-	for(const StabsBaseClass& base_class : type.struct_or_union.base_classes) {
-		enumerate_numbered_types_recursive(output, base_class.type);
-	}
-	for(const StabsField& field : type.struct_or_union.fields) {
-		enumerate_numbered_types_recursive(output, field.type);
-	}
-	for(const StabsMemberFunctionSet& member_functions : type.struct_or_union.member_functions) {
-		for(const StabsMemberFunctionOverload& overload : member_functions.overloads) {
-			enumerate_numbered_types_recursive(output, overload.type);
-		}
-	}
-	enumerate_unique_ptr(output, type.method.return_type);
-	enumerate_unique_ptr(output, type.method.class_type);
-	for(const StabsType& parameter_type : type.method.parameter_types) {
-		enumerate_numbered_types_recursive(output, parameter_type);
-	}
-	enumerate_unique_ptr(output, type.reference_or_pointer.value_type);
-	enumerate_unique_ptr(output, type.size_type_attribute.type);
 }
 
 std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols) {
 	std::map<s32, const StabsType*> output;
 	for(const StabsSymbol& symbol : symbols) {
-		enumerate_numbered_types_recursive(output, symbol.type);
+		symbol.type->enumerate_numbered_types(output);
 	}
 	return output;
 }
