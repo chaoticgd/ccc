@@ -85,7 +85,7 @@ struct InlineEnum : Node {
 };
 
 struct InlineStructOrUnion : Node {
-	bool is_union = false;
+	bool is_struct = true;
 	std::vector<BaseClass> base_classes;
 	std::vector<std::unique_ptr<Node>> fields;
 	std::vector<std::unique_ptr<Node>> member_functions;
