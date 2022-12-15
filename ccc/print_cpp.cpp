@@ -184,10 +184,10 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		}
 		case ast::INLINE_STRUCT_OR_UNION: {
 			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
-			if(struct_or_union.is_union) {
-				fprintf(dest, "union");
-			} else {
+			if(struct_or_union.is_struct) {
 				fprintf(dest, "struct");
+			} else {
+				fprintf(dest, "union");
 			}
 			bool name_on_top = (indentation_level == 0) && (struct_or_union.storage_class != ast::StorageClass::TYPEDEF);
 			if(name_on_top) {
