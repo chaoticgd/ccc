@@ -6,7 +6,7 @@
 namespace ccc {
 
 void print_ghidra_prologue(FILE* dest, const fs::path& input_file);
-void print_ghidra_types(FILE* dest, const std::vector<ast::Node>& ast_nodes);
+void print_ghidra_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes, const std::map<std::string, s32>& type_lookup);
 void print_ghidra_epilogue(FILE* dest);
 
 };

@@ -17,6 +17,10 @@ enum VariableNamePrintFlags {
 	BRACKETS_IF_POINTER = (1 << 2)
 };
 
+// print_cpp_comment_block_beginning
+// print_cpp_comment_block_compiler_version_info
+// print_cpp_comment_block_builtin_types
+// print_cpp_ast_nodes
 static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset);
 static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);

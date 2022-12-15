@@ -7,6 +7,7 @@ namespace ccc {
 
 // parse_stabs_symbols
 // parse_stabs_symbol
+// enumerate_numbered_types
 static std::unique_ptr<StabsType> parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
 static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input);
@@ -94,6 +95,14 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 	symbol.type->is_typedef = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME;
 	symbol.type->is_root = true;
 	return symbol;
+}
+
+std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols) {
+	std::map<s32, const StabsType*> output;
+	for(const StabsSymbol& symbol : symbols) {
+		symbol.type->enumerate_numbered_types(output);
+	}
+	return output;
 }
 
 static std::unique_ptr<StabsType> parse_type(const char*& input) {
@@ -556,14 +565,6 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 
 static void print_field(const StabsField& field) {
 	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
-}
-
-std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols) {
-	std::map<s32, const StabsType*> output;
-	for(const StabsSymbol& symbol : symbols) {
-		symbol.type->enumerate_numbered_types(output);
-	}
-	return output;
 }
 
 }
