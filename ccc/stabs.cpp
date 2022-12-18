@@ -109,6 +109,7 @@ const char* builtin_class_to_string(BuiltInClass bclass) {
 	switch(bclass) {
 		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
 		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
+		case BuiltInClass::UNQUALIFIED_8: return "8-bit integer";
 		case BuiltInClass::UNSIGNED_16: return "16-bit unsigned integer";
 		case BuiltInClass::SIGNED_16: return "16-bit signed integer";
 		case BuiltInClass::UNSIGNED_32: return "32-bit unsigned integer";
@@ -119,6 +120,8 @@ const char* builtin_class_to_string(BuiltInClass bclass) {
 		case BuiltInClass::FLOAT_64: return "64-bit floating point";
 		case BuiltInClass::UNSIGNED_128: return "128-bit unsigned integer";
 		case BuiltInClass::SIGNED_128: return "128-bit signed integer";
+		case BuiltInClass::UNQUALIFIED_128: return "128-bit integer";
+		case BuiltInClass::FLOAT_128: return "128-bit floating point";
 		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
 	}
 	return "";
@@ -465,8 +468,10 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 		{"001000000000000000000000", "000777777777777777777777", BuiltInClass::SIGNED_64},
 		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", BuiltInClass::SIGNED_64},
 		{"8", "0", BuiltInClass::FLOAT_64},
+		{"000000000000000000000000", "0377777777777777777777777777777777", BuiltInClass::UNQUALIFIED_128},
 		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", BuiltInClass::UNSIGNED_128},
-		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", BuiltInClass::SIGNED_128}
+		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", BuiltInClass::SIGNED_128},
+		{"16", "0", BuiltInClass::FLOAT_128}
 	};
 	
 	for(const auto& range : strings) {
@@ -488,6 +493,7 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 	static const struct { s64 low; s64 high; BuiltInClass classification; } integers[] = {
 		{0, 255, BuiltInClass::UNSIGNED_8},
 		{-128, 127, BuiltInClass::SIGNED_8},
+		{0, 127, BuiltInClass::UNQUALIFIED_8},
 		{0, 65535, BuiltInClass::UNSIGNED_16},
 		{-32768, 32767, BuiltInClass::SIGNED_16},
 		{0, 4294967295, BuiltInClass::UNSIGNED_32},
