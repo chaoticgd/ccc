@@ -33,11 +33,7 @@ static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vecto
 static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options);
 static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options);
 static void print_ghidra(SymbolTable& symbol_table, const Options& options);
-struct SymbolTableToDeduplicatedAstOutput {
-	std::vector<std::vector<std::unique_ptr<ast::Node>>> ast_nodes;
-	std::set<std::pair<std::string, RangeClass>> builtins;
-};
-static SymbolTableToDeduplicatedAstOutput symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags);
+static std::vector<std::vector<std::unique_ptr<ast::Node>>> symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags);
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 static void print_symbols(SymbolTable& symbol_table);
 static void list_files(SymbolTable& symbol_table);
@@ -85,7 +81,7 @@ int main(int argc, char** argv) {
 
 
 static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options) {
-	auto [ast_nodes, builtins] = symbol_table_to_deduplicated_ast(symbol_table, options.flags);
+	auto ast_nodes = symbol_table_to_deduplicated_ast(symbol_table, options.flags);
 	
 	// The ast_nodes variable groups types by their name, so duplicates are
 	// stored together. We flatten these into a single list for printing.
@@ -100,9 +96,7 @@ static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& opt
 	// Print out the result.
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-	if(!builtins.empty()) {
-		print_cpp_comment_block_builtin_types(stdout, builtins);
-	}
+	print_cpp_comment_block_builtin_types(stdout, flat_ast_nodes);
 	printf("\n");
 	print_cpp_ast_nodes(stdout, flat_ast_nodes, options.flags & FLAG_VERBOSE);
 }
@@ -113,7 +107,6 @@ static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols, fd.detected_language);
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-		const std::set<std::pair<std::string, RangeClass>> builtins = ast::symbols_to_builtins(symbols);
 		std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
 		ast::remove_duplicate_enums(ast_nodes);
 		
@@ -126,7 +119,7 @@ static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options
 		printf("// *****************************************************************************\n");
 		printf("\n");
 		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-		print_cpp_comment_block_builtin_types(stdout, builtins);
+		print_cpp_comment_block_builtin_types(stdout, ast_nodes);
 		printf("\n");
 		print_cpp_ast_nodes(stdout, ast_nodes, options.flags & FLAG_VERBOSE);
 		printf("\n");
@@ -134,7 +127,7 @@ static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options
 }
 
 static void print_ghidra(SymbolTable& symbol_table, const Options& options) {
-	auto [ast_nodes, builtins] = symbol_table_to_deduplicated_ast(symbol_table, options.flags);
+	auto ast_nodes = symbol_table_to_deduplicated_ast(symbol_table, options.flags);
 	
 	// If there are multiple differing types with the same name, use the first
 	// type. TODO: Make an exception for anonymous enums.
@@ -153,9 +146,8 @@ static void print_ghidra(SymbolTable& symbol_table, const Options& options) {
 	print_ghidra_epilogue(stdout);
 }
 
-static SymbolTableToDeduplicatedAstOutput symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags) {
+static std::vector<std::vector<std::unique_ptr<ast::Node>>> symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags) {
 	std::vector<std::vector<StabsSymbol>> symbols;
-	std::set<std::pair<std::string, RangeClass>> builtins;
 	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
 	for(const SymFileDescriptor& fd : symbol_table.files) {
 		// Parse the stab strings into a data structure that's vaguely
@@ -164,11 +156,6 @@ static SymbolTableToDeduplicatedAstOutput symbol_table_to_deduplicated_ast(const
 		// In stabs, types can be referenced by their number from other stabs,
 		// so here we build a map of type numbers to the parsed types.
 		const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
-		// Generate a list of built-in types e.g. integers, floats and bools.
-		const std::set<std::pair<std::string, RangeClass>> per_file_builtins = ast::symbols_to_builtins(per_file_symbols);
-		for(auto& builtin : per_file_builtins) {
-			builtins.emplace(builtin);
-		}
 		// Convert the stabs data structure to a more standard C AST.
 		per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
 	}
@@ -187,9 +174,7 @@ static SymbolTableToDeduplicatedAstOutput symbol_table_to_deduplicated_ast(const
 	
 	// Deduplicate types from different translation units, preserving multiple
 	// copies of types that actually differ.
-	std::vector<std::vector<std::unique_ptr<ast::Node>>> ast_nodes = deduplicate_ast(per_file_ast);
-
-	return {std::move(ast_nodes), std::move(builtins)};
+	return deduplicate_ast(per_file_ast);
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {

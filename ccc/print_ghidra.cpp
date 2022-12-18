@@ -5,8 +5,11 @@ namespace ccc {
 // print_ghidra_prologue
 // print_ghidra_types
 // print_ghidra_epilogue
-static void create_top_level_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes, const std::map<std::string, s32>& type_lookup);
+static void create_type(FILE* dest, const ast::Node& node, const std::string& variable_name, const std::map<std::string, s32>& type_lookup, s32 depth);
 static void create_typedefs(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes, const std::map<std::string, s32>& type_lookup);
+static void fill_in_type(FILE* dest, ast::Node& node, const std::string& variable_name, const std::map<std::string, s32>& type_lookup, s32 depth);
+static void register_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes);
+static const char* ast_node_to_java_type(ast::Node& node);
 static void indent(FILE* dest, s32 level);
 
 void print_ghidra_prologue(FILE* dest, const fs::path& input_file) {
@@ -34,59 +37,88 @@ void print_ghidra_prologue(FILE* dest, const fs::path& input_file) {
 }
 
 void print_ghidra_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes, const std::map<std::string, s32>& type_lookup) {
-	create_top_level_types(dest, ast_nodes, type_lookup);
+	fprintf(dest, "\t\tprint(\"Creating top level types...\\n\");\n");
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
+		std::string variable_name = stringf("type_%d", i);
+		create_type(dest, *ast_nodes[i].get(), variable_name, type_lookup, 0);
+	}
+	fprintf(dest, "\t\tprint(\"Creating typedefs...\\n\");\n");
 	create_typedefs(dest, ast_nodes, type_lookup);
+	fprintf(dest, "\t\tprint(\"Filling in types...\\n\");\n");
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
+		std::string variable_name = stringf("type_%d", i);
+		fill_in_type(dest, *ast_nodes[i].get(), variable_name, type_lookup, 0);
+	}
+	fprintf(dest, "\t\tprint(\"Registering types...\\n\");\n");
+	register_types(dest, ast_nodes);
 }
+
+void print_ghidra_functions(FILE* dest) {
+	//fprintf(dest, "\t\tprintf(\"Creating functions...\\n\");\n");
+}
+
 void print_ghidra_epilogue(FILE* dest) {
 	fprintf(dest, "\t\tdata_type_manager.endTransaction(transaction_id, true);\n");
 	fprintf(dest, "\t}\n");
 	fprintf(dest, "}\n");
 }
 
-static void create_top_level_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes, const std::map<std::string, s32>& type_lookup) {
-	fprintf(dest, "\t\tprint(\"Creating top level types...\\n\");");
-	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
-		ast::Node& node = *ast_nodes[i];
-		switch(node.descriptor) {
-			case ast::ARRAY: {
-				break;
+static void create_type(FILE* dest, const ast::Node& node, const std::string& variable_name, const std::map<std::string, s32>& type_lookup, s32 depth) {
+	switch(node.descriptor) {
+		case ast::ARRAY: {
+			const auto& array = node.as<ast::Array>();
+			assert(depth != 0);
+			indent(dest, depth);
+			fprintf(dest, "ArrayDataType %s = new ArrayDataType(%s, );\n", variable_name.c_str());
+			break;
+		}
+		case ast::BITFIELD: {
+			break;
+		}
+		case ast::FUNCTION: {
+			break;
+		}
+		case ast::INLINE_ENUM: {
+			const auto& inline_enum = node.as<ast::InlineEnum>();
+			indent(dest, depth);
+			fprintf(dest, "EnumDataType %s = new EnumDataType(null, \"%s\", 4);\n",
+					variable_name.c_str(), inline_enum.name.c_str());
+			break;
+		}
+		case ast::INLINE_STRUCT_OR_UNION: {
+			const auto& struct_or_union = node.as<ast::InlineStructOrUnion>();
+			indent(dest, depth);
+			if(struct_or_union.is_struct) {
+				fprintf(dest, "StructureDataType %s = new StructureDataType(null, \"%s\", 0x%x);\n",
+					variable_name.c_str(), struct_or_union.name.c_str(), struct_or_union.size_bits / 8);
+			} else {
+				fprintf(dest, "UnionDataType %s = new UnionDataType(null, \"%s\");\n",
+					variable_name.c_str(), struct_or_union.name.c_str());
 			}
-			case ast::BITFIELD: {
-				break;
-			}
-			case ast::FUNCTION: {
-				break;
-			}
-			case ast::INLINE_ENUM: {
-				break;
-			}
-			case ast::INLINE_STRUCT_OR_UNION: {
-				const auto& struct_or_union = node.as<ast::InlineStructOrUnion>();
-				if(struct_or_union.is_struct) {
-					fprintf(dest, "\t\tStructureDataType type_%d = new StructureDataType(null, \"%s\", 0x%x);\n",
-						i, struct_or_union.name.c_str(), struct_or_union.size_bits / 8);
-				} else {
-					fprintf(dest, "\t\tUnionDataType type_%d = new UnionDataType(null, \"%s\");\n",
-						i, struct_or_union.name.c_str());
-				}
-				fprintf(dest, "\t\tdata_type_manager.addDataType(type_%d, null);\n", i);
-				break;
-			}
-			case ast::POINTER: {
-				break;
-			}
-			case ast::REFERENCE: {
-				break;
-			}
-			case ast::TYPE_NAME: {
-				break;
+			break;
+		}
+		case ast::POINTER: {
+			assert(depth != 0);
+			indent(dest, depth);
+			fprintf(dest, "Pointer32DataType %s = new Pointer32DataType();\n", variable_name.c_str());
+			break;
+		}
+		case ast::REFERENCE: {
+			assert(depth != 0);
+			indent(dest, depth);
+			fprintf(dest, "Pointer32DataType %s = new Pointer32DataType();\n", variable_name.c_str());
+			break;
+		}
+		case ast::TYPE_NAME: {
+			if(depth > 0) {
+				indent(dest, depth);
+				fprintf(dest, "DataType %s = null;\n", variable_name.c_str());
 			}
 		}
 	}
 }
 
 static void create_typedefs(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes, const std::map<std::string, s32>& type_lookup) {
-	fprintf(dest, "\t\tprint(\"Creating typedefs...\\n\");");
 	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
 		ast::Node& node = *ast_nodes[i];
 		switch(node.descriptor) {
@@ -104,7 +136,7 @@ static void create_typedefs(FILE* dest, const std::vector<std::unique_ptr<ast::N
 					const ast::TypeName& type_name = node.as<ast::TypeName>();
 					auto type_index = type_lookup.find(type_name.type_name);
 					if(type_index != type_lookup.end() && ast_nodes[type_index->second]->descriptor == ast::INLINE_STRUCT_OR_UNION) {
-						fprintf(dest, "\t\tTypedefDataType type_%d = new TypedefDataType(\"%s\", type_%d);",
+						fprintf(dest, "\t\tTypedefDataType type_%d = new TypedefDataType(\"%s\", type_%d);\n",
 							i, type_name.name.c_str(), type_index->second);
 					}
 				}
@@ -114,8 +146,101 @@ static void create_typedefs(FILE* dest, const std::vector<std::unique_ptr<ast::N
 	}
 }
 
-static void indent(FILE* dest, s32 level) {
-	for(s32 i = 0; i < level; i++) {
+static void fill_in_type(FILE* dest, ast::Node& node, const std::string& variable_name, const std::map<std::string, s32>& type_lookup, s32 depth) {
+	indent(dest, depth);
+	fprintf(dest, "{%s%s\n", node.name.empty() ? "" : " // ", node.name.c_str());
+	switch(node.descriptor) {
+		case ast::ARRAY:
+		case ast::BITFIELD:
+		case ast::FUNCTION: {
+			break;
+		}
+		case ast::INLINE_ENUM: {
+			const auto& inline_enum = node.as<ast::InlineEnum>();
+			for(const auto& [value, name] : inline_enum.constants) {
+				indent(dest, depth);
+				fprintf(dest, "%s.add(\"%s\", %d);\n", variable_name.c_str(), name.c_str(), value);
+			}
+			break;
+		}
+		case ast::INLINE_STRUCT_OR_UNION: {
+			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
+			for(s32 i = 0; i < (s32) struct_or_union.fields.size(); i++) {
+				ast::Node& field = *struct_or_union.fields[i].get();
+				std::string field_variable_name = stringf("%s_%d", variable_name.c_str(), i);
+				create_type(dest, field, field_variable_name, type_lookup, depth);
+				fill_in_type(dest, field, field_variable_name, type_lookup, depth + 1);
+				indent(dest, depth + 1);
+				if(struct_or_union.is_struct) {
+					fprintf(dest, "%s.insertAtOffset(0x%x, %s, 0x%x);\n",
+						variable_name.c_str(), field.relative_offset_bytes, field_variable_name.c_str(), field.size_bits / 8);
+				} else {
+					fprintf(dest, "%s.insert(0, %s, 0x%x, \"\", \"\");\n",
+						variable_name.c_str(), field_variable_name.c_str(), field.size_bits / 8);
+				}
+			}
+			break;
+		}
+		case ast::POINTER:
+		case ast::REFERENCE: {
+			break;
+		}
+		case ast::TYPE_NAME: {
+			break;
+		}
+	}
+	indent(dest, depth);
+	fprintf(dest, "}\n");
+}
+
+static void register_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes) {
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
+		ast::Node& node = *ast_nodes[i];
+		switch(node.descriptor) {
+			case ast::ARRAY:
+			case ast::BITFIELD:
+			case ast::FUNCTION: {
+				break;
+			}
+			case ast::INLINE_ENUM:
+			case ast::INLINE_STRUCT_OR_UNION: {
+				indent(dest, 0);
+				fprintf(dest, "data_type_manager.addDataType(type_%d, null);\n", i);
+				break;
+			}
+			case ast::POINTER:
+			case ast::REFERENCE:
+			case ast::TYPE_NAME: {
+				indent(dest, 0);
+				fprintf(dest, "data_type_manager.addDataType(type_%d, null);\n", i);
+				break;
+			}
+		}
+	}
+}
+
+static const char* ast_node_to_java_type(ast::Node& node) {
+	switch(node.descriptor) {
+		case ast::ARRAY: return "ArrayDataType";
+		case ast::BITFIELD: return "BitFieldDataType";
+		case ast::FUNCTION: return "PointerDataType";
+		case ast::INLINE_ENUM: return "EnumDataType";
+		case ast::INLINE_STRUCT_OR_UNION: {
+			if(node.as<ast::InlineStructOrUnion>().is_struct) {
+				return "StructureDataType";
+			} else {
+				return "UnionDataType";
+			}
+		}
+		case ast::POINTER: return "PointerDataType";
+		case ast::REFERENCE: return "PointerDataType";
+		case ast::TYPE_NAME: return "TypedefDataType";
+	}
+	return "CCC_BADASTNODE";
+}
+
+static void indent(FILE* dest, s32 depth) {
+	for(s32 i = 0; i < depth + 2; i++) {
 		fputc('\t', dest);
 	}
 }

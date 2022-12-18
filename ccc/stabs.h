@@ -37,7 +37,7 @@ enum class StabsTypeDescriptor : s8 {
 	BUILT_IN = '-'
 };
 
-enum class RangeClass {
+enum class BuiltInClass {
 	UNSIGNED_8, SIGNED_8,
 	UNSIGNED_16, SIGNED_16,
 	UNSIGNED_32, SIGNED_32, FLOAT_32,
@@ -178,7 +178,7 @@ struct StabsRangeType : StabsType {
 	std::unique_ptr<StabsType> type;
 	s64 low_maybe_wrong = 0;
 	s64 high_maybe_wrong = 0;
-	RangeClass range_class;
+	BuiltInClass range_class;
 	
 	StabsRangeType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::RANGE;
@@ -298,6 +298,7 @@ struct StabsBuiltInType : StabsType {
 std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language);
 StabsSymbol parse_stabs_symbol(const char* input);
 std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols);
+const char* builtin_class_to_string(BuiltInClass bclass);
 
 }
 

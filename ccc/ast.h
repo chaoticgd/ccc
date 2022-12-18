@@ -16,7 +16,7 @@ enum class StorageClass {
 };
 
 enum NodeDescriptor {
-	ARRAY, BITFIELD, FUNCTION, INLINE_ENUM, INLINE_STRUCT_OR_UNION, POINTER, REFERENCE, TYPE_NAME
+	ARRAY, BITFIELD, BUILTIN, FUNCTION, INLINE_ENUM, INLINE_STRUCT_OR_UNION, POINTER, REFERENCE, TYPE_NAME
 };
 
 struct Node {
@@ -69,6 +69,13 @@ struct BitField : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BITFIELD;
 };
 
+struct BuiltIn : Node {
+	BuiltInClass bclass;
+	
+	BuiltIn() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
+};
+
 struct Function : Node {
 	std::unique_ptr<Node> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
@@ -115,10 +122,8 @@ struct TypeName : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
 };
 
-std::set<std::pair<std::string, RangeClass>> symbols_to_builtins(const std::vector<StabsSymbol>& symbols);
 std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types);
 bool is_data_type(const StabsSymbol& symbol);
-bool is_builtin_type(const StabsSymbol& symbol);
 std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
@@ -132,7 +137,9 @@ enum class CompareFailReason {
 	ABSOLUTE_OFFSET_BYTES,
 	BITFIELD_OFFSET_BITS,
 	SIZE_BITS,
+	IS_CONSTRUCTOR,
 	ARRAY_ELEMENT_COUNT,
+	BUILTIN_CLASS,
 	FUNCTION_PARAMAETER_SIZE,
 	FUNCTION_PARAMETERS_HAS_VALUE,
 	ENUM_CONSTANTS,

@@ -11,7 +11,7 @@ namespace ccc {
 static std::unique_ptr<StabsType> parse_type(const char*& input);
 static std::vector<StabsField> parse_field_list(const char*& input);
 static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input);
-static RangeClass classify_range(const std::string& low, const std::string& high);
+static BuiltInClass classify_range(const std::string& low, const std::string& high);
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
@@ -103,6 +103,25 @@ std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<Stabs
 		symbol.type->enumerate_numbered_types(output);
 	}
 	return output;
+}
+
+const char* builtin_class_to_string(BuiltInClass bclass) {
+	switch(bclass) {
+		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
+		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
+		case BuiltInClass::UNSIGNED_16: return "16-bit unsigned integer";
+		case BuiltInClass::SIGNED_16: return "16-bit signed integer";
+		case BuiltInClass::UNSIGNED_32: return "32-bit unsigned integer";
+		case BuiltInClass::SIGNED_32: return "32-bit signed integer";
+		case BuiltInClass::FLOAT_32: return "32-bit floating point";
+		case BuiltInClass::UNSIGNED_64: return "64-bit unsigned integer";
+		case BuiltInClass::SIGNED_64: return "64-bit signed integer";
+		case BuiltInClass::FLOAT_64: return "64-bit floating point";
+		case BuiltInClass::UNSIGNED_128: return "128-bit unsigned integer";
+		case BuiltInClass::SIGNED_128: return "128-bit signed integer";
+		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
+	}
+	return "";
 }
 
 static std::unique_ptr<StabsType> parse_type(const char*& input) {
@@ -436,18 +455,18 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 	return member_functions;
 }
 
-static RangeClass classify_range(const std::string& low, const std::string& high) {
+static BuiltInClass classify_range(const std::string& low, const std::string& high) {
 	// Handle some special cases and values that are too large to easily store
 	// in a 64-bit integer.
-	static const struct { const char* low; const char* high; RangeClass classification; } strings[] = {
-		{"4", "0", RangeClass::FLOAT_32},
-		{"000000000000000000000000", "001777777777777777777777", RangeClass::UNSIGNED_64},
-		{"00000000000000000000000000000000000000000000", "00000000000000000000001777777777777777777777", RangeClass::UNSIGNED_64},
-		{"001000000000000000000000", "000777777777777777777777", RangeClass::SIGNED_64},
-		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", RangeClass::SIGNED_64},
-		{"8", "0", RangeClass::FLOAT_64},
-		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", RangeClass::UNSIGNED_128},
-		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", RangeClass::SIGNED_128}
+	static const struct { const char* low; const char* high; BuiltInClass classification; } strings[] = {
+		{"4", "0", BuiltInClass::FLOAT_32},
+		{"000000000000000000000000", "001777777777777777777777", BuiltInClass::UNSIGNED_64},
+		{"00000000000000000000000000000000000000000000", "00000000000000000000001777777777777777777777", BuiltInClass::UNSIGNED_64},
+		{"001000000000000000000000", "000777777777777777777777", BuiltInClass::SIGNED_64},
+		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", BuiltInClass::SIGNED_64},
+		{"8", "0", BuiltInClass::FLOAT_64},
+		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", BuiltInClass::UNSIGNED_128},
+		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", BuiltInClass::SIGNED_128}
 	};
 	
 	for(const auto& range : strings) {
@@ -463,16 +482,16 @@ static RangeClass classify_range(const std::string& low, const std::string& high
 		low_value = std::stol(low, nullptr, low[0] == '0' ? 8 : 10);
 		high_value = std::stol(high, nullptr, high[0] == '0' ? 8 : 10);
 	} catch(std::out_of_range&) {
-		return RangeClass::UNKNOWN_PROBABLY_ARRAY;
+		return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 	}
 	
-	static const struct { s64 low; s64 high; RangeClass classification; } integers[] = {
-		{0, 255, RangeClass::UNSIGNED_8},
-		{-128, 127, RangeClass::SIGNED_8},
-		{0, 65535, RangeClass::UNSIGNED_16},
-		{-32768, 32767, RangeClass::SIGNED_16},
-		{0, 4294967295, RangeClass::UNSIGNED_32},
-		{-2147483648, 2147483647, RangeClass::SIGNED_32},
+	static const struct { s64 low; s64 high; BuiltInClass classification; } integers[] = {
+		{0, 255, BuiltInClass::UNSIGNED_8},
+		{-128, 127, BuiltInClass::SIGNED_8},
+		{0, 65535, BuiltInClass::UNSIGNED_16},
+		{-32768, 32767, BuiltInClass::SIGNED_16},
+		{0, 4294967295, BuiltInClass::UNSIGNED_32},
+		{-2147483648, 2147483647, BuiltInClass::SIGNED_32},
 	};
 	
 	// Then compare those integers.
@@ -482,7 +501,7 @@ static RangeClass classify_range(const std::string& low, const std::string& high
 		}
 	}
 	
-	return RangeClass::UNKNOWN_PROBABLY_ARRAY;
+	return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 }
 
 static s8 eat_s8(const char*& input) {
