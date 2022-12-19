@@ -5,10 +5,22 @@ namespace ccc::ast {
 #define AST_DEBUG(...) //__VA_ARGS__
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
 
+const char* NODE_DESCRIPTOR_STRINGS[MAX_NODE_DESCRIPTOR] = {
+	"ARRAY",
+	"BITFIELD",
+	"BUILTIN",
+	"FUNCTION",
+	"INLINE_ENUM",
+	"INLINE_STRUCT_OR_UNION",
+	"POINTER",
+	"REFERENCE",
+	"TYPE_NAME"
+};
+
 std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types) {
 	std::vector<std::unique_ptr<ast::Node>> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
-		if(is_data_type(symbol) && symbol.name != "void") {
+		if(is_data_type(symbol)) {
 			std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
 			if(node != nullptr) {
 				ast_nodes.emplace_back(std::move(node));
@@ -56,7 +68,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 	if(type.name.has_value()) {
 		bool try_substitute = depth > 0 && (type.is_root
 			|| type.descriptor == StabsTypeDescriptor::RANGE
-			|| type.descriptor == StabsTypeDescriptor::BUILT_IN);
+			|| type.descriptor == StabsTypeDescriptor::BUILTIN);
 		bool is_name_empty = type.name == "" || type.name == " ";
 		// Unfortunately, a common case seems to be that __builtin_va_list is
 		// indistinguishable from void*, so we prevent it from being output to
@@ -92,9 +104,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			} else {
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
-				auto type_name = std::make_unique<ast::TypeName>();
-				type_name->type_name = "void";
-				result = std::move(type_name);
+				auto builtin = std::make_unique<ast::BuiltIn>();
+				builtin->bclass = BuiltInClass::VOID;
+				result = std::move(builtin);
 			}
 			break;
 		}
@@ -245,14 +257,13 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
-		case StabsTypeDescriptor::BUILT_IN: {
-			if(depth >= 2) {
-				auto type_name = std::make_unique<ast::TypeName>();
-				type_name->type_name = "CCC_BUILTIN";
-				return type_name;
-			} else {
-				return nullptr;
-			}
+		case StabsTypeDescriptor::BUILTIN: {
+			verify(type.as<StabsBuiltInType>().type_id == 16,
+				"Unknown built-in type! Please file a bug report.");
+			auto builtin = std::make_unique<ast::BuiltIn>();
+			builtin->bclass = BuiltInClass::BOOL_8;
+			result = std::move(builtin);
+			break;
 		}
 	}
 	

@@ -34,11 +34,12 @@ enum class StabsTypeDescriptor : s8 {
 	REFERENCE = '&',
 	POINTER = '*',
 	TYPE_ATTRIBUTE = '@',
-	BUILT_IN = '-'
+	BUILTIN = '-'
 };
 
 enum class BuiltInClass {
-	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8,
+	VOID,
+	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
 	UNSIGNED_16, SIGNED_16,
 	UNSIGNED_32, SIGNED_32, FLOAT_32,
 	UNSIGNED_64, SIGNED_64, FLOAT_64,
@@ -292,7 +293,7 @@ struct StabsBuiltInType : StabsType {
 	s64 type_id;
 	
 	StabsBuiltInType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
-	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILT_IN;
+	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILTIN;
 };
 
 std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language);

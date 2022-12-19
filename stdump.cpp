@@ -181,6 +181,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 	switch(ast_node.descriptor) {
 		case ast::NodeDescriptor::ARRAY:
 		case ast::NodeDescriptor::BITFIELD:
+		case ast::NodeDescriptor::BUILTIN:
 		case ast::NodeDescriptor::FUNCTION:
 		case ast::NodeDescriptor::INLINE_ENUM: {
 			break;

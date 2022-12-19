@@ -16,8 +16,18 @@ enum class StorageClass {
 };
 
 enum NodeDescriptor {
-	ARRAY, BITFIELD, BUILTIN, FUNCTION, INLINE_ENUM, INLINE_STRUCT_OR_UNION, POINTER, REFERENCE, TYPE_NAME
+	ARRAY = 0,
+	BITFIELD = 1,
+	BUILTIN = 2,
+	FUNCTION = 3,
+	INLINE_ENUM = 4,
+	INLINE_STRUCT_OR_UNION = 5,
+	POINTER = 6,
+	REFERENCE = 7,
+	TYPE_NAME = 8
 };
+#define MAX_NODE_DESCRIPTOR 9
+extern const char* NODE_DESCRIPTOR_STRINGS[MAX_NODE_DESCRIPTOR];
 
 struct Node {
 	NodeDescriptor descriptor;

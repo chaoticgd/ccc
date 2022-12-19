@@ -107,9 +107,11 @@ std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<Stabs
 
 const char* builtin_class_to_string(BuiltInClass bclass) {
 	switch(bclass) {
+		case BuiltInClass::VOID: return "self-reference";
 		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
 		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
 		case BuiltInClass::UNQUALIFIED_8: return "8-bit integer";
+		case BuiltInClass::BOOL_8: return "8-bit boolean";
 		case BuiltInClass::UNSIGNED_16: return "16-bit unsigned integer";
 		case BuiltInClass::SIGNED_16: return "16-bit signed integer";
 		case BuiltInClass::UNSIGNED_32: return "32-bit unsigned integer";
@@ -303,7 +305,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 			type = std::move(type_attribute);
 			break;
 		}
-		case StabsTypeDescriptor::BUILT_IN: { // -
+		case StabsTypeDescriptor::BUILTIN: { // -
 			auto built_in = std::make_unique<StabsBuiltInType>(info);
 			built_in->type_id = eat_s64_literal(input);
 			type = std::move(built_in);
@@ -468,9 +470,9 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 		{"001000000000000000000000", "000777777777777777777777", BuiltInClass::SIGNED_64},
 		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", BuiltInClass::SIGNED_64},
 		{"8", "0", BuiltInClass::FLOAT_64},
-		{"000000000000000000000000", "0377777777777777777777777777777777", BuiltInClass::UNQUALIFIED_128},
 		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", BuiltInClass::UNSIGNED_128},
 		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", BuiltInClass::SIGNED_128},
+		{"000000000000000000000000", "0377777777777777777777777777777777", BuiltInClass::UNQUALIFIED_128},
 		{"16", "0", BuiltInClass::FLOAT_128}
 	};
 	
