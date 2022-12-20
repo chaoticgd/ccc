@@ -5,20 +5,22 @@ namespace ccc::ast {
 #define AST_DEBUG(...) //__VA_ARGS__
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
 
-std::set<std::pair<std::string, RangeClass>> symbols_to_builtins(const std::vector<StabsSymbol>& symbols) {
-	std::set<std::pair<std::string, RangeClass>> builtins;
-	for(const StabsSymbol& symbol : symbols) {
-		if(is_data_type(symbol) && is_builtin_type(symbol)) {
-			builtins.emplace(symbol.name, symbol.type->as<StabsRangeType>().range_class);
-		}
-	}
-	return builtins;
-}
+const char* NODE_DESCRIPTOR_STRINGS[MAX_NODE_DESCRIPTOR] = {
+	"ARRAY",
+	"BITFIELD",
+	"BUILTIN",
+	"FUNCTION",
+	"INLINE_ENUM",
+	"INLINE_STRUCT_OR_UNION",
+	"POINTER",
+	"REFERENCE",
+	"TYPE_NAME"
+};
 
 std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types) {
 	std::vector<std::unique_ptr<ast::Node>> ast_nodes;
 	for(const StabsSymbol& symbol : symbols) {
-		if(is_data_type(symbol) && symbol.name != "void") {
+		if(is_data_type(symbol)) {
 			std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
 			if(node != nullptr) {
 				ast_nodes.emplace_back(std::move(node));
@@ -33,12 +35,6 @@ bool is_data_type(const StabsSymbol& symbol) {
 		&& (u32) symbol.mdebug_symbol.storage_class == 0
 		&& (symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
 			|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
-}
-
-
-bool is_builtin_type(const StabsSymbol& symbol) {
-	return (symbol.type->descriptor == StabsTypeDescriptor::RANGE
-		&& symbol.type->as<StabsRangeType>().range_class != RangeClass::UNKNOWN_PROBABLY_ARRAY);
 }
 
 std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
@@ -70,14 +66,15 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 	// This makes sure that if types are referenced by their number, their name
 	// is shown instead their contents in places where that would be suitable.
 	if(type.name.has_value()) {
-		bool always_substitute = type.descriptor == StabsTypeDescriptor::RANGE
-			|| (depth > 0 && type.is_root);
+		bool try_substitute = depth > 0 && (type.is_root
+			|| type.descriptor == StabsTypeDescriptor::RANGE
+			|| type.descriptor == StabsTypeDescriptor::BUILTIN);
 		bool is_name_empty = type.name == "" || type.name == " ";
 		// Unfortunately, a common case seems to be that __builtin_va_list is
 		// indistinguishable from void*, so we prevent it from being output to
 		// avoid confusion.
 		bool is_va_list = type.name == "__builtin_va_list";
-		if((substitute_type_name || always_substitute) && !is_name_empty && !is_va_list) {
+		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->type_name = *type.name;
 			return type_name;
@@ -107,9 +104,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			} else {
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
-				auto type_name = std::make_unique<ast::TypeName>();
-				type_name->type_name = "void";
-				result = std::move(type_name);
+				auto builtin = std::make_unique<ast::BuiltIn>();
+				builtin->bclass = BuiltInClass::VOID;
+				result = std::move(builtin);
 			}
 			break;
 		}
@@ -144,17 +141,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			break;
 		}
 		case StabsTypeDescriptor::RANGE: {
-			if(depth >= 2) {
-				auto type_name = std::make_unique<ast::TypeName>();
-				if(type.name.has_value()) {
-					type_name->type_name = *type.name;
-				} else {
-					type_name->type_name = "CCC_RANGE";
-				}
-				return type_name;
-			} else {
-				return nullptr;
-			}
+			auto builtin = std::make_unique<ast::BuiltIn>();
+			builtin->bclass = type.as<StabsRangeType>().range_class;
+			return builtin;
 		}
 		case StabsTypeDescriptor::STRUCT:
 		case StabsTypeDescriptor::UNION: {
@@ -268,14 +257,13 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
-		case StabsTypeDescriptor::BUILT_IN: {
-			if(depth >= 2) {
-				auto type_name = std::make_unique<ast::TypeName>();
-				type_name->type_name = "CCC_BUILTIN";
-				return type_name;
-			} else {
-				return nullptr;
-			}
+		case StabsTypeDescriptor::BUILTIN: {
+			verify(type.as<StabsBuiltInType>().type_id == 16,
+				"Unknown built-in type! Please file a bug report.");
+			auto builtin = std::make_unique<ast::BuiltIn>();
+			builtin->bclass = BuiltInClass::BOOL_8;
+			result = std::move(builtin);
+			break;
 		}
 	}
 	
@@ -389,6 +377,7 @@ static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, 
 	if(lhs.absolute_offset_bytes != rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
 	if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
 	if(lhs.size_bits != rhs.size_bits) return CompareFailReason::SIZE_BITS;
+	if(lhs.is_constructor != rhs.is_constructor) return CompareFailReason::IS_CONSTRUCTOR;
 	switch(lhs.descriptor) {
 		case ARRAY: {
 			const Array& array_lhs = lhs.as<Array>();
@@ -403,6 +392,12 @@ static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, 
 			const BitField& bitfield_rhs = rhs.as<BitField>();
 			auto bitfield_compare = compare_ast_nodes(*bitfield_lhs.underlying_type.get(), *bitfield_rhs.underlying_type.get());
 			if(bitfield_compare.has_value()) return bitfield_compare;
+			break;
+		}
+		case BUILTIN: {
+			const BuiltIn& builtin_lhs = lhs.as<BuiltIn>();
+			const BuiltIn& builtin_rhs = rhs.as<BuiltIn>();
+			if(builtin_lhs.bclass != builtin_rhs.bclass) return CompareFailReason::BUILTIN_CLASS;
 			break;
 		}
 		case FUNCTION: {
@@ -483,7 +478,9 @@ static const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::ABSOLUTE_OFFSET_BYTES: return "absolute offsets";
 		case CompareFailReason::BITFIELD_OFFSET_BITS: return "bitfield offsets";
 		case CompareFailReason::SIZE_BITS: return "sizes";
+		case CompareFailReason::IS_CONSTRUCTOR: return "is constructor";
 		case CompareFailReason::ARRAY_ELEMENT_COUNT: return "array element counts";
+		case CompareFailReason::BUILTIN_CLASS: return "builtin class";
 		case CompareFailReason::FUNCTION_PARAMAETER_SIZE: return "function paramaeter sizes";
 		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameters";
 		case CompareFailReason::ENUM_CONSTANTS: return "enum constants";

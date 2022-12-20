@@ -1,4 +1,4 @@
-#include "print.h"
+#include "print_cpp.h"
 
 #include <cmath>
 #include <chrono>
@@ -17,6 +17,10 @@ enum VariableNamePrintFlags {
 	BRACKETS_IF_POINTER = (1 << 2)
 };
 
+// print_cpp_comment_block_beginning
+// print_cpp_comment_block_compiler_version_info
+// print_cpp_comment_block_builtin_types
+// print_cpp_ast_nodes
 static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset);
 static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
@@ -56,26 +60,20 @@ void print_cpp_comment_block_compiler_version_info(FILE* dest, const SymbolTable
 	}
 }
 
-void print_cpp_comment_block_builtin_types(FILE* dest, const std::set<std::pair<std::string, RangeClass>>& builtins) {
-	fprintf(dest, "// Built-in types:\n");
-	for(const auto& [type, range_class] : builtins) {
-		const char* range_string;
-		switch(range_class) {
-			case RangeClass::UNSIGNED_8: range_string = "8-bit unsigned integer"; break;
-			case RangeClass::SIGNED_8: range_string = "8-bit signed integer"; break;
-			case RangeClass::UNSIGNED_16: range_string = "16-bit unsigned integer"; break;
-			case RangeClass::SIGNED_16: range_string = "16-bit signed integer"; break;
-			case RangeClass::UNSIGNED_32: range_string = "32-bit unsigned integer"; break;
-			case RangeClass::SIGNED_32: range_string = "32-bit signed integer"; break;
-			case RangeClass::FLOAT_32: range_string = "32-bit floating point"; break;
-			case RangeClass::UNSIGNED_64: range_string = "64-bit unsigned integer"; break;
-			case RangeClass::SIGNED_64: range_string = "64-bit signed integer"; break;
-			case RangeClass::FLOAT_64: range_string = "64-bit floating point"; break;
-			case RangeClass::UNSIGNED_128: range_string = "128-bit unsigned integer"; break;
-			case RangeClass::SIGNED_128: range_string = "128-bit signed integer"; break;
-			case RangeClass::UNKNOWN_PROBABLY_ARRAY: range_string = "error"; break;
+void print_cpp_comment_block_builtin_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes) {
+	std::set<std::pair<std::string, BuiltInClass>> builtins;
+	for(const std::unique_ptr<ast::Node>& node : ast_nodes) {
+		if(node->descriptor == ast::BUILTIN) {
+			builtins.emplace(node->name, node->as<ast::BuiltIn>().bclass);
 		}
-		fprintf(dest, "//   %-25s%s\n", type.c_str(), range_string);
+	}
+	
+	if(!builtins.empty()) {
+		fprintf(dest, "// Built-in types:\n");
+		
+		for(const auto& [type, bclass] : builtins) {
+			fprintf(dest, "//   %-25s%s\n", type.c_str(), builtin_class_to_string(bclass));
+		}
 	}
 }
 
@@ -84,6 +82,9 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 	for(size_t i = 0; i < nodes.size(); i++) {
 		const std::unique_ptr<ast::Node>& node = nodes[i];
 		assert(node.get());
+		if(node->descriptor == ast::BUILTIN) {
+			continue;
+		}
 		bool multiline =
 			node->descriptor == ast::INLINE_ENUM ||
 			node->descriptor == ast::INLINE_STRUCT_OR_UNION;
@@ -129,6 +130,16 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			assert(bit_field.underlying_type.get());
 			print_cpp_ast_node(dest, *bit_field.underlying_type.get(), name, indentation_level, digits_for_offset);
 			printf(" : %d", bit_field.size_bits);
+			break;
+		}
+		case ast::BUILTIN: {
+			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
+			if(builtin.bclass == BuiltInClass::VOID) {
+				printf("void");
+			} else {
+				printf("CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
+			}
+			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
 		case ast::FUNCTION: {

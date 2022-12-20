@@ -34,15 +34,16 @@ enum class StabsTypeDescriptor : s8 {
 	REFERENCE = '&',
 	POINTER = '*',
 	TYPE_ATTRIBUTE = '@',
-	BUILT_IN = '-'
+	BUILTIN = '-'
 };
 
-enum class RangeClass {
-	UNSIGNED_8, SIGNED_8,
+enum class BuiltInClass {
+	VOID,
+	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
 	UNSIGNED_16, SIGNED_16,
 	UNSIGNED_32, SIGNED_32, FLOAT_32,
 	UNSIGNED_64, SIGNED_64, FLOAT_64,
-	UNSIGNED_128, SIGNED_128,
+	UNSIGNED_128, SIGNED_128, UNQUALIFIED_128, FLOAT_128,
 	UNKNOWN_PROBABLY_ARRAY
 };
 
@@ -178,7 +179,7 @@ struct StabsRangeType : StabsType {
 	std::unique_ptr<StabsType> type;
 	s64 low_maybe_wrong = 0;
 	s64 high_maybe_wrong = 0;
-	RangeClass range_class;
+	BuiltInClass range_class;
 	
 	StabsRangeType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::RANGE;
@@ -292,12 +293,13 @@ struct StabsBuiltInType : StabsType {
 	s64 type_id;
 	
 	StabsBuiltInType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
-	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILT_IN;
+	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILTIN;
 };
 
 std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language);
 StabsSymbol parse_stabs_symbol(const char* input);
 std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols);
+const char* builtin_class_to_string(BuiltInClass bclass);
 
 }
 

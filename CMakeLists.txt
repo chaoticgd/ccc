@@ -26,7 +26,7 @@ add_library(ccc STATIC
 	ccc/mdebug.cpp
 	ccc/stabs.cpp
 	ccc/ast.cpp
-	ccc/print.cpp
+	ccc/print_cpp.cpp
 	ccc/insn.cpp
 	ccc/tables.cpp
 	ccc/registers.cpp

@@ -7,7 +7,7 @@
 #include "mdebug.h"
 #include "stabs.h"
 #include "ast.h"
-#include "print.h"
+#include "print_cpp.h"
 #include "insn.h"
 #include "registers.h"
 #include "tables.h"
