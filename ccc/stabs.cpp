@@ -5,6 +5,9 @@
 
 namespace ccc {
 
+#define STABS_DEBUG(...) //__VA_ARGS__
+#define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
+
 // parse_stabs_symbols
 // parse_stabs_symbol
 // enumerate_numbered_types
@@ -15,15 +18,13 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 static s8 eat_s8(const char*& input);
 static s64 eat_s64_literal(const char*& input);
 static std::string eat_identifier(const char*& input);
+static std::string eat_dodgy_identifier(const char*& input);
 static void expect_s8(const char*& input, s8 expected, const char* subject);
 static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static void print_field(const StabsField& field);
 
 static const char* ERR_END_OF_INPUT =
 	"Unexpected end of input while parsing STAB type.";
-
-#define STABS_DEBUG(...) //__VA_ARGS__
-#define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
 std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language) {
 	std::vector<StabsSymbol> output;
@@ -70,7 +71,7 @@ StabsSymbol parse_stabs_symbol(const char* input) {
 	
 	StabsSymbol symbol;
 	symbol.raw = std::string(input);
-	symbol.name = eat_identifier(input);
+	symbol.name = eat_dodgy_identifier(input);
 	expect_s8(input, ':', "identifier");
 	verify(*input != '\0', ERR_END_OF_INPUT);
 	if(*input >= '0' && *input <= '9') {
@@ -173,7 +174,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 			auto enum_type = std::make_unique<StabsEnumType>(info);
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
-				std::string name = eat_identifier(input);
+				std::string name = eat_dodgy_identifier(input);
 				expect_s8(input, ':', "identifier");
 				s64 value = eat_s64_literal(input);
 				enum_type->fields.emplace_back(value, name);
@@ -196,9 +197,9 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 			auto range = std::make_unique<StabsRangeType>(info);
 			range->type = parse_type(input);
 			expect_s8(input, ';', "range type descriptor");
-			std::string low = eat_identifier(input);
+			std::string low = eat_dodgy_identifier(input);
 			expect_s8(input, ';', "low range value");
-			std::string high = eat_identifier(input);
+			std::string high = eat_dodgy_identifier(input);
 			expect_s8(input, ';', "high range value");
 			try {
 				range->low_maybe_wrong = std::stoi(low);
@@ -255,7 +256,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 					verify_not_reached("Invalid cross reference type '%c'.",
 						cross_reference->type);
 			}
-			cross_reference->identifier = eat_identifier(input);
+			cross_reference->identifier = eat_dodgy_identifier(input);
 			cross_reference->name = cross_reference->identifier;
 			expect_s8(input, ':', "cross reference");
 			type = std::move(cross_reference);
@@ -329,7 +330,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		
 		const char* before_field = input;
 		StabsField field;
-		field.name = eat_identifier(input);
+		field.name = eat_dodgy_identifier(input);
 		expect_s8(input, ':', "identifier");
 		if(*input == '/') {
 			input++;
@@ -358,7 +359,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		} else if(*input == ':') {
 			input++;
 			field.is_static = true;
-			field.type_name = eat_identifier(input);
+			field.type_name = eat_dodgy_identifier(input);
 			expect_s8(input, ';', "identifier");
 		} else if(*input == ',') {
 			input++;
@@ -403,7 +404,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 			field.type = parse_type(input);
 			
 			expect_s8(input, ':', "member function");
-			eat_identifier(input);
+			eat_dodgy_identifier(input);
 			expect_s8(input, ';', "member function");
 			field.visibility = (StabsFieldVisibility) eat_s8(input);
 			switch(field.visibility) {
@@ -537,9 +538,26 @@ static s64 eat_s64_literal(const char*& input) {
 	}
 }
 
+static std::string eat_identifier(const char*& input) {
+	std::string identifier;
+	bool first = true;
+	for(; *input != '\0'; input++) {
+		bool valid_char = false;
+		valid_char |= isprint(*input) && *input != ':' && *input != ';';
+		valid_char |= !first && isalnum(*input);
+		if(valid_char) {
+			identifier += *input;
+		} else {
+			return identifier;
+		}
+		first = false;
+	}
+	verify_not_reached(ERR_END_OF_INPUT);
+}
+
 // The complexity here is because the input may contain an unescaped namespace
 // separator '::' even if the field terminator is supposed to be a colon.
-static std::string eat_identifier(const char*& input) {
+static std::string eat_dodgy_identifier(const char*& input) {
 	std::string identifier;
 	bool first = true;
 	s32 template_depth = 0;
