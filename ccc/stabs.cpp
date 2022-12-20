@@ -107,7 +107,7 @@ std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<Stabs
 
 const char* builtin_class_to_string(BuiltInClass bclass) {
 	switch(bclass) {
-		case BuiltInClass::VOID: return "self-reference";
+		case BuiltInClass::VOID: return "void";
 		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
 		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
 		case BuiltInClass::UNQUALIFIED_8: return "8-bit integer";

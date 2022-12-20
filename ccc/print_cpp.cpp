@@ -133,7 +133,12 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 			break;
 		}
 		case ast::BUILTIN: {
-			printf("CCC_BUILTIN(%s)", builtin_class_to_string(node.as<ast::BuiltIn>().bclass));
+			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
+			if(builtin.bclass == BuiltInClass::VOID) {
+				printf("void");
+			} else {
+				printf("CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
+			}
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
