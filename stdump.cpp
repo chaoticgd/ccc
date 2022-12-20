@@ -7,7 +7,6 @@ using namespace ccc;
 
 enum class OutputMode {
 	PRINT_CPP,
-	PRINT_GHIDRA,
 	PRINT_SYMBOLS,
 	LIST_FILES,
 	HELP,
@@ -51,11 +50,6 @@ int main(int argc, char** argv) {
 			} else {
 				print_cpp_per_file(symbol_table, options);
 			}
-			return 0;
-		}
-		case OutputMode::PRINT_GHIDRA: {
-			SymbolTable symbol_table = read_symbol_table(options.input_file);
-			print_ghidra(symbol_table, options);
 			return 0;
 		}
 		case OutputMode::PRINT_SYMBOLS: {
@@ -124,26 +118,6 @@ static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options
 		print_cpp_ast_nodes(stdout, ast_nodes, options.flags & FLAG_VERBOSE);
 		printf("\n");
 	}
-}
-
-static void print_ghidra(SymbolTable& symbol_table, const Options& options) {
-	auto ast_nodes = symbol_table_to_deduplicated_ast(symbol_table, options.flags);
-	
-	// If there are multiple differing types with the same name, use the first
-	// type. TODO: Make an exception for anonymous enums.
-	std::vector<std::unique_ptr<ast::Node>> flat_ast_nodes;
-	std::map<std::string, s32> type_lookup;
-	for(std::vector<std::unique_ptr<ast::Node>>& versions : ast_nodes) {
-		if(versions.size() >= 1) {
-			type_lookup[versions[0]->name] = (s32) flat_ast_nodes.size();
-			flat_ast_nodes.emplace_back(std::move(versions[0]));
-			versions.clear();
-		}
-	}
-	
-	print_ghidra_prologue(stdout, options.input_file);
-	print_ghidra_types(stdout, flat_ast_nodes, type_lookup);
-	print_ghidra_epilogue(stdout);
 }
 
 static std::vector<std::vector<std::unique_ptr<ast::Node>>> symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags) {
@@ -288,8 +262,6 @@ static Options parse_args(int argc, char** argv) {
 	const char* command = argv[1];
 	if(strcmp(command, "print_cpp") == 0) {
 		options.mode = OutputMode::PRINT_CPP;
-	} else if(strcmp(command, "print_ghidra") == 0) {
-		options.mode = OutputMode::PRINT_GHIDRA;
 	} else if(strcmp(command, "print_symbols") == 0) {
 		options.mode = OutputMode::PRINT_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {

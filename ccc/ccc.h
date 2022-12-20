@@ -8,7 +8,6 @@
 #include "stabs.h"
 #include "ast.h"
 #include "print_cpp.h"
-#include "print_ghidra.h"
 #include "insn.h"
 #include "registers.h"
 #include "tables.h"
