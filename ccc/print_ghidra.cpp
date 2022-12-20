@@ -10,11 +10,13 @@ struct TypeLookup {
 // print_ghidra_prologue
 // print_ghidra_types
 // print_ghidra_epilogue
+static void declare_type(FILE* dest, const ast::Node& node, const std::string& variable_name, s32 depth);
 static bool create_type(FILE* dest, const ast::Node& node, const std::string& variable_name, const TypeLookup& lookup, s32 depth);
 static void create_non_builtin_typedefs(FILE* dest, const TypeLookup& lookup);
-static void fill_in_type(FILE* dest, ast::Node& node, const std::string& variable_name, const TypeLookup& lookup, s32 depth);
-static void register_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes);
-static const char* ast_node_to_java_type(ast::Node& node);
+static void fill_in_type(FILE* dest, const ast::Node& node, const std::string& variable_name, const TypeLookup& lookup, s32 depth);
+static void register_type(FILE* dest, const ast::Node& node, s32 index);
+static const char* ast_node_to_java_type(const ast::Node& node);
+static const char* name_of(const ast::Node& node);
 static void indent(FILE* dest, s32 level);
 
 void print_ghidra_prologue(FILE* dest, const fs::path& input_file) {
@@ -38,45 +40,121 @@ void print_ghidra_prologue(FILE* dest, const fs::path& input_file) {
 	fprintf(dest, "import ghidra.program.model.address.*;\n");
 	fprintf(dest, "\n");
 	fprintf(dest, "public class GeneratedSymbolImporter extends GhidraScript {\n");
+	fprintf(dest, "\t\n");
+	fprintf(dest, "\tDataTypeManager program_type_manager = null;\n");
+	fprintf(dest, "\tint transaction_id = 0;\n");
+	fprintf(dest, "\tPluginTool tool = null;\n");
+	fprintf(dest, "\tDataTypeManagerService data_type_manager_service = null;\n");
+	fprintf(dest, "\tDataTypeManager builtin_type_manager = null;\n");
+	fprintf(dest, "\tDataType builtin_void = null;\n");
+	fprintf(dest, "\tDataType builtin_bool = null;\n");
+	fprintf(dest, "\tDataType builtin_float = null;\n");
+	fprintf(dest, "\tDataType builtin_double = null;\n");
+	fprintf(dest, "\tDataType builtin_char = null;\n");
+	fprintf(dest, "\tDataType builtin_short = null;\n");
+	fprintf(dest, "\tDataType builtin_int = null;\n");
+	fprintf(dest, "\tDataType builtin_longlong = null;\n");
+	fprintf(dest, "\tDataType builtin_longlonglong = null;\n");
+	fprintf(dest, "\tDataType builtin_uchar = null;\n");
+	fprintf(dest, "\tDataType builtin_ushort = null;\n");
+	fprintf(dest, "\tDataType builtin_uint = null;\n");
+	fprintf(dest, "\tDataType builtin_ulonglong = null;\n");
+	fprintf(dest, "\tDataType builtin_ulonglonglong = null;\n");
+	fprintf(dest, "\t\n");
 	fprintf(dest, "\tpublic void run() throws Exception {\n");
-	fprintf(dest, "\t\tDataTypeManager program_type_manager = currentProgram.getDataTypeManager();\n");
-	fprintf(dest, "\t\tint transaction_id = program_type_manager.startTransaction(\"stdump import script\");\n");
-	fprintf(dest, "\t\tPluginTool tool = state.getTool();\n");
-	fprintf(dest, "\t\tDataTypeManagerService data_type_manager_service = tool.getService(DataTypeManagerService.class);\n");
-	fprintf(dest, "\t\tDataTypeManager builtin_type_manager = data_type_manager_service.getBuiltInDataTypesManager();\n");
-	fprintf(dest, "\t\tDataType builtin_void = builtin_type_manager.getDataType(\"void\");\n");
-	fprintf(dest, "\t\tDataType builtin_bool = builtin_type_manager.getDataType(\"bool\");\n");
-	fprintf(dest, "\t\tDataType builtin_float = builtin_type_manager.getDataType(\"float\");\n");
-	fprintf(dest, "\t\tDataType builtin_double = builtin_type_manager.getDataType(\"double\");\n");
-	fprintf(dest, "\t\tDataType builtin_char = builtin_type_manager.getDataType(\"char\");\n");
-	fprintf(dest, "\t\tDataType builtin_short = builtin_type_manager.getDataType(\"short\");\n");
-	fprintf(dest, "\t\tDataType builtin_int = builtin_type_manager.getDataType(\"int\");\n");
-	fprintf(dest, "\t\tDataType builtin_longlong = builtin_type_manager.getDataType(\"longlong\");\n");
-	fprintf(dest, "\t\tDataType builtin_longlonglong = new ArrayDataType(builtin_char, 16, 1);\n");
-	fprintf(dest, "\t\tDataType builtin_uchar = builtin_type_manager.getDataType(\"uchar\");\n");
-	fprintf(dest, "\t\tDataType builtin_ushort = builtin_type_manager.getDataType(\"ushort\");\n");
-	fprintf(dest, "\t\tDataType builtin_uint = builtin_type_manager.getDataType(\"uint\");\n");
-	fprintf(dest, "\t\tDataType builtin_ulonglong = builtin_type_manager.getDataType(\"ulonglong\");\n");
-	fprintf(dest, "\t\tDataType builtin_ulonglonglong = new ArrayDataType(builtin_uchar, 16, 1);\n");
+	fprintf(dest, "\t\tprogram_type_manager = currentProgram.getDataTypeManager();\n");
+	fprintf(dest, "\t\ttransaction_id = program_type_manager.startTransaction(\"stdump import script\");\n");
+	fprintf(dest, "\t\ttool = state.getTool();\n");
+	fprintf(dest, "\t\tdata_type_manager_service = tool.getService(DataTypeManagerService.class);\n");
+	fprintf(dest, "\t\tbuiltin_type_manager = data_type_manager_service.getBuiltInDataTypesManager();\n");
+	fprintf(dest, "\t\tbuiltin_void = builtin_type_manager.getDataType(\"/void\");\n");
+	fprintf(dest, "\t\tbuiltin_bool = builtin_type_manager.getDataType(\"/bool\");\n");
+	fprintf(dest, "\t\tbuiltin_float = builtin_type_manager.getDataType(\"/float\");\n");
+	fprintf(dest, "\t\tbuiltin_double = builtin_type_manager.getDataType(\"/double\");\n");
+	fprintf(dest, "\t\tbuiltin_char = builtin_type_manager.getDataType(\"/char\");\n");
+	fprintf(dest, "\t\tbuiltin_short = builtin_type_manager.getDataType(\"/short\");\n");
+	fprintf(dest, "\t\tbuiltin_int = builtin_type_manager.getDataType(\"/int\");\n");
+	fprintf(dest, "\t\tbuiltin_longlong = builtin_type_manager.getDataType(\"/longlong\");\n");
+	fprintf(dest, "\t\tbuiltin_longlonglong = new ArrayDataType(builtin_char, 16, 1);\n");
+	fprintf(dest, "\t\tbuiltin_uchar = builtin_type_manager.getDataType(\"/uchar\");\n");
+	fprintf(dest, "\t\tbuiltin_ushort = builtin_type_manager.getDataType(\"/ushort\");\n");
+	fprintf(dest, "\t\tbuiltin_uint = builtin_type_manager.getDataType(\"/uint\");\n");
+	fprintf(dest, "\t\tbuiltin_ulonglong = builtin_type_manager.getDataType(\"/ulonglong\");\n");
+	fprintf(dest, "\t\tbuiltin_ulonglonglong = new ArrayDataType(builtin_uchar, 16, 1);\n");
+	fprintf(dest, "\t\t\n");
 }
 
 void print_ghidra_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes, const std::map<std::string, s32>& type_lookup) {
 	TypeLookup lookup{ast_nodes, type_lookup};
 	
-	fprintf(dest, "\t\tprint(\"Creating top level types...\\n\");\n");
-	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
-		std::string variable_name = stringf("type_%d", i);
-		create_type(dest, *ast_nodes[i].get(), variable_name, lookup, 0);
+	// The JVM has a hard limit on how big a single method can be, so here we
+	// split up the import process into multiple different methods.
+	
+	// Main method
+	fprintf(dest, "\t\tprint(\"Creating types...\\n\");\n");
+	indent(dest, 0);
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i += 100) {
+		fprintf(dest, "create_types_%ds(); ", i);
 	}
-	fprintf(dest, "\t\tprint(\"Creating typedefs...\\n\");\n");
+	fprintf(dest, "\n");
 	create_non_builtin_typedefs(dest, lookup);
 	fprintf(dest, "\t\tprint(\"Filling in types...\\n\");\n");
+	fprintf(dest, "\n");
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i += 100) {
+		fprintf(dest, "fill_in_types_%ds(); ", i);
+	}
+	fprintf(dest, "\n");
+	fprintf(dest, "\t\tprint(\"Registering types...\\n\");\n");
+	indent(dest, 0);
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i += 100) {
+		fprintf(dest, "register_types_%ds(); ", i);
+	}
+	fprintf(dest, "\n");
+	fprintf(dest, "\t\tprogram_type_manager.endTransaction(transaction_id, true);\n");
+	fprintf(dest, "\t}\n");
+	fprintf(dest, "\t\n");
+	
+	// Declare types
 	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
 		std::string variable_name = stringf("type_%d", i);
-		fill_in_type(dest, *ast_nodes[i].get(), variable_name, lookup, 0);
+		declare_type(dest, *ast_nodes[i].get(), variable_name, -1);
 	}
-	fprintf(dest, "\t\tprint(\"Registering types...\\n\");\n");
-	register_types(dest, ast_nodes);
+	
+	// Create types methods
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i += 100) {
+		fprintf(dest, "\tpublic void create_types_%ds() {\n", i);
+		for(s32 j = i; j < std::min(i + 100, (s32) ast_nodes.size()); j++) {
+			std::string variable_name = stringf("type_%d", j);
+			create_type(dest, *ast_nodes[j].get(), variable_name, lookup, 0);
+		}
+		fprintf(dest, "\t}\n");
+	}
+	
+	// Fill in methods
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i += 100) {
+		fprintf(dest, "\tpublic void fill_in_types_%ds() {\n", i);
+		for(s32 j = i; j < std::min(i + 100, (s32) ast_nodes.size()); j++) {
+			fprintf(dest, "\t\tfill_in_type_%d();", j);
+		}
+		fprintf(dest, "\t}\n");
+	}
+	
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
+		fprintf(dest, "\tpublic void fill_in_type_%d() {\n", i);
+		std::string variable_name = stringf("type_%d", i);
+		fill_in_type(dest, *ast_nodes[i].get(), variable_name, lookup, 0);
+		fprintf(dest, "\t}\n");
+	}
+	
+	// Register types methods
+	for(s32 i = 0; i < (s32) ast_nodes.size(); i += 100) {
+		fprintf(dest, "\tpublic void register_types_%ds() {\n", i);
+		for(s32 j = i; j < std::min(i + 100, (s32) ast_nodes.size()); j++) {
+			std::string variable_name = stringf("type_%d", j);
+			register_type(dest, *ast_nodes[j].get(), j);
+		}
+		fprintf(dest, "\t}\n");
+	}
 }
 
 void print_ghidra_functions(FILE* dest) {
@@ -84,20 +162,21 @@ void print_ghidra_functions(FILE* dest) {
 }
 
 void print_ghidra_epilogue(FILE* dest) {
-	fprintf(dest, "\t\tprogram_type_manager.endTransaction(transaction_id, true);\n");
-	fprintf(dest, "\t}\n");
 	fprintf(dest, "}\n");
+}
+
+static void declare_type(FILE* dest, const ast::Node& node, const std::string& variable_name, s32 depth) {
+	indent(dest, depth);
+	fprintf(dest, "%s %s = null;\n", ast_node_to_java_type(node), variable_name.c_str());
 }
 
 static bool create_type(FILE* dest, const ast::Node& node, const std::string& variable_name, const TypeLookup& lookup, s32 depth) {
 	switch(node.descriptor) {
 		case ast::ARRAY: {
-			if(depth > 0) {
-				//const auto& array = node.as<ast::Array>();
-				//indent(dest, depth);
-				//fprintf(dest, "ArrayDataType %s = new ArrayDataType(%s, );\n", variable_name.c_str());
-			}
-			break;
+			const auto& array = node.as<ast::Array>();
+			indent(dest, depth);
+			fprintf(dest, "%s = new ArrayDataType(builtin_char, %d, 1);\n", variable_name.c_str(), array.element_count);
+			return true;
 		}
 		case ast::BITFIELD: {
 			break;
@@ -126,7 +205,7 @@ static bool create_type(FILE* dest, const ast::Node& node, const std::string& va
 				case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: type = "CCC_BADBUILTIN"; break;
 			}
 			indent(dest, depth);
-			fprintf(dest, "DataType %s = %s;\n", variable_name.c_str(), type);
+			fprintf(dest, "%s = %s;\n", variable_name.c_str(), type);
 			return true;
 		}
 		case ast::FUNCTION: {
@@ -135,30 +214,30 @@ static bool create_type(FILE* dest, const ast::Node& node, const std::string& va
 		case ast::INLINE_ENUM: {
 			const auto& inline_enum = node.as<ast::InlineEnum>();
 			indent(dest, depth);
-			fprintf(dest, "EnumDataType %s = new EnumDataType(null, \"%s\", 4);\n",
-					variable_name.c_str(), inline_enum.name.c_str());
+			fprintf(dest, "%s = new EnumDataType(new CategoryPath(\"/\"), \"%s\", 4);\n",
+					variable_name.c_str(), name_of(inline_enum));
 			return true;
 		}
 		case ast::INLINE_STRUCT_OR_UNION: {
 			const auto& struct_or_union = node.as<ast::InlineStructOrUnion>();
 			indent(dest, depth);
 			if(struct_or_union.is_struct) {
-				fprintf(dest, "StructureDataType %s = new StructureDataType(null, \"%s\", 0x%x);\n",
-					variable_name.c_str(), struct_or_union.name.c_str(), struct_or_union.size_bits / 8);
+				fprintf(dest, "%s = new StructureDataType(new CategoryPath(\"/\"), \"%s\", 0x%x);\n",
+					variable_name.c_str(), name_of(struct_or_union), struct_or_union.size_bits / 8);
 			} else {
-				fprintf(dest, "UnionDataType %s = new UnionDataType(null, \"%s\");\n",
-					variable_name.c_str(), struct_or_union.name.c_str());
+				fprintf(dest, "%s = new UnionDataType(new CategoryPath(\"/\"), \"%s\");\n",
+					variable_name.c_str(), name_of(struct_or_union));
 			}
 			return true;
 		}
 		case ast::POINTER: {
 			indent(dest, depth);
-			fprintf(dest, "Pointer32DataType %s = new Pointer32DataType();\n", variable_name.c_str());
+			fprintf(dest, "%s = new Pointer32DataType(builtin_char);\n", variable_name.c_str());
 			return true;
 		}
 		case ast::REFERENCE: {
 			indent(dest, depth);
-			fprintf(dest, "Pointer32DataType %s = new Pointer32DataType();\n", variable_name.c_str());
+			fprintf(dest, "%s = new Pointer32DataType(builtin_char);\n", variable_name.c_str());
 			return true;
 		}
 		case ast::TYPE_NAME: {
@@ -166,9 +245,9 @@ static bool create_type(FILE* dest, const ast::Node& node, const std::string& va
 				auto type_index = lookup.type_name_to_index.find(node.as<ast::TypeName>().type_name);
 				indent(dest, depth);
 				if(type_index != lookup.type_name_to_index.end()) {
-					fprintf(dest, "DataType %s = type_%d;\n", variable_name.c_str(), type_index->second);
+					fprintf(dest, "%s = type_%d;\n", variable_name.c_str(), type_index->second);
 				} else {
-					fprintf(dest, "/* ERROR TYPE LOOKUP FAILED*/\n");
+					fprintf(dest, "/* ERROR TYPE LOOKUP FAILED */\n");
 				}
 				return true;
 			}
@@ -178,7 +257,7 @@ static bool create_type(FILE* dest, const ast::Node& node, const std::string& va
 	
 	if(depth == 0) {
 		indent(dest, depth);
-		fprintf(dest, "/* %s %s */\n", variable_name.c_str(), ast::NODE_DESCRIPTOR_STRINGS[node.descriptor]);
+		fprintf(dest, "/* %s %s %s */\n", variable_name.c_str(), ast::NODE_DESCRIPTOR_STRINGS[node.descriptor], name_of(node));
 	}
 	
 	return false;
@@ -203,8 +282,12 @@ static void create_non_builtin_typedefs(FILE* dest, const TypeLookup& lookup) {
 				if(type_name.storage_class == ast::StorageClass::TYPEDEF) {
 					auto type_index = lookup.type_name_to_index.find(type_name.type_name);
 					if(type_index != lookup.type_name_to_index.end()) {
-						fprintf(dest, "\t\tTypedefDataType type_%d = new TypedefDataType(\"%s\", type_%d);\n",
-							i, type_name.name.c_str(), type_index->second);
+						if(type_index->second < i) {
+							fprintf(dest, "\t\ttype_%d = new TypedefDataType(\"%s\", type_%d);\n",
+								i, name_of(type_name), type_index->second);
+						} else {
+							fprintf(dest, "\t\ttype_%d = new TypedefDataType(\"ERROR_%d\", builtin_char);\n", i, i);
+						}
 					}
 				}
 				break;
@@ -213,7 +296,7 @@ static void create_non_builtin_typedefs(FILE* dest, const TypeLookup& lookup) {
 	}
 }
 
-static void fill_in_type(FILE* dest, ast::Node& node, const std::string& variable_name, const TypeLookup& lookup, s32 depth) {
+static void fill_in_type(FILE* dest, const ast::Node& node, const std::string& variable_name, const TypeLookup& lookup, s32 depth) {
 	indent(dest, depth);
 	fprintf(dest, "{%s%s\n", node.name.empty() ? "" : " // ", node.name.c_str());
 	switch(node.descriptor) {
@@ -235,16 +318,20 @@ static void fill_in_type(FILE* dest, ast::Node& node, const std::string& variabl
 			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
 			for(s32 i = 0; i < (s32) struct_or_union.fields.size(); i++) {
 				ast::Node& field = *struct_or_union.fields[i].get();
+				if(field.storage_class == ast::StorageClass::STATIC) {
+					continue;
+				}
 				std::string field_variable_name = stringf("%s_%d", variable_name.c_str(), i);
+				declare_type(dest, field, field_variable_name, depth);
 				if(create_type(dest, field, field_variable_name, lookup, depth + 1)) {
 					fill_in_type(dest, field, field_variable_name, lookup, depth + 1);
 					indent(dest, depth + 1);
 					if(struct_or_union.is_struct) {
-						fprintf(dest, "%s.insertAtOffset(0x%x, %s, 0x%x);\n",
-							variable_name.c_str(), field.relative_offset_bytes, field_variable_name.c_str(), field.size_bits / 8);
+						fprintf(dest, "%s.insertAtOffset(0x%x, %s, 0x%x, \"%s\", \"\");\n",
+							variable_name.c_str(), field.relative_offset_bytes, field_variable_name.c_str(), field.size_bits / 8, name_of(field));
 					} else {
-						fprintf(dest, "%s.insert(0, %s, 0x%x, \"\", \"\");\n",
-							variable_name.c_str(), field_variable_name.c_str(), field.size_bits / 8);
+						fprintf(dest, "%s.insert(0, %s, 0x%x, \"%s\", \"\");\n",
+							variable_name.c_str(), field_variable_name.c_str(), field.size_bits / 8, name_of(field));
 					}
 				}
 			}
@@ -262,38 +349,50 @@ static void fill_in_type(FILE* dest, ast::Node& node, const std::string& variabl
 	fprintf(dest, "}\n");
 }
 
-static void register_types(FILE* dest, const std::vector<std::unique_ptr<ast::Node>>& ast_nodes) {
-	for(s32 i = 0; i < (s32) ast_nodes.size(); i++) {
-		ast::Node& node = *ast_nodes[i];
-		switch(node.descriptor) {
-			case ast::ARRAY:
-			case ast::BITFIELD:
-			case ast::BUILTIN:
-			case ast::FUNCTION: {
-				break;
-			}
-			case ast::INLINE_ENUM:
-			case ast::INLINE_STRUCT_OR_UNION: {
-				indent(dest, 0);
-				fprintf(dest, "program_type_manager.addDataType(type_%d, null);\n", i);
-				break;
-			}
-			case ast::POINTER:
-			case ast::REFERENCE:
-			case ast::TYPE_NAME: {
-				indent(dest, 0);
-				fprintf(dest, "program_type_manager.addDataType(type_%d, null);\n", i);
-				break;
-			}
+static void register_type(FILE* dest, const ast::Node& node, s32 index) {
+	switch(node.descriptor) {
+		case ast::ARRAY: {
+			indent(dest, 0);
+			fprintf(dest, "program_type_manager.addDataType(type_%d, null);\n", index);
+			break;
+		}
+		case ast::BITFIELD:
+		case ast::BUILTIN:
+		case ast::FUNCTION: {
+			break;
+		}
+		case ast::INLINE_ENUM:
+		case ast::INLINE_STRUCT_OR_UNION:
+		case ast::POINTER:
+		case ast::REFERENCE: {
+			indent(dest, 0);
+			fprintf(dest, "try {\n");
+			indent(dest, 1);
+			fprintf(dest, "program_type_manager.addDataType(type_%d, null);\n", index);
+			indent(dest, 0);
+			fprintf(dest, "} catch(IllegalArgumentException e) {\n");
+			indent(dest, 1);
+			fprintf(dest, "printf(\"error registering %s\\n\");\n", name_of(node));
+			indent(dest, 0);
+			fprintf(dest, "}\n");
+			break;
+		}
+		case ast::TYPE_NAME: {
+			//const ast::TypeName& type_name = node.as<ast::TypeName>();
+			//if(type_name.storage_class == ast::StorageClass::TYPEDEF) {
+			//	indent(dest, 0);
+			//	fprintf(dest, "program_type_manager.addDataType(type_%d, null);\n", i);
+			//}
+			break;
 		}
 	}
 }
 
-static const char* ast_node_to_java_type(ast::Node& node) {
+static const char* ast_node_to_java_type(const ast::Node& node) {
 	switch(node.descriptor) {
 		case ast::ARRAY: return "ArrayDataType";
 		case ast::BITFIELD: return "BitFieldDataType";
-		case ast::BUILTIN: return "BuiltInDataType";
+		case ast::BUILTIN: return "DataType";
 		case ast::FUNCTION: return "PointerDataType";
 		case ast::INLINE_ENUM: return "EnumDataType";
 		case ast::INLINE_STRUCT_OR_UNION: {
@@ -305,9 +404,16 @@ static const char* ast_node_to_java_type(ast::Node& node) {
 		}
 		case ast::POINTER: return "PointerDataType";
 		case ast::REFERENCE: return "PointerDataType";
-		case ast::TYPE_NAME: return "TypedefDataType";
+		case ast::TYPE_NAME: return "DataType";
 	}
 	return "CCC_BADASTNODE";
+}
+
+static const char* name_of(const ast::Node& node) {
+	if(!node.name.empty()) {
+		return node.name.c_str();
+	}
+	return "CCC_NONAME";
 }
 
 static void indent(FILE* dest, s32 depth) {
