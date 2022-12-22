@@ -31,9 +31,8 @@ static void print_deduplicated(const SymbolTable& symbol_table, Options options)
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
 static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options);
 static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options);
+static u32 build_analysis_flags(u32 flags);
 static void print_ghidra(SymbolTable& symbol_table, const Options& options);
-static std::vector<std::vector<std::unique_ptr<ast::Node>>> symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags);
-static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 static void print_symbols(SymbolTable& symbol_table);
 static void list_files(SymbolTable& symbol_table);
 static SymbolTable read_symbol_table(const fs::path& input_file);
@@ -73,148 +72,43 @@ int main(int argc, char** argv) {
 	}
 }
 
-
 static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options) {
-	auto ast_nodes = symbol_table_to_deduplicated_ast(symbol_table, options.flags);
-	
-	// The ast_nodes variable groups types by their name, so duplicates are
-	// stored together. We flatten these into a single list for printing.
-	std::vector<std::unique_ptr<ast::Node>> flat_ast_nodes;
-	for(std::vector<std::unique_ptr<ast::Node>>& versions : ast_nodes) {
-		bool warn_duplicates = versions.size() > 1;
-		for(std::unique_ptr<ast::Node>& ast_node : versions) {
-			flat_ast_nodes.emplace_back(std::move(ast_node));
-		}
-	}
-	
-	// Print out the result.
+	u32 analysis_flags = build_analysis_flags(options.flags);
+	analysis_flags |= DEDUPLICATE_TYPES;
+	std::optional<AnalysisResults> results = analyse(symbol_table, analysis_flags);
+	assert(results.has_value());
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-	print_cpp_comment_block_builtin_types(stdout, flat_ast_nodes);
+	print_cpp_comment_block_builtin_types(stdout, results->deduplicated_types);
 	printf("\n");
-	print_cpp_ast_nodes(stdout, flat_ast_nodes, options.flags & FLAG_VERBOSE);
+	print_cpp_ast_nodes(stdout, results->deduplicated_types, options.flags & FLAG_VERBOSE);
 }
 
 static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options) {
+	u32 analysis_flags = build_analysis_flags(options.flags);
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	printf("\n");
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols, fd.detected_language);
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-		std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
-		ast::remove_duplicate_enums(ast_nodes);
-		
-		for(std::unique_ptr<ast::Node>& ast_node : ast_nodes) {
-			filter_ast_by_flags(*ast_node.get(), options.flags);
-		}
-		
+	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
+		std::optional<AnalysisResults> result = analyse(symbol_table, analysis_flags, i);
+		assert(result);
+		TranslationUnit& translation_unit = result->translation_units.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", fd.name.c_str());
+		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
 		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-		print_cpp_comment_block_builtin_types(stdout, ast_nodes);
+		print_cpp_comment_block_builtin_types(stdout, translation_unit.types);
 		printf("\n");
-		print_cpp_ast_nodes(stdout, ast_nodes, options.flags & FLAG_VERBOSE);
+		print_cpp_ast_nodes(stdout, translation_unit.types, options.flags & FLAG_VERBOSE);
 		printf("\n");
 	}
 }
 
-static std::vector<std::vector<std::unique_ptr<ast::Node>>> symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags) {
-	std::vector<std::vector<StabsSymbol>> symbols;
-	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		// Parse the stab strings into a data structure that's vaguely
-		// one-to-one with the text-based representation.
-		std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols, fd.detected_language));
-		// In stabs, types can be referenced by their number from other stabs,
-		// so here we build a map of type numbers to the parsed types.
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
-		// Convert the stabs data structure to a more standard C AST.
-		per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
-	}
-	
-	for(auto& [file, per_file_ast_nodes] : per_file_ast) {
-		// Some enums have two separate stabs generated for them, one with a
-		// name of " ", where one stab references the other. Remove these
-		// duplicate AST nodes.
-		ast::remove_duplicate_enums(per_file_ast_nodes);
-		for(std::unique_ptr<ast::Node>& ast_node : per_file_ast_nodes) {
-			// Filter the AST depending on the command-line flags parsed,
-			// removing things the user didn't ask for.
-			filter_ast_by_flags(*ast_node.get(), flags);
-		}
-	}
-	
-	// Deduplicate types from different translation units, preserving multiple
-	// copies of types that actually differ.
-	return deduplicate_ast(per_file_ast);
-}
-
-static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
-	switch(ast_node.descriptor) {
-		case ast::NodeDescriptor::ARRAY:
-		case ast::NodeDescriptor::BITFIELD:
-		case ast::NodeDescriptor::BUILTIN:
-		case ast::NodeDescriptor::FUNCTION:
-		case ast::NodeDescriptor::INLINE_ENUM: {
-			break;
-		}
-		case ast::NodeDescriptor::INLINE_STRUCT_OR_UNION: {
-			auto& struct_or_union = ast_node.as<ast::InlineStructOrUnion>();
-			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
-				// This allows us to deduplicate types with vtables.
-				if(node->name.starts_with("$vf")) {
-					node->name = "CCC_VTABLE";
-				}
-			}
-			if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) {
-				struct_or_union.member_functions.clear();
-			} else if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) {
-				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
-					return function.name == "operator="
-						|| function.name.starts_with("$")
-						|| (function.name == name_no_template_args
-							&& function.parameters->size() == 0);
-				};
-				
-				std::string name_no_template_args =
-					ast_node.name.substr(0, ast_node.name.find("<"));
-				bool only_special_functions = true;
-				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-						if(!is_special(function, name_no_template_args)) {
-							only_special_functions = false;
-						}
-					}
-				}
-				if(only_special_functions) {
-					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-							ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-							if(is_special(function, name_no_template_args)) {
-								struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
-								i--;
-							}
-						}
-					}
-				}
-			}
-			break;
-		}
-		case ast::NodeDescriptor::POINTER: {
-			filter_ast_by_flags(*ast_node.as<ast::Pointer>().value_type.get(), flags);
-			break;
-		}
-		case ast::NodeDescriptor::REFERENCE: {
-			filter_ast_by_flags(*ast_node.as<ast::Reference>().value_type.get(), flags);
-			break;
-		}
-		case ast::NodeDescriptor::TYPE_NAME: {
-			break;
-		}
-	}
+static u32 build_analysis_flags(u32 flags) {
+	u32 analysis_flags = NO_ANALYSIS_FLAGS;
+	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) analysis_flags |= STRIP_MEMBER_FUNCTIONS;
+	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) analysis_flags |= STRIP_GENERATED_FUNCTIONS;
+	return analysis_flags;
 }
 
 static void print_symbols(SymbolTable& symbol_table) {

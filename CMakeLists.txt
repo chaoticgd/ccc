@@ -30,7 +30,7 @@ add_library(ccc STATIC
 	ccc/insn.cpp
 	ccc/tables.cpp
 	ccc/registers.cpp
-	ccc/ir.cpp
+	ccc/analysis.cpp
 )
 
 add_executable(stdump stdump.cpp)

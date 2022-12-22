@@ -336,7 +336,7 @@ void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
 	}
 }
 
-std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
+std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
 	std::vector<std::vector<std::unique_ptr<Node>>> deduplicated_nodes;
 	std::map<std::string, size_t> name_to_deduplicated_index;
 	for(auto& [file_name, ast_nodes] : per_file_ast) {
@@ -369,7 +369,16 @@ std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std:
 			}
 		}
 	}
-	return deduplicated_nodes;
+	
+	// Flatten the output so it's easier to iterate over.
+	std::vector<std::unique_ptr<Node>> flattened_nodes;
+	for(std::vector<std::unique_ptr<Node>>& nodes : deduplicated_nodes) {
+		for(std::unique_ptr<Node>& node : nodes) {
+			flattened_nodes.emplace_back(std::move(node));
+		}
+	}
+	
+	return flattened_nodes;
 }
 
 static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {

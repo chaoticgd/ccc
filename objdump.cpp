@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
 	
 	u32 text_address = mod.file_offset_to_virtual_address(text->file_offset);
 	std::vector<mips::Insn> insns = read_virtual_vector<mips::Insn>(text_address, text->size / 4, modules);
-	std::map<u32, ir::Function> funcs = ir::scan_for_functions(text_address, insns);
+	std::map<u32, Function> funcs = scan_for_functions(text_address, insns);
 	
 	for(u64 i = 0; i < text->size / 4; i++) {
 		mips::Insn insn = insns[i];
