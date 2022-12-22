@@ -15,6 +15,23 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 	cmake -B bin/
 	cmake --build bin/
 
+## Project Structure
+
+	objdump.cpp: See above.
+	stdump.cpp: See above.
+	ccc/analysis.cpp: Runs all the different analysis passes.
+	ccc/ast.cpp: Converts parsed STABS types to a C++ AST structure.
+	ccc/elf.cpp: Parses ELF files.
+	ccc/insn.cpp: Parses EE core MIPS instructions.
+	ccc/mdebug.cpp: Read the .mdebug symbol table section.
+	ccc/module.cpp: Provides data structures for representing programs.
+	ccc/opcodes.h: Enums for different types of EE core MIPS opcodes.
+	ccc/print_cpp.cpp: Prints out the data type AST as C++ code.
+	ccc/registers.cpp: Enums for EE core MIPS registers.
+	ccc/stabs.cpp: Parses STABS symbols.
+	ccc/tables.cpp: Table of EE core MIPS instructions.
+	ccc/util.cpp: Miscellaneous utilities.
+
 ## Resources
 
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
