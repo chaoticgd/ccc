@@ -400,14 +400,14 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 				break;
 			}
 			
-			StabsMemberFunctionOverload field;
-			field.type = parse_type(input);
+			StabsMemberFunctionOverload function;
+			function.type = parse_type(input);
 			
 			expect_s8(input, ':', "member function");
 			eat_dodgy_identifier(input);
 			expect_s8(input, ';', "member function");
-			field.visibility = (StabsFieldVisibility) eat_s8(input);
-			switch(field.visibility) {
+			function.visibility = (StabsFieldVisibility) eat_s8(input);
+			switch(function.visibility) {
 				case StabsFieldVisibility::PRIVATE:
 				case StabsFieldVisibility::PROTECTED:
 				case StabsFieldVisibility::PUBLIC:
@@ -418,20 +418,20 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 			}
 			switch(eat_s8(input)) {
 				case 'A':
-					field.is_const = false;
-					field.is_volatile = false;
+					function.is_const = false;
+					function.is_volatile = false;
 					break;
 				case 'B':
-					field.is_const = true;
-					field.is_volatile = false;
+					function.is_const = true;
+					function.is_volatile = false;
 					break;
 				case 'C':
-					field.is_const = false;
-					field.is_volatile = true;
+					function.is_const = false;
+					function.is_volatile = true;
 					break;
 				case 'D':
-					field.is_const = true;
-					field.is_volatile = true;
+					function.is_const = true;
+					function.is_volatile = true;
 					break;
 				case '?':
 				case '.':
@@ -440,20 +440,23 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 					verify_not_reached("Invalid member function modifiers.");
 			}
 			switch(eat_s8(input)) {
+				case '.': // normal member function
+					function.modifier = MemberFunctionModifier::NORMAL;
+					break;
+				case '?': // static member function
+					function.modifier = MemberFunctionModifier::STATIC;
+					break;
 				case '*': // virtual member function
 					eat_s64_literal(input);
 					expect_s8(input, ';', "virtual member function");
 					parse_type(input);
 					expect_s8(input, ';', "virtual member function");
-					break;
-				case '?': // static member function
-					break;
-				case '.': // normal member function
+					function.modifier = MemberFunctionModifier::VIRTUAL;
 					break;
 				default:
 					verify_not_reached("Invalid member function type.");
 			}
-			member_function_set.overloads.emplace_back(std::move(field));
+			member_function_set.overloads.emplace_back(std::move(function));
 		}
 		STABS_DEBUG_PRINTF("member func: %s\n", member_function_set.name.c_str());
 		member_functions.emplace_back(std::move(member_function_set));

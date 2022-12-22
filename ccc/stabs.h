@@ -110,11 +110,18 @@ struct StabsField {
 	std::string type_name;
 };
 
+enum class MemberFunctionModifier {
+	NORMAL,
+	STATIC,
+	VIRTUAL
+};
+
 struct StabsMemberFunctionOverload {
 	std::unique_ptr<StabsType> type;
 	StabsFieldVisibility visibility;
 	bool is_const;
 	bool is_volatile;
+	MemberFunctionModifier modifier;
 };
 
 struct StabsMemberFunctionSet {

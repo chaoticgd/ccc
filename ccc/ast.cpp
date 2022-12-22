@@ -193,12 +193,15 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 					} else {
 						node->name = function_set.name;
 					}
-					bool is_constructor = false;
-					if(type.name.has_value()) {
-						is_constructor |= function_set.name == type.name;
-						is_constructor |= function_set.name == struct_or_union_name_no_template_parameters;
+					if(node->descriptor == FUNCTION) {
+						Function& function = node->as<Function>();
+						function.modifier = overload.modifier;
+						function.is_constructor = false;
+						if(type.name.has_value()) {
+							function.is_constructor |= function_set.name == type.name;
+							function.is_constructor |= function_set.name == struct_or_union_name_no_template_parameters;
+						}
 					}
-					node->is_constructor = is_constructor;
 					struct_or_union->member_functions.emplace_back(std::move(node));
 				}
 			}
@@ -377,7 +380,6 @@ static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, 
 	if(lhs.absolute_offset_bytes != rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
 	if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
 	if(lhs.size_bits != rhs.size_bits) return CompareFailReason::SIZE_BITS;
-	if(lhs.is_constructor != rhs.is_constructor) return CompareFailReason::IS_CONSTRUCTOR;
 	switch(lhs.descriptor) {
 		case ARRAY: {
 			const Array& array_lhs = lhs.as<Array>();
@@ -414,6 +416,8 @@ static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, 
 			} else if(function_lhs.parameters.has_value() != function_rhs.parameters.has_value()) {
 				return CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE;
 			}
+			if(function_lhs.modifier != function_rhs.modifier) return CompareFailReason::FUNCTION_MODIFIER;
+			if(function_lhs.is_constructor != function_rhs.is_constructor) return CompareFailReason::FUNCTION_IS_CONSTRUCTOR;
 			break;
 		}
 		case INLINE_ENUM: {
@@ -478,11 +482,12 @@ static const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::ABSOLUTE_OFFSET_BYTES: return "absolute offsets";
 		case CompareFailReason::BITFIELD_OFFSET_BITS: return "bitfield offsets";
 		case CompareFailReason::SIZE_BITS: return "sizes";
-		case CompareFailReason::IS_CONSTRUCTOR: return "is constructor";
 		case CompareFailReason::ARRAY_ELEMENT_COUNT: return "array element counts";
 		case CompareFailReason::BUILTIN_CLASS: return "builtin class";
 		case CompareFailReason::FUNCTION_PARAMAETER_SIZE: return "function paramaeter sizes";
 		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameters";
+		case CompareFailReason::FUNCTION_MODIFIER: return "function modifier";
+		case CompareFailReason::FUNCTION_IS_CONSTRUCTOR: return "function is constructor";
 		case CompareFailReason::ENUM_CONSTANTS: return "enum constants";
 		case CompareFailReason::BASE_CLASS_SIZE: return "base class sizes";
 		case CompareFailReason::BASE_CLASS_VISIBILITY: return "base class visibility values";
