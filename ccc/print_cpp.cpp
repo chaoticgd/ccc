@@ -144,6 +144,11 @@ static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& 
 		}
 		case ast::FUNCTION: {
 			const ast::Function& function = node.as<ast::Function>();
+			if(function.modifier == MemberFunctionModifier::STATIC) {
+				fprintf(dest, "static ");
+			} else if(function.modifier == MemberFunctionModifier::VIRTUAL) {
+				fprintf(dest, "virtual ");
+			}
 			if(!function.is_constructor) {
 				assert(function.return_type.get());
 				VariableName dummy{nullptr};
