@@ -10,17 +10,30 @@
 
 namespace ccc {
 
-struct BasicBlock {
+struct Parameter {
 	std::string name;
-	u32 offset;
-	u32 size;
+	std::unique_ptr<ast::Node> type;
+};
+
+enum class LocalVariableStorage {
+	REGISTER,
+	STACK
+};
+
+struct LocalVariable {
+	std::string name;
+	std::unique_ptr<ast::Node> type;
+	LocalVariableStorage storage;
+	s32 register_index = -1;
+	s32 stack_pointer_offset = -1;
 };
 
 struct Function {
 	std::string name;
-	u32 address;
-	u32 size;
-	std::vector<BasicBlock> basic_blocks;
+	std::unique_ptr<ast::Node> return_type;
+	std::vector<Parameter> parameters;
+	std::vector<LocalVariable> locals;
+	u32 address = 0;
 };
 
 struct GlobalVariable {
