@@ -65,7 +65,7 @@ std::optional<AnalysisResults> analyse(const SymbolTable& symbol_table, u32 flag
 
 void analyse_file_descriptor(AnalysisResults& results, const SymbolTable& symbol_table, const SymFileDescriptor& fd, u32 flags) {
 	TranslationUnit& translation_unit = results.translation_units.emplace_back();
-	translation_unit.full_path = fd.name;
+	translation_unit.full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
 	std::vector<StabsSymbol>& symbols = translation_unit.symbols.emplace_back(parse_stabs_symbols(fd.symbols, fd.detected_language));

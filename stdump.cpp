@@ -113,7 +113,7 @@ static u32 build_analysis_flags(u32 flags) {
 
 static void print_symbols(SymbolTable& symbol_table) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
-		printf("FILE %s:\n", fd.name.c_str());
+		printf("FILE %s:\n", fd.raw_path.c_str());
 		for(Symbol& sym : fd.symbols) {
 			const char* symbol_type_str = symbol_type(sym.storage_type);
 			const char* symbol_class_str = symbol_class(sym.storage_class);
@@ -137,7 +137,7 @@ static void print_symbols(SymbolTable& symbol_table) {
 
 static void list_files(SymbolTable& symbol_table) {
 	for(const SymFileDescriptor& fd : symbol_table.files) {
-		printf("%s\n", fd.name.c_str());
+		printf("%s\n", fd.full_path.c_str());
 	}
 }
 

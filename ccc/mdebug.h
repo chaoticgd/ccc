@@ -48,7 +48,9 @@ enum class SourceLanguage {
 };
 
 struct SymFileDescriptor {
-	std::string name;
+	std::string base_path;
+	std::string raw_path;
+	std::string full_path;
 	std::vector<Symbol> symbols;
 	std::vector<SymProcedureDescriptor> procedures;
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
