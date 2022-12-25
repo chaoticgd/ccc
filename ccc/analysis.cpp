@@ -1,14 +1,10 @@
 #include "analysis.h"
 
-#include "ast.h"
-#include "stabs.h"
-#include "mdebug.h"
-
 namespace ccc {
 
 // read_symbol_table
 // analyse_program
-// analyse_file_descriptor
+// analyse_file
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 // scan_for_functions
 
@@ -25,16 +21,16 @@ SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
 	return *symbol_table;
 }
 
-std::optional<AnalysisResults> analyse(const SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
+AnalysisResults analyse(const SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
 	AnalysisResults results;
 	
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
 		assert(file_descriptor_index < symbol_table.files.size());
-		analyse_file_descriptor(results, symbol_table, symbol_table.files[file_descriptor_index], flags);
+		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], flags);
 	} else {
 		for(const SymFileDescriptor& fd : symbol_table.files) {
-			analyse_file_descriptor(results, symbol_table, fd, flags);
+			analyse_file(results, symbol_table, fd, flags);
 		}
 	}
 	
@@ -63,17 +59,64 @@ std::optional<AnalysisResults> analyse(const SymbolTable& symbol_table, u32 flag
 	return results;
 }
 
-void analyse_file_descriptor(AnalysisResults& results, const SymbolTable& symbol_table, const SymFileDescriptor& fd, u32 flags) {
+void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, const SymFileDescriptor& fd, u32 flags) {
 	TranslationUnit& translation_unit = results.translation_units.emplace_back();
 	translation_unit.full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
-	std::vector<StabsSymbol>& symbols = translation_unit.symbols.emplace_back(parse_stabs_symbols(fd.symbols, fd.detected_language));
+	std::vector<ParsedSymbol>& symbols = translation_unit.symbols.emplace_back(parse_symbols(fd.symbols, fd.detected_language));
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
-	const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-	// Convert the stabs data structure to a more standard C AST.
-	translation_unit.types = ast::symbols_to_ast(symbols, types);
+	std::map<s32, const StabsType*> stabs_types;
+	for(const ParsedSymbol& symbol : symbols) {
+		if(symbol.is_stabs) {
+			symbol.type->enumerate_numbered_types(stabs_types);
+		}
+	}
+	
+	// Convert the parsed stabs symbols to a more standard C AST.
+	for(const ParsedSymbol& symbol : symbols) {
+		if(symbol.is_stabs) {
+			switch(symbol.descriptor) {
+				case StabsSymbolDescriptor::LOCAL_VARIABLE:
+				case StabsSymbolDescriptor::REFERENCE_PARAMETER:
+				case StabsSymbolDescriptor::LOCAL_FUNCTION:
+				case StabsSymbolDescriptor::GLOBAL_FUNCTION: {
+					break;
+				}
+				case StabsSymbolDescriptor::GLOBAL_VARIABLE: {
+					GlobalVariable& global = translation_unit.globals.emplace_back();
+					global.name = symbol.name;
+					global.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
+					break;
+					break;
+				}
+				case StabsSymbolDescriptor::REGISTER_PARAMETER:
+				case StabsSymbolDescriptor::VALUE_PARAMETER:
+				case StabsSymbolDescriptor::REGISTER_VARIABLE: {
+					break;
+				}
+				case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
+					GlobalVariable& global = translation_unit.globals.emplace_back();
+					global.name = symbol.name;
+					global.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
+					global.type->storage_class = ast::StorageClass::STATIC;
+					break;
+				}
+				case StabsSymbolDescriptor::TYPE_NAME:
+				case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG: {
+					std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
+					if(node != nullptr) {
+						translation_unit.types.emplace_back(std::move(node));
+					}
+					break;
+				}
+				case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
+					break;
+				}
+			}
+		}
+	}
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {

@@ -3,7 +3,10 @@
 
 #include "ast.h"
 #include "insn.h"
+#include "stabs.h"
+#include "mdebug.h"
 #include "module.h"
+#include "symbols.h"
 
 namespace ccc {
 
@@ -20,11 +23,17 @@ struct Function {
 	std::vector<BasicBlock> basic_blocks;
 };
 
+struct GlobalVariable {
+	std::string name;
+	std::unique_ptr<ast::Node> type;
+};
+
 struct TranslationUnit {
 	std::string full_path;
 	std::vector<Function> functions;
+	std::vector<GlobalVariable> globals;
 	std::vector<std::unique_ptr<ast::Node>> types;
-	std::vector<std::vector<StabsSymbol>> symbols;
+	std::vector<std::vector<ParsedSymbol>> symbols;
 };
 
 struct AnalysisResults {
@@ -41,8 +50,8 @@ enum AnalysisFlags {
 };
 
 SymbolTable read_symbol_table(const std::vector<Module*>& modules);
-std::optional<AnalysisResults> analyse(const SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
-void analyse_file_descriptor(AnalysisResults& results, const SymbolTable& symbol_table, const SymFileDescriptor& fd, u32 flags);
+AnalysisResults analyse(const SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
+void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, const SymFileDescriptor& fd, u32 flags);
 std::map<u32, Function> scan_for_functions(u32 address, std::span<mips::Insn> insns);
 
 };

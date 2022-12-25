@@ -17,27 +17,7 @@ const char* NODE_DESCRIPTOR_STRINGS[MAX_NODE_DESCRIPTOR] = {
 	"TYPE_NAME"
 };
 
-std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types) {
-	std::vector<std::unique_ptr<ast::Node>> ast_nodes;
-	for(const StabsSymbol& symbol : symbols) {
-		if(is_data_type(symbol)) {
-			std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
-			if(node != nullptr) {
-				ast_nodes.emplace_back(std::move(node));
-			}
-		}
-	}
-	return ast_nodes;
-}
-
-bool is_data_type(const StabsSymbol& symbol) {
-	return symbol.mdebug_symbol.storage_type == SymbolType::NIL
-		&& (u32) symbol.mdebug_symbol.storage_class == 0
-		&& (symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG
-			|| symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME);
-}
-
-std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
+std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.name.c_str());
 	try {
 		auto node = stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, false);

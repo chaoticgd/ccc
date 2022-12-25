@@ -6,20 +6,8 @@
 
 namespace ccc {
 
-enum class StabsSymbolDescriptor : s8 {
-	LOCAL_VARIABLE = '\0',
-	A = 'a',
-	LOCAL_FUNCTION = 'f',
-	GLOBAL_FUNCTION = 'F',
-	GLOBAL_VARIABLE = 'G',
-	REGISTER_PARAMETER = 'P',
-	VALUE_PARAMETER = 'p',
-	REGISTER_VARIABLE = 'r',
-	STATIC_GLOBAL_VARIABLE = 's',
-	TYPE_NAME = 't',
-	ENUM_STRUCT_OR_TYPE_TAG = 'T',
-	STATIC_LOCAL_VARIABLE = 'V'
-};
+static const char* ERR_END_OF_SYMBOL =
+	"Unexpected end of input while parsing symbol.";
 
 enum class StabsTypeDescriptor : s8 {
 	TYPE_REFERENCE = '\0',
@@ -127,14 +115,6 @@ struct StabsMemberFunctionOverload {
 struct StabsMemberFunctionSet {
 	std::string name;
 	std::vector<StabsMemberFunctionOverload> overloads;
-};
-
-struct StabsSymbol {
-	std::string raw;
-	std::string name;
-	StabsSymbolDescriptor descriptor;
-	std::unique_ptr<StabsType> type;
-	Symbol mdebug_symbol;
 };
 
 struct StabsTypeReferenceType : StabsType {
@@ -303,9 +283,12 @@ struct StabsBuiltInType : StabsType {
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILTIN;
 };
 
-std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language);
-StabsSymbol parse_stabs_symbol(const char* input);
-std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols);
+std::unique_ptr<StabsType> parse_stabs_type(const char*& input);
+s8 eat_s8(const char*& input);
+s64 eat_s64_literal(const char*& input);
+std::string eat_stabs_identifier(const char*& input);
+std::string eat_dodgy_stabs_identifier(const char*& input);
+void expect_s8(const char*& input, s8 expected, const char* subject);
 const char* builtin_class_to_string(BuiltInClass bclass);
 
 }

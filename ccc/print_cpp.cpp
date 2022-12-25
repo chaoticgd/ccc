@@ -4,12 +4,6 @@
 #include <chrono>
 
 namespace ccc {
-	
-struct VariableName {
-	const std::string* identifier;
-	std::vector<s8> pointer_chars;
-	std::vector<s32> array_indices;
-};
 
 enum VariableNamePrintFlags {
 	NO_VAR_PRINT_FLAGS = 0,
@@ -21,7 +15,7 @@ enum VariableNamePrintFlags {
 // print_cpp_comment_block_compiler_version_info
 // print_cpp_comment_block_builtin_types
 // print_cpp_ast_nodes
-static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset);
+// print_cpp_ast_node
 static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
@@ -95,7 +89,7 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 			fprintf(dest, "// warning: multiple differing types with the same name (%s not equal)\n", node->compare_fail_reason);
 		}
 		if(verbose && node->symbol != nullptr) {
-			fprintf(dest, "// symbol: %s\n", node->symbol->raw.c_str());
+			fprintf(dest, "// symbol: %s\n", node->symbol->raw->string.c_str());
 		}
 		VariableName name{nullptr};
 		s32 digits_for_offset = 0;
@@ -111,7 +105,7 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 	}
 }
 
-static void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset) {
+void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	

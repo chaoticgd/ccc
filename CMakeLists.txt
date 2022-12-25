@@ -29,6 +29,7 @@ add_library(ccc STATIC
 	ccc/print_cpp.cpp
 	ccc/registers.cpp
 	ccc/stabs.cpp
+	ccc/symbols.cpp
 	ccc/tables.cpp
 	ccc/util.cpp
 )

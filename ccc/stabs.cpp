@@ -8,131 +8,20 @@ namespace ccc {
 #define STABS_DEBUG(...) //__VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
-// parse_stabs_symbols
-// parse_stabs_symbol
-// enumerate_numbered_types
-static std::unique_ptr<StabsType> parse_type(const char*& input);
+// parse_stabs_type
 static std::vector<StabsField> parse_field_list(const char*& input);
 static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input);
 static BuiltInClass classify_range(const std::string& low, const std::string& high);
-static s8 eat_s8(const char*& input);
-static s64 eat_s64_literal(const char*& input);
-static std::string eat_identifier(const char*& input);
-static std::string eat_dodgy_identifier(const char*& input);
-static void expect_s8(const char*& input, s8 expected, const char* subject);
-static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
+// eat_s8
+// eat_s64_literal
+// eat_stabs_identifier
+// eat_dodgy_stabs_identifier
+// expect_s8
 static void print_field(const StabsField& field);
 
-static const char* ERR_END_OF_INPUT =
-	"Unexpected end of input while parsing STAB type.";
-
-std::vector<StabsSymbol> parse_stabs_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language) {
-	std::vector<StabsSymbol> output;
-	std::string prefix;
-	bool last_symbol_was_end = false;
-	for(const Symbol& symbol : input) {
-		bool correct_type =
-			   (symbol.storage_type == SymbolType::NIL
-				&& symbol.storage_class != SymbolClass::COMPILER_VERSION_INFO)
-			|| (last_symbol_was_end
-				&& symbol.storage_type == SymbolType::LABEL
-				&& (detected_language == SourceLanguage::C
-					|| detected_language == SourceLanguage::CPP));
-		if(correct_type) {
-			// Some STABS symbols are split between multiple strings.
-			if(!symbol.string.empty()) {
-				if(symbol.string[symbol.string.size() - 1] == '\\') {
-					prefix += symbol.string.substr(0, symbol.string.size() - 1);
-				} else {
-					std::string symbol_string = prefix + symbol.string;
-					prefix.clear();
-					bool stab_valid = true;
-					stab_valid &= symbol_string[0] != '$';
-					stab_valid &= symbol_string != "gcc2_compiled.";
-					stab_valid &= symbol_string != "__gnu_compiled_c";
-					stab_valid &= symbol_string != "__gnu_compiled_cpp";
-					if(stab_valid) {
-						StabsSymbol stabs_symbol = parse_stabs_symbol(symbol_string.c_str());
-						stabs_symbol.mdebug_symbol = symbol;
-						output.emplace_back(std::move(stabs_symbol));
-					}
-				}
-			} else {
-				verify(prefix.empty(), "Invalid STABS continuation.");
-			}
-		}
-		last_symbol_was_end = (symbol.storage_type == SymbolType::END);
-	}
-	return output;
-}
-
-StabsSymbol parse_stabs_symbol(const char* input) {
-	STABS_DEBUG_PRINTF("PARSING %s\n", input);
-	
-	StabsSymbol symbol;
-	symbol.raw = std::string(input);
-	symbol.name = eat_dodgy_identifier(input);
-	expect_s8(input, ':', "identifier");
-	verify(*input != '\0', ERR_END_OF_INPUT);
-	if(*input >= '0' && *input <= '9') {
-		symbol.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
-	} else {
-		symbol.descriptor = (StabsSymbolDescriptor) eat_s8(input);
-	}
-	validate_symbol_descriptor(symbol.descriptor);
-	verify(*input != '\0', ERR_END_OF_INPUT);
-	if(*input == 't') {
-		input++;
-	}
-	symbol.type = parse_type(input);
-	// This is a bit of hack to make it so variable names aren't used as type
-	// names e.g.the STABS symbol "somevar:P123=*456" may be referenced by the
-	// type number 123, but the type name is not "somevar".
-	bool is_type = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME
-		|| symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
-	if(is_type) {
-		symbol.type->name = symbol.name;
-	}
-	symbol.type->is_typedef = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME;
-	symbol.type->is_root = true;
-	return symbol;
-}
-
-std::map<s32, const StabsType*> enumerate_numbered_types(const std::vector<StabsSymbol>& symbols) {
-	std::map<s32, const StabsType*> output;
-	for(const StabsSymbol& symbol : symbols) {
-		symbol.type->enumerate_numbered_types(output);
-	}
-	return output;
-}
-
-const char* builtin_class_to_string(BuiltInClass bclass) {
-	switch(bclass) {
-		case BuiltInClass::VOID: return "void";
-		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
-		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
-		case BuiltInClass::UNQUALIFIED_8: return "8-bit integer";
-		case BuiltInClass::BOOL_8: return "8-bit boolean";
-		case BuiltInClass::UNSIGNED_16: return "16-bit unsigned integer";
-		case BuiltInClass::SIGNED_16: return "16-bit signed integer";
-		case BuiltInClass::UNSIGNED_32: return "32-bit unsigned integer";
-		case BuiltInClass::SIGNED_32: return "32-bit signed integer";
-		case BuiltInClass::FLOAT_32: return "32-bit floating point";
-		case BuiltInClass::UNSIGNED_64: return "64-bit unsigned integer";
-		case BuiltInClass::SIGNED_64: return "64-bit signed integer";
-		case BuiltInClass::FLOAT_64: return "64-bit floating point";
-		case BuiltInClass::UNSIGNED_128: return "128-bit unsigned integer";
-		case BuiltInClass::SIGNED_128: return "128-bit signed integer";
-		case BuiltInClass::UNQUALIFIED_128: return "128-bit integer";
-		case BuiltInClass::FLOAT_128: return "128-bit floating point";
-		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
-	}
-	return "";
-}
-
-static std::unique_ptr<StabsType> parse_type(const char*& input) {
+std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 	StabsTypeInfo info;
-	verify(*input != '\0', ERR_END_OF_INPUT);
+	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	if(*input >= '0' && *input <= '9') {
 		info.anonymous = false;
 		info.type_number = eat_s64_literal(input);
@@ -145,7 +34,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 		info.anonymous = true;
 	}
 	info.has_body = true;
-	verify(*input != '\0', ERR_END_OF_INPUT);
+	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	
 	StabsTypeDescriptor descriptor;
 	if(*input >= '0' && *input <= '9') {
@@ -159,14 +48,14 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 	switch(descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: { // 0..9
 			auto type_reference = std::make_unique<StabsTypeReferenceType>(info);
-			type_reference->type = parse_type(input);
+			type_reference->type = parse_stabs_type(input);
 			type = std::move(type_reference);
 			break;
 		}
 		case StabsTypeDescriptor::ARRAY: { // a
 			auto array = std::make_unique<StabsArrayType>(info);
-			array->index_type = parse_type(input);
-			array->element_type = parse_type(input);
+			array->index_type = parse_stabs_type(input);
+			array->element_type = parse_stabs_type(input);
 			type = std::move(array);
 			break;
 		}
@@ -174,7 +63,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 			auto enum_type = std::make_unique<StabsEnumType>(info);
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
-				std::string name = eat_dodgy_identifier(input);
+				std::string name = eat_dodgy_stabs_identifier(input);
 				expect_s8(input, ':', "identifier");
 				s64 value = eat_s64_literal(input);
 				enum_type->fields.emplace_back(value, name);
@@ -189,17 +78,17 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 		}
 		case StabsTypeDescriptor::FUNCTION: { // f
 			auto function = std::make_unique<StabsFunctionType>(info);
-			function->return_type = parse_type(input);
+			function->return_type = parse_stabs_type(input);
 			type = std::move(function);
 			break;
 		}
 		case StabsTypeDescriptor::RANGE: { // r
 			auto range = std::make_unique<StabsRangeType>(info);
-			range->type = parse_type(input);
+			range->type = parse_stabs_type(input);
 			expect_s8(input, ';', "range type descriptor");
-			std::string low = eat_dodgy_identifier(input);
+			std::string low = eat_dodgy_stabs_identifier(input);
 			expect_s8(input, ';', "low range value");
-			std::string high = eat_dodgy_identifier(input);
+			std::string high = eat_dodgy_stabs_identifier(input);
 			expect_s8(input, ';', "high range value");
 			try {
 				range->low_maybe_wrong = std::stoi(low);
@@ -223,7 +112,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 					base_class.visibility = eat_s8(input);
 					base_class.offset = eat_s64_literal(input);
 					expect_s8(input, ',', "base class section");
-					base_class.type = parse_type(input);
+					base_class.type = parse_stabs_type(input);
 					expect_s8(input, ';', "base class section");
 					struct_type->base_classes.emplace_back(std::move(base_class));
 				}
@@ -256,7 +145,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 					verify_not_reached("Invalid cross reference type '%c'.",
 						cross_reference->type);
 			}
-			cross_reference->identifier = eat_dodgy_identifier(input);
+			cross_reference->identifier = eat_dodgy_stabs_identifier(input);
 			cross_reference->name = cross_reference->identifier;
 			expect_s8(input, ':', "cross reference");
 			type = std::move(cross_reference);
@@ -266,19 +155,19 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 			auto method = std::make_unique<StabsMethodType>(info);
 			if(*input == '#') {
 				input++;
-				method->return_type = parse_type(input);
+				method->return_type = parse_stabs_type(input);
 				expect_s8(input, ';', "method");
 			} else {
-				method->class_type = parse_type(input);
+				method->class_type = parse_stabs_type(input);
 				expect_s8(input, ',', "method");
-				method->return_type = parse_type(input);
+				method->return_type = parse_stabs_type(input);
 				while(*input != '\0') {
 					if(*input == ';') {
 						input++;
 						break;
 					}
 					expect_s8(input, ',', "method");
-					method->parameter_types.emplace_back(parse_type(input));
+					method->parameter_types.emplace_back(parse_stabs_type(input));
 				}
 			}
 			type = std::move(method);
@@ -286,13 +175,13 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 		}
 		case StabsTypeDescriptor::REFERENCE: { // &
 			auto reference = std::make_unique<StabsReferenceType>(info);
-			reference->value_type = parse_type(input);
+			reference->value_type = parse_stabs_type(input);
 			type = std::move(reference);
 			break;
 		}
 		case StabsTypeDescriptor::POINTER: { // *
 			auto pointer = std::make_unique<StabsPointerType>(info);
-			pointer->value_type = parse_type(input);
+			pointer->value_type = parse_stabs_type(input);
 			type = std::move(pointer);
 			break;
 		}
@@ -302,7 +191,7 @@ static std::unique_ptr<StabsType> parse_type(const char*& input) {
 			input++;
 			type_attribute->size_bits = eat_s64_literal(input);
 			expect_s8(input, ';', "type attribute");
-			type_attribute->type = parse_type(input);
+			type_attribute->type = parse_stabs_type(input);
 			type = std::move(type_attribute);
 			break;
 		}
@@ -330,7 +219,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		
 		const char* before_field = input;
 		StabsField field;
-		field.name = eat_dodgy_identifier(input);
+		field.name = eat_dodgy_stabs_identifier(input);
 		expect_s8(input, ':', "identifier");
 		if(*input == '/') {
 			input++;
@@ -350,7 +239,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 			input = before_field;
 			break;
 		}
-		field.type = parse_type(input);
+		field.type = parse_stabs_type(input);
 		if(field.name.size() >= 1 && field.name[0] == '$') {
 			// Not sure.
 			expect_s8(input, ',', "field type");
@@ -359,7 +248,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		} else if(*input == ':') {
 			input++;
 			field.is_static = true;
-			field.type_name = eat_dodgy_identifier(input);
+			field.type_name = eat_dodgy_stabs_identifier(input);
 			expect_s8(input, ';', "identifier");
 		} else if(*input == ',') {
 			input++;
@@ -391,7 +280,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 		}
 		const char* before = input;
 		StabsMemberFunctionSet member_function_set;
-		member_function_set.name = eat_identifier(input);
+		member_function_set.name = eat_stabs_identifier(input);
 		expect_s8(input, ':', "member function");
 		expect_s8(input, ':', "member function");
 		while(*input != '\0') {
@@ -401,10 +290,10 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 			}
 			
 			StabsMemberFunctionOverload function;
-			function.type = parse_type(input);
+			function.type = parse_stabs_type(input);
 			
 			expect_s8(input, ':', "member function");
-			eat_dodgy_identifier(input);
+			eat_dodgy_stabs_identifier(input);
 			expect_s8(input, ';', "member function");
 			function.visibility = (StabsFieldVisibility) eat_s8(input);
 			switch(function.visibility) {
@@ -449,7 +338,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 				case '*': // virtual member function
 					eat_s64_literal(input);
 					expect_s8(input, ';', "virtual member function");
-					parse_type(input);
+					parse_stabs_type(input);
 					expect_s8(input, ';', "virtual member function");
 					function.modifier = MemberFunctionModifier::VIRTUAL;
 					break;
@@ -516,12 +405,12 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 	return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 }
 
-static s8 eat_s8(const char*& input) {
-	verify(*input != '\0', ERR_END_OF_INPUT);
+s8 eat_s8(const char*& input) {
+	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	return *(input++);
 }
 
-static s64 eat_s64_literal(const char*& input) {
+s64 eat_s64_literal(const char*& input) {
 	std::string number;
 	if(*input == '-') {
 		number = "-";
@@ -541,7 +430,7 @@ static s64 eat_s64_literal(const char*& input) {
 	}
 }
 
-static std::string eat_identifier(const char*& input) {
+std::string eat_stabs_identifier(const char*& input) {
 	std::string identifier;
 	bool first = true;
 	for(; *input != '\0'; input++) {
@@ -555,12 +444,12 @@ static std::string eat_identifier(const char*& input) {
 		}
 		first = false;
 	}
-	verify_not_reached(ERR_END_OF_INPUT);
+	verify_not_reached(ERR_END_OF_SYMBOL);
 }
 
 // The complexity here is because the input may contain an unescaped namespace
 // separator '::' even if the field terminator is supposed to be a colon.
-static std::string eat_dodgy_identifier(const char*& input) {
+std::string eat_dodgy_stabs_identifier(const char*& input) {
 	std::string identifier;
 	bool first = true;
 	s32 template_depth = 0;
@@ -581,38 +470,42 @@ static std::string eat_dodgy_identifier(const char*& input) {
 		}
 		first = false;
 	}
-	verify_not_reached(ERR_END_OF_INPUT);
+	verify_not_reached(ERR_END_OF_SYMBOL);
 }
 
 
-static void expect_s8(const char*& input, s8 expected, const char* subject) {
-	verify(*input != '\0', ERR_END_OF_INPUT);
+void expect_s8(const char*& input, s8 expected, const char* subject) {
+	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	char val = *(input++);
 	verify(val == expected, "Expected '%c' in %s, got '%c'.", expected, subject, val);
 }
 
-static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
-	switch(descriptor) {
-		case StabsSymbolDescriptor::LOCAL_VARIABLE:
-		case StabsSymbolDescriptor::A:
-		case StabsSymbolDescriptor::LOCAL_FUNCTION:
-		case StabsSymbolDescriptor::GLOBAL_FUNCTION:
-		case StabsSymbolDescriptor::GLOBAL_VARIABLE:
-		case StabsSymbolDescriptor::REGISTER_PARAMETER:
-		case StabsSymbolDescriptor::VALUE_PARAMETER:
-		case StabsSymbolDescriptor::REGISTER_VARIABLE:
-		case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE:
-		case StabsSymbolDescriptor::TYPE_NAME:
-		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
-		case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE:
-			break;
-		default:
-			verify_not_reached("Unknown symbol descriptor: %c.", (s8) descriptor);
-	}
-}
-
 static void print_field(const StabsField& field) {
 	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
+}
+
+const char* builtin_class_to_string(BuiltInClass bclass) {
+	switch(bclass) {
+		case BuiltInClass::VOID: return "void";
+		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
+		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
+		case BuiltInClass::UNQUALIFIED_8: return "8-bit integer";
+		case BuiltInClass::BOOL_8: return "8-bit boolean";
+		case BuiltInClass::UNSIGNED_16: return "16-bit unsigned integer";
+		case BuiltInClass::SIGNED_16: return "16-bit signed integer";
+		case BuiltInClass::UNSIGNED_32: return "32-bit unsigned integer";
+		case BuiltInClass::SIGNED_32: return "32-bit signed integer";
+		case BuiltInClass::FLOAT_32: return "32-bit floating point";
+		case BuiltInClass::UNSIGNED_64: return "64-bit unsigned integer";
+		case BuiltInClass::SIGNED_64: return "64-bit signed integer";
+		case BuiltInClass::FLOAT_64: return "64-bit floating point";
+		case BuiltInClass::UNSIGNED_128: return "128-bit unsigned integer";
+		case BuiltInClass::SIGNED_128: return "128-bit signed integer";
+		case BuiltInClass::UNQUALIFIED_128: return "128-bit integer";
+		case BuiltInClass::FLOAT_128: return "128-bit floating point";
+		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
+	}
+	return "";
 }
 
 }

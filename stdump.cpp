@@ -6,7 +6,8 @@
 using namespace ccc;
 
 enum class OutputMode {
-	PRINT_CPP,
+	PRINT_TYPES,
+	PRINT_GLOBALS,
 	PRINT_SYMBOLS,
 	LIST_FILES,
 	HELP,
@@ -28,11 +29,11 @@ struct Options {
 };
 
 static void print_deduplicated(const SymbolTable& symbol_table, Options options);
-static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
-static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options);
-static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options);
+static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const SymbolTable& symbol_table);
+static void print_types_deduplicated(SymbolTable& symbol_table, const Options& options);
+static void print_types_per_file(SymbolTable& symbol_table, const Options& options);
+static void print_globals(SymbolTable& symbol_table);
 static u32 build_analysis_flags(u32 flags);
-static void print_ghidra(SymbolTable& symbol_table, const Options& options);
 static void print_symbols(SymbolTable& symbol_table);
 static void list_files(SymbolTable& symbol_table);
 static SymbolTable read_symbol_table(const fs::path& input_file);
@@ -41,57 +42,62 @@ static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
+	SymbolTable symbol_table;
+	if(options.mode == OutputMode::HELP) {
+		print_help();
+	} else if(options.mode == OutputMode::BAD_COMMAND) {
+		print_help();
+	} else {
+		symbol_table = read_symbol_table(options.input_file);
+	}
 	switch(options.mode) {
-		case OutputMode::PRINT_CPP: {
-			SymbolTable symbol_table = read_symbol_table(options.input_file);
+		case OutputMode::PRINT_TYPES: {
 			if(!(options.flags & FLAG_PER_FILE)) {
-				print_cpp_deduplicated(symbol_table, options);
+				print_types_deduplicated(symbol_table, options);
 			} else {
-				print_cpp_per_file(symbol_table, options);
+				print_types_per_file(symbol_table, options);
 			}
 			return 0;
 		}
+		case OutputMode::PRINT_GLOBALS: {
+			print_globals(symbol_table);
+			return 0;
+		}
 		case OutputMode::PRINT_SYMBOLS: {
-			SymbolTable symbol_table = read_symbol_table(options.input_file);
 			print_symbols(symbol_table);
 			return 0;
 		}
 		case OutputMode::LIST_FILES: {
-			SymbolTable symbol_table = read_symbol_table(options.input_file);
 			list_files(symbol_table);
 			return 0;
 		}
 		case OutputMode::HELP: {
-			print_help();
 			return 0;
 		}
 		case OutputMode::BAD_COMMAND: {
-			print_help();
 			return 1;
 		}
 	}
 }
 
-static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options) {
+static void print_types_deduplicated(SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	analysis_flags |= DEDUPLICATE_TYPES;
-	std::optional<AnalysisResults> results = analyse(symbol_table, analysis_flags);
-	assert(results.has_value());
+	AnalysisResults results = analyse(symbol_table, analysis_flags);
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-	print_cpp_comment_block_builtin_types(stdout, results->deduplicated_types);
+	print_cpp_comment_block_builtin_types(stdout, results.deduplicated_types);
 	printf("\n");
-	print_cpp_ast_nodes(stdout, results->deduplicated_types, options.flags & FLAG_VERBOSE);
+	print_cpp_ast_nodes(stdout, results.deduplicated_types, options.flags & FLAG_VERBOSE);
 }
 
-static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options) {
+static void print_types_per_file(SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	printf("\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		std::optional<AnalysisResults> result = analyse(symbol_table, analysis_flags, i);
-		assert(result);
-		TranslationUnit& translation_unit = result->translation_units.at(0);
+		AnalysisResults result = analyse(symbol_table, analysis_flags, i);
+		TranslationUnit& translation_unit = result.translation_units.at(0);
 		printf("// *****************************************************************************\n");
 		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
 		printf("// *****************************************************************************\n");
@@ -101,6 +107,25 @@ static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options
 		printf("\n");
 		print_cpp_ast_nodes(stdout, translation_unit.types, options.flags & FLAG_VERBOSE);
 		printf("\n");
+	}
+}
+
+static void print_globals(SymbolTable& symbol_table) {
+	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
+		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		TranslationUnit& translation_unit = result.translation_units.at(0);
+		printf("// *****************************************************************************\n");
+		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// *****************************************************************************\n");
+		printf("\n");
+		for(const GlobalVariable& global : translation_unit.globals) {
+			VariableName name{&global.name};
+			print_cpp_ast_node(stdout, *global.type.get(), name, 0, 3);
+			printf(";\n");
+		}
+		if(!translation_unit.globals.empty() && i != (s32) translation_unit.globals.size() - 1) {
+			printf("\n");
+		}
 	}
 }
 
@@ -154,8 +179,10 @@ static Options parse_args(int argc, char** argv) {
 		return options;
 	}
 	const char* command = argv[1];
-	if(strcmp(command, "print_cpp") == 0) {
-		options.mode = OutputMode::PRINT_CPP;
+	if(strcmp(command, "print_types") == 0) {
+		options.mode = OutputMode::PRINT_TYPES;
+	} else if(strcmp(command, "print_globals") == 0) {
+		options.mode = OutputMode::PRINT_GLOBALS;
 	} else if(strcmp(command, "print_symbols") == 0) {
 		options.mode = OutputMode::PRINT_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {
@@ -187,7 +214,7 @@ static void print_help() {
 	puts("  MIPS/STABS symbol table parser.");
 	puts("");
 	puts("Commands:");
-	puts("  print_cpp [options] <input file>");
+	puts("  print_types [options] <input file>");
 	puts("    Print all the types recovered from the STABS symbols as C++.");
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
@@ -196,6 +223,8 @@ static void print_help() {
 	puts("    --omit-member-functions       Do not print member functions.");
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");
+	puts("");
+	puts("  print_globals [options] <input file>");
 	puts("");
 	puts("  print_symbols <input file>");
 	puts("    List all of the local symbols for each file descriptor.");
