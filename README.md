@@ -28,7 +28,8 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 	ccc/opcodes.h: Enums for different types of EE core MIPS opcodes.
 	ccc/print_cpp.cpp: Prints out the data type AST as C++ code.
 	ccc/registers.cpp: Enums for EE core MIPS registers.
-	ccc/stabs.cpp: Parses STABS symbols.
+	ccc/stabs.cpp: Parses STABS types.
+	ccc/symbols.cpp: Parses the STABS and non-STABS symbols.
 	ccc/tables.cpp: Table of EE core MIPS instructions.
 	ccc/util.cpp: Miscellaneous utilities.
 
