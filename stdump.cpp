@@ -100,6 +100,7 @@ static void print_functions(SymbolTable& symbol_table) {
 			printf("(");
 			for(size_t i = 0; i < function.parameters.size(); i++) {
 				const Parameter& parameter = function.parameters[i];
+				print_variable_storage_comment(stdout, parameter.storage);
 				VariableName parameter_name{&parameter.name};
 				print_cpp_ast_node(stdout, *parameter.type.get(), parameter_name, 0, 3);
 				if(i != function.parameters.size() - 1) {
@@ -108,21 +109,9 @@ static void print_functions(SymbolTable& symbol_table) {
 			}
 			printf(") {%s", function.locals.empty() ? "" : "\n");
 			for(const LocalVariable& local : function.locals) {
+				printf("\t ");
+				print_variable_storage_comment(stdout, local.storage);
 				VariableName local_name{&local.name};
-				printf("\t /* ");
-				if(local.storage.location == VariableStorageLocation::REGISTER) {
-					const char** name_table = mips::REGISTER_STRING_TABLES[(s32) local.storage.register_class];
-					assert(local.storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) local.storage.register_class]);
-					const char* register_name = name_table[local.storage.register_index_relative];
-					printf("%s %d", register_name, local.storage.register_index_absolute);
-				} else {
-					if(local.storage.stack_pointer_offset >= 0) {
-						printf("sp+0x%02x", local.storage.stack_pointer_offset);
-					} else {
-						printf("sp-0x%02x", -local.storage.stack_pointer_offset);
-					}
-				}
-				printf(" */ ");
 				print_cpp_ast_node(stdout, *local.type.get(), local_name, 1, 3);
 				printf(";\n");
 			}

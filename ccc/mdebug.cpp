@@ -49,7 +49,7 @@ packed_struct(ProcedureDescriptorEntry,
 
 packed_struct(SymbolEntry,
 	u32 iss;
-	u32 value;
+	s32 value;
 	u32 st : 6;
 	u32 sc : 5;
 	u32 reserved : 1;

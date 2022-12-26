@@ -177,8 +177,10 @@ const char* VU0_STRINGS[32] = {
 std::pair<RegisterClass, s32> map_gcc_register_index(s32 index) {
 	if(index >= 0 && index <= 31) {
 		return {RegisterClass::GPR, index};
+	} else if(index >= 38 && index <= 69) {
+		return {RegisterClass::FPR, index - 38};
 	} else {
-		return{RegisterClass::INVALID, 0};//verify_not_reached("Bad register index %d. Please file a bug report!", index);
+		return{RegisterClass::INVALID, 0};
 	}
 }
 

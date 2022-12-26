@@ -85,7 +85,7 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 					function.return_type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
 					break;
 				}
-				case StabsSymbolDescriptor::REFERENCE_PARAMETER: 
+				case StabsSymbolDescriptor::REFERENCE_PARAMETER:
 				case StabsSymbolDescriptor::REGISTER_PARAMETER:
 				case StabsSymbolDescriptor::VALUE_PARAMETER: {
 					if(translation_unit.functions.empty()) {
@@ -95,10 +95,15 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 					Parameter& parameter = function.parameters.emplace_back();
 					parameter.name = symbol.name;
 					parameter.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
-					parameter.storage.location = VariableStorageLocation::REGISTER;
+					if(symbol.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER) {
+						parameter.storage.location = VariableStorageLocation::STACK;
+						parameter.storage.stack_pointer_offset = symbol.raw->value;
+					} else {
+						parameter.storage.location = VariableStorageLocation::REGISTER;
 						parameter.storage.register_index_absolute = symbol.raw->value;
 						std::tie(parameter.storage.register_class, parameter.storage.register_index_relative) =
 							mips::map_gcc_register_index(parameter.storage.register_index_absolute);
+					}
 					break;
 				}
 				case StabsSymbolDescriptor::REGISTER_VARIABLE:

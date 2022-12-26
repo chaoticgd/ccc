@@ -19,6 +19,7 @@ enum VariableNamePrintFlags {
 static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset);
+// print_variable_storage_comment
 static void indent(FILE* dest, s32 level);
 
 void print_cpp_comment_block_beginning(FILE* dest, const fs::path& input_file) {
@@ -314,6 +315,23 @@ static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_o
 		}
 		fprintf(dest, " */ ");
 	}
+}
+
+void print_variable_storage_comment(FILE* dest, const VariableStorage& storage) {
+	fprintf(dest, "/* ");
+	if(storage.location == VariableStorageLocation::REGISTER) {
+		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) storage.register_class];
+		assert(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
+		const char* register_name = name_table[storage.register_index_relative];
+		fprintf(dest, "%s %d", register_name, storage.register_index_absolute);
+	} else {
+		if(storage.stack_pointer_offset >= 0) {
+			fprintf(dest, "0x%x(sp)", storage.stack_pointer_offset);
+		} else {
+			fprintf(dest, "-0x%x(sp)", -storage.stack_pointer_offset);
+		}
+	}
+	fprintf(dest, " */ ");
 }
 
 static void indent(FILE* dest, s32 level) {
