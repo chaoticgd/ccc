@@ -18,7 +18,11 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<Symbol>& input, Source
 			|| (last_symbol_was_end
 				&& symbol.storage_type == SymbolType::LABEL
 				&& (detected_language == SourceLanguage::C
-					|| detected_language == SourceLanguage::CPP));
+					|| detected_language == SourceLanguage::CPP))
+			|| (symbol.storage_type == SymbolType::STATIC
+				&& (s32) symbol.storage_class >= 1
+				&& (s32) symbol.storage_class <= 3
+				&& symbol.string.find(":") != std::string::npos);
 		if(is_stabs_symbol) {
 			// Some STABS symbols are split between multiple strings.
 			if(!symbol.string.empty()) {

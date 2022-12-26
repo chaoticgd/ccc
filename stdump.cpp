@@ -110,13 +110,16 @@ static void print_functions(SymbolTable& symbol_table) {
 			for(const LocalVariable& local : function.locals) {
 				VariableName local_name{&local.name};
 				printf("\t /* ");
-				if(local.storage == LocalVariableStorage::REGISTER) {
-					printf("register %d", local.register_index);
+				if(local.storage.location == VariableStorageLocation::REGISTER) {
+					const char** name_table = mips::REGISTER_STRING_TABLES[(s32) local.storage.register_class];
+					assert(local.storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) local.storage.register_class]);
+					const char* register_name = name_table[local.storage.register_index_relative];
+					printf("%s %d", register_name, local.storage.register_index_absolute);
 				} else {
-					if(local.stack_pointer_offset >= 0) {
-						printf("sp+0x%02x", local.stack_pointer_offset);
+					if(local.storage.stack_pointer_offset >= 0) {
+						printf("sp+0x%02x", local.storage.stack_pointer_offset);
 					} else {
-						printf("sp-0x%02x", -local.stack_pointer_offset);
+						printf("sp-0x%02x", -local.storage.stack_pointer_offset);
 					}
 				}
 				printf(" */ ");

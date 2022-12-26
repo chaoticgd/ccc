@@ -95,6 +95,10 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 					Parameter& parameter = function.parameters.emplace_back();
 					parameter.name = symbol.name;
 					parameter.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
+					parameter.storage.location = VariableStorageLocation::REGISTER;
+						parameter.storage.register_index_absolute = symbol.raw->value;
+						std::tie(parameter.storage.register_class, parameter.storage.register_index_relative) =
+							mips::map_gcc_register_index(parameter.storage.register_index_absolute);
 					break;
 				}
 				case StabsSymbolDescriptor::REGISTER_VARIABLE:
@@ -108,11 +112,13 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 					local.name = symbol.name;
 					local.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
 					if(symbol.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
-						local.storage = LocalVariableStorage::REGISTER;
-						local.register_index = symbol.raw->value;
+						local.storage.location = VariableStorageLocation::REGISTER;
+						local.storage.register_index_absolute = symbol.raw->value;
+						std::tie(local.storage.register_class, local.storage.register_index_relative) =
+							mips::map_gcc_register_index(local.storage.register_index_absolute);
 					} else {
-						local.storage = LocalVariableStorage::STACK;
-						local.stack_pointer_offset = symbol.raw->value;
+						local.storage.location = VariableStorageLocation::STACK;
+						local.storage.stack_pointer_offset = symbol.raw->value;
 					}
 					break;
 				}

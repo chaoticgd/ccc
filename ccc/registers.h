@@ -6,13 +6,13 @@
 namespace ccc::mips {
 
 enum class RegisterClass {
-	INVALID = -1,
-	GPR = 0,
-	SPECIAL_GPR = 1,
-	SCP = 2,
-	FPR = 3,
-	SPECIAL_FPU = 4,
-	VU0 = 5
+	INVALID = 0,
+	GPR = 1,
+	SPECIAL_GPR = 2,
+	SCP = 3,
+	FPR = 4,
+	SPECIAL_FPU = 5,
+	VU0 = 6
 };
 
 enum class GPR {
@@ -166,15 +166,18 @@ enum class Vu0Register {
 	VF31 = 31
 };
 
-extern const char** REGISTER_STRING_TABLES[6];
-extern const u64 REGISTER_STRING_TABLE_SIZES[6];
+extern const char** REGISTER_STRING_TABLES[7];
+extern const u64 REGISTER_STRING_TABLE_SIZES[7];
 
+extern const char* INVALID_REGISTER_STRING;
 extern const char* GPR_STRINGS[32];
 extern const char* SPECIAL_GPR_STRINGS[6];
 extern const char* SCP_STRINGS[32];
 extern const char* FPR_STRINGS[32];
 extern const char* SPECIAL_FPU_STRINGS[3];
 extern const char* VU0_STRINGS[32];
+
+std::pair<RegisterClass, s32> map_gcc_register_index(s32 index);
 
 }
 

@@ -7,25 +7,33 @@
 #include "mdebug.h"
 #include "module.h"
 #include "symbols.h"
+#include "registers.h"
 
 namespace ccc {
+
+enum class VariableStorageLocation {
+	REGISTER,
+	STACK
+};
+
+struct VariableStorage {
+	VariableStorageLocation location;
+	mips::RegisterClass register_class = mips::RegisterClass::GPR;
+	s32 register_index_absolute = -1;
+	s32 register_index_relative = -1;
+	s32 stack_pointer_offset = -1;
+};
 
 struct Parameter {
 	std::string name;
 	std::unique_ptr<ast::Node> type;
-};
-
-enum class LocalVariableStorage {
-	REGISTER,
-	STACK
+	VariableStorage storage;
 };
 
 struct LocalVariable {
 	std::string name;
 	std::unique_ptr<ast::Node> type;
-	LocalVariableStorage storage;
-	s32 register_index = -1;
-	s32 stack_pointer_offset = -1;
+	VariableStorage storage;
 };
 
 struct Function {

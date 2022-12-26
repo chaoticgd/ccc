@@ -2,7 +2,8 @@
 
 namespace ccc::mips {
 
-const char** REGISTER_STRING_TABLES[6] = {
+const char** REGISTER_STRING_TABLES[7] = {
+	&INVALID_REGISTER_STRING,
 	GPR_STRINGS,
 	SPECIAL_GPR_STRINGS,
 	SCP_STRINGS,
@@ -11,7 +12,8 @@ const char** REGISTER_STRING_TABLES[6] = {
 	VU0_STRINGS
 };
 
-const u64 REGISTER_STRING_TABLE_SIZES[6] = {
+const u64 REGISTER_STRING_TABLE_SIZES[7] = {
+	1,
 	ARRAY_SIZE(GPR_STRINGS),
 	ARRAY_SIZE(SPECIAL_GPR_STRINGS),
 	ARRAY_SIZE(SCP_STRINGS),
@@ -19,6 +21,8 @@ const u64 REGISTER_STRING_TABLE_SIZES[6] = {
 	ARRAY_SIZE(SPECIAL_FPU_STRINGS),
 	ARRAY_SIZE(VU0_STRINGS)
 };
+
+const char* INVALID_REGISTER_STRING = "BADREGISTER";
 
 const char* GPR_STRINGS[32] = {
 	"zero",
@@ -170,5 +174,12 @@ const char* VU0_STRINGS[32] = {
 	"vf31"
 };
 
+std::pair<RegisterClass, s32> map_gcc_register_index(s32 index) {
+	if(index >= 0 && index <= 31) {
+		return {RegisterClass::GPR, index};
+	} else {
+		return{RegisterClass::INVALID, 0};//verify_not_reached("Bad register index %d. Please file a bug report!", index);
+	}
+}
 
 }
