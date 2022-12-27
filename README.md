@@ -1,12 +1,18 @@
 # Chaos Compiler Collection
 
-A set of tools for reverse engineering PS2 games. This currently includes a STABS symbol table parser that can output C++ types and a half-working EE core MIPS disassembler.
+A set of tools for reverse engineering PS2 games.
 
-## stdump
+## Tools
 
-Symbol table parser and dumper. Options are provided to print out C++ types, print out the raw STABS symbols, and more. See the help text, displayed when --help is passed, for more details.
+### stdump
 
-## objdump
+Symbol table parser and dumper. It can extract the following information:
+
+- Functions including parameters and local variables
+- Global variables
+- Types (structs, unions, enums, etc)
+
+### objdump
 
 Half-working EE core MIPS disassembler. Probably not too interesting.
 
