@@ -49,7 +49,7 @@ packed_struct(ProcedureDescriptorEntry,
 
 packed_struct(SymbolEntry,
 	u32 iss;
-	u32 value;
+	s32 value;
 	u32 st : 6;
 	u32 sc : 5;
 	u32 reserved : 1;
@@ -101,10 +101,10 @@ SymbolTable parse_mdebug_section(const Module& module, const ModuleSection& sect
 		verify(fd_entry.f_big_endian == 0, "Not little endian or bad file descriptor table.");
 		
 		SymFileDescriptor fd;
-		fd.name = get_string(module.image, hdrr.cb_ss_offset + fd_entry.iss_base + fd_entry.rss);
+		fd.raw_path = get_string(module.image, hdrr.cb_ss_offset + fd_entry.iss_base + fd_entry.rss);
 		
 		// Try to detect the source language.
-		std::string lower_name = fd.name;
+		std::string lower_name = fd.raw_path;
 		for(char& c : lower_name) c = tolower(c);
 		if(lower_name.ends_with(".c")) {
 			fd.detected_language = SourceLanguage::C;
@@ -118,13 +118,30 @@ SymbolTable parse_mdebug_section(const Module& module, const ModuleSection& sect
 		for(s64 j = 0; j < fd_entry.csym; j++) {
 			u64 sym_offset = hdrr.cb_sym_offset + (fd_entry.isym_base + j) * sizeof(SymbolEntry);
 			const auto& sym_entry = get_packed<SymbolEntry>(module.image, sym_offset, "local symbol");
-			
 			Symbol& sym = fd.symbols.emplace_back();
 			sym.string = get_string(module.image, hdrr.cb_ss_offset + fd_entry.iss_base + sym_entry.iss);
 			sym.value = sym_entry.value;
 			sym.storage_type = (SymbolType) sym_entry.st;
 			sym.storage_class = (SymbolClass) sym_entry.sc;
 			sym.index = sym_entry.index;
+			
+			if(fd.base_path.empty() && sym_entry.iss == fd_entry.rss && sym.storage_type == SymbolType::LABEL && fd.symbols.size() > 2) {
+				const Symbol& base_path = fd.symbols[fd.symbols.size() - 2];
+				if(base_path.storage_type == SymbolType::LABEL) {
+					fd.base_path = base_path.string;
+				}
+			}
+		}
+		
+		// Determine the full path.
+		std::string base_path = fd.base_path;
+		std::string raw_path = fd.raw_path;
+		for(char& c : base_path) if(c == '\\') c = '/';
+		for(char& c : raw_path) if(c == '\\') c = '/';
+		if(base_path.empty() || raw_path[0] == '/' || (raw_path[1] == ':' && raw_path[2] == '/')) {
+			fd.full_path = raw_path;
+		} else {
+			fd.full_path = fs::weakly_canonical(fs::path(base_path)/fs::path(raw_path));
 		}
 		
 		// Read procedure descriptors.

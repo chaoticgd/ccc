@@ -29,7 +29,7 @@ enum class SymbolClass : u32 {
 
 struct Symbol {
 	std::string string;
-	u32 value;
+	s32 value;
 	SymbolType storage_type;
 	SymbolClass storage_class;
 	u32 index;
@@ -48,7 +48,9 @@ enum class SourceLanguage {
 };
 
 struct SymFileDescriptor {
-	std::string name;
+	std::string base_path;
+	std::string raw_path;
+	std::string full_path;
 	std::vector<Symbol> symbols;
 	std::vector<SymProcedureDescriptor> procedures;
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;

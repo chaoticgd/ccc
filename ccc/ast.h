@@ -2,7 +2,7 @@
 #define _CCC_AST_H
 
 #include "util.h"
-#include "stabs.h"
+#include "symbols.h"
 
 namespace ccc::ast {
 
@@ -43,7 +43,7 @@ struct Node {
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
 	
-	const StabsSymbol* symbol = nullptr;
+	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = nullptr;
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
@@ -133,13 +133,11 @@ struct TypeName : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
 };
 
-std::vector<std::unique_ptr<ast::Node>> symbols_to_ast(const std::vector<StabsSymbol>& symbols, const std::map<s32, const StabsType*>& stabs_types);
-bool is_data_type(const StabsSymbol& symbol);
-std::unique_ptr<Node> stabs_symbol_to_ast(const StabsSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
+std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
-std::vector<std::vector<std::unique_ptr<Node>>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
+std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
 enum class CompareFailReason {
 	DESCRIPTOR,
 	STORAGE_CLASS,

@@ -6,7 +6,9 @@
 using namespace ccc;
 
 enum class OutputMode {
-	PRINT_CPP,
+	PRINT_FUNCTIONS,
+	PRINT_GLOBALS,
+	PRINT_TYPES,
 	PRINT_SYMBOLS,
 	LIST_FILES,
 	HELP,
@@ -28,13 +30,13 @@ struct Options {
 };
 
 static void print_deduplicated(const SymbolTable& symbol_table, Options options);
-static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<StabsSymbol>>& symbols, const SymbolTable& symbol_table);
-static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options);
-static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options);
-static void print_ghidra(SymbolTable& symbol_table, const Options& options);
-static std::vector<std::vector<std::unique_ptr<ast::Node>>> symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags);
-static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
+static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const SymbolTable& symbol_table);
+static void print_functions(SymbolTable& symbol_table);
+static void print_globals(SymbolTable& symbol_table);
+static void print_types_deduplicated(SymbolTable& symbol_table, const Options& options);
+static void print_types_per_file(SymbolTable& symbol_table, const Options& options);
 static void print_symbols(SymbolTable& symbol_table);
+static u32 build_analysis_flags(u32 flags);
 static void list_files(SymbolTable& symbol_table);
 static SymbolTable read_symbol_table(const fs::path& input_file);
 static Options parse_args(int argc, char** argv);
@@ -42,184 +44,134 @@ static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
+	SymbolTable symbol_table;
+	if(options.mode == OutputMode::HELP) {
+		print_help();
+	} else if(options.mode == OutputMode::BAD_COMMAND) {
+		print_help();
+	} else {
+		symbol_table = read_symbol_table(options.input_file);
+	}
 	switch(options.mode) {
-		case OutputMode::PRINT_CPP: {
-			SymbolTable symbol_table = read_symbol_table(options.input_file);
+		case OutputMode::PRINT_FUNCTIONS: {
+			print_functions(symbol_table);
+			return 0;
+		}
+		case OutputMode::PRINT_GLOBALS: {
+			print_globals(symbol_table);
+			return 0;
+		}
+		case OutputMode::PRINT_TYPES: {
 			if(!(options.flags & FLAG_PER_FILE)) {
-				print_cpp_deduplicated(symbol_table, options);
+				print_types_deduplicated(symbol_table, options);
 			} else {
-				print_cpp_per_file(symbol_table, options);
+				print_types_per_file(symbol_table, options);
 			}
 			return 0;
 		}
 		case OutputMode::PRINT_SYMBOLS: {
-			SymbolTable symbol_table = read_symbol_table(options.input_file);
 			print_symbols(symbol_table);
 			return 0;
 		}
 		case OutputMode::LIST_FILES: {
-			SymbolTable symbol_table = read_symbol_table(options.input_file);
 			list_files(symbol_table);
 			return 0;
 		}
 		case OutputMode::HELP: {
-			print_help();
 			return 0;
 		}
 		case OutputMode::BAD_COMMAND: {
-			print_help();
 			return 1;
 		}
 	}
 }
 
-
-static void print_cpp_deduplicated(SymbolTable& symbol_table, const Options& options) {
-	auto ast_nodes = symbol_table_to_deduplicated_ast(symbol_table, options.flags);
-	
-	// The ast_nodes variable groups types by their name, so duplicates are
-	// stored together. We flatten these into a single list for printing.
-	std::vector<std::unique_ptr<ast::Node>> flat_ast_nodes;
-	for(std::vector<std::unique_ptr<ast::Node>>& versions : ast_nodes) {
-		bool warn_duplicates = versions.size() > 1;
-		for(std::unique_ptr<ast::Node>& ast_node : versions) {
-			flat_ast_nodes.emplace_back(std::move(ast_node));
+static void print_functions(SymbolTable& symbol_table) {
+	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
+		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		TranslationUnit& translation_unit = result.translation_units.at(0);
+		printf("// *****************************************************************************\n");
+		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// *****************************************************************************\n");
+		printf("\n");
+		for(const Function& function : translation_unit.functions) {
+			VariableName function_name{&function.name};
+			print_cpp_ast_node(stdout, *function.return_type.get(), function_name, 0, 3);
+			printf("(");
+			for(size_t i = 0; i < function.parameters.size(); i++) {
+				const Parameter& parameter = function.parameters[i];
+				print_variable_storage_comment(stdout, parameter.storage);
+				VariableName parameter_name{&parameter.name};
+				print_cpp_ast_node(stdout, *parameter.type.get(), parameter_name, 0, 3);
+				if(i != function.parameters.size() - 1) {
+					printf(", ");
+				}
+			}
+			printf(") {%s", function.locals.empty() ? "" : "\n");
+			for(const LocalVariable& local : function.locals) {
+				printf("\t ");
+				print_variable_storage_comment(stdout, local.storage);
+				VariableName local_name{&local.name};
+				print_cpp_ast_node(stdout, *local.type.get(), local_name, 1, 3);
+				printf(";\n");
+			}
+			printf("}\n\n");
 		}
 	}
-	
-	// Print out the result.
-	print_cpp_comment_block_beginning(stdout, options.input_file);
-	print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-	print_cpp_comment_block_builtin_types(stdout, flat_ast_nodes);
-	printf("\n");
-	print_cpp_ast_nodes(stdout, flat_ast_nodes, options.flags & FLAG_VERBOSE);
 }
 
-static void print_cpp_per_file(SymbolTable& symbol_table, const Options& options) {
+static void print_globals(SymbolTable& symbol_table) {
+	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
+		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		TranslationUnit& translation_unit = result.translation_units.at(0);
+		printf("// *****************************************************************************\n");
+		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// *****************************************************************************\n");
+		printf("\n");
+		for(const GlobalVariable& global : translation_unit.globals) {
+			VariableName name{&global.name};
+			print_cpp_ast_node(stdout, *global.type.get(), name, 0, 3);
+			printf(";\n");
+		}
+		if(!translation_unit.globals.empty() && i != (s32) translation_unit.globals.size() - 1) {
+			printf("\n");
+		}
+	}
+}
+
+static void print_types_deduplicated(SymbolTable& symbol_table, const Options& options) {
+	u32 analysis_flags = build_analysis_flags(options.flags);
+	analysis_flags |= DEDUPLICATE_TYPES;
+	AnalysisResults results = analyse(symbol_table, analysis_flags);
+	print_cpp_comment_block_beginning(stdout, options.input_file);
+	print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
+	print_cpp_comment_block_builtin_types(stdout, results.deduplicated_types);
+	printf("\n");
+	print_cpp_ast_nodes(stdout, results.deduplicated_types, options.flags & FLAG_VERBOSE);
+}
+
+static void print_types_per_file(SymbolTable& symbol_table, const Options& options) {
+	u32 analysis_flags = build_analysis_flags(options.flags);
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	printf("\n");
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		const std::vector<StabsSymbol> symbols = parse_stabs_symbols(fd.symbols, fd.detected_language);
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(symbols);
-		std::vector<std::unique_ptr<ast::Node>> ast_nodes = ast::symbols_to_ast(symbols, types);
-		ast::remove_duplicate_enums(ast_nodes);
-		
-		for(std::unique_ptr<ast::Node>& ast_node : ast_nodes) {
-			filter_ast_by_flags(*ast_node.get(), options.flags);
-		}
-		
+	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
+		AnalysisResults result = analyse(symbol_table, analysis_flags, i);
+		TranslationUnit& translation_unit = result.translation_units.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", fd.name.c_str());
+		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
 		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-		print_cpp_comment_block_builtin_types(stdout, ast_nodes);
+		print_cpp_comment_block_builtin_types(stdout, translation_unit.types);
 		printf("\n");
-		print_cpp_ast_nodes(stdout, ast_nodes, options.flags & FLAG_VERBOSE);
+		print_cpp_ast_nodes(stdout, translation_unit.types, options.flags & FLAG_VERBOSE);
 		printf("\n");
-	}
-}
-
-static std::vector<std::vector<std::unique_ptr<ast::Node>>> symbol_table_to_deduplicated_ast(const SymbolTable& symbol_table, u32 flags) {
-	std::vector<std::vector<StabsSymbol>> symbols;
-	std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_ast;
-	for(const SymFileDescriptor& fd : symbol_table.files) {
-		// Parse the stab strings into a data structure that's vaguely
-		// one-to-one with the text-based representation.
-		std::vector<StabsSymbol>& per_file_symbols = symbols.emplace_back(parse_stabs_symbols(fd.symbols, fd.detected_language));
-		// In stabs, types can be referenced by their number from other stabs,
-		// so here we build a map of type numbers to the parsed types.
-		const std::map<s32, const StabsType*> types = enumerate_numbered_types(per_file_symbols);
-		// Convert the stabs data structure to a more standard C AST.
-		per_file_ast.emplace_back(fd.name, ast::symbols_to_ast(per_file_symbols, types));
-	}
-	
-	for(auto& [file, per_file_ast_nodes] : per_file_ast) {
-		// Some enums have two separate stabs generated for them, one with a
-		// name of " ", where one stab references the other. Remove these
-		// duplicate AST nodes.
-		ast::remove_duplicate_enums(per_file_ast_nodes);
-		for(std::unique_ptr<ast::Node>& ast_node : per_file_ast_nodes) {
-			// Filter the AST depending on the command-line flags parsed,
-			// removing things the user didn't ask for.
-			filter_ast_by_flags(*ast_node.get(), flags);
-		}
-	}
-	
-	// Deduplicate types from different translation units, preserving multiple
-	// copies of types that actually differ.
-	return deduplicate_ast(per_file_ast);
-}
-
-static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
-	switch(ast_node.descriptor) {
-		case ast::NodeDescriptor::ARRAY:
-		case ast::NodeDescriptor::BITFIELD:
-		case ast::NodeDescriptor::BUILTIN:
-		case ast::NodeDescriptor::FUNCTION:
-		case ast::NodeDescriptor::INLINE_ENUM: {
-			break;
-		}
-		case ast::NodeDescriptor::INLINE_STRUCT_OR_UNION: {
-			auto& struct_or_union = ast_node.as<ast::InlineStructOrUnion>();
-			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
-				// This allows us to deduplicate types with vtables.
-				if(node->name.starts_with("$vf")) {
-					node->name = "CCC_VTABLE";
-				}
-			}
-			if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) {
-				struct_or_union.member_functions.clear();
-			} else if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) {
-				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
-					return function.name == "operator="
-						|| function.name.starts_with("$")
-						|| (function.name == name_no_template_args
-							&& function.parameters->size() == 0);
-				};
-				
-				std::string name_no_template_args =
-					ast_node.name.substr(0, ast_node.name.find("<"));
-				bool only_special_functions = true;
-				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-						if(!is_special(function, name_no_template_args)) {
-							only_special_functions = false;
-						}
-					}
-				}
-				if(only_special_functions) {
-					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-							ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-							if(is_special(function, name_no_template_args)) {
-								struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
-								i--;
-							}
-						}
-					}
-				}
-			}
-			break;
-		}
-		case ast::NodeDescriptor::POINTER: {
-			filter_ast_by_flags(*ast_node.as<ast::Pointer>().value_type.get(), flags);
-			break;
-		}
-		case ast::NodeDescriptor::REFERENCE: {
-			filter_ast_by_flags(*ast_node.as<ast::Reference>().value_type.get(), flags);
-			break;
-		}
-		case ast::NodeDescriptor::TYPE_NAME: {
-			break;
-		}
 	}
 }
 
 static void print_symbols(SymbolTable& symbol_table) {
 	for(SymFileDescriptor& fd : symbol_table.files) {
-		printf("FILE %s:\n", fd.name.c_str());
+		printf("FILE %s:\n", fd.raw_path.c_str());
 		for(Symbol& sym : fd.symbols) {
 			const char* symbol_type_str = symbol_type(sym.storage_type);
 			const char* symbol_class_str = symbol_class(sym.storage_class);
@@ -241,9 +193,16 @@ static void print_symbols(SymbolTable& symbol_table) {
 	}
 }
 
+static u32 build_analysis_flags(u32 flags) {
+	u32 analysis_flags = NO_ANALYSIS_FLAGS;
+	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) analysis_flags |= STRIP_MEMBER_FUNCTIONS;
+	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) analysis_flags |= STRIP_GENERATED_FUNCTIONS;
+	return analysis_flags;
+}
+
 static void list_files(SymbolTable& symbol_table) {
 	for(const SymFileDescriptor& fd : symbol_table.files) {
-		printf("%s\n", fd.name.c_str());
+		printf("%s\n", fd.full_path.c_str());
 	}
 }
 
@@ -260,8 +219,12 @@ static Options parse_args(int argc, char** argv) {
 		return options;
 	}
 	const char* command = argv[1];
-	if(strcmp(command, "print_cpp") == 0) {
-		options.mode = OutputMode::PRINT_CPP;
+	if(strcmp(command, "print_functions") == 0) {
+		options.mode = OutputMode::PRINT_FUNCTIONS;
+	} else if(strcmp(command, "print_globals") == 0) {
+		options.mode = OutputMode::PRINT_GLOBALS;
+	} else if(strcmp(command, "print_types") == 0) {
+		options.mode = OutputMode::PRINT_TYPES;
 	} else if(strcmp(command, "print_symbols") == 0) {
 		options.mode = OutputMode::PRINT_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {
@@ -293,8 +256,17 @@ static void print_help() {
 	puts("  MIPS/STABS symbol table parser.");
 	puts("");
 	puts("Commands:");
-	puts("  print_cpp [options] <input file>");
+	puts("  print_functions <input file>");
+	puts("    Print all the functions recovered from the STABS symbols as C++.");
+	puts("");
+	puts("  print_globals <input file>");
+	puts("    Print all the global variables recovered from the STABS symbols as C++.");
+	puts("");
+	puts("  print_types [options] <input file>");
 	puts("    Print all the types recovered from the STABS symbols as C++.");
+	puts("");
+	puts("  print_symbols <input file>");
+	puts("    List all of the local symbols for each file descriptor.");
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
 	puts("    --verbose                     Print additional information such as the raw");
@@ -302,9 +274,6 @@ static void print_help() {
 	puts("    --omit-member-functions       Do not print member functions.");
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");
-	puts("");
-	puts("  print_symbols <input file>");
-	puts("    List all of the local symbols for each file descriptor.");
 	puts("");
 	puts("  list_files <input_file>");
 	puts("    List the names of each of the source files.");

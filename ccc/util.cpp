@@ -33,6 +33,15 @@ std::vector<u8> read_file_bin(fs::path const& filepath) {
 	return buf;
 }
 
+std::string read_text_file(const fs::path& path) {
+	std::ifstream file_stream;
+	file_stream.open(path.string());
+	verify(file_stream.is_open(), "Failed to open file.");
+	std::stringstream string_stream;
+	string_stream << file_stream.rdbuf();
+	return string_stream.str();
+}
+
 std::string get_string(const std::vector<u8>& bytes, u64 offset) {
 	verify(offset < bytes.size(), "Offset of string is too large.");
 	std::string result;

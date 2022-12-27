@@ -20,17 +20,18 @@ else()
 endif()
 
 add_library(ccc STATIC
-	ccc/util.cpp
-	ccc/module.cpp
-	ccc/elf.cpp
-	ccc/mdebug.cpp
-	ccc/stabs.cpp
+	ccc/analysis.cpp
 	ccc/ast.cpp
-	ccc/print_cpp.cpp
+	ccc/elf.cpp
 	ccc/insn.cpp
-	ccc/tables.cpp
+	ccc/mdebug.cpp
+	ccc/module.cpp
+	ccc/print_cpp.cpp
 	ccc/registers.cpp
-	ccc/ir.cpp
+	ccc/stabs.cpp
+	ccc/symbols.cpp
+	ccc/tables.cpp
+	ccc/util.cpp
 )
 
 add_executable(stdump stdump.cpp)
