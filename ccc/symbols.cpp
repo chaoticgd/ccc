@@ -14,7 +14,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<Symbol>& input, Source
 	for(const Symbol& symbol : input) {
 		bool is_stabs_symbol =
 			   (symbol.storage_type == SymbolType::NIL // types, globals
-				&& symbol.storage_class != SymbolClass::COMPILER_VERSION_INFO)
+				&& symbol.storage_class != SymbolClass::INFO)
 			|| (last_symbol_was_end // functions
 				&& symbol.storage_type == SymbolType::LABEL
 				&& (detected_language == SourceLanguage::C

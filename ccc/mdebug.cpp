@@ -180,15 +180,42 @@ const char* symbol_type(SymbolType type) {
 		case SymbolType::FILE_SYMBOL: return "FILE_SYMBOL";
 		case SymbolType::STATICPROC: return "STATICPROC";
 		case SymbolType::CONSTANT: return "CONSTANT";
-		default: return nullptr;
 	}
+	return nullptr;
 }
 
 const char* symbol_class(SymbolClass symbol_class) {
 	switch(symbol_class) {
-		case SymbolClass::COMPILER_VERSION_INFO: return "COMPILER_VERSION_INFO";
-		default: return nullptr;
+		case SymbolClass::NIL: return "NIL";
+		case SymbolClass::TEXT: return "TEXT";
+		case SymbolClass::DATA: return "DATA";
+		case SymbolClass::BSS: return "BSS";
+		case SymbolClass::REGISTER: return "REGISTER";
+		case SymbolClass::ABS: return "ABS";
+		case SymbolClass::UNDEFINED: return "UNDEFINED";
+		case SymbolClass::LOCAL: return "LOCAL";
+		case SymbolClass::BITS: return "BITS";
+		case SymbolClass::DBX: return "DBX";
+		case SymbolClass::REG_IMAGE: return "REG_IMAGE";
+		case SymbolClass::INFO: return "INFO";
+		case SymbolClass::USER_STRUCT: return "USER_STRUCT";
+		case SymbolClass::SDATA: return "SDATA";
+		case SymbolClass::SBSS: return "SBSS";
+		case SymbolClass::RDATA: return "RDATA";
+		case SymbolClass::VAR: return "VAR";
+		case SymbolClass::COMMON: return "COMMON";
+		case SymbolClass::SCOMMON: return "SCOMMON";
+		case SymbolClass::VAR_REGISTER: return "VAR_REGISTER";
+		case SymbolClass::VARIANT: return "VARIANT";
+		case SymbolClass::SUNDEFINED: return "SUNDEFINED";
+		case SymbolClass::INIT: return "INIT";
+		case SymbolClass::BASED_VAR: return "BASED_VAR";
+		case SymbolClass::XDATA: return "XDATA";
+		case SymbolClass::PDATA: return "PDATA";
+		case SymbolClass::FINI: return "FINI";
+		case SymbolClass::NONGP: return "NONGP";
 	}
+	return nullptr;
 }
 
 }

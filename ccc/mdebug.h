@@ -24,7 +24,34 @@ enum class SymbolType : u32 {
 };
 
 enum class SymbolClass : u32 {
-	COMPILER_VERSION_INFO = 11
+	NIL = 0,
+	TEXT = 1,
+	DATA = 2,
+	BSS = 3,
+	REGISTER = 4,
+	ABS = 5,
+	UNDEFINED = 6,
+	LOCAL = 7,
+	BITS = 8,
+	DBX = 9,
+	REG_IMAGE = 10,
+	INFO = 11,
+	USER_STRUCT = 12,
+	SDATA = 13,
+	SBSS = 14,
+	RDATA = 15,
+	VAR = 16,
+	COMMON = 17,
+	SCOMMON = 18,
+	VAR_REGISTER = 19,
+	VARIANT = 20,
+	SUNDEFINED = 21,
+	INIT = 22,
+	BASED_VAR = 23,
+	XDATA = 24,
+	PDATA = 25,
+	FINI = 26,
+	NONGP = 27
 };
 
 struct Symbol {
