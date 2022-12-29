@@ -5,7 +5,7 @@
 
 namespace ccc {
 
-#define STABS_DEBUG(...) //__VA_ARGS__
+#define STABS_DEBUG(...) __VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
 // parse_stabs_type
