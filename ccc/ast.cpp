@@ -7,16 +7,20 @@ namespace ccc::ast {
 
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.name.c_str());
-	try {
-		auto node = stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, false);
-		if(node != nullptr) {
-			node->name = (symbol.name == " ") ? "" : symbol.name;
-			node->symbol = &symbol;
-			if(symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
-				node->storage_class = StorageClass::TYPEDEF;
-			}
+	auto node = stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, false);
+	if(node != nullptr) {
+		node->name = (symbol.name == " ") ? "" : symbol.name;
+		node->symbol = &symbol;
+		if(symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
+			node->storage_class = StorageClass::TYPEDEF;
 		}
-		return node;
+	}
+	return node;
+}
+
+std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name) {
+	try {
+		return stabs_type_to_ast(type, stabs_types, absolute_parent_offset_bytes, depth, substitute_type_name);
 	} catch(std::runtime_error& e) {
 		auto error = std::make_unique<ast::TypeName>();
 		error->type_name = e.what();

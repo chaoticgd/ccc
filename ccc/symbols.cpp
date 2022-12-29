@@ -13,16 +13,20 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<Symbol>& input, Source
 	bool last_symbol_was_end = false;
 	for(const Symbol& symbol : input) {
 		bool is_stabs_symbol =
-			   (symbol.storage_type == SymbolType::NIL
+			   (symbol.storage_type == SymbolType::NIL // types, globals
 				&& symbol.storage_class != SymbolClass::COMPILER_VERSION_INFO)
-			|| (last_symbol_was_end
+			|| (last_symbol_was_end // functions
 				&& symbol.storage_type == SymbolType::LABEL
 				&& (detected_language == SourceLanguage::C
 					|| detected_language == SourceLanguage::CPP))
-			|| (symbol.storage_type == SymbolType::STATIC
+			|| (symbol.storage_type == SymbolType::STATIC // static globals
 				&& (s32) symbol.storage_class >= 1
 				&& (s32) symbol.storage_class <= 3
-				&& symbol.string.find(":") != std::string::npos);
+				&& symbol.string.find(":") != std::string::npos) // omit various non-stabs symbols
+				&& (symbol.string.size() < 3 // false positive: windows paths
+					|| !(symbol.string[1] == ':'
+						&& (symbol.string[2] == '/'
+							|| symbol.string[2] == '\\')));
 		if(is_stabs_symbol) {
 			// Some STABS symbols are split between multiple strings.
 			if(!symbol.string.empty()) {
