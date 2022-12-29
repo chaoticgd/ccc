@@ -82,7 +82,7 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 				case StabsSymbolDescriptor::GLOBAL_FUNCTION: {
 					Function& function = translation_unit.functions.emplace_back();
 					function.name = symbol.name;
-					function.return_type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
+					function.return_type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
 					break;
 				}
 				case StabsSymbolDescriptor::REFERENCE_PARAMETER:
@@ -94,7 +94,7 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 					Function& function = translation_unit.functions.back();
 					Parameter& parameter = function.parameters.emplace_back();
 					parameter.name = symbol.name;
-					parameter.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
+					parameter.type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
 					if(symbol.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER) {
 						parameter.storage.location = VariableStorageLocation::STACK;
 						parameter.storage.stack_pointer_offset = symbol.raw->value;
@@ -115,7 +115,7 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 					Function& function = translation_unit.functions.back();
 					LocalVariable& local = function.locals.emplace_back();
 					local.name = symbol.name;
-					local.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
+					local.type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
 					if(symbol.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
 						local.storage.location = VariableStorageLocation::REGISTER;
 						local.storage.dbx_register_number = symbol.raw->value;
@@ -131,7 +131,7 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 				case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
 					GlobalVariable& global = translation_unit.globals.emplace_back();
 					global.name = symbol.name;
-					global.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
+					global.type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
 					if(symbol.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE) {
 						global.type->storage_class = ast::StorageClass::STATIC;
 					}
