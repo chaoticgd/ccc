@@ -16,27 +16,25 @@ enum class StorageClass {
 };
 
 enum NodeDescriptor {
-	ARRAY = 0,
-	BITFIELD = 1,
-	BUILTIN = 2,
-	FUNCTION = 3,
-	INLINE_ENUM = 4,
-	INLINE_STRUCT_OR_UNION = 5,
-	POINTER = 6,
-	REFERENCE = 7,
-	TYPE_NAME = 8
+	ARRAY,
+	BITFIELD,
+	BUILTIN,
+	FUNCTION,
+	INLINE_ENUM,
+	INLINE_STRUCT_OR_UNION,
+	POINTER,
+	REFERENCE,
+	TYPE_NAME
 };
-#define MAX_NODE_DESCRIPTOR 9
-extern const char* NODE_DESCRIPTOR_STRINGS[MAX_NODE_DESCRIPTOR];
 
 struct Node {
 	NodeDescriptor descriptor;
-	StorageClass storage_class = StorageClass::NONE;
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
 	// should pass the name down.
 	std::string name;
+	StorageClass storage_class = StorageClass::NONE;
 	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
@@ -55,12 +53,6 @@ struct Node {
 	
 	template <typename SubType>
 	const SubType& as() const { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<const SubType*>(this); }
-};
-
-struct BaseClass {
-	s8 visibility;
-	s32 offset = -1;
-	std::string type_name;
 };
 
 struct Array : Node {
@@ -100,6 +92,12 @@ struct InlineEnum : Node {
 	
 	InlineEnum() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_ENUM;
+};
+
+struct BaseClass {
+	StabsFieldVisibility visibility;
+	s32 offset = -1;
+	std::string type_name;
 };
 
 struct InlineStructOrUnion : Node {
@@ -161,8 +159,10 @@ enum class CompareFailReason {
 	MEMBER_FUNCTION_SIZE,
 	TYPE_NAME
 };
-static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
-static const char* compare_fail_reason_to_string(CompareFailReason reason);
+std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
+const char* compare_fail_reason_to_string(CompareFailReason reason);
+const char* node_type_to_string(const Node& node);
+const char* storage_class_to_string(StorageClass storage_class);
 
 }
 

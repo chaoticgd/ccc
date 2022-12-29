@@ -27,6 +27,7 @@ add_library(ccc STATIC
 	ccc/mdebug.cpp
 	ccc/module.cpp
 	ccc/print_cpp.cpp
+	ccc/print_json.cpp
 	ccc/registers.cpp
 	ccc/stabs.cpp
 	ccc/symbols.cpp

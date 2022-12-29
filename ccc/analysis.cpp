@@ -64,18 +64,18 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 	translation_unit.full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
-	std::vector<ParsedSymbol>& symbols = translation_unit.symbols.emplace_back(parse_symbols(fd.symbols, fd.detected_language));
+	translation_unit.symbols = parse_symbols(fd.symbols, fd.detected_language);
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
 	std::map<s32, const StabsType*> stabs_types;
-	for(const ParsedSymbol& symbol : symbols) {
+	for(const ParsedSymbol& symbol : translation_unit.symbols) {
 		if(symbol.is_stabs) {
 			symbol.type->enumerate_numbered_types(stabs_types);
 		}
 	}
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
-	for(const ParsedSymbol& symbol : symbols) {
+	for(const ParsedSymbol& symbol : translation_unit.symbols) {
 		if(symbol.is_stabs) {
 			switch(symbol.descriptor) {
 				case StabsSymbolDescriptor::LOCAL_FUNCTION:
@@ -100,9 +100,9 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 						parameter.storage.stack_pointer_offset = symbol.raw->value;
 					} else {
 						parameter.storage.location = VariableStorageLocation::REGISTER;
-						parameter.storage.register_index_absolute = symbol.raw->value;
+						parameter.storage.dbx_register_number = symbol.raw->value;
 						std::tie(parameter.storage.register_class, parameter.storage.register_index_relative) =
-							mips::map_gcc_register_index(parameter.storage.register_index_absolute);
+							mips::map_gcc_register_index(parameter.storage.dbx_register_number);
 					}
 					break;
 				}
@@ -118,9 +118,9 @@ void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, con
 					local.type = ast::stabs_type_to_ast(*symbol.type.get(), stabs_types, 0, 0, true);
 					if(symbol.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
 						local.storage.location = VariableStorageLocation::REGISTER;
-						local.storage.register_index_absolute = symbol.raw->value;
+						local.storage.dbx_register_number = symbol.raw->value;
 						std::tie(local.storage.register_class, local.storage.register_index_relative) =
-							mips::map_gcc_register_index(local.storage.register_index_absolute);
+							mips::map_gcc_register_index(local.storage.dbx_register_number);
 					} else {
 						local.storage.location = VariableStorageLocation::STACK;
 						local.storage.stack_pointer_offset = symbol.raw->value;

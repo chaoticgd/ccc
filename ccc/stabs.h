@@ -74,16 +74,16 @@ struct StabsType : StabsTypeInfo {
 	}
 };
 
-enum class StabsFieldVisibility : s8 {
+enum class StabsFieldVisibility : u8 {
 	NONE = '\0',
 	PRIVATE = '0',
 	PROTECTED = '1',
 	PUBLIC = '2',
-	IGNORE = '9'
+	PUBLIC_OPTIMIZED_OUT = '9'
 };
 
 struct StabsBaseClass {
-	s8 visibility;
+	StabsFieldVisibility visibility;
 	s32 offset;
 	std::unique_ptr<StabsType> type;
 };
@@ -99,7 +99,7 @@ struct StabsField {
 };
 
 enum class MemberFunctionModifier {
-	NORMAL,
+	NONE,
 	STATIC,
 	VIRTUAL
 };
@@ -290,6 +290,7 @@ std::string eat_stabs_identifier(const char*& input);
 std::string eat_dodgy_stabs_identifier(const char*& input);
 void expect_s8(const char*& input, s8 expected, const char* subject);
 const char* builtin_class_to_string(BuiltInClass bclass);
+const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);
 
 }
 

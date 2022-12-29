@@ -168,6 +168,7 @@ enum class Vu0Register {
 
 extern const char** REGISTER_STRING_TABLES[7];
 extern const u64 REGISTER_STRING_TABLE_SIZES[7];
+extern const char* REGISTER_CLASSES[7];
 
 extern const char* INVALID_REGISTER_STRING;
 extern const char* GPR_STRINGS[32];
