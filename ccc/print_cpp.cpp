@@ -323,7 +323,7 @@ void print_variable_storage_comment(FILE* dest, const VariableStorage& storage) 
 		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) storage.register_class];
 		assert(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
 		const char* register_name = name_table[storage.register_index_relative];
-		fprintf(dest, "%s %d", register_name, storage.register_index_absolute);
+		fprintf(dest, "%s %d", register_name, storage.dbx_register_number);
 	} else {
 		if(storage.stack_pointer_offset >= 0) {
 			fprintf(dest, "0x%x(sp)", storage.stack_pointer_offset);

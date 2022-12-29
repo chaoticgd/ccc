@@ -9,6 +9,7 @@ enum class OutputMode {
 	PRINT_FUNCTIONS,
 	PRINT_GLOBALS,
 	PRINT_TYPES,
+	PRINT_JSON,
 	PRINT_SYMBOLS,
 	LIST_FILES,
 	HELP,
@@ -68,6 +69,16 @@ int main(int argc, char** argv) {
 				print_types_per_file(symbol_table, options);
 			}
 			return 0;
+		}
+		case OutputMode::PRINT_JSON: {
+			if(!(options.flags & FLAG_PER_FILE)) {
+				AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
+				print_json(stdout, results, false);
+			} else {
+				AnalysisResults results = analyse(symbol_table, NO_ANALYSIS_FLAGS);
+				print_json(stdout, results, true);
+			}
+			break;
 		}
 		case OutputMode::PRINT_SYMBOLS: {
 			print_symbols(symbol_table);
@@ -225,6 +236,8 @@ static Options parse_args(int argc, char** argv) {
 		options.mode = OutputMode::PRINT_GLOBALS;
 	} else if(strcmp(command, "print_types") == 0) {
 		options.mode = OutputMode::PRINT_TYPES;
+	} else if(strcmp(command, "print_json") == 0) {
+		options.mode = OutputMode::PRINT_JSON;
 	} else if(strcmp(command, "print_symbols") == 0) {
 		options.mode = OutputMode::PRINT_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {
@@ -265,15 +278,20 @@ static void print_help() {
 	puts("  print_types [options] <input file>");
 	puts("    Print all the types recovered from the STABS symbols as C++.");
 	puts("");
-	puts("  print_symbols <input file>");
-	puts("    List all of the local symbols for each file descriptor.");
-	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
 	puts("    --verbose                     Print additional information such as the raw");
 	puts("                                  STABS symbol along with each type.");
 	puts("    --omit-member-functions       Do not print member functions.");
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");
+	puts("");
+	puts("  print_json <input file>");
+	puts("    Print all of the above as JSON.");
+	puts("");
+	puts("    --per-file                    Do not deduplicate types from files.");
+	puts("");
+	puts("  print_symbols <input file>");
+	puts("    List all of the local symbols for each file.");
 	puts("");
 	puts("  list_files <input_file>");
 	puts("    List the names of each of the source files.");

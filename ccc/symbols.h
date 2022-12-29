@@ -8,7 +8,7 @@
 namespace ccc {
 
 enum class StabsSymbolDescriptor : u8 {
-	LOCAL_VARIABLE = '\0',
+	LOCAL_VARIABLE = '_',
 	REFERENCE_PARAMETER = 'a',
 	LOCAL_FUNCTION = 'f',
 	GLOBAL_FUNCTION = 'F',

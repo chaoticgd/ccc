@@ -12,6 +12,11 @@ Symbol table parser and dumper. It can extract the following information:
 - Global variables
 - Types (structs, unions, enums, etc)
 
+The following output formats are supported:
+
+- C++
+- JSON
+
 ### objdump
 
 Half-working EE core MIPS disassembler. Probably not too interesting.
@@ -32,7 +37,8 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 	ccc/mdebug.cpp: Read the .mdebug symbol table section.
 	ccc/module.cpp: Provides data structures for representing programs.
 	ccc/opcodes.h: Enums for different types of EE core MIPS opcodes.
-	ccc/print_cpp.cpp: Prints out the data type AST as C++ code.
+	ccc/print_cpp.cpp: Prints out AST nodes as C++ code.
+	ccc/print_json.cpp: Prints out AST nodes as JSON.
 	ccc/registers.cpp: Enums for EE core MIPS registers.
 	ccc/stabs.cpp: Parses STABS types.
 	ccc/symbols.cpp: Parses the STABS and non-STABS symbols.

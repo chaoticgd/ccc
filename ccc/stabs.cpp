@@ -109,7 +109,7 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 				for(s64 i = 0; i < base_class_count; i++) {
 					StabsBaseClass base_class;
 					eat_s8(input);
-					base_class.visibility = eat_s8(input);
+					base_class.visibility = (StabsFieldVisibility) eat_s8(input);
 					base_class.offset = eat_s64_literal(input);
 					expect_s8(input, ',', "base class section");
 					base_class.type = parse_stabs_type(input);
@@ -229,7 +229,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 				case StabsFieldVisibility::PRIVATE:
 				case StabsFieldVisibility::PROTECTED:
 				case StabsFieldVisibility::PUBLIC:
-				case StabsFieldVisibility::IGNORE:
+				case StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT:
 					break;
 				default:
 					verify_not_reached("Invalid field visibility.");
@@ -300,7 +300,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 				case StabsFieldVisibility::PRIVATE:
 				case StabsFieldVisibility::PROTECTED:
 				case StabsFieldVisibility::PUBLIC:
-				case StabsFieldVisibility::IGNORE:
+				case StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT:
 					break;
 				default:
 					verify_not_reached("Invalid visibility for member function.");
@@ -330,7 +330,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 			}
 			switch(eat_s8(input)) {
 				case '.': // normal member function
-					function.modifier = MemberFunctionModifier::NORMAL;
+					function.modifier = MemberFunctionModifier::NONE;
 					break;
 				case '?': // static member function
 					function.modifier = MemberFunctionModifier::STATIC;
@@ -504,6 +504,17 @@ const char* builtin_class_to_string(BuiltInClass bclass) {
 		case BuiltInClass::UNQUALIFIED_128: return "128-bit integer";
 		case BuiltInClass::FLOAT_128: return "128-bit floating point";
 		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
+	}
+	return "";
+}
+
+const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility) {
+	switch(visibility) {
+		case StabsFieldVisibility::PRIVATE: return "private";
+		case StabsFieldVisibility::PROTECTED: return "protected";
+		case StabsFieldVisibility::PUBLIC: return "public";
+		case StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT: return "public_optimizedout";
+		default: return "none";
 	}
 	return "";
 }

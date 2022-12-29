@@ -5,18 +5,6 @@ namespace ccc::ast {
 #define AST_DEBUG(...) //__VA_ARGS__
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
 
-const char* NODE_DESCRIPTOR_STRINGS[MAX_NODE_DESCRIPTOR] = {
-	"ARRAY",
-	"BITFIELD",
-	"BUILTIN",
-	"FUNCTION",
-	"INLINE_ENUM",
-	"INLINE_STRUCT_OR_UNION",
-	"POINTER",
-	"REFERENCE",
-	"TYPE_NAME"
-};
-
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.name.c_str());
 	try {
@@ -361,7 +349,7 @@ std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::st
 	return flattened_nodes;
 }
 
-static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
+std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs) {
 	if(lhs.descriptor != rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(lhs.storage_class != rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
 	if(lhs.name != rhs.name) return CompareFailReason::NAME;
@@ -462,7 +450,7 @@ static std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, 
 	return std::nullopt;
 }
 
-static const char* compare_fail_reason_to_string(CompareFailReason reason) {
+const char* compare_fail_reason_to_string(CompareFailReason reason) {
 	switch(reason) {
 		case CompareFailReason::DESCRIPTOR: return "descriptors";
 		case CompareFailReason::STORAGE_CLASS: return "storage classes";
@@ -485,6 +473,40 @@ static const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::FIELDS_SIZE: return "fields sizes";
 		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function sizes";
 		case CompareFailReason::TYPE_NAME: return "type name";
+	}
+	return "";
+}
+
+const char* node_type_to_string(const Node& node) {
+	switch(node.descriptor) {
+		case NodeDescriptor::ARRAY: return "array";
+		case NodeDescriptor::BITFIELD: return "bitfield";
+		case NodeDescriptor::BUILTIN: return "builtin";
+		case NodeDescriptor::FUNCTION: return "function";
+		case NodeDescriptor::INLINE_ENUM: return "enum";
+		case NodeDescriptor::INLINE_STRUCT_OR_UNION: {
+			const InlineStructOrUnion& struct_or_union = node.as<InlineStructOrUnion>();
+			if(struct_or_union.is_struct) {
+				return "struct";
+			} else {
+				return "union";
+			}
+		}
+		case NodeDescriptor::POINTER: return "pointer";
+		case NodeDescriptor::REFERENCE: return "reference";
+		case NodeDescriptor::TYPE_NAME: return "typename";
+	}
+	return "CCC_BADNODEDESC";
+}
+
+const char* storage_class_to_string(StorageClass storage_class) {
+	switch(storage_class) {
+		case StorageClass::NONE: return "none";
+		case StorageClass::TYPEDEF: return "typedef";
+		case StorageClass::EXTERN: return "extern";
+		case StorageClass::STATIC: return "static";
+		case StorageClass::AUTO: return "auto";
+		case StorageClass::REGISTER: return "register";
 	}
 	return "";
 }

@@ -19,7 +19,7 @@ enum class VariableStorageLocation {
 struct VariableStorage {
 	VariableStorageLocation location;
 	mips::RegisterClass register_class = mips::RegisterClass::GPR;
-	s32 register_index_absolute = -1;
+	s32 dbx_register_number = -1;
 	s32 register_index_relative = -1;
 	s32 stack_pointer_offset = -1;
 };
@@ -54,7 +54,7 @@ struct TranslationUnit {
 	std::vector<Function> functions;
 	std::vector<GlobalVariable> globals;
 	std::vector<std::unique_ptr<ast::Node>> types;
-	std::vector<std::vector<ParsedSymbol>> symbols;
+	std::vector<ParsedSymbol> symbols;
 };
 
 struct AnalysisResults {
