@@ -32,6 +32,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<Symbol>& input, Source
 			if(!symbol.string.empty()) {
 				if(symbol.string[symbol.string.size() - 1] == '\\') {
 					prefix += symbol.string.substr(0, symbol.string.size() - 1);
+					break; // Don't update last_symbol_was_end!
 				} else {
 					std::string symbol_string = prefix + symbol.string;
 					prefix.clear();
