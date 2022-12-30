@@ -32,7 +32,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 			if(symbol.string != nullptr && symbol.string[0] != '\0') {
 				if(symbol.string[strlen(symbol.string) - 1] == '\\') {
 					prefix += std::string(symbol.string, symbol.string + strlen(symbol.string) - 1);
-					break; // Don't update last_symbol_was_end!
+					continue; // Don't update last_symbol_was_end!
 				} else {
 					std::string symbol_string = prefix + symbol.string;
 					prefix.clear();
