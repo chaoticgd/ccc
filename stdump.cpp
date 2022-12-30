@@ -12,6 +12,7 @@ enum class OutputMode {
 	PRINT_JSON,
 	PRINT_MDEBUG,
 	PRINT_SYMBOLS,
+	PRINT_EXTERNAL_SYMBOLS,
 	LIST_FILES,
 	HELP,
 	BAD_COMMAND
@@ -37,7 +38,9 @@ static void print_functions(mdebug::SymbolTable& symbol_table);
 static void print_globals(mdebug::SymbolTable& symbol_table);
 static void print_types_deduplicated(mdebug::SymbolTable& symbol_table, const Options& options);
 static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Options& options);
-static void print_symbols(mdebug::SymbolTable& symbol_table);
+static void print_local_symbols(const mdebug::SymbolTable& symbol_table);
+static void print_external_symbols(const mdebug::SymbolTable& symbol_table);
+static void print_symbol(const mdebug::Symbol& symbol);
 static u32 build_analysis_flags(u32 flags);
 static void list_files(mdebug::SymbolTable& symbol_table);
 static Options parse_args(int argc, char** argv);
@@ -89,7 +92,11 @@ int main(int argc, char** argv) {
 			break;
 		}
 		case OutputMode::PRINT_SYMBOLS: {
-			print_symbols(symbol_table);
+			print_local_symbols(symbol_table);
+			return 0;
+		}
+		case OutputMode::PRINT_EXTERNAL_SYMBOLS: {
+			print_external_symbols(symbol_table);
 			return 0;
 		}
 		case OutputMode::LIST_FILES: {
@@ -188,28 +195,38 @@ static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Option
 	}
 }
 
-static void print_symbols(mdebug::SymbolTable& symbol_table) {
-	for(mdebug::SymFileDescriptor& fd : symbol_table.files) {
+static void print_local_symbols(const mdebug::SymbolTable& symbol_table) {
+	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		printf("FILE %s:\n", fd.raw_path.c_str());
-		for(mdebug::Symbol& sym : fd.symbols) {
-			const char* symbol_type_str = symbol_type(sym.storage_type);
-			const char* symbol_class_str = symbol_class(sym.storage_class);
-			printf("\t%8x ", sym.value);
-			if(symbol_type_str) {
-				printf("%11s ", symbol_type_str);
-			} else {
-				printf("ST(%5d) ", (u32) sym.storage_type);
-			}
-			if(symbol_class_str) {
-				printf("%6s ", symbol_class_str);
-			} else if ((u32)sym.storage_class == 0) {
-				printf("       ");
-			} else {
-				printf("SC(%2d) ", (u32) sym.storage_class);
-			}
-			printf("%8d %s\n", sym.index, sym.string);
+		for(const mdebug::Symbol& symbol : fd.symbols) {
+			print_symbol(symbol);
 		}
 	}
+}
+
+static void print_external_symbols(const mdebug::SymbolTable& symbol_table) {
+	for(const mdebug::Symbol& symbol : symbol_table.externals) {
+		print_symbol(symbol);
+	}
+}
+
+static void print_symbol(const mdebug::Symbol& symbol) {
+	const char* symbol_type_str = symbol_type(symbol.storage_type);
+	const char* symbol_class_str = symbol_class(symbol.storage_class);
+	printf("\t%8x ", symbol.value);
+	if(symbol_type_str) {
+		printf("%11s ", symbol_type_str);
+	} else {
+		printf("ST(%5d) ", (u32) symbol.storage_type);
+	}
+	if(symbol_class_str) {
+		printf("%6s ", symbol_class_str);
+	} else if ((u32) symbol.storage_class == 0) {
+		printf("       ");
+	} else {
+		printf("SC(%2d) ", (u32) symbol.storage_class);
+	}
+	printf("%8d %s\n", symbol.index, symbol.string);
 }
 
 static u32 build_analysis_flags(u32 flags) {
@@ -243,6 +260,8 @@ static Options parse_args(int argc, char** argv) {
 		options.mode = OutputMode::PRINT_MDEBUG;
 	} else if(strcmp(command, "print_symbols") == 0) {
 		options.mode = OutputMode::PRINT_SYMBOLS;
+	} else if(strcmp(command, "print_external_symbols") == 0) {
+		options.mode = OutputMode::PRINT_EXTERNAL_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {
 		options.mode = OutputMode::LIST_FILES;
 	} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
@@ -298,6 +317,9 @@ static void print_help() {
 	puts("");
 	puts("  print_symbols <input file>");
 	puts("    List all of the local symbols for each file.");
+	puts("");
+	puts("  print_external_symbols <input file>");
+	puts("    List all of the external symbols for each file.");
 	puts("");
 	puts("  list_files <input_file>");
 	puts("    List the names of each of the source files.");

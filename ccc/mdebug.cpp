@@ -74,15 +74,21 @@ packed_struct(ProcedureDescriptor,
 	/* 0x30 */ s32 cb_line_offset;
 )
 
-packed_struct(LocalSymbol,
-	/* 0x00 */ u32 iss;
-	/* 0x04 */ s32 value;
-	/* 0x08:00 */ u32 st : 6;
-	/* 0x08:06 */ u32 sc : 5;
-	/* 0x08:11 */ u32 reserved : 1;
-	/* 0x08:12 */ u32 index : 20;
+packed_struct(SymbolHeader,
+	/* 0x0 */ u32 iss;
+	/* 0x4 */ s32 value;
+	/* 0x8:00 */ u32 st : 6;
+	/* 0x8:06 */ u32 sc : 5;
+	/* 0x8:11 */ u32 reserved : 1;
+	/* 0x8:12 */ u32 index : 20;
 )
-static_assert(sizeof(LocalSymbol) == 0xc);
+static_assert(sizeof(SymbolHeader) == 0xc);
+
+packed_struct(ExternalSymbolHeader,
+	/* 0x0 */ u16 flags;
+	/* 0x2 */ s16 ifd;
+	/* 0x4 */ SymbolHeader symbol;
+)
 
 SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) {
 	SymbolTable symbol_table;
@@ -118,16 +124,16 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 		
 		// Read symbols.
 		for(s64 j = 0; j < fd_header.symbol_count; j++) {
-			u64 sym_offset = hdrr.local_symbols_offset + (fd_header.isym_base + j) * sizeof(LocalSymbol);
-			const auto& sym_entry = get_packed<LocalSymbol>(mod.image, sym_offset, "local symbol");
+			u64 sym_offset = hdrr.local_symbols_offset + (fd_header.isym_base + j) * sizeof(SymbolHeader);
+			const auto& external_header = get_packed<SymbolHeader>(mod.image, sym_offset, "local symbol");
 			Symbol& sym = fd.symbols.emplace_back();
-			sym.string = get_c_string(mod.image, hdrr.local_strings_offset + fd_header.strings_offset + sym_entry.iss);
-			sym.value = sym_entry.value;
-			sym.storage_type = (SymbolType) sym_entry.st;
-			sym.storage_class = (SymbolClass) sym_entry.sc;
-			sym.index = sym_entry.index;
+			sym.string = get_c_string(mod.image, hdrr.local_strings_offset + fd_header.strings_offset + external_header.iss);
+			sym.value = external_header.value;
+			sym.storage_type = (SymbolType) external_header.st;
+			sym.storage_class = (SymbolClass) external_header.sc;
+			sym.index = external_header.index;
 			
-			if(fd.base_path.empty() && sym_entry.iss == fd_header.file_path_string_offset && sym.storage_type == SymbolType::LABEL && fd.symbols.size() > 2) {
+			if(fd.base_path.empty() && external_header.iss == fd_header.file_path_string_offset && sym.storage_type == SymbolType::LABEL && fd.symbols.size() > 2) {
 				const Symbol& base_path = fd.symbols[fd.symbols.size() - 2];
 				if(base_path.storage_type == SymbolType::LABEL) {
 					fd.base_path = base_path.string;
@@ -152,15 +158,27 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 		//	u64 pd_offset = hdrr.cb_pd_offset + (fd_header.ipd_first + j) * sizeof(ProcedureDescriptor);
 		//	auto pd_entry = get_packed<ProcedureDescriptor>(mod.image, pd_offset, "procedure descriptor");
 		//	
-		//	u64 sym_offset = hdrr.cb_sym_offset + (fd_header.isym_base + pd_entry.isym) * sizeof(LocalSymbol);
-		//	const auto& sym_entry = get_packed<LocalSymbol>(mod.image, sym_offset, "local symbol");
+		//	u64 sym_offset = hdrr.cb_sym_offset + (fd_header.isym_base + pd_entry.isym) * sizeof(SymbolHeader);
+		//	const auto& external_header = get_packed<SymbolHeader>(mod.image, sym_offset, "local symbol");
 		//	
 		//	SymProcedureDescriptor& pd = fd.procedures.emplace_back();
-		//	pd.name = get_string(mod.image, hdrr.strings_base_offset + fd_header.strings_offset + sym_entry.iss);
+		//	pd.name = get_string(mod.image, hdrr.strings_base_offset + fd_header.strings_offset + external_header.iss);
 		//	pd.address = pd_entry.address;
 		//}
 		
 		symbol_table.files.emplace_back(fd);
+	}
+	
+	// Read external symbols.
+	for(s64 i = 0; i < hdrr.external_symbols_count; i++) {
+		u64 sym_offset = hdrr.external_symbols_offset + i * sizeof(ExternalSymbolHeader);
+		const auto& external_header = get_packed<ExternalSymbolHeader>(mod.image, sym_offset, "local symbol");
+		Symbol& sym = symbol_table.externals.emplace_back();
+		sym.string = get_c_string(mod.image, hdrr.external_strings_offset + external_header.symbol.iss);
+		sym.value = external_header.symbol.value;
+		sym.storage_type = (SymbolType) external_header.symbol.st;
+		sym.storage_class = (SymbolClass) external_header.symbol.sc;
+		sym.index = external_header.symbol.index;
 	}
 	
 	return symbol_table;
@@ -186,7 +204,7 @@ void print_headers(FILE* dest, const SymbolTable& symbol_table) {
 		hdrr.procedure_descriptor_count);
 	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		hdrr.local_symbols_offset,
-		hdrr.local_symbol_count * (s32) sizeof(LocalSymbol),
+		hdrr.local_symbol_count * (s32) sizeof(SymbolHeader),
 		hdrr.local_symbol_count);
 	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   "  "%-8d\n",
 		hdrr.optimization_symbols_offset,
