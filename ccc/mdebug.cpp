@@ -168,7 +168,7 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 
 void print_headers(FILE* dest, const SymbolTable& symbol_table) {
 	const SymbolicHeader& hdrr = *symbol_table.header;
-	fprintf(dest, "Symbolic Header: magic=%hx vstamp=%hx\n", hdrr.magic, hdrr.version_stamp);
+	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n", hdrr.magic, hdrr.version_stamp);
 	fprintf(dest, "\n");
 	fprintf(dest, "                              Offset              Size (Bytes)        Count\n");
 	fprintf(dest, "                              ------              ------------        -----\n");
