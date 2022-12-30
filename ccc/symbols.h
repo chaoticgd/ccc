@@ -25,7 +25,7 @@ enum class StabsSymbolDescriptor : u8 {
 struct StabsType;
 
 struct ParsedSymbol {
-	const Symbol* raw;
+	const mdebug::Symbol* raw;
 	bool is_stabs = false;
 	// The fields below are only populated for STABS symbols.
 	StabsSymbolDescriptor descriptor;
@@ -33,7 +33,7 @@ struct ParsedSymbol {
 	std::unique_ptr<StabsType> type;
 };
 
-std::vector<ParsedSymbol> parse_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language);
+std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);
 ParsedSymbol parse_stabs_symbol(const char* input);
 
 }

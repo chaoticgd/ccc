@@ -7,19 +7,19 @@ namespace ccc {
 
 static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 
-std::vector<ParsedSymbol> parse_symbols(const std::vector<Symbol>& input, SourceLanguage detected_language) {
+std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language) {
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
 	bool last_symbol_was_end = false;
-	for(const Symbol& symbol : input) {
+	for(const mdebug::Symbol& symbol : input) {
 		bool is_stabs_symbol =
-			   (symbol.storage_type == SymbolType::NIL // types, globals
-				&& symbol.storage_class != SymbolClass::INFO)
+			   (symbol.storage_type == mdebug::SymbolType::NIL // types, globals
+				&& symbol.storage_class != mdebug::SymbolClass::INFO)
 			|| (last_symbol_was_end // functions
-				&& symbol.storage_type == SymbolType::LABEL
-				&& (detected_language == SourceLanguage::C
-					|| detected_language == SourceLanguage::CPP))
-			|| (symbol.storage_type == SymbolType::STATIC // static globals
+				&& symbol.storage_type == mdebug::SymbolType::LABEL
+				&& (detected_language == mdebug::SourceLanguage::C
+					|| detected_language == mdebug::SourceLanguage::CPP))
+			|| (symbol.storage_type == mdebug::SymbolType::STATIC // static globals
 				&& (s32) symbol.storage_class >= 1
 				&& (s32) symbol.storage_class <= 3
 				&& symbol.string.find(":") != std::string::npos) // omit various non-stabs symbols
@@ -55,7 +55,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<Symbol>& input, Source
 			non_stabs_symbol.raw = &symbol;
 			output.emplace_back(std::move(non_stabs_symbol));
 		}
-		last_symbol_was_end = (symbol.storage_type == SymbolType::END);
+		last_symbol_was_end = (symbol.storage_type == mdebug::SymbolType::END);
 	}
 	return output;
 }

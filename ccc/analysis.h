@@ -70,9 +70,9 @@ enum AnalysisFlags {
 	STRIP_GENERATED_FUNCTIONS = (1 << 3)
 };
 
-SymbolTable read_symbol_table(const std::vector<Module*>& modules);
-AnalysisResults analyse(const SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
-void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, const SymFileDescriptor& fd, u32 flags);
+mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules);
+AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
+void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, u32 flags);
 std::map<u32, Function> scan_for_functions(u32 address, std::span<mips::Insn> insns);
 
 };

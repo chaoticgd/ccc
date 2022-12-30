@@ -4,7 +4,11 @@
 #include "util.h"
 #include "module.h"
 
-namespace ccc {
+namespace ccc::mdebug {
+
+struct SymbolicHeader;
+struct FileDescriptor;
+struct ProcedureDescriptor;
 
 enum class SymbolType : u32 {
 	NIL = 0,
@@ -75,6 +79,7 @@ enum class SourceLanguage {
 };
 
 struct SymFileDescriptor {
+	const FileDescriptor* header;
 	std::string base_path;
 	std::string raw_path;
 	std::string full_path;
@@ -84,13 +89,15 @@ struct SymFileDescriptor {
 };
 
 struct SymbolTable {
+	const SymbolicHeader* header;
 	std::vector<SymFileDescriptor> files;
 	u64 procedure_descriptor_table_offset;
 	u64 local_symbol_table_offset;
 	u64 file_descriptor_table_offset;
 };
 
-SymbolTable parse_mdebug_section(const Module& module, const ModuleSection& section);
+SymbolTable parse_symbol_table(const Module& module, const ModuleSection& section);
+void print_headers(FILE* dest, const SymbolTable& symbol_table);
 const char* symbol_type(SymbolType type);
 const char* symbol_class(SymbolClass symbol_class);
 
