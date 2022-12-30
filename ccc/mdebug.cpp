@@ -84,10 +84,10 @@ packed_struct(LocalSymbol,
 )
 static_assert(sizeof(LocalSymbol) == 0xc);
 
-SymbolTable parse_symbol_table(const Module& module, const ModuleSection& section) {
+SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) {
 	SymbolTable symbol_table;
 	
-	const auto& hdrr = get_packed<SymbolicHeader>(module.image, section.file_offset, "MIPS debug section");
+	const auto& hdrr = get_packed<SymbolicHeader>(mod.image, section.file_offset, "MIPS debug section");
 	verify(hdrr.magic == 0x7009, "Invalid symbolic header.");
 	
 	symbol_table.header = &hdrr;
@@ -98,12 +98,12 @@ SymbolTable parse_symbol_table(const Module& module, const ModuleSection& sectio
 	// Iterate over file descriptors.
 	for(s64 i = 0; i < hdrr.file_descriptor_count; i++) {
 		u64 fd_offset = hdrr.file_descriptors_offset + i * sizeof(FileDescriptor);
-		const auto& fd_header = get_packed<FileDescriptor>(module.image, fd_offset, "file descriptor");
+		const auto& fd_header = get_packed<FileDescriptor>(mod.image, fd_offset, "file descriptor");
 		verify(fd_header.f_big_endian == 0, "Not little endian or bad file descriptor table.");
 		
 		SymFileDescriptor fd;
 		fd.header = &fd_header;
-		fd.raw_path = get_string(module.image, hdrr.local_strings_offset + fd_header.strings_offset + fd_header.file_path_string_offset);
+		fd.raw_path = get_string(mod.image, hdrr.local_strings_offset + fd_header.strings_offset + fd_header.file_path_string_offset);
 		
 		// Try to detect the source language.
 		std::string lower_name = fd.raw_path;
@@ -119,9 +119,9 @@ SymbolTable parse_symbol_table(const Module& module, const ModuleSection& sectio
 		// Read symbols.
 		for(s64 j = 0; j < fd_header.symbol_count; j++) {
 			u64 sym_offset = hdrr.local_symbols_offset + (fd_header.isym_base + j) * sizeof(LocalSymbol);
-			const auto& sym_entry = get_packed<LocalSymbol>(module.image, sym_offset, "local symbol");
+			const auto& sym_entry = get_packed<LocalSymbol>(mod.image, sym_offset, "local symbol");
 			Symbol& sym = fd.symbols.emplace_back();
-			sym.string = get_string(module.image, hdrr.local_strings_offset + fd_header.strings_offset + sym_entry.iss);
+			sym.string = get_c_string(mod.image, hdrr.local_strings_offset + fd_header.strings_offset + sym_entry.iss);
 			sym.value = sym_entry.value;
 			sym.storage_type = (SymbolType) sym_entry.st;
 			sym.storage_class = (SymbolClass) sym_entry.sc;
@@ -150,13 +150,13 @@ SymbolTable parse_symbol_table(const Module& module, const ModuleSection& sectio
 		// This is buggy.
 		//for(s64 j = 0; j < fd_header.cpd; j++) {
 		//	u64 pd_offset = hdrr.cb_pd_offset + (fd_header.ipd_first + j) * sizeof(ProcedureDescriptor);
-		//	auto pd_entry = get_packed<ProcedureDescriptor>(module.image, pd_offset, "procedure descriptor");
+		//	auto pd_entry = get_packed<ProcedureDescriptor>(mod.image, pd_offset, "procedure descriptor");
 		//	
 		//	u64 sym_offset = hdrr.cb_sym_offset + (fd_header.isym_base + pd_entry.isym) * sizeof(LocalSymbol);
-		//	const auto& sym_entry = get_packed<LocalSymbol>(module.image, sym_offset, "local symbol");
+		//	const auto& sym_entry = get_packed<LocalSymbol>(mod.image, sym_offset, "local symbol");
 		//	
 		//	SymProcedureDescriptor& pd = fd.procedures.emplace_back();
-		//	pd.name = get_string(module.image, hdrr.strings_base_offset + fd_header.strings_offset + sym_entry.iss);
+		//	pd.name = get_string(mod.image, hdrr.strings_base_offset + fd_header.strings_offset + sym_entry.iss);
 		//	pd.address = pd_entry.address;
 		//}
 		
@@ -168,7 +168,7 @@ SymbolTable parse_symbol_table(const Module& module, const ModuleSection& sectio
 
 void print_headers(FILE* dest, const SymbolTable& symbol_table) {
 	const SymbolicHeader& hdrr = *symbol_table.header;
-	fprintf(dest, "SYMBOLIC HEADER: magic=%hx vstamp=%hx\n", hdrr.magic, hdrr.version_stamp);
+	fprintf(dest, "Symbolic Header: magic=%hx vstamp=%hx\n", hdrr.magic, hdrr.version_stamp);
 	fprintf(dest, "\n");
 	fprintf(dest, "                              Offset              Size (Bytes)        Count\n");
 	fprintf(dest, "                              ------              ------------        -----\n");

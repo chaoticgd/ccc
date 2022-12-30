@@ -59,7 +59,7 @@ enum class SymbolClass : u32 {
 };
 
 struct Symbol {
-	std::string string;
+	const char* string;
 	s32 value;
 	SymbolType storage_type;
 	SymbolClass storage_class;

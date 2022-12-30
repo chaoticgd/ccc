@@ -22,16 +22,16 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 			|| (symbol.storage_type == mdebug::SymbolType::STATIC // static globals
 				&& (s32) symbol.storage_class >= 1
 				&& (s32) symbol.storage_class <= 3
-				&& symbol.string.find(":") != std::string::npos) // omit various non-stabs symbols
-				&& (symbol.string.size() < 3 // false positive: windows paths
+				&& strchr(symbol.string, ':') != nullptr) // omit various non-stabs symbols
+				&& (strlen(symbol.string) < 3 // false positive: windows paths
 					|| !(symbol.string[1] == ':'
 						&& (symbol.string[2] == '/'
 							|| symbol.string[2] == '\\')));
 		if(is_stabs_symbol) {
 			// Some STABS symbols are split between multiple strings.
-			if(!symbol.string.empty()) {
-				if(symbol.string[symbol.string.size() - 1] == '\\') {
-					prefix += symbol.string.substr(0, symbol.string.size() - 1);
+			if(symbol.string != nullptr && symbol.string[0] != '\0') {
+				if(symbol.string[strlen(symbol.string) - 1] == '\\') {
+					prefix += std::string(symbol.string, symbol.string + strlen(symbol.string) - 1);
 					break; // Don't update last_symbol_was_end!
 				} else {
 					std::string symbol_string = prefix + symbol.string;

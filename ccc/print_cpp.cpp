@@ -90,7 +90,7 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 			fprintf(dest, "// warning: multiple differing types with the same name (%s not equal)\n", node->compare_fail_reason);
 		}
 		if(verbose && node->symbol != nullptr) {
-			fprintf(dest, "// symbol: %s\n", node->symbol->raw->string.c_str());
+			fprintf(dest, "// symbol: %s\n", node->symbol->raw->string);
 		}
 		VariableName name{nullptr};
 		s32 digits_for_offset = 0;

@@ -40,7 +40,6 @@ static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Option
 static void print_symbols(mdebug::SymbolTable& symbol_table);
 static u32 build_analysis_flags(u32 flags);
 static void list_files(mdebug::SymbolTable& symbol_table);
-static mdebug::SymbolTable read_symbol_table(Module& mod);
 static Options parse_args(int argc, char** argv);
 static void print_help();
 
@@ -54,7 +53,9 @@ int main(int argc, char** argv) {
 		print_help();
 	} else {
 		mod = loaders::read_elf_file(options.input_file);
-		symbol_table = read_symbol_table(mod);
+		ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+		verify(mdebug_section, "No .mdebug section.");
+		symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
 	}
 	switch(options.mode) {
 		case OutputMode::PRINT_FUNCTIONS: {
@@ -206,7 +207,7 @@ static void print_symbols(mdebug::SymbolTable& symbol_table) {
 			} else {
 				printf("SC(%2d) ", (u32) sym.storage_class);
 			}
-			printf("%8d %s\n", sym.index, sym.string.c_str());
+			printf("%8d %s\n", sym.index, sym.string);
 		}
 	}
 }
@@ -222,12 +223,6 @@ static void list_files(mdebug::SymbolTable& symbol_table) {
 	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		printf("%s\n", fd.full_path.c_str());
 	}
-}
-
-static mdebug::SymbolTable read_symbol_table(Module& mod) {
-	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
-	verify(mdebug_section, "No .mdebug section.");
-	return mdebug::parse_symbol_table(mod, *mdebug_section);
 }
 
 static Options parse_args(int argc, char** argv) {
