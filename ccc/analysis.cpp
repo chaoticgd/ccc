@@ -8,12 +8,12 @@ namespace ccc {
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 // scan_for_functions
 
-SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
-	std::optional<SymbolTable> symbol_table;
+mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
+	std::optional<mdebug::SymbolTable> symbol_table;
 	for(Module* mod : modules) {
 		ModuleSection* mdebug_section = mod->lookup_section(".mdebug");
 		if(mdebug_section) {
-			symbol_table = parse_mdebug_section(*mod, *mdebug_section);
+			symbol_table = mdebug::parse_symbol_table(*mod, *mdebug_section);
 			break;
 		}
 	}
@@ -21,7 +21,7 @@ SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
 	return *symbol_table;
 }
 
-AnalysisResults analyse(const SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
+AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
 	AnalysisResults results;
 	
 	// Either analyse a specific file descriptor, or all of them.
@@ -29,7 +29,7 @@ AnalysisResults analyse(const SymbolTable& symbol_table, u32 flags, s32 file_des
 		assert(file_descriptor_index < symbol_table.files.size());
 		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], flags);
 	} else {
-		for(const SymFileDescriptor& fd : symbol_table.files) {
+		for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 			analyse_file(results, symbol_table, fd, flags);
 		}
 	}
@@ -59,7 +59,7 @@ AnalysisResults analyse(const SymbolTable& symbol_table, u32 flags, s32 file_des
 	return results;
 }
 
-void analyse_file(AnalysisResults& results, const SymbolTable& symbol_table, const SymFileDescriptor& fd, u32 flags) {
+void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, u32 flags) {
 	TranslationUnit& translation_unit = results.translation_units.emplace_back();
 	translation_unit.full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely

@@ -10,6 +10,7 @@ enum class OutputMode {
 	PRINT_GLOBALS,
 	PRINT_TYPES,
 	PRINT_JSON,
+	PRINT_MDEBUG,
 	PRINT_SYMBOLS,
 	LIST_FILES,
 	HELP,
@@ -30,28 +31,31 @@ struct Options {
 	u32 flags;
 };
 
-static void print_deduplicated(const SymbolTable& symbol_table, Options options);
-static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const SymbolTable& symbol_table);
-static void print_functions(SymbolTable& symbol_table);
-static void print_globals(SymbolTable& symbol_table);
-static void print_types_deduplicated(SymbolTable& symbol_table, const Options& options);
-static void print_types_per_file(SymbolTable& symbol_table, const Options& options);
-static void print_symbols(SymbolTable& symbol_table);
+static void print_deduplicated(const mdebug::SymbolTable& symbol_table, Options options);
+static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const mdebug::SymbolTable& symbol_table);
+static void print_functions(mdebug::SymbolTable& symbol_table);
+static void print_globals(mdebug::SymbolTable& symbol_table);
+static void print_types_deduplicated(mdebug::SymbolTable& symbol_table, const Options& options);
+static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Options& options);
+static void print_symbols(mdebug::SymbolTable& symbol_table);
 static u32 build_analysis_flags(u32 flags);
-static void list_files(SymbolTable& symbol_table);
-static SymbolTable read_symbol_table(const fs::path& input_file);
+static void list_files(mdebug::SymbolTable& symbol_table);
 static Options parse_args(int argc, char** argv);
 static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
-	SymbolTable symbol_table;
+	Module mod;
+	mdebug::SymbolTable symbol_table;
 	if(options.mode == OutputMode::HELP) {
 		print_help();
 	} else if(options.mode == OutputMode::BAD_COMMAND) {
 		print_help();
 	} else {
-		symbol_table = read_symbol_table(options.input_file);
+		mod = loaders::read_elf_file(options.input_file);
+		ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+		verify(mdebug_section, "No .mdebug section.");
+		symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
 	}
 	switch(options.mode) {
 		case OutputMode::PRINT_FUNCTIONS: {
@@ -80,6 +84,10 @@ int main(int argc, char** argv) {
 			}
 			break;
 		}
+		case OutputMode::PRINT_MDEBUG: {
+			mdebug::print_headers(stdout, symbol_table);
+			break;
+		}
 		case OutputMode::PRINT_SYMBOLS: {
 			print_symbols(symbol_table);
 			return 0;
@@ -97,7 +105,7 @@ int main(int argc, char** argv) {
 	}
 }
 
-static void print_functions(SymbolTable& symbol_table) {
+static void print_functions(mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		TranslationUnit& translation_unit = result.translation_units.at(0);
@@ -131,7 +139,7 @@ static void print_functions(SymbolTable& symbol_table) {
 	}
 }
 
-static void print_globals(SymbolTable& symbol_table) {
+static void print_globals(mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		TranslationUnit& translation_unit = result.translation_units.at(0);
@@ -150,7 +158,7 @@ static void print_globals(SymbolTable& symbol_table) {
 	}
 }
 
-static void print_types_deduplicated(SymbolTable& symbol_table, const Options& options) {
+static void print_types_deduplicated(mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	analysis_flags |= DEDUPLICATE_TYPES;
 	AnalysisResults results = analyse(symbol_table, analysis_flags);
@@ -161,7 +169,7 @@ static void print_types_deduplicated(SymbolTable& symbol_table, const Options& o
 	print_cpp_ast_nodes(stdout, results.deduplicated_types, options.flags & FLAG_VERBOSE);
 }
 
-static void print_types_per_file(SymbolTable& symbol_table, const Options& options) {
+static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	print_cpp_comment_block_beginning(stdout, options.input_file);
 	printf("\n");
@@ -180,10 +188,10 @@ static void print_types_per_file(SymbolTable& symbol_table, const Options& optio
 	}
 }
 
-static void print_symbols(SymbolTable& symbol_table) {
-	for(SymFileDescriptor& fd : symbol_table.files) {
+static void print_symbols(mdebug::SymbolTable& symbol_table) {
+	for(mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		printf("FILE %s:\n", fd.raw_path.c_str());
-		for(Symbol& sym : fd.symbols) {
+		for(mdebug::Symbol& sym : fd.symbols) {
 			const char* symbol_type_str = symbol_type(sym.storage_type);
 			const char* symbol_class_str = symbol_class(sym.storage_class);
 			printf("\t%8x ", sym.value);
@@ -199,7 +207,7 @@ static void print_symbols(SymbolTable& symbol_table) {
 			} else {
 				printf("SC(%2d) ", (u32) sym.storage_class);
 			}
-			printf("%8d %s\n", sym.index, sym.string.c_str());
+			printf("%8d %s\n", sym.index, sym.string);
 		}
 	}
 }
@@ -211,17 +219,10 @@ static u32 build_analysis_flags(u32 flags) {
 	return analysis_flags;
 }
 
-static void list_files(SymbolTable& symbol_table) {
-	for(const SymFileDescriptor& fd : symbol_table.files) {
+static void list_files(mdebug::SymbolTable& symbol_table) {
+	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		printf("%s\n", fd.full_path.c_str());
 	}
-}
-
-static SymbolTable read_symbol_table(const fs::path& input_file) {
-	Module mod = loaders::read_elf_file(input_file);
-	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
-	verify(mdebug_section, "No .mdebug section.");
-	return parse_mdebug_section(mod, *mdebug_section);
 }
 
 static Options parse_args(int argc, char** argv) {
@@ -238,6 +239,8 @@ static Options parse_args(int argc, char** argv) {
 		options.mode = OutputMode::PRINT_TYPES;
 	} else if(strcmp(command, "print_json") == 0) {
 		options.mode = OutputMode::PRINT_JSON;
+	} else if(strcmp(command, "print_mdebug") == 0) {
+		options.mode = OutputMode::PRINT_MDEBUG;
 	} else if(strcmp(command, "print_symbols") == 0) {
 		options.mode = OutputMode::PRINT_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {
@@ -289,6 +292,9 @@ static void print_help() {
 	puts("    Print all of the above as JSON.");
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
+	puts("");
+	puts("  print_mdebug <input file>");
+	puts("    Print mdebug header information.");
 	puts("");
 	puts("  print_symbols <input file>");
 	puts("    List all of the local symbols for each file.");

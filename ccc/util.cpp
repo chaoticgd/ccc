@@ -43,12 +43,22 @@ std::string read_text_file(const fs::path& path) {
 }
 
 std::string get_string(const std::vector<u8>& bytes, u64 offset) {
-	verify(offset < bytes.size(), "Offset of string is too large.");
+	verify(offset < bytes.size(), "Tried to read a string past the end of the buffer.");
 	std::string result;
 	for(u64 i = offset; i < bytes.size() && bytes[i] != '\0'; i++) {
 		result += bytes[i];
 	}
 	return result;
+}
+
+const char* get_c_string(const std::vector<u8>& bytes, u64 offset) {
+	verify(offset < bytes.size(), "Tried to read a string past the end of the buffer.");
+	for(const unsigned char* c = bytes.data() + offset; c < bytes.data() + bytes.size(); c++) {
+		if(*c == '\0') {
+			return (const char*) &bytes[offset];
+		}
+	}
+	verify_not_reached("Unexpected end of buffer while reading string.");
 }
 
 std::string string_format(const char* format, va_list args) {
