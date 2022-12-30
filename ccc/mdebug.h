@@ -91,6 +91,7 @@ struct SymFileDescriptor {
 struct SymbolTable {
 	const SymbolicHeader* header;
 	std::vector<SymFileDescriptor> files;
+	std::vector<Symbol> externals;
 	u64 procedure_descriptor_table_offset;
 	u64 local_symbol_table_offset;
 	u64 file_descriptor_table_offset;
