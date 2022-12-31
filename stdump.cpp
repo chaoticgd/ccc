@@ -213,20 +213,25 @@ static void print_external_symbols(const mdebug::SymbolTable& symbol_table) {
 static void print_symbol(const mdebug::Symbol& symbol) {
 	const char* symbol_type_str = symbol_type(symbol.storage_type);
 	const char* symbol_class_str = symbol_class(symbol.storage_class);
-	printf("\t%8x ", symbol.value);
+	printf("%8x ", symbol.value);
 	if(symbol_type_str) {
-		printf("%11s ", symbol_type_str);
+		printf("%-11s ", symbol_type_str);
 	} else {
-		printf("ST(%5d) ", (u32) symbol.storage_type);
+		printf("ST(%7d) ", (u32) symbol.storage_type);
 	}
 	if(symbol_class_str) {
-		printf("%6s ", symbol_class_str);
+		printf("%-4s ", symbol_class_str);
 	} else if ((u32) symbol.storage_class == 0) {
-		printf("       ");
+		printf("         ");
 	} else {
-		printf("SC(%2d) ", (u32) symbol.storage_class);
+		printf("SC(%4d) ", (u32) symbol.storage_class);
 	}
-	printf("%8d %s\n", symbol.index, symbol.string);
+	if(symbol.is_stabs) {
+		printf("%-8s ", mdebug::stabs_code(symbol.code));
+	} else {
+		printf("SI(%4d) ", symbol.index);
+	}
+	printf("%s\n", symbol.string);
 }
 
 static u32 build_analysis_flags(u32 flags) {
