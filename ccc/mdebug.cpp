@@ -130,9 +130,9 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 			const auto& symbol_header = get_packed<SymbolHeader>(mod.image, sym_offset, "local symbol");
 			Symbol& sym = fd.symbols.emplace_back(parse_symbol(symbol_header, mod.image, hdrr.local_strings_offset + fd_header.strings_offset));
 			
-			if(fd.base_path.empty() && symbol_header.iss == fd_header.file_path_string_offset && sym.storage_type == SymbolType::LABEL && fd.symbols.size() > 2) {
+			if(fd.base_path.empty() && symbol_header.iss == fd_header.file_path_string_offset && sym.is_stabs && sym.code == N_SO && fd.symbols.size() > 2) {
 				const Symbol& base_path = fd.symbols[fd.symbols.size() - 2];
-				if(base_path.storage_type == SymbolType::LABEL) {
+				if(base_path.is_stabs && base_path.code == N_SO) {
 					fd.base_path = base_path.string;
 				}
 			}

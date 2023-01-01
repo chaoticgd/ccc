@@ -41,7 +41,7 @@ struct ParsedSymbol {
 		std::unique_ptr<StabsType> type;
 	} name_colon_type;
 	struct {
-		std::string path;
+		const char* path;
 	} sub_source_file;
 	struct {
 		s32 number;
