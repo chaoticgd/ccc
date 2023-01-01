@@ -69,82 +69,97 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	// so here we build a map of type numbers to the parsed types.
 	std::map<s32, const StabsType*> stabs_types;
 	for(const ParsedSymbol& symbol : translation_unit.symbols) {
-		if(symbol.is_stabs) {
-			symbol.type->enumerate_numbered_types(stabs_types);
+		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
+			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);
 		}
 	}
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
 	for(const ParsedSymbol& symbol : translation_unit.symbols) {
-		if(symbol.is_stabs) {
-			switch(symbol.descriptor) {
-				case StabsSymbolDescriptor::LOCAL_FUNCTION:
-				case StabsSymbolDescriptor::GLOBAL_FUNCTION: {
-					Function& function = translation_unit.functions.emplace_back();
-					function.name = symbol.name;
-					function.return_type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
-					break;
-				}
-				case StabsSymbolDescriptor::REFERENCE_PARAMETER:
-				case StabsSymbolDescriptor::REGISTER_PARAMETER:
-				case StabsSymbolDescriptor::VALUE_PARAMETER: {
-					if(translation_unit.functions.empty()) {
+		switch(symbol.type) {
+			case ParsedSymbolType::NAME_COLON_TYPE: {
+				switch(symbol.name_colon_type.descriptor) {
+					case StabsSymbolDescriptor::LOCAL_FUNCTION:
+					case StabsSymbolDescriptor::GLOBAL_FUNCTION: {
+						Function& function = translation_unit.functions.emplace_back();
+						function.name = symbol.name_colon_type.name;
+						function.return_type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
 						break;
 					}
-					Function& function = translation_unit.functions.back();
-					Parameter& parameter = function.parameters.emplace_back();
-					parameter.name = symbol.name;
-					parameter.type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
-					if(symbol.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER) {
-						parameter.storage.location = VariableStorageLocation::STACK;
-						parameter.storage.stack_pointer_offset = symbol.raw->value;
-					} else {
-						parameter.storage.location = VariableStorageLocation::REGISTER;
-						parameter.storage.dbx_register_number = symbol.raw->value;
-						std::tie(parameter.storage.register_class, parameter.storage.register_index_relative) =
-							mips::map_gcc_register_index(parameter.storage.dbx_register_number);
-					}
-					break;
-				}
-				case StabsSymbolDescriptor::REGISTER_VARIABLE:
-				case StabsSymbolDescriptor::LOCAL_VARIABLE:
-				case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
-					if(translation_unit.functions.empty()) {
+					case StabsSymbolDescriptor::REFERENCE_PARAMETER:
+					case StabsSymbolDescriptor::REGISTER_PARAMETER:
+					case StabsSymbolDescriptor::VALUE_PARAMETER: {
+						if(translation_unit.functions.empty()) {
+							break;
+						}
+						Function& function = translation_unit.functions.back();
+						Parameter& parameter = function.parameters.emplace_back();
+						parameter.name = symbol.name_colon_type.name;
+						parameter.type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER) {
+							parameter.storage.location = VariableStorageLocation::STACK;
+							parameter.storage.stack_pointer_offset = symbol.raw->value;
+						} else {
+							parameter.storage.location = VariableStorageLocation::REGISTER;
+							parameter.storage.dbx_register_number = symbol.raw->value;
+							std::tie(parameter.storage.register_class, parameter.storage.register_index_relative) =
+								mips::map_gcc_register_index(parameter.storage.dbx_register_number);
+						}
 						break;
 					}
-					Function& function = translation_unit.functions.back();
-					LocalVariable& local = function.locals.emplace_back();
-					local.name = symbol.name;
-					local.type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
-					if(symbol.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
-						local.storage.location = VariableStorageLocation::REGISTER;
-						local.storage.dbx_register_number = symbol.raw->value;
-						std::tie(local.storage.register_class, local.storage.register_index_relative) =
-							mips::map_gcc_register_index(local.storage.dbx_register_number);
-					} else {
-						local.storage.location = VariableStorageLocation::STACK;
-						local.storage.stack_pointer_offset = symbol.raw->value;
+					case StabsSymbolDescriptor::REGISTER_VARIABLE:
+					case StabsSymbolDescriptor::LOCAL_VARIABLE:
+					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
+						if(translation_unit.functions.empty()) {
+							break;
+						}
+						Function& function = translation_unit.functions.back();
+						LocalVariable& local = function.locals.emplace_back();
+						local.name = symbol.name_colon_type.name;
+						local.type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
+							local.storage.location = VariableStorageLocation::REGISTER;
+							local.storage.dbx_register_number = symbol.raw->value;
+							std::tie(local.storage.register_class, local.storage.register_index_relative) =
+								mips::map_gcc_register_index(local.storage.dbx_register_number);
+						} else {
+							local.storage.location = VariableStorageLocation::STACK;
+							local.storage.stack_pointer_offset = symbol.raw->value;
+						}
+						break;
 					}
-					break;
-				}
-				case StabsSymbolDescriptor::GLOBAL_VARIABLE:
-				case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
-					GlobalVariable& global = translation_unit.globals.emplace_back();
-					global.name = symbol.name;
-					global.type = ast::stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, true);
-					if(symbol.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE) {
-						global.type->storage_class = ast::StorageClass::STATIC;
+					case StabsSymbolDescriptor::GLOBAL_VARIABLE:
+					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
+						GlobalVariable& global = translation_unit.globals.emplace_back();
+						global.name = symbol.name_colon_type.name;
+						global.type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE) {
+							global.type->storage_class = ast::StorageClass::STATIC;
+						}
+						break;
 					}
-					break;
-				}
-				case StabsSymbolDescriptor::TYPE_NAME:
-				case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG: {
-					std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
-					if(node != nullptr) {
-						translation_unit.types.emplace_back(std::move(node));
+					case StabsSymbolDescriptor::TYPE_NAME:
+					case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG: {
+						std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
+						if(node != nullptr) {
+							translation_unit.types.emplace_back(std::move(node));
+						}
+						break;
 					}
-					break;
 				}
+				break;
+			}
+			case ParsedSymbolType::SUB_SOURCE_FILE: {
+				break;
+			}
+			case ParsedSymbolType::SCOPE_BEGIN: {
+				break;
+			}
+			case ParsedSymbolType::SCOPE_END: {
+				break;
+			}
+			case ParsedSymbolType::NON_STABS: {
+				break;
 			}
 		}
 	}

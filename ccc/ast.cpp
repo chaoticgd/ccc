@@ -7,11 +7,11 @@ namespace ccc::ast {
 
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.name.c_str());
-	auto node = stabs_type_to_ast_no_throw(*symbol.type.get(), stabs_types, 0, 0, false);
+	auto node = stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, false);
 	if(node != nullptr) {
-		node->name = (symbol.name == " ") ? "" : symbol.name;
+		node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
 		node->symbol = &symbol;
-		if(symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
+		if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
 			node->storage_class = StorageClass::TYPEDEF;
 		}
 	}

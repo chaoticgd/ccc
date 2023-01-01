@@ -96,9 +96,9 @@ enum StabsCode {
 	N_ECOML = 0xe8,
 	N_NBTEXT = 0xf0,
 	N_NBDATA = 0xf2,
-	N_NBBSS =  0xf4,
-	N_NBSTS =  0xf6,
-	N_NBLCS =  0xf8,
+	N_NBBSS = 0xf4,
+	N_NBSTS = 0xf6,
+	N_NBLCS = 0xf8,
 	N_LENG = 0xfe
 };
 
