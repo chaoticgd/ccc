@@ -120,28 +120,14 @@ static void print_functions(mdebug::SymbolTable& symbol_table) {
 		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		for(const Function& function : translation_unit.functions) {
-			VariableName function_name{&function.name};
-			print_cpp_ast_node(stdout, *function.return_type.get(), function_name, 0, 3);
-			printf("(");
-			for(size_t i = 0; i < function.parameters.size(); i++) {
-				const Parameter& parameter = function.parameters[i];
-				print_variable_storage_comment(stdout, parameter.storage);
-				VariableName parameter_name{&parameter.name};
-				print_cpp_ast_node(stdout, *parameter.type.get(), parameter_name, 0, 3);
-				if(i != function.parameters.size() - 1) {
-					printf(", ");
-				}
+		for(const std::unique_ptr<ast::Node>& node : translation_unit.functions_and_globals) {
+			if(node->descriptor != ccc::ast::FUNCTION_DEFINITION) {
+				continue;
 			}
-			printf(") {%s", function.locals.empty() ? "" : "\n");
-			for(const LocalVariable& local : function.locals) {
-				printf("\t ");
-				print_variable_storage_comment(stdout, local.storage);
-				VariableName local_name{&local.name};
-				print_cpp_ast_node(stdout, *local.type.get(), local_name, 1, 3);
-				printf(";\n");
-			}
-			printf("}\n\n");
+			
+			VariableName dummy{};
+			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
+			printf("\n");
 		}
 	}
 }
@@ -154,12 +140,18 @@ static void print_globals(mdebug::SymbolTable& symbol_table) {
 		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		for(const GlobalVariable& global : translation_unit.globals) {
-			VariableName name{&global.name};
-			print_cpp_ast_node(stdout, *global.type.get(), name, 0, 3);
+		bool has_globals = false;
+		for(const std::unique_ptr<ast::Node>& node : translation_unit.functions_and_globals) {
+			if(node->descriptor != ccc::ast::VARIABLE) {
+				continue;
+			}
+			
+			VariableName dummy{};
+			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
 			printf(";\n");
+			has_globals = true;
 		}
-		if(!translation_unit.globals.empty() && i != (s32) translation_unit.globals.size() - 1) {
+		if(has_globals && i != (s32) symbol_table.files.size()) {
 			printf("\n");
 		}
 	}

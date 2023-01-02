@@ -75,67 +75,93 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	}
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
+	ast::FunctionDefinition* current_function = nullptr;
+	ast::FunctionType* current_function_type = nullptr;
+	ast::Scope* current_function_body = nullptr;
 	for(const ParsedSymbol& symbol : translation_unit.symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
 				switch(symbol.name_colon_type.descriptor) {
 					case StabsSymbolDescriptor::LOCAL_FUNCTION:
 					case StabsSymbolDescriptor::GLOBAL_FUNCTION: {
-						Function& function = translation_unit.functions.emplace_back();
-						function.name = symbol.name_colon_type.name;
-						function.return_type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						std::unique_ptr<ast::FunctionDefinition> function = std::make_unique<ast::FunctionDefinition>();
+						current_function = function.get();
+						function->name = symbol.name_colon_type.name;
+						
+						std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
+						current_function_type = function_type.get();
+						function_type->return_type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						function_type->parameters.emplace();
+						function->type = std::move(function_type);
+						
+						auto body = std::make_unique<ast::Scope>();
+						current_function_body = body.get();
+						function->body = std::move(body);
+						
+						translation_unit.functions_and_globals.emplace_back(std::move(function));
+						
 						break;
 					}
 					case StabsSymbolDescriptor::REFERENCE_PARAMETER:
 					case StabsSymbolDescriptor::REGISTER_PARAMETER:
 					case StabsSymbolDescriptor::VALUE_PARAMETER: {
-						if(translation_unit.functions.empty()) {
-							break;
-						}
-						Function& function = translation_unit.functions.back();
-						Parameter& parameter = function.parameters.emplace_back();
-						parameter.name = symbol.name_colon_type.name;
-						parameter.type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						verify(current_function, "Parameter variable symbol before first function symbol.");
+						std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
+						parameter->name = symbol.name_colon_type.name;
+						parameter->variable_class = ast::VariableClass::PARAMETER;
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER) {
-							parameter.storage.location = VariableStorageLocation::STACK;
-							parameter.storage.stack_pointer_offset = symbol.raw->value;
+							parameter->storage.location = ast::VariableStorageLocation::STACK;
+							parameter->storage.stack_pointer_offset = symbol.raw->value;
 						} else {
-							parameter.storage.location = VariableStorageLocation::REGISTER;
-							parameter.storage.dbx_register_number = symbol.raw->value;
-							std::tie(parameter.storage.register_class, parameter.storage.register_index_relative) =
-								mips::map_gcc_register_index(parameter.storage.dbx_register_number);
+							parameter->storage.location = ast::VariableStorageLocation::REGISTER;
+							parameter->storage.dbx_register_number = symbol.raw->value;
+							std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
+								mips::map_dbx_register_index(parameter->storage.dbx_register_number);
 						}
+						parameter->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						current_function_type->parameters->emplace_back(std::move(parameter));
 						break;
 					}
 					case StabsSymbolDescriptor::REGISTER_VARIABLE:
 					case StabsSymbolDescriptor::LOCAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
-						if(translation_unit.functions.empty()) {
-							break;
+						if(!current_function) {//"Local variable symbol before first function symbol.");
+							continue;
 						}
-						Function& function = translation_unit.functions.back();
-						LocalVariable& local = function.locals.emplace_back();
-						local.name = symbol.name_colon_type.name;
-						local.type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						std::unique_ptr<ast::Variable> local = std::make_unique<ast::Variable>();
+						local->name = symbol.name_colon_type.name;
+						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
+							local->storage_class = ast::StorageClass::STATIC;
+						}
+						local->variable_class = ast::VariableClass::LOCAL;
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
-							local.storage.location = VariableStorageLocation::REGISTER;
-							local.storage.dbx_register_number = symbol.raw->value;
-							std::tie(local.storage.register_class, local.storage.register_index_relative) =
-								mips::map_gcc_register_index(local.storage.dbx_register_number);
+							local->storage.location = ast::VariableStorageLocation::REGISTER;
+							local->storage.dbx_register_number = symbol.raw->value;
+							std::tie(local->storage.register_class, local->storage.register_index_relative) =
+								mips::map_dbx_register_index(local->storage.dbx_register_number);
 						} else {
-							local.storage.location = VariableStorageLocation::STACK;
-							local.storage.stack_pointer_offset = symbol.raw->value;
+							local->storage.location = ast::VariableStorageLocation::STACK;
+							local->storage.stack_pointer_offset = symbol.raw->value;
 						}
+						local->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						current_function_body->children.emplace_back(std::move(local));
 						break;
 					}
 					case StabsSymbolDescriptor::GLOBAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
-						GlobalVariable& global = translation_unit.globals.emplace_back();
-						global.name = symbol.name_colon_type.name;
-						global.type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
+						global->name = symbol.name_colon_type.name;
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE) {
-							global.type->storage_class = ast::StorageClass::STATIC;
+							global->storage_class = ast::StorageClass::STATIC;
 						}
+						global->variable_class = ast::VariableClass::GLOBAL;
+						if(symbol.raw->code == mdebug::N_LCSYM) {
+							global->storage.location = ast::VariableStorageLocation::BSS;
+						} else {
+							global->storage.location = ast::VariableStorageLocation::DATA;
+						}
+						global->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						translation_unit.functions_and_globals.emplace_back(std::move(global));
 						break;
 					}
 					case StabsSymbolDescriptor::TYPE_NAME:
@@ -170,7 +196,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		case ast::NodeDescriptor::ARRAY:
 		case ast::NodeDescriptor::BITFIELD:
 		case ast::NodeDescriptor::BUILTIN:
-		case ast::NodeDescriptor::FUNCTION:
+		case ast::NodeDescriptor::FUNCTION_DEFINITION:
+		case ast::NodeDescriptor::FUNCTION_TYPE:
 		case ast::NodeDescriptor::INLINE_ENUM: {
 			break;
 		}
@@ -185,7 +212,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 			if(flags & STRIP_MEMBER_FUNCTIONS) {
 				struct_or_union.member_functions.clear();
 			} else if(flags & STRIP_GENERATED_FUNCTIONS) {
-				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
+				auto is_special = [](const ast::FunctionType& function, const std::string& name_no_template_args) {
 					return function.name == "operator="
 						|| function.name.starts_with("$")
 						|| (function.name == name_no_template_args
@@ -196,8 +223,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 					ast_node.name.substr(0, ast_node.name.find("<"));
 				bool only_special_functions = true;
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
+					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION_TYPE) {
+						ast::FunctionType& function = struct_or_union.member_functions[i]->as<ast::FunctionType>();
 						if(!is_special(function, name_no_template_args)) {
 							only_special_functions = false;
 						}
@@ -205,8 +232,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 				}
 				if(only_special_functions) {
 					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-							ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
+						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION_TYPE) {
+							ast::FunctionType& function = struct_or_union.member_functions[i]->as<ast::FunctionType>();
 							if(is_special(function, name_no_template_args)) {
 								struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
 								i--;
@@ -225,23 +252,12 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 			filter_ast_by_flags(*ast_node.as<ast::Reference>().value_type.get(), flags);
 			break;
 		}
-		case ast::NodeDescriptor::TYPE_NAME: {
+		case ast::NodeDescriptor::SCOPE:
+		case ast::NodeDescriptor::TYPE_NAME:
+		case ast::NodeDescriptor::VARIABLE: {
 			break;
 		}
 	}
-}
-
-std::map<u32, Function> scan_for_functions(u32 address, std::span<mips::Insn> insns) {
-	std::map<u32, Function> functions;
-	for(mips::Insn& insn : insns) {
-		if(insn.opcode() == OPCODE_JAL) {
-			u32 address = insn.target_bytes();
-			Function& func = functions[address];
-			func.name = "func_" + stringf("%08x", address);
-			func.address = address;
-		}
-	}
-	return functions;
 }
 
 }

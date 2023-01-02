@@ -22,10 +22,8 @@ struct JsonWriter {
 };
 
 static void print_json_file(JsonWriter& json, const TranslationUnit& translation_unit, bool print_per_file_types);
-static void print_json_function(JsonWriter& json, const Function& function);
-static void print_json_global(JsonWriter& json, const GlobalVariable& global);
-static void print_json_variable_storage(JsonWriter& json, const VariableStorage& storage);
 static void print_json_ast_node(JsonWriter& json, const ast::Node& node);
+static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage);
 
 void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_types) {
 	JsonWriter json;
@@ -58,21 +56,10 @@ static void print_json_file(JsonWriter& json, const TranslationUnit& translation
 	json.property("path");
 	json.string(translation_unit.full_path.c_str());
 	
-	json.property("functions");
+	json.property("functions_and_globals");
 	json.begin_array();
-	for(const Function& function : translation_unit.functions) {
-		print_json_function(json, function);
-	}
-	json.end_array();
-	
-	json.property("global_variables");
-	json.begin_array();
-	for(const GlobalVariable& global : translation_unit.globals) {
-		json.begin_object();
-		json.string_property("name", global.name.c_str());
-		json.property("type");
-		print_json_ast_node(json, *global.type.get());
-		json.end_object();
+	for(const std::unique_ptr<ast::Node>& node : translation_unit.functions_and_globals) {
+		print_json_ast_node(json, *node.get());
 	}
 	json.end_array();
 	
@@ -86,53 +73,6 @@ static void print_json_file(JsonWriter& json, const TranslationUnit& translation
 	}
 	
 	json.end_object();
-}
-
-static void print_json_function(JsonWriter& json, const Function& function) {
-	json.begin_object();
-	
-	json.string_property("name", function.name.c_str());
-	json.property("return_type");
-	print_json_ast_node(json, *function.return_type.get());
-	
-	json.property("parameters");
-	json.begin_array();
-	for(const Parameter& parameter : function.parameters) {
-		json.begin_object();
-		json.string_property("name", parameter.name.c_str());
-		json.property("type");
-		print_json_ast_node(json, *parameter.type.get());
-		print_json_variable_storage(json, parameter.storage);
-		json.end_object();
-	}
-	json.end_array();
-	
-	json.property("local_variables");
-	json.begin_array();
-	for(const LocalVariable& local : function.locals) {
-		json.begin_object();
-		json.string_property("name", local.name.c_str());
-		json.property("type");
-		print_json_ast_node(json, *local.type.get());
-		print_json_variable_storage(json, local.storage);
-		json.end_object();
-	}
-	json.end_array();
-	
-	json.end_object();
-}
-
-static void print_json_variable_storage(JsonWriter& json, const VariableStorage& storage) {
-	if(storage.location == VariableStorageLocation::REGISTER) {
-		json.string_property("storage", "register");
-		json.string_property("register", mips::REGISTER_STRING_TABLES[(s32) storage.register_class][storage.register_index_relative]);
-		json.string_property("register_class", mips::REGISTER_CLASSES[(s32) storage.register_class]);
-		json.number_property("dbx_register_number", storage.dbx_register_number);
-		json.number_property("register_index", storage.register_index_relative);
-	} else {
-		json.string_property("storage", "stack");
-		json.number_property("stack_pointer_offset", storage.stack_pointer_offset);
-	}
 }
 
 static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
@@ -175,8 +115,16 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 			json.string_property("class", builtin_class_to_string(builtin.bclass));
 			break;
 		}
-		case ast::NodeDescriptor::FUNCTION: {
-			const ast::Function& function = node.as<ast::Function>();
+		case ast::NodeDescriptor::FUNCTION_DEFINITION: {
+			const ast::FunctionDefinition& function_definition = node.as<ast::FunctionDefinition>();
+			json.property("type");
+			print_json_ast_node(json, *function_definition.type.get());
+			json.property("body");
+			print_json_ast_node(json, *function_definition.body.get());
+			break;
+		}
+		case ast::NodeDescriptor::FUNCTION_TYPE: {
+			const ast::FunctionType& function = node.as<ast::FunctionType>();
 			json.property("return_type");
 			print_json_ast_node(json, *function.return_type.get());
 			if(function.parameters.has_value()) {
@@ -250,13 +198,65 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 			print_json_ast_node(json, *reference.value_type.get());
 			break;
 		}
+		case ast::NodeDescriptor::SCOPE: {
+			const ast::Scope& scope = node.as<ast::Scope>();
+			json.property("body");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& child : scope.children) {
+				print_json_ast_node(json, *child.get());
+			}
+			json.end_array();
+			break;
+		}
 		case ast::NodeDescriptor::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
 			json.string_property("type_name", type_name.type_name.c_str());
 			break;
 		}
+		case ast::NodeDescriptor::VARIABLE: {
+			const ast::Variable& variable = node.as<ast::Variable>();
+			const char* class_string = "";
+			switch(variable.variable_class) {
+				case ast::VariableClass::GLOBAL: class_string = "global";
+				case ast::VariableClass::LOCAL: class_string = "local";
+				case ast::VariableClass::PARAMETER: class_string = "parameter";
+			}
+			json.string_property("class", class_string);
+			json.property("type");
+			print_json_ast_node(json, *variable.type.get());
+			print_json_variable_storage(json, variable.storage);
+			break;
+		}
 	}
 	json.end_object();
+}
+
+static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage) {
+	switch(storage.location) {
+		case ast::VariableStorageLocation::BSS: {
+			json.string_property("storage", "bss");
+			json.number_property("address", storage.bss_or_data_address);
+			break;
+		}
+		case ast::VariableStorageLocation::DATA: {
+			json.string_property("storage", "data");
+			json.number_property("address", storage.bss_or_data_address);
+			break;
+		}
+		case ast::VariableStorageLocation::REGISTER: {
+			json.string_property("storage", "register");
+			json.string_property("register", mips::REGISTER_STRING_TABLES[(s32) storage.register_class][storage.register_index_relative]);
+			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) storage.register_class]);
+			json.number_property("dbx_register_number", storage.dbx_register_number);
+			json.number_property("register_index", storage.register_index_relative);
+			break;
+		}
+		case ast::VariableStorageLocation::STACK: {
+			json.string_property("storage", "stack");
+			json.number_property("stack_offset", storage.stack_pointer_offset);
+			break;
+		}
+	}
 }
 
 void JsonWriter::begin_object() {

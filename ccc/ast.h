@@ -3,6 +3,7 @@
 
 #include "util.h"
 #include "symbols.h"
+#include "registers.h"
 
 namespace ccc::ast {
 
@@ -19,16 +20,19 @@ enum NodeDescriptor {
 	ARRAY,
 	BITFIELD,
 	BUILTIN,
-	FUNCTION,
+	FUNCTION_DEFINITION,
+	FUNCTION_TYPE,
 	INLINE_ENUM,
 	INLINE_STRUCT_OR_UNION,
 	POINTER,
 	REFERENCE,
-	TYPE_NAME
+	SCOPE,
+	TYPE_NAME,
+	VARIABLE
 };
 
 struct Node {
-	NodeDescriptor descriptor;
+	const NodeDescriptor descriptor;
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -53,6 +57,12 @@ struct Node {
 	
 	template <typename SubType>
 	const SubType& as() const { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<const SubType*>(this); }
+	
+	template <typename SubType>
+	static std::pair<const SubType&, const SubType&> as(const Node& lhs, const Node& rhs) {
+		assert(lhs.descriptor == SubType::DESCRIPTOR && rhs.descriptor == SubType::DESCRIPTOR);
+		return std::pair<const SubType&, const SubType&>(static_cast<const SubType&>(lhs), static_cast<const SubType&>(rhs));
+	}
 };
 
 struct Array : Node {
@@ -77,14 +87,22 @@ struct BuiltIn : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
 };
 
-struct Function : Node {
+struct FunctionDefinition : Node {
+	std::unique_ptr<Node> type;
+	std::unique_ptr<Node> body;
+	
+	FunctionDefinition() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_DEFINITION;
+};
+
+struct FunctionType : Node {
 	std::unique_ptr<Node> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier;
 	bool is_constructor = false;
 	
-	Function() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
+	FunctionType() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;
 };
 
 struct InlineEnum : Node {
@@ -124,11 +142,51 @@ struct Reference : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = REFERENCE;
 };
 
+struct Scope : Node {
+	std::vector<std::unique_ptr<Node>> children;
+	
+	Scope() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = SCOPE;
+};
+
 struct TypeName : Node {
 	std::string type_name;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
+};
+
+enum class VariableClass {
+	GLOBAL,
+	LOCAL,
+	PARAMETER
+};
+
+enum class VariableStorageLocation {
+	BSS, // uninitialized global
+	DATA, // initialized global
+	REGISTER,
+	STACK
+};
+
+struct VariableStorage {
+	VariableStorageLocation location;
+	s32 bss_or_data_address = -1;
+	mips::RegisterClass register_class = mips::RegisterClass::GPR;
+	s32 dbx_register_number = -1;
+	s32 register_index_relative = -1;
+	s32 stack_pointer_offset = -1;
+	
+	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;
+};
+
+struct Variable : Node {
+	VariableClass variable_class;
+	VariableStorage storage;
+	std::unique_ptr<Node> type;
+	
+	Variable() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
 };
 
 std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
@@ -158,7 +216,11 @@ enum class CompareFailReason {
 	BASE_CLASS_TYPE_NAME,
 	FIELDS_SIZE,
 	MEMBER_FUNCTION_SIZE,
-	TYPE_NAME
+	SCOPE_SIZE,
+	TYPE_NAME,
+	VARIABLE_CLASS,
+	VARIABLE_TYPE,
+	VARIABLE_STORAGE
 };
 std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
