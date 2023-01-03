@@ -207,6 +207,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 				print_json_ast_node(json, *global.get());
 			}
 			json.end_array();
+			break;
 		}
 		case ast::NodeDescriptor::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
