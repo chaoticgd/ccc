@@ -198,11 +198,11 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 			print_json_ast_node(json, *reference.value_type.get());
 			break;
 		}
-		case ast::NodeDescriptor::SCOPE: {
-			const ast::Scope& scope = node.as<ast::Scope>();
-			json.property("body");
+		case ast::NodeDescriptor::COMPOUND_STATEMENT: {
+			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
+			json.property("children");
 			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& child : scope.children) {
+			for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
 				print_json_ast_node(json, *child.get());
 			}
 			json.end_array();

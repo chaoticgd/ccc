@@ -267,11 +267,11 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
-		case ast::SCOPE: {
-			const ast::Scope& scope = node.as<ast::Scope>();
-			if(!scope.children.empty()) {
+		case ast::COMPOUND_STATEMENT: {
+			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
+			if(!compound_statement.children.empty()) {
 				fprintf(dest, "{\n");
-				for(const std::unique_ptr<ast::Node>& child : scope.children) {
+				for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
 					indent(dest, indentation_level + 1);
 					print_cpp_ast_node(dest, *child.get(), name, indentation_level + 1, digits_for_offset);
 					fprintf(dest, ";\n");

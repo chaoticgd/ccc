@@ -77,7 +77,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	// Convert the parsed stabs symbols to a more standard C AST.
 	ast::FunctionDefinition* current_function = nullptr;
 	ast::FunctionType* current_function_type = nullptr;
-	ast::Scope* current_function_body = nullptr;
+	ast::CompoundStatement* current_function_body = nullptr;
 	std::vector<ast::Variable*> pending_variables_begin;
 	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
 	for(const ParsedSymbol& symbol : translation_unit.symbols) {
@@ -96,7 +96,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						function_type->parameters.emplace();
 						function->type = std::move(function_type);
 						
-						auto body = std::make_unique<ast::Scope>();
+						auto body = std::make_unique<ast::CompoundStatement>();
 						current_function_body = body.get();
 						function->body = std::move(body);
 						
@@ -273,7 +273,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 			filter_ast_by_flags(*ast_node.as<ast::Reference>().value_type.get(), flags);
 			break;
 		}
-		case ast::NodeDescriptor::SCOPE:
+		case ast::NodeDescriptor::COMPOUND_STATEMENT:
 		case ast::NodeDescriptor::TYPE_NAME:
 		case ast::NodeDescriptor::VARIABLE: {
 			break;

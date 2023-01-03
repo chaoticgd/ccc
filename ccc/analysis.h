@@ -15,7 +15,7 @@ struct Function {
 	std::string name;
 	std::unique_ptr<ast::Node> return_type;
 	std::vector<ast::Variable> parameters;
-	ast::Scope body;
+	ast::CompoundStatement body;
 	u32 address = 0;
 };
 

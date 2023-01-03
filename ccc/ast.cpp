@@ -444,11 +444,11 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const a
 			if(reference_compare.has_value()) return reference_compare;
 			break;
 		}
-		case SCOPE: {
-			const auto [scope_lhs, scope_rhs] = Node::as<Scope>(lhs, rhs);
-			if(scope_lhs.children.size() != scope_rhs.children.size()) return CompareFailReason::SCOPE_SIZE;
-			for(size_t i = 0; i < scope_lhs.children.size(); i++) {
-				auto child_compare = compare_ast_nodes(*scope_lhs.children[i].get(), *scope_rhs.children[i].get());
+		case COMPOUND_STATEMENT: {
+			const auto [compound_lhs, compound_rhs] = Node::as<CompoundStatement>(lhs, rhs);
+			if(compound_lhs.children.size() != compound_rhs.children.size()) return CompareFailReason::COMPOUND_STATEMENT_SIZE;
+			for(size_t i = 0; i < compound_lhs.children.size(); i++) {
+				auto child_compare = compare_ast_nodes(*compound_lhs.children[i].get(), *compound_rhs.children[i].get());
 				if(child_compare.has_value()) return child_compare;
 			}
 			break;
@@ -493,7 +493,7 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::BASE_CLASS_TYPE_NAME: return "base class type name";
 		case CompareFailReason::FIELDS_SIZE: return "fields size";
 		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function size";
-		case CompareFailReason::SCOPE_SIZE: return "scope size";
+		case CompareFailReason::COMPOUND_STATEMENT_SIZE: return "compound statement size";
 		case CompareFailReason::TYPE_NAME: return "type name";
 		case CompareFailReason::VARIABLE_CLASS: return "variable class";
 		case CompareFailReason::VARIABLE_TYPE: return "variable type";
@@ -521,7 +521,7 @@ const char* node_type_to_string(const Node& node) {
 		}
 		case NodeDescriptor::POINTER: return "pointer";
 		case NodeDescriptor::REFERENCE: return "reference";
-		case NodeDescriptor::SCOPE: return "scope";
+		case NodeDescriptor::COMPOUND_STATEMENT: return "compound_statement";
 		case NodeDescriptor::TYPE_NAME: return "typename";
 		case NodeDescriptor::VARIABLE: return "variable";
 	}

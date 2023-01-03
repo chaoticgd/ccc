@@ -26,7 +26,7 @@ enum NodeDescriptor {
 	INLINE_STRUCT_OR_UNION,
 	POINTER,
 	REFERENCE,
-	SCOPE,
+	COMPOUND_STATEMENT,
 	TYPE_NAME,
 	VARIABLE
 };
@@ -142,11 +142,11 @@ struct Reference : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = REFERENCE;
 };
 
-struct Scope : Node {
+struct CompoundStatement : Node {
 	std::vector<std::unique_ptr<Node>> children;
 	
-	Scope() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = SCOPE;
+	CompoundStatement() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = COMPOUND_STATEMENT;
 };
 
 struct TypeName : Node {
@@ -224,7 +224,7 @@ enum class CompareFailReason {
 	BASE_CLASS_TYPE_NAME,
 	FIELDS_SIZE,
 	MEMBER_FUNCTION_SIZE,
-	SCOPE_SIZE,
+	COMPOUND_STATEMENT_SIZE,
 	TYPE_NAME,
 	VARIABLE_CLASS,
 	VARIABLE_TYPE,
