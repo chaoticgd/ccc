@@ -34,41 +34,39 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 		}
 	}
 	
-	for(TranslationUnit& translation_unit : results.translation_units) {
+	for(std::unique_ptr<ast::SourceFile>& source_file : results.source_files) {
 		// Some enums have two separate stabs generated for them, one with a
 		// name of " ", where one stab references the other. Remove these
 		// duplicate AST nodes.
-		ast::remove_duplicate_enums(translation_unit.types);
-		for(std::unique_ptr<ast::Node>& ast_node : translation_unit.types) {
-			// Filter the AST depending on the flags parsed, removing things the
-			// calling code didn't ask for.
-			filter_ast_by_flags(*ast_node.get(), flags);
-		}
+		ast::remove_duplicate_enums(source_file->types);
+		// Filter the AST depending on the flags parsed, removing things the
+		// calling code didn't ask for.
+		filter_ast_by_flags(*source_file, flags);
 	}
 	
 	// Deduplicate types from different translation units, preserving multiple
 	// copies of types that actually differ.
 	if(flags & DEDUPLICATE_TYPES) {
 		std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_types;
-		for(TranslationUnit& translation_unit : results.translation_units) {
-			per_file_types.emplace_back(translation_unit.full_path, std::move(translation_unit.types));
+		for(std::unique_ptr<ast::SourceFile>& source_file : results.source_files) {
+			per_file_types.emplace_back(source_file->full_path, std::move(source_file->types));
 		}
-		results.deduplicated_types = ast::deduplicate_ast(per_file_types);
+		results.deduplicated_types = ast::deduplicate_types(per_file_types);
 	}
 	
 	return results;
 }
 
 void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, u32 flags) {
-	TranslationUnit& translation_unit = results.translation_units.emplace_back();
-	translation_unit.full_path = fd.full_path;
+	auto file = std::make_unique<ast::SourceFile>();
+	file->full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
-	translation_unit.symbols = parse_symbols(fd.symbols, fd.detected_language);
+	file->symbols = parse_symbols(fd.symbols, fd.detected_language);
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
 	std::map<s32, const StabsType*> stabs_types;
-	for(const ParsedSymbol& symbol : translation_unit.symbols) {
+	for(const ParsedSymbol& symbol : file->symbols) {
 		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);
 		}
@@ -80,7 +78,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	ast::CompoundStatement* current_function_body = nullptr;
 	std::vector<ast::Variable*> pending_variables_begin;
 	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
-	for(const ParsedSymbol& symbol : translation_unit.symbols) {
+	for(const ParsedSymbol& symbol : file->symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
 				switch(symbol.name_colon_type.descriptor) {
@@ -100,7 +98,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						current_function_body = body.get();
 						function->body = std::move(body);
 						
-						translation_unit.functions_and_globals.emplace_back(std::move(function));
+						function->order = file->next_order++;
+						file->functions.emplace_back(std::move(function));
 						
 						pending_variables_begin.clear();
 						pending_variables_end.clear();
@@ -167,14 +166,16 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 							global->storage.location = ast::VariableStorageLocation::DATA;
 						}
 						global->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
-						translation_unit.functions_and_globals.emplace_back(std::move(global));
+						global->order = file->next_order++;
+						file->globals.emplace_back(std::move(global));
 						break;
 					}
 					case StabsSymbolDescriptor::TYPE_NAME:
 					case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG: {
 						std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
 						if(node != nullptr) {
-							translation_unit.types.emplace_back(std::move(node));
+							node->order = file->next_order++;
+							file->types.emplace_back(std::move(node));
 						}
 						break;
 					}
@@ -182,7 +183,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 				break;
 			}
 			case ParsedSymbolType::SOURCE_FILE: {
-				translation_unit.text_address = symbol.so.translation_unit_text_address;
+				file->text_address = symbol.so.translation_unit_text_address;
 				break;
 			}
 			case ParsedSymbolType::SUB_SOURCE_FILE: {
@@ -192,7 +193,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 				auto& pending_end = pending_variables_end[symbol.scope.number];
 				for(ast::Variable* variable : pending_variables_begin) {
 					pending_end.emplace_back(variable);
-					variable->block.low = translation_unit.text_address + symbol.raw->value;
+					variable->block.low = file->text_address + symbol.raw->value;
 				}
 				pending_variables_begin.clear();
 				break;
@@ -201,7 +202,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 				auto variables = pending_variables_end.find(symbol.scope.number);
 				verify(variables != pending_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
 				for(ast::Variable* variable : variables->second) {
-					variable->block.high = translation_unit.text_address + symbol.raw->value;
+					variable->block.high = file->text_address + symbol.raw->value;
 				}
 				break;
 			}
@@ -210,6 +211,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 			}
 		}
 	}
+	
+	results.source_files.emplace_back(std::move(file));
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
@@ -272,6 +275,12 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		case ast::NodeDescriptor::REFERENCE: {
 			filter_ast_by_flags(*ast_node.as<ast::Reference>().value_type.get(), flags);
 			break;
+		}
+		case ast::NodeDescriptor::SOURCE_FILE: {
+			ast::SourceFile& source_file = ast_node.as<ast::SourceFile>();
+			for(std::unique_ptr<ast::Node>& child : source_file.types) {
+				filter_ast_by_flags(*child.get(), flags);
+			}
 		}
 		case ast::NodeDescriptor::COMPOUND_STATEMENT:
 		case ast::NodeDescriptor::TYPE_NAME:

@@ -21,7 +21,6 @@ struct JsonWriter {
 	void boolean_property(const char* name, bool value);
 };
 
-static void print_json_file(JsonWriter& json, const TranslationUnit& translation_unit, bool print_per_file_types);
 static void print_json_ast_node(JsonWriter& json, const ast::Node& node);
 static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage);
 
@@ -33,8 +32,8 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.property("files");
 	json.begin_array();
-	for(const TranslationUnit& translation_unit : src.translation_units) {
-		print_json_file(json, translation_unit, print_per_file_types);
+	for(const std::unique_ptr<ast::SourceFile>& file : src.source_files) {
+		print_json_ast_node(json, *file);
 	}
 	json.end_array();
 	
@@ -42,31 +41,6 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 		json.property("deduplicated_types");
 		json.begin_array();
 		for(const std::unique_ptr<ast::Node>& node : src.deduplicated_types) {
-			print_json_ast_node(json, *node.get());
-		}
-		json.end_array();
-	}
-	
-	json.end_object();
-}
-
-static void print_json_file(JsonWriter& json, const TranslationUnit& translation_unit, bool print_per_file_types) {
-	json.begin_object();
-	
-	json.property("path");
-	json.string(translation_unit.full_path.c_str());
-	
-	json.property("functions_and_globals");
-	json.begin_array();
-	for(const std::unique_ptr<ast::Node>& node : translation_unit.functions_and_globals) {
-		print_json_ast_node(json, *node.get());
-	}
-	json.end_array();
-	
-	if(print_per_file_types) {
-		json.property("types");
-		json.begin_array();
-		for(const std::unique_ptr<ast::Node>& node : translation_unit.types) {
 			print_json_ast_node(json, *node.get());
 		}
 		json.end_array();
@@ -96,6 +70,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 	if(node.size_bits != -1) {
 		json.number_property("size_bits", node.size_bits);
 	}
+	if(node.order != -1) {
+		json.number_property("order", node.order);
+	}
 	switch(node.descriptor) {
 		case ast::NodeDescriptor::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
@@ -113,6 +90,16 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 		case ast::NodeDescriptor::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
 			json.string_property("class", builtin_class_to_string(builtin.bclass));
+			break;
+		}
+		case ast::NodeDescriptor::COMPOUND_STATEMENT: {
+			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
+			json.property("children");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
+				print_json_ast_node(json, *child.get());
+			}
+			json.end_array();
 			break;
 		}
 		case ast::NodeDescriptor::FUNCTION_DEFINITION: {
@@ -198,15 +185,28 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 			print_json_ast_node(json, *reference.value_type.get());
 			break;
 		}
-		case ast::NodeDescriptor::COMPOUND_STATEMENT: {
-			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
-			json.property("children");
+		case ast::NodeDescriptor::SOURCE_FILE: {
+			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
+			json.string_property("path", source_file.full_path.c_str());
+			json.number_property("text_address", source_file.text_address);
+			json.property("types");
 			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
-				print_json_ast_node(json, *child.get());
+			for(const std::unique_ptr<ast::Node>& type : source_file.types) {
+				print_json_ast_node(json, *type.get());
 			}
 			json.end_array();
-			break;
+			json.property("functions");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& function : source_file.functions) {
+				print_json_ast_node(json, *function.get());
+			}
+			json.end_array();
+			json.property("globals");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& global : source_file.globals) {
+				print_json_ast_node(json, *global.get());
+			}
+			json.end_array();
 		}
 		case ast::NodeDescriptor::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();

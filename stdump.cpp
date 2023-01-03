@@ -115,16 +115,12 @@ int main(int argc, char** argv) {
 static void print_functions(mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		TranslationUnit& translation_unit = result.translation_units.at(0);
+		ast::SourceFile& source_file = *result.source_files.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// FILE -- %s\n", source_file.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		for(const std::unique_ptr<ast::Node>& node : translation_unit.functions_and_globals) {
-			if(node->descriptor != ccc::ast::FUNCTION_DEFINITION) {
-				continue;
-			}
-			
+		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
 			VariableName dummy{};
 			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
 			printf("\n");
@@ -135,17 +131,13 @@ static void print_functions(mdebug::SymbolTable& symbol_table) {
 static void print_globals(mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		TranslationUnit& translation_unit = result.translation_units.at(0);
+		ast::SourceFile& source_file = *result.source_files.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// FILE -- %s\n", source_file.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
 		bool has_globals = false;
-		for(const std::unique_ptr<ast::Node>& node : translation_unit.functions_and_globals) {
-			if(node->descriptor != ccc::ast::VARIABLE) {
-				continue;
-			}
-			
+		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			VariableName dummy{};
 			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
 			printf(";\n");
@@ -174,15 +166,15 @@ static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Option
 	printf("\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, analysis_flags, i);
-		TranslationUnit& translation_unit = result.translation_units.at(0);
+		ast::SourceFile& source_file = *result.source_files.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// FILE -- %s\n", source_file.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
 		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-		print_cpp_comment_block_builtin_types(stdout, translation_unit.types);
+		print_cpp_comment_block_builtin_types(stdout, source_file.types);
 		printf("\n");
-		print_cpp_ast_nodes(stdout, translation_unit.types, options.flags & FLAG_VERBOSE);
+		print_cpp_ast_nodes(stdout, source_file.types, options.flags & FLAG_VERBOSE);
 		printf("\n");
 	}
 }

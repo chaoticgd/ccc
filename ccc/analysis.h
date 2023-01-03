@@ -11,24 +11,8 @@
 
 namespace ccc {
 
-struct Function {
-	std::string name;
-	std::unique_ptr<ast::Node> return_type;
-	std::vector<ast::Variable> parameters;
-	ast::CompoundStatement body;
-	u32 address = 0;
-};
-
-struct TranslationUnit {
-	std::string full_path;
-	std::vector<std::unique_ptr<ast::Node>> types;
-	std::vector<std::unique_ptr<ast::Node>> functions_and_globals;
-	std::vector<ParsedSymbol> symbols;
-	u32 text_address = 0;
-};
-
 struct AnalysisResults {
-	std::vector<TranslationUnit> translation_units;
+	std::vector<std::unique_ptr<ast::SourceFile>> source_files;
 	std::vector<std::unique_ptr<ast::Node>> deduplicated_types;
 };
 

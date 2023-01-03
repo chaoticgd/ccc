@@ -20,13 +20,14 @@ enum NodeDescriptor {
 	ARRAY,
 	BITFIELD,
 	BUILTIN,
+	COMPOUND_STATEMENT,
 	FUNCTION_DEFINITION,
 	FUNCTION_TYPE,
 	INLINE_ENUM,
 	INLINE_STRUCT_OR_UNION,
 	POINTER,
 	REFERENCE,
-	COMPOUND_STATEMENT,
+	SOURCE_FILE,
 	TYPE_NAME,
 	VARIABLE
 };
@@ -47,6 +48,8 @@ struct Node {
 	
 	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = nullptr;
+	
+	s32 order = -1; // Used to preserve the order of children of SourceFile.
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -85,6 +88,13 @@ struct BuiltIn : Node {
 	
 	BuiltIn() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
+};
+
+struct CompoundStatement : Node {
+	std::vector<std::unique_ptr<Node>> children;
+	
+	CompoundStatement() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = COMPOUND_STATEMENT;
 };
 
 struct FunctionDefinition : Node {
@@ -142,11 +152,44 @@ struct Reference : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = REFERENCE;
 };
 
-struct CompoundStatement : Node {
-	std::vector<std::unique_ptr<Node>> children;
+struct SourceFile : Node {
+	std::string full_path;
+	u32 text_address = 0;
+	std::vector<std::unique_ptr<ast::Node>> functions;
+	std::vector<std::unique_ptr<ast::Node>> globals;
+	std::vector<std::unique_ptr<ast::Node>> types;
+	std::vector<ParsedSymbol> symbols;
+	s32 next_order = 0; // Next order value to set.
 	
-	CompoundStatement() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = COMPOUND_STATEMENT;
+	SourceFile() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
+	
+	// Used for iterating all the functions, globals and types in the order the
+	// functions and globals were defined in the source file.
+	template <typename Callback>
+	void in_order(Callback callback) const {
+		s32 next_function = 0;
+		s32 next_global = 0;
+		s32 next_types = 0;
+		for(s32 i = 0; i < next_order; i++) {
+			if(next_function < functions.size() && functions[next_function]->order == i) {
+				callback(*functions[i].get());
+				next_function++;
+				continue;
+			}
+			if(next_global < globals.size() && globals[next_global]->order == i) {
+				callback(*globals[i].get());
+				next_global++;
+				continue;
+			}
+			if(next_global < globals.size() && globals[next_global]->order == i) {
+				callback(*globals[i].get());
+				next_global++;
+				continue;
+			}
+			verify_not_reached("Source file AST node has bad ordering.");
+		}
+	}
 };
 
 struct TypeName : Node {
@@ -202,7 +245,7 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std:
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
-std::vector<std::unique_ptr<Node>> deduplicate_ast(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
+std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
 enum class CompareFailReason {
 	DESCRIPTOR,
 	STORAGE_CLASS,
@@ -213,6 +256,7 @@ enum class CompareFailReason {
 	SIZE_BITS,
 	ARRAY_ELEMENT_COUNT,
 	BUILTIN_CLASS,
+	COMPOUND_STATEMENT_SIZE,
 	FUNCTION_PARAMAETER_SIZE,
 	FUNCTION_PARAMETERS_HAS_VALUE,
 	FUNCTION_MODIFIER,
@@ -224,7 +268,7 @@ enum class CompareFailReason {
 	BASE_CLASS_TYPE_NAME,
 	FIELDS_SIZE,
 	MEMBER_FUNCTION_SIZE,
-	COMPOUND_STATEMENT_SIZE,
+	SOURCE_FILE_SIZE,
 	TYPE_NAME,
 	VARIABLE_CLASS,
 	VARIABLE_TYPE,
