@@ -40,7 +40,7 @@ static void print_types_deduplicated(mdebug::SymbolTable& symbol_table, const Op
 static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Options& options);
 static void print_local_symbols(const mdebug::SymbolTable& symbol_table);
 static void print_external_symbols(const mdebug::SymbolTable& symbol_table);
-static void print_symbol(const mdebug::Symbol& symbol);
+static void print_symbol(const mdebug::Symbol& symbol, bool indent);
 static u32 build_analysis_flags(u32 flags);
 static void list_files(mdebug::SymbolTable& symbol_table);
 static Options parse_args(int argc, char** argv);
@@ -115,33 +115,15 @@ int main(int argc, char** argv) {
 static void print_functions(mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		TranslationUnit& translation_unit = result.translation_units.at(0);
+		ast::SourceFile& source_file = *result.source_files.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// FILE -- %s\n", source_file.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		for(const Function& function : translation_unit.functions) {
-			VariableName function_name{&function.name};
-			print_cpp_ast_node(stdout, *function.return_type.get(), function_name, 0, 3);
-			printf("(");
-			for(size_t i = 0; i < function.parameters.size(); i++) {
-				const Parameter& parameter = function.parameters[i];
-				print_variable_storage_comment(stdout, parameter.storage);
-				VariableName parameter_name{&parameter.name};
-				print_cpp_ast_node(stdout, *parameter.type.get(), parameter_name, 0, 3);
-				if(i != function.parameters.size() - 1) {
-					printf(", ");
-				}
-			}
-			printf(") {%s", function.locals.empty() ? "" : "\n");
-			for(const LocalVariable& local : function.locals) {
-				printf("\t ");
-				print_variable_storage_comment(stdout, local.storage);
-				VariableName local_name{&local.name};
-				print_cpp_ast_node(stdout, *local.type.get(), local_name, 1, 3);
-				printf(";\n");
-			}
-			printf("}\n\n");
+		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
+			VariableName dummy{};
+			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
+			printf("\n");
 		}
 	}
 }
@@ -149,17 +131,19 @@ static void print_functions(mdebug::SymbolTable& symbol_table) {
 static void print_globals(mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		TranslationUnit& translation_unit = result.translation_units.at(0);
+		ast::SourceFile& source_file = *result.source_files.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// FILE -- %s\n", source_file.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		for(const GlobalVariable& global : translation_unit.globals) {
-			VariableName name{&global.name};
-			print_cpp_ast_node(stdout, *global.type.get(), name, 0, 3);
+		bool has_globals = false;
+		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
+			VariableName dummy{};
+			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
 			printf(";\n");
+			has_globals = true;
 		}
-		if(!translation_unit.globals.empty() && i != (s32) translation_unit.globals.size() - 1) {
+		if(has_globals && i != (s32) symbol_table.files.size()) {
 			printf("\n");
 		}
 	}
@@ -182,15 +166,15 @@ static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Option
 	printf("\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		AnalysisResults result = analyse(symbol_table, analysis_flags, i);
-		TranslationUnit& translation_unit = result.translation_units.at(0);
+		ast::SourceFile& source_file = *result.source_files.at(0);
 		printf("// *****************************************************************************\n");
-		printf("// FILE -- %s\n", translation_unit.full_path.c_str());
+		printf("// FILE -- %s\n", source_file.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
 		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-		print_cpp_comment_block_builtin_types(stdout, translation_unit.types);
+		print_cpp_comment_block_builtin_types(stdout, source_file.types);
 		printf("\n");
-		print_cpp_ast_nodes(stdout, translation_unit.types, options.flags & FLAG_VERBOSE);
+		print_cpp_ast_nodes(stdout, source_file.types, options.flags & FLAG_VERBOSE);
 		printf("\n");
 	}
 }
@@ -199,34 +183,42 @@ static void print_local_symbols(const mdebug::SymbolTable& symbol_table) {
 	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		printf("FILE %s:\n", fd.raw_path.c_str());
 		for(const mdebug::Symbol& symbol : fd.symbols) {
-			print_symbol(symbol);
+			print_symbol(symbol, true);
 		}
 	}
 }
 
 static void print_external_symbols(const mdebug::SymbolTable& symbol_table) {
 	for(const mdebug::Symbol& symbol : symbol_table.externals) {
-		print_symbol(symbol);
+		print_symbol(symbol, false);
 	}
 }
 
-static void print_symbol(const mdebug::Symbol& symbol) {
+static void print_symbol(const mdebug::Symbol& symbol, bool indent) {
+	if(indent) {
+		printf("    ");
+	}
+	printf("%8x ", symbol.value);
 	const char* symbol_type_str = symbol_type(symbol.storage_type);
-	const char* symbol_class_str = symbol_class(symbol.storage_class);
-	printf("\t%8x ", symbol.value);
 	if(symbol_type_str) {
-		printf("%11s ", symbol_type_str);
+		printf("%-11s ", symbol_type_str);
 	} else {
-		printf("ST(%5d) ", (u32) symbol.storage_type);
+		printf("ST(%7d) ", (u32) symbol.storage_type);
 	}
+	const char* symbol_class_str = symbol_class(symbol.storage_class);
 	if(symbol_class_str) {
-		printf("%6s ", symbol_class_str);
+		printf("%-4s ", symbol_class_str);
 	} else if ((u32) symbol.storage_class == 0) {
-		printf("       ");
+		printf("         ");
 	} else {
-		printf("SC(%2d) ", (u32) symbol.storage_class);
+		printf("SC(%4d) ", (u32) symbol.storage_class);
 	}
-	printf("%8d %s\n", symbol.index, symbol.string);
+	if(symbol.is_stabs) {
+		printf("%-8s ", mdebug::stabs_code(symbol.code));
+	} else {
+		printf("SI(%4d) ", symbol.index);
+	}
+	printf("%s\n", symbol.string);
 }
 
 static u32 build_analysis_flags(u32 flags) {

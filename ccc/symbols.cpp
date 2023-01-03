@@ -10,85 +10,122 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language) {
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
-	bool last_symbol_was_end = false;
 	for(const mdebug::Symbol& symbol : input) {
-		bool is_stabs_symbol =
-			   (symbol.storage_type == mdebug::SymbolType::NIL // types, globals
-				&& symbol.storage_class != mdebug::SymbolClass::INFO)
-			|| (last_symbol_was_end // functions
-				&& symbol.storage_type == mdebug::SymbolType::LABEL
-				&& (detected_language == mdebug::SourceLanguage::C
-					|| detected_language == mdebug::SourceLanguage::CPP))
-			|| (symbol.storage_type == mdebug::SymbolType::STATIC // static globals
-				&& (s32) symbol.storage_class >= 1
-				&& (s32) symbol.storage_class <= 3
-				&& strchr(symbol.string, ':') != nullptr) // omit various non-stabs symbols
-				&& (strlen(symbol.string) < 3 // false positive: windows paths
-					|| !(symbol.string[1] == ':'
-						&& (symbol.string[2] == '/'
-							|| symbol.string[2] == '\\')));
-		if(is_stabs_symbol) {
-			// Some STABS symbols are split between multiple strings.
-			if(symbol.string != nullptr && symbol.string[0] != '\0') {
-				if(symbol.string[strlen(symbol.string) - 1] == '\\') {
-					prefix += std::string(symbol.string, symbol.string + strlen(symbol.string) - 1);
-					continue; // Don't update last_symbol_was_end!
-				} else {
-					std::string symbol_string = prefix + symbol.string;
-					prefix.clear();
-					bool stab_valid = true;
-					stab_valid &= symbol_string[0] != '$';
-					stab_valid &= symbol_string != "gcc2_compiled.";
-					stab_valid &= symbol_string != "__gnu_compiled_c";
-					stab_valid &= symbol_string != "__gnu_compiled_cpp";
-					if(stab_valid) {
-						ParsedSymbol stabs_symbol = parse_stabs_symbol(symbol_string.c_str());
-						stabs_symbol.raw = &symbol;
-						output.emplace_back(std::move(stabs_symbol));
+		if(symbol.is_stabs) {
+			switch(symbol.code) {
+				case mdebug::N_GSYM: // Global variable
+				case mdebug::N_FUN: // Function
+				case mdebug::N_STSYM: // Data section static global variable
+				case mdebug::N_LCSYM: // BSS section static global variable
+				case mdebug::N_RSYM: // Register variable
+				case mdebug::N_LSYM: // Automatic variable or type definition
+				case mdebug::N_PSYM: { // Parameter variable
+					// Some STABS symbols are split between multiple strings.
+					if(symbol.string != nullptr && symbol.string[0] != '\0') {
+						if(symbol.string[strlen(symbol.string) - 1] == '\\') {
+							prefix += std::string(symbol.string, symbol.string + strlen(symbol.string) - 1);
+						} else {
+							std::string symbol_string = prefix + symbol.string;
+							prefix.clear();
+							ParsedSymbol stabs_symbol = parse_stabs_type_symbol(symbol_string.c_str());
+							stabs_symbol.raw = &symbol;
+							output.emplace_back(std::move(stabs_symbol));
+						}
+					} else {
+						verify(prefix.empty(), "Invalid STABS continuation.");
 					}
+					break;
 				}
-			} else {
-				verify(prefix.empty(), "Invalid STABS continuation.");
+				case mdebug::N_SOL: { // Sub-source file
+					break;
+				}
+				case mdebug::N_LBRAC: { // Begin scope
+					verify(strlen(symbol.string) >= 4, "N_LBRAC symbol has bad string.");
+					ParsedSymbol begin_scope;
+					begin_scope.type = ParsedSymbolType::SCOPE_BEGIN;
+					begin_scope.raw = &symbol;
+					begin_scope.scope.number = atoi(&symbol.string[4]);
+					output.emplace_back(std::move(begin_scope));
+					break;
+				}
+				case mdebug::N_RBRAC: { // End scope
+					verify(strlen(symbol.string) >= 4, "N_RBRAC symbol has bad string.");
+					ParsedSymbol end_scope;
+					end_scope.type = ParsedSymbolType::SCOPE_END;
+					end_scope.raw = &symbol;
+					end_scope.scope.number = atoi(&symbol.string[4]);
+					output.emplace_back(std::move(end_scope));
+					break;
+				}
+				case mdebug::STAB: {// "@stabs"
+					break;
+				}
+				case mdebug::N_SO: { // Source filename
+					ParsedSymbol so_symbol;
+					so_symbol.type = ParsedSymbolType::SOURCE_FILE;
+					so_symbol.raw = &symbol;
+					so_symbol.so.translation_unit_text_address = symbol.value;
+					output.emplace_back(std::move(so_symbol));
+					break;
+				}
+				case mdebug::N_FNAME:  case mdebug::N_MAIN:
+				case mdebug::N_PC:     case mdebug::N_NSYMS:
+				case mdebug::N_NOMAP:  case mdebug::N_OBJ:
+				case mdebug::N_OPT:    case mdebug::N_M2C:
+				case mdebug::N_SLINE:  case mdebug::N_DSLINE:
+				case mdebug::N_BSLINE: case mdebug::N_EFD:
+				case mdebug::N_EHDECL: case mdebug::N_CATCH:
+				case mdebug::N_SSYM:   case mdebug::N_BINCL:
+				case mdebug::N_EINCL:  case mdebug::N_ENTRY:
+				case mdebug::N_EXCL:   case mdebug::N_SCOPE:
+				case mdebug::N_BCOMM:  case mdebug::N_ECOMM:
+				case mdebug::N_ECOML:  case mdebug::N_NBTEXT:
+				case mdebug::N_NBDATA: case mdebug::N_NBBSS:
+				case mdebug::N_NBSTS:  case mdebug::N_NBLCS:
+				case mdebug::N_LENG: {
+					verify_not_reached("Unhandled STABS symbol code '%s'. Please file a bug report!",
+						mdebug::stabs_code(symbol.code));
+				}
 			}
 		} else {
 			ParsedSymbol non_stabs_symbol;
+			non_stabs_symbol.type = ParsedSymbolType::NON_STABS;
 			non_stabs_symbol.raw = &symbol;
 			output.emplace_back(std::move(non_stabs_symbol));
 		}
-		last_symbol_was_end = (symbol.storage_type == mdebug::SymbolType::END);
 	}
 	return output;
 }
 
-ParsedSymbol parse_stabs_symbol(const char* input) {
+ParsedSymbol parse_stabs_type_symbol(const char* input) {
 	SYMBOLS_DEBUG_PRINTF("PARSING %s\n", input);
 	
 	ParsedSymbol symbol;
-	symbol.is_stabs = true;
-	symbol.name = eat_dodgy_stabs_identifier(input);
+	symbol.type = ParsedSymbolType::NAME_COLON_TYPE;
+	symbol.name_colon_type.name = eat_dodgy_stabs_identifier(input);
 	expect_s8(input, ':', "identifier");
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	if(*input >= '0' && *input <= '9') {
-		symbol.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
+		symbol.name_colon_type.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
 	} else {
-		symbol.descriptor = (StabsSymbolDescriptor) eat_s8(input);
+		symbol.name_colon_type.descriptor = (StabsSymbolDescriptor) eat_s8(input);
 	}
-	validate_symbol_descriptor(symbol.descriptor);
+	validate_symbol_descriptor(symbol.name_colon_type.descriptor);
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	if(*input == 't') {
 		input++;
 	}
-	symbol.type = parse_stabs_type(input);
+	symbol.name_colon_type.type = parse_stabs_type(input);
 	// This is a bit of hack to make it so variable names aren't used as type
 	// names e.g.the STABS symbol "somevar:P123=*456" may be referenced by the
 	// type number 123, but the type name is not "somevar".
-	bool is_type = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME
-		|| symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
+	bool is_type = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME
+		|| symbol.name_colon_type.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
 	if(is_type) {
-		symbol.type->name = symbol.name;
+		symbol.name_colon_type.type->name = symbol.name_colon_type.name;
 	}
-	symbol.type->is_typedef = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME;
-	symbol.type->is_root = true;
+	symbol.name_colon_type.type->is_typedef = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME;
+	symbol.name_colon_type.type->is_root = true;
 	return symbol;
 }
 

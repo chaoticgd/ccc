@@ -60,6 +60,7 @@ struct StabsType : StabsTypeInfo {
 	
 	StabsType(const StabsTypeInfo& i, StabsTypeDescriptor d) : StabsTypeInfo(i), descriptor(d) {}
 	StabsType(const StabsTypeInfo& i) : StabsTypeInfo(i) {}
+	virtual ~StabsType() {}
 	
 	template <typename SubType>
 	SubType& as() { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<SubType*>(this); }

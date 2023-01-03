@@ -124,21 +124,44 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			const ast::BitField& bit_field = node.as<ast::BitField>();
 			assert(bit_field.underlying_type.get());
 			print_cpp_ast_node(dest, *bit_field.underlying_type.get(), name, indentation_level, digits_for_offset);
-			printf(" : %d", bit_field.size_bits);
+			fprintf(dest, " : %d", bit_field.size_bits);
 			break;
 		}
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
 			if(builtin.bclass == BuiltInClass::VOID) {
-				printf("void");
+				fprintf(dest, "void");
 			} else {
-				printf("CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
+				fprintf(dest, "CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
 			}
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
-		case ast::FUNCTION: {
-			const ast::Function& function = node.as<ast::Function>();
+		case ast::COMPOUND_STATEMENT: {
+			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
+			if(!compound_statement.children.empty()) {
+				fprintf(dest, "{\n");
+				for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
+					indent(dest, indentation_level + 1);
+					print_cpp_ast_node(dest, *child.get(), name, indentation_level + 1, digits_for_offset);
+					fprintf(dest, ";\n");
+				}
+				indent(dest, indentation_level);
+				fprintf(dest, "}\n");
+			} else {
+				fprintf(dest, "{}\n");
+			}
+			break;
+		}
+		case ast::FUNCTION_DEFINITION: {
+			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
+			print_cpp_ast_node(dest, *func_def.type.get(), name, indentation_level, digits_for_offset);
+			fprintf(dest, " ");
+			print_cpp_ast_node(dest, *func_def.body.get(), name, indentation_level, digits_for_offset);
+			break;
+		}
+		case ast::FUNCTION_TYPE: {
+			const ast::FunctionType& function = node.as<ast::FunctionType>();
 			if(function.modifier == MemberFunctionModifier::STATIC) {
 				fprintf(dest, "static ");
 			} else if(function.modifier == MemberFunctionModifier::VIRTUAL) {
@@ -176,7 +199,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			}
 			fprintf(dest, " {");
 			if(inline_enum.size_bits > -1) {
-				printf(" // 0x%x", inline_enum.size_bits / 8);
+				fprintf(dest, " // 0x%x", inline_enum.size_bits / 8);
 			}
 			fprintf(dest, "\n");
 			for(size_t i = 0; i < inline_enum.constants.size(); i++) {
@@ -230,7 +253,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 					fprintf(dest, "\n");
 				}
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					ast::Function& member_func = struct_or_union.member_functions[i]->as<ast::Function>();
+					ast::FunctionType& member_func = struct_or_union.member_functions[i]->as<ast::FunctionType>();
 					assert(struct_or_union.member_functions[i].get());
 					indent(dest, indentation_level + 1);
 					print_cpp_ast_node(dest, *struct_or_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset);
@@ -260,10 +283,23 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
+		case ast::SOURCE_FILE: {
+			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
+			source_file.in_order([&](const ast::Node& child) {
+				print_cpp_ast_node(dest, child, name, indentation_level, digits_for_offset);
+			});
+			break;
+		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
 			fprintf(dest, "%s", type_name.type_name.c_str());
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			break;
+		}
+		case ast::VARIABLE: {
+			const ast::Variable& variable = node.as<ast::Variable>();
+			print_variable_storage_comment(stdout, variable.storage);
+			print_cpp_ast_node(dest, *variable.type.get(), name, indentation_level, digits_for_offset);
 			break;
 		}
 	}
@@ -317,9 +353,18 @@ static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_o
 	}
 }
 
-void print_variable_storage_comment(FILE* dest, const VariableStorage& storage) {
+void print_variable_storage_comment(FILE* dest, const ast::VariableStorage& storage) {
 	fprintf(dest, "/* ");
-	if(storage.location == VariableStorageLocation::REGISTER) {
+	if(storage.location == ast::VariableStorageLocation::BSS || storage.location == ast::VariableStorageLocation::DATA) {
+		if(storage.location == ast::VariableStorageLocation::BSS) {
+			fprintf(dest, "bss");
+		} else {
+			fprintf(dest, "data");
+		}
+		if(storage.bss_or_data_address != -1) {
+			fprintf(dest, " %x", storage.bss_or_data_address);
+		}
+	} else if(storage.location == ast::VariableStorageLocation::REGISTER) {
 		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) storage.register_class];
 		assert(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
 		const char* register_name = name_table[storage.register_index_relative];

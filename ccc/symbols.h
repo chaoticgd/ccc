@@ -24,17 +24,36 @@ enum class StabsSymbolDescriptor : u8 {
 
 struct StabsType;
 
+enum class ParsedSymbolType {
+	NAME_COLON_TYPE,
+	SOURCE_FILE,
+	SUB_SOURCE_FILE,
+	SCOPE_BEGIN,
+	SCOPE_END,
+	NON_STABS
+};
+
 struct ParsedSymbol {
+	ParsedSymbolType type;
 	const mdebug::Symbol* raw;
-	bool is_stabs = false;
-	// The fields below are only populated for STABS symbols.
-	StabsSymbolDescriptor descriptor;
-	std::string name;
-	std::unique_ptr<StabsType> type;
+	struct { 
+		StabsSymbolDescriptor descriptor;
+		std::string name;
+		std::unique_ptr<StabsType> type;
+	} name_colon_type;
+	struct {
+		u32 translation_unit_text_address;
+	} so;
+	struct {
+		const char* path;
+	} sub_source_file;
+	struct {
+		s32 number;
+	} scope;
 };
 
 std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);
-ParsedSymbol parse_stabs_symbol(const char* input);
+ParsedSymbol parse_stabs_type_symbol(const char* input);
 
 }
 

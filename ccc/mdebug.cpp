@@ -90,6 +90,8 @@ packed_struct(ExternalSymbolHeader,
 	/* 0x4 */ SymbolHeader symbol;
 )
 
+static Symbol parse_symbol(const SymbolHeader& header, const std::vector<u8>& image, s32 strings_offset);
+
 SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) {
 	SymbolTable symbol_table;
 	
@@ -122,20 +124,15 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 			fd.detected_language = SourceLanguage::ASSEMBLY;
 		}
 		
-		// Read symbols.
+		// Parse local symbols.
 		for(s64 j = 0; j < fd_header.symbol_count; j++) {
 			u64 sym_offset = hdrr.local_symbols_offset + (fd_header.isym_base + j) * sizeof(SymbolHeader);
-			const auto& external_header = get_packed<SymbolHeader>(mod.image, sym_offset, "local symbol");
-			Symbol& sym = fd.symbols.emplace_back();
-			sym.string = get_c_string(mod.image, hdrr.local_strings_offset + fd_header.strings_offset + external_header.iss);
-			sym.value = external_header.value;
-			sym.storage_type = (SymbolType) external_header.st;
-			sym.storage_class = (SymbolClass) external_header.sc;
-			sym.index = external_header.index;
+			const auto& symbol_header = get_packed<SymbolHeader>(mod.image, sym_offset, "local symbol");
+			Symbol& sym = fd.symbols.emplace_back(parse_symbol(symbol_header, mod.image, hdrr.local_strings_offset + fd_header.strings_offset));
 			
-			if(fd.base_path.empty() && external_header.iss == fd_header.file_path_string_offset && sym.storage_type == SymbolType::LABEL && fd.symbols.size() > 2) {
+			if(fd.base_path.empty() && symbol_header.iss == fd_header.file_path_string_offset && sym.is_stabs && sym.code == N_SO && fd.symbols.size() > 2) {
 				const Symbol& base_path = fd.symbols[fd.symbols.size() - 2];
-				if(base_path.storage_type == SymbolType::LABEL) {
+				if(base_path.is_stabs && base_path.code == N_SO) {
 					fd.base_path = base_path.string;
 				}
 			}
@@ -152,7 +149,7 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 			fd.full_path = fs::weakly_canonical(fs::path(base_path)/fs::path(raw_path));
 		}
 		
-		// Read procedure descriptors.
+		// Parse procedure descriptors.
 		// This is buggy.
 		//for(s64 j = 0; j < fd_header.cpd; j++) {
 		//	u64 pd_offset = hdrr.cb_pd_offset + (fd_header.ipd_first + j) * sizeof(ProcedureDescriptor);
@@ -169,19 +166,31 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 		symbol_table.files.emplace_back(fd);
 	}
 	
-	// Read external symbols.
+	// Parse external symbols.
 	for(s64 i = 0; i < hdrr.external_symbols_count; i++) {
 		u64 sym_offset = hdrr.external_symbols_offset + i * sizeof(ExternalSymbolHeader);
 		const auto& external_header = get_packed<ExternalSymbolHeader>(mod.image, sym_offset, "local symbol");
-		Symbol& sym = symbol_table.externals.emplace_back();
-		sym.string = get_c_string(mod.image, hdrr.external_strings_offset + external_header.symbol.iss);
-		sym.value = external_header.symbol.value;
-		sym.storage_type = (SymbolType) external_header.symbol.st;
-		sym.storage_class = (SymbolClass) external_header.symbol.sc;
-		sym.index = external_header.symbol.index;
+		symbol_table.externals.emplace_back(parse_symbol(external_header.symbol, mod.image, hdrr.external_strings_offset));
 	}
 	
 	return symbol_table;
+}
+
+static Symbol parse_symbol(const SymbolHeader& header, const std::vector<u8>& image, s32 strings_offset) {
+	Symbol symbol;
+	symbol.string = get_c_string(image, strings_offset + header.iss);
+	symbol.value = header.value;
+	symbol.storage_type = (SymbolType) header.st;
+	symbol.storage_class = (SymbolClass) header.sc;
+	symbol.index = header.index;
+	if((symbol.index & 0xfff00) == 0x8f300) {
+		symbol.is_stabs = true;
+		symbol.code = (StabsCode) (symbol.index - 0x8f300);
+		verify(stabs_code(symbol.code) != nullptr, "Bad STABS symbol code '%x'. Please file a bug report!", symbol.code);
+	} else {
+		symbol.is_stabs = false;
+	}
+	return symbol;
 }
 
 void print_headers(FILE* dest, const SymbolTable& symbol_table) {
@@ -283,6 +292,53 @@ const char* symbol_class(SymbolClass symbol_class) {
 		case SymbolClass::PDATA: return "PDATA";
 		case SymbolClass::FINI: return "FINI";
 		case SymbolClass::NONGP: return "NONGP";
+	}
+	return nullptr;
+}
+
+const char* stabs_code(StabsCode code) {
+	switch(code) {
+		case STAB: return "STAB";
+		case N_GSYM: return "GSYM";
+		case N_FNAME: return "FNAME";
+		case N_FUN: return "FUN";
+		case N_STSYM: return "STSYM";
+		case N_LCSYM: return "LCSYM";
+		case N_MAIN: return "MAIN";
+		case N_PC: return "PC";
+		case N_NSYMS: return "NSYMS";
+		case N_NOMAP: return "NOMAP";
+		case N_OBJ: return "OBJ";
+		case N_OPT: return "OPT";
+		case N_RSYM: return "RSYM";
+		case N_M2C: return "M2C";
+		case N_SLINE: return "SLINE";
+		case N_DSLINE: return "DSLINE";
+		case N_BSLINE: return "BSLINE";
+		case N_EFD: return "EFD";
+		case N_EHDECL: return "EHDECL";
+		case N_CATCH: return "CATCH";
+		case N_SSYM: return "SSYM";
+		case N_SO: return "SO";
+		case N_LSYM: return "LSYM";
+		case N_BINCL: return "BINCL";
+		case N_SOL: return "SOL";
+		case N_PSYM: return "PSYM";
+		case N_EINCL: return "EINCL";
+		case N_ENTRY: return "ENTRY";
+		case N_LBRAC: return "LBRAC";
+		case N_EXCL: return "EXCL";
+		case N_SCOPE: return "SCOPE";
+		case N_RBRAC: return "RBRAC";
+		case N_BCOMM: return "BCOMM";
+		case N_ECOMM: return "ECOMM";
+		case N_ECOML: return "ECOML";
+		case N_NBTEXT: return "NBTEXT";
+		case N_NBDATA: return "NBDATA";
+		case N_NBBSS: return "NBBSS";
+		case N_NBSTS: return "NBSTS";
+		case N_NBLCS: return "NBLCS";
+		case N_LENG: return "LENG";
 	}
 	return nullptr;
 }

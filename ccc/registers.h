@@ -178,7 +178,7 @@ extern const char* FPR_STRINGS[32];
 extern const char* SPECIAL_FPU_STRINGS[3];
 extern const char* VU0_STRINGS[32];
 
-std::pair<RegisterClass, s32> map_gcc_register_index(s32 index);
+std::pair<RegisterClass, s32> map_dbx_register_index(s32 index);
 
 }
 
