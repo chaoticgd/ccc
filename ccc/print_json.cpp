@@ -222,9 +222,13 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 				case ast::VariableClass::PARAMETER: class_string = "parameter";
 			}
 			json.string_property("class", class_string);
+			print_json_variable_storage(json, variable.storage);
+			if(variable.block.low != 0 || variable.block.high != 0) {
+				json.number_property("block_low", variable.block.low);
+				json.number_property("block_high", variable.block.high);
+			}
 			json.property("type");
 			print_json_ast_node(json, *variable.type.get());
-			print_json_variable_storage(json, variable.storage);
 			break;
 		}
 	}

@@ -462,6 +462,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const a
 			const auto [variable_lhs, variable_rhs] = Node::as<Variable>(lhs, rhs);
 			if(variable_lhs.variable_class != variable_rhs.variable_class) return CompareFailReason::VARIABLE_CLASS;
 			if(variable_lhs.storage != variable_rhs.storage) return CompareFailReason::VARIABLE_STORAGE;
+			if(variable_lhs.block != variable_rhs.block) return CompareFailReason::VARIABLE_BLOCK;
 			auto variable_compare = compare_ast_nodes(*variable_lhs.type.get(), *variable_rhs.type.get());
 			if(!variable_compare.has_value()) return variable_compare;
 			break;
@@ -497,6 +498,7 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::VARIABLE_CLASS: return "variable class";
 		case CompareFailReason::VARIABLE_TYPE: return "variable type";
 		case CompareFailReason::VARIABLE_STORAGE: return "variable storage";
+		case CompareFailReason::VARIABLE_BLOCK: return "variable block";
 	}
 	return "";
 }

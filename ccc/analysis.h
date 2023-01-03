@@ -24,6 +24,7 @@ struct TranslationUnit {
 	std::vector<std::unique_ptr<ast::Node>> types;
 	std::vector<std::unique_ptr<ast::Node>> functions_and_globals;
 	std::vector<ParsedSymbol> symbols;
+	u32 text_address = 0;
 };
 
 struct AnalysisResults {

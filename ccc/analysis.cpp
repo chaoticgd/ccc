@@ -78,6 +78,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	ast::FunctionDefinition* current_function = nullptr;
 	ast::FunctionType* current_function_type = nullptr;
 	ast::Scope* current_function_body = nullptr;
+	std::vector<ast::Variable*> pending_variables_begin;
+	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
 	for(const ParsedSymbol& symbol : translation_unit.symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
@@ -99,6 +101,9 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						function->body = std::move(body);
 						
 						translation_unit.functions_and_globals.emplace_back(std::move(function));
+						
+						pending_variables_begin.clear();
+						pending_variables_end.clear();
 						
 						break;
 					}
@@ -125,10 +130,11 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 					case StabsSymbolDescriptor::REGISTER_VARIABLE:
 					case StabsSymbolDescriptor::LOCAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
-						if(!current_function) {//"Local variable symbol before first function symbol.");
+						if(!current_function) {
 							continue;
 						}
 						std::unique_ptr<ast::Variable> local = std::make_unique<ast::Variable>();
+						pending_variables_begin.emplace_back(local.get());
 						local->name = symbol.name_colon_type.name;
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
 							local->storage_class = ast::StorageClass::STATIC;
@@ -175,13 +181,28 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 				}
 				break;
 			}
+			case ParsedSymbolType::SOURCE_FILE: {
+				translation_unit.text_address = symbol.so.translation_unit_text_address;
+				break;
+			}
 			case ParsedSymbolType::SUB_SOURCE_FILE: {
 				break;
 			}
 			case ParsedSymbolType::SCOPE_BEGIN: {
+				auto& pending_end = pending_variables_end[symbol.scope.number];
+				for(ast::Variable* variable : pending_variables_begin) {
+					pending_end.emplace_back(variable);
+					variable->block.low = translation_unit.text_address + symbol.raw->value;
+				}
+				pending_variables_begin.clear();
 				break;
 			}
 			case ParsedSymbolType::SCOPE_END: {
+				auto variables = pending_variables_end.find(symbol.scope.number);
+				verify(variables != pending_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
+				for(ast::Variable* variable : variables->second) {
+					variable->block.high = translation_unit.text_address + symbol.raw->value;
+				}
 				break;
 			}
 			case ParsedSymbolType::NON_STABS: {

@@ -180,9 +180,17 @@ struct VariableStorage {
 	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;
 };
 
+struct AddressRange {
+	u32 low = 0;
+	u32 high = 0;
+	
+	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
+};
+
 struct Variable : Node {
 	VariableClass variable_class;
 	VariableStorage storage;
+	AddressRange block;
 	std::unique_ptr<Node> type;
 	
 	Variable() : Node(DESCRIPTOR) {}
@@ -220,7 +228,8 @@ enum class CompareFailReason {
 	TYPE_NAME,
 	VARIABLE_CLASS,
 	VARIABLE_TYPE,
-	VARIABLE_STORAGE
+	VARIABLE_STORAGE,
+	VARIABLE_BLOCK
 };
 std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
