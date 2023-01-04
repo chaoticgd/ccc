@@ -76,9 +76,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s3
 			} else {
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
-				auto builtin = std::make_unique<ast::BuiltIn>();
-				builtin->bclass = BuiltInClass::VOID;
-				result = std::move(builtin);
+				auto type_name = std::make_unique<ast::TypeName>();
+				type_name->type_name = "void";
+				result = std::move(type_name);
 			}
 			break;
 		}
