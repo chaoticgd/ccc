@@ -288,13 +288,34 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
 	for(size_t i = 0; i < ast_nodes.size(); i++) {
 		Node& node = *ast_nodes[i].get();
-		if(node.descriptor == NodeDescriptor::INLINE_ENUM && (node.name == "" || node.name == " ")) {
+		if(node.descriptor == NodeDescriptor::INLINE_ENUM && node.name.empty()) {
 			bool match = false;
 			for(std::unique_ptr<Node>& other : ast_nodes) {
 				bool is_match = other.get() != &node
 					&& other->descriptor == NodeDescriptor::INLINE_ENUM
-					&& (other->name != "" && other->name != " ")
+					&& !other->name.empty()
 					&& other->as<InlineEnum>().constants == node.as<InlineEnum>().constants;
+				if(is_match) {
+					match = true;
+					break;
+				}
+			}
+			if(match) {
+				ast_nodes.erase(ast_nodes.begin() + i);
+				i--;
+			}
+		}
+	}
+}
+
+void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes) {
+	for(size_t i = 0; i < ast_nodes.size(); i++) {
+		Node& node = *ast_nodes[i].get();
+		if(node.descriptor == TYPE_NAME && node.as<TypeName>().type_name == node.name) {
+			bool match = false;
+			for(std::unique_ptr<Node>& other : ast_nodes) {
+				bool is_match = other.get() != &node
+					&& other->name == node.name;
 				if(is_match) {
 					match = true;
 					break;

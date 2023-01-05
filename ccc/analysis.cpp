@@ -39,6 +39,9 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 		// name of " ", where one stab references the other. Remove these
 		// duplicate AST nodes.
 		ast::remove_duplicate_enums(source_file->types);
+		// For some reason typedefs referencing themselves are generated along
+		// with a proper struct of the same name.
+		ast::remove_duplicate_self_typedefs(source_file->types);
 		// Filter the AST depending on the flags parsed, removing things the
 		// calling code didn't ask for.
 		filter_ast_by_flags(*source_file, flags);

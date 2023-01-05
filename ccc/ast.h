@@ -47,7 +47,7 @@ struct Node {
 	s32 size_bits = -1;
 	
 	s32 order = -1; // Used to preserve the order of children of SourceFile.
-	std::vector<s32> files; // List of files for a given top-level type is present.
+	std::vector<s32> files; // List of files for which a given top-level type is present.
 	bool conflict = false; // Are there multiple differing types with the same name?
 	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = "";
@@ -246,6 +246,7 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std:
 std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
+void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
 std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
 enum class CompareFailReason {
 	DESCRIPTOR,
