@@ -237,19 +237,21 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 }
 
 static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage) {
+	json.property("storage");
+	json.begin_object();
 	switch(storage.location) {
 		case ast::VariableStorageLocation::BSS: {
-			json.string_property("storage", "bss");
+			json.string_property("location", "bss");
 			json.number_property("address", storage.bss_or_data_address);
 			break;
 		}
 		case ast::VariableStorageLocation::DATA: {
-			json.string_property("storage", "data");
+			json.string_property("location", "data");
 			json.number_property("address", storage.bss_or_data_address);
 			break;
 		}
 		case ast::VariableStorageLocation::REGISTER: {
-			json.string_property("storage", "register");
+			json.string_property("location", "register");
 			json.string_property("register", mips::REGISTER_STRING_TABLES[(s32) storage.register_class][storage.register_index_relative]);
 			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) storage.register_class]);
 			json.number_property("dbx_register_number", storage.dbx_register_number);
@@ -257,11 +259,12 @@ static void print_json_variable_storage(JsonWriter& json, const ast::VariableSto
 			break;
 		}
 		case ast::VariableStorageLocation::STACK: {
-			json.string_property("storage", "stack");
+			json.string_property("location", "stack");
 			json.number_property("stack_offset", storage.stack_pointer_offset);
 			break;
 		}
 	}
+	json.end_object();
 }
 
 void JsonWriter::begin_object() {
