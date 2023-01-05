@@ -46,10 +46,11 @@ struct Node {
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
 	
-	const ParsedSymbol* symbol = nullptr;
-	const char* compare_fail_reason = nullptr;
-	
 	s32 order = -1; // Used to preserve the order of children of SourceFile.
+	std::vector<s32> files; // List of files for a given top-level type is present.
+	bool conflict = false; // Are there multiple differing types with the same name?
+	const ParsedSymbol* symbol = nullptr;
+	const char* compare_fail_reason = "";
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -108,7 +109,7 @@ struct FunctionDefinition : Node {
 struct FunctionType : Node {
 	std::unique_ptr<Node> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
-	MemberFunctionModifier modifier;
+	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	bool is_constructor = false;
 	
 	FunctionType() : Node(DESCRIPTOR) {}

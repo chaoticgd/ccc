@@ -86,8 +86,8 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 		if(!last_was_multiline && multiline) {
 			fprintf(dest, "\n");
 		}
-		if(node->compare_fail_reason) {
-			fprintf(dest, "// warning: multiple differing types with the same name (%s not equal)\n", node->compare_fail_reason);
+		if(node->conflict) {
+			fprintf(dest, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node->files.at(0), node->compare_fail_reason);
 		}
 		if(verbose && node->symbol != nullptr) {
 			fprintf(dest, "// symbol: %s\n", node->symbol->raw->string);

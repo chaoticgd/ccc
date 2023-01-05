@@ -311,12 +311,15 @@ void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
 std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast) {
 	std::vector<std::vector<std::unique_ptr<Node>>> deduplicated_nodes;
 	std::map<std::string, size_t> name_to_deduplicated_index;
-	for(auto& [file_name, ast_nodes] : per_file_ast) {
+	for(s32 i = 0; i < (s32) per_file_ast.size(); i++) {
+		auto& [file_name, ast_nodes] = per_file_ast[i];
 		for(std::unique_ptr<Node>& node : ast_nodes) {
 			auto existing_node_index = name_to_deduplicated_index.find(node->name);
 			if(existing_node_index == name_to_deduplicated_index.end()) {
+				// No types with this name have previously been processed.
 				std::string name = node->name;
 				size_t index = deduplicated_nodes.size();
+				node->files = {i};
 				deduplicated_nodes.emplace_back().emplace_back(std::move(node));
 				name_to_deduplicated_index[name] = index;
 			} else {
@@ -332,10 +335,16 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::pair<std::
 							node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
 						}
 					} else {
+						// This type matches another that has already been
+						// processed, so we omit it from the output.
+						existing_node->files.emplace_back(i);
 						match = true;
 					}
 				}
 				if(!match) {
+					// This type doesn't match the others with the same name
+					// that have already been processed.
+					node->files = {i};
 					existing_nodes.emplace_back(std::move(node));
 				}
 			}
@@ -346,6 +355,9 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::pair<std::
 	std::vector<std::unique_ptr<Node>> flattened_nodes;
 	for(std::vector<std::unique_ptr<Node>>& nodes : deduplicated_nodes) {
 		for(std::unique_ptr<Node>& node : nodes) {
+			if(nodes.size() > 1) {
+				node->conflict = true;
+			}
 			flattened_nodes.emplace_back(std::move(node));
 		}
 	}
@@ -361,7 +373,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 	if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
 	if(node_lhs.bitfield_offset_bits != node_rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
 	if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;
-	// Don't compare Node::order here; order should only be used as an ordering!
+	// We intentionally don't compare order, files, conflict symbol or compare_fail_reason here.
 	switch(node_lhs.descriptor) {
 		case ARRAY: {
 			const auto [lhs, rhs] = Node::as<Array>(node_lhs, node_rhs);

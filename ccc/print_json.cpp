@@ -73,6 +73,17 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 	if(node.order != -1) {
 		json.number_property("order", node.order);
 	}
+	if(!node.files.empty()) {
+		json.property("files");
+		json.begin_array();
+		for(s32 file : node.files) {
+			json.number(file);
+		}
+		json.end_array();
+	}
+	if(node.conflict) {
+		json.boolean_property("conflict", true);
+	}
 	switch(node.descriptor) {
 		case ast::NodeDescriptor::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
