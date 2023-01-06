@@ -197,8 +197,8 @@ struct SourceFile : Node {
 
 struct TypeName : Node {
 	std::string type_name;
-	s32 file_index = -1;
-	s32 stabs_type_number = -1;
+	s32 referenced_file_index = -1;
+	s32 referenced_stabs_type_number = -1;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;

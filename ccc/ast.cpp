@@ -47,8 +47,8 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->type_name = *type.name;
-			type_name->file_index = state.file_index;
-			type_name->stabs_type_number = type.type_number;
+			type_name->referenced_file_index = state.file_index;
+			type_name->referenced_stabs_type_number = type.type_number;
 			return type_name;
 		}
 	}

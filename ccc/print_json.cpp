@@ -73,6 +73,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 	if(node.order != -1) {
 		json.number_property("order", node.order);
 	}
+	if(node.conflict) {
+		json.boolean_property("conflict", true);
+	}
 	if(node.stabs_type_number != -1) {
 		json.number_property("stabs_type_number", node.stabs_type_number);
 	}
@@ -232,11 +235,11 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 		case ast::NodeDescriptor::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
 			json.string_property("type_name", type_name.type_name.c_str());
-			if(type_name.file_index > -1) {
-				json.number_property("file_index", type_name.file_index);
+			if(type_name.referenced_file_index > -1) {
+				json.number_property("referenced_file_index", type_name.referenced_file_index);
 			}
-			if(type_name.stabs_type_number > -1) {
-				json.number_property("stabs_type_number", type_name.stabs_type_number);
+			if(type_name.referenced_stabs_type_number > -1) {
+				json.number_property("referenced_stabs_type_number", type_name.referenced_stabs_type_number);
 			}
 			break;
 		}
