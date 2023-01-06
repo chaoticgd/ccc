@@ -123,9 +123,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 				ast::BaseClass& ast_base_class = struct_or_union->base_classes.emplace_back();
 				ast_base_class.visibility = stabs_base_class.visibility;
 				ast_base_class.offset = stabs_base_class.offset;
-				auto base_class_type = stabs_type_to_ast(*stabs_base_class.type, state, absolute_parent_offset_bytes, depth + 1, true);
-				assert(base_class_type->descriptor == TYPE_NAME);
-				ast_base_class.type_name = base_class_type->as<TypeName>().type_name;
+				ast_base_class.type = stabs_type_to_ast(*stabs_base_class.type, state, absolute_parent_offset_bytes, depth + 1, true);
 			}
 			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
 			for(const StabsField& field : stabs_struct_or_union->fields) {
@@ -437,7 +435,8 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 				const BaseClass& base_class_rhs = rhs.base_classes[i];
 				if(base_class_lhs.visibility != base_class_rhs.visibility) return CompareFailReason::BASE_CLASS_VISIBILITY;
 				if(base_class_lhs.offset != base_class_rhs.offset) return CompareFailReason::BASE_CLASS_OFFSET;
-				if(base_class_lhs.type_name != base_class_rhs.type_name) return CompareFailReason::BASE_CLASS_TYPE_NAME;
+				auto base_class_compare = compare_ast_nodes(*base_class_lhs.type.get(), *base_class_rhs.type.get());
+				if(base_class_compare.has_value()) return base_class_compare;
 			}
 			if(lhs.fields.size() != rhs.fields.size()) return CompareFailReason::FIELDS_SIZE;
 			for(size_t i = 0; i < lhs.fields.size(); i++) {
@@ -508,7 +507,6 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::BASE_CLASS_SIZE: return "base class size";
 		case CompareFailReason::BASE_CLASS_VISIBILITY: return "base class visibility value";
 		case CompareFailReason::BASE_CLASS_OFFSET: return "base class offset";
-		case CompareFailReason::BASE_CLASS_TYPE_NAME: return "base class type name";
 		case CompareFailReason::FIELDS_SIZE: return "fields size";
 		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function size";
 		case CompareFailReason::SOURCE_FILE_SIZE: return "source file size";

@@ -127,7 +127,7 @@ struct InlineEnum : Node {
 struct BaseClass {
 	StabsFieldVisibility visibility;
 	s32 offset = -1;
-	std::string type_name;
+	std::unique_ptr<Node> type;
 };
 
 struct InlineStructOrUnion : Node {
@@ -275,7 +275,6 @@ enum class CompareFailReason {
 	BASE_CLASS_SIZE,
 	BASE_CLASS_VISIBILITY,
 	BASE_CLASS_OFFSET,
-	BASE_CLASS_TYPE_NAME,
 	FIELDS_SIZE,
 	MEMBER_FUNCTION_SIZE,
 	SOURCE_FILE_SIZE,

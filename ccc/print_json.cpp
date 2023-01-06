@@ -171,7 +171,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 					json.begin_object();
 					json.string_property("visibility", stabs_field_visibility_to_string(base_class.visibility));
 					json.number_property("offset", base_class.offset);
-					json.string_property("type_name", base_class.type_name.c_str());
+					json.property("type");
+					print_json_ast_node(json, *base_class.type.get());
 					json.end_object();
 				}
 				json.end_array();

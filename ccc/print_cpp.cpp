@@ -234,7 +234,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 					if(base_class.offset > -1) {
 						fprintf(dest, " /* 0x%0*x */", digits_for_offset, base_class.offset);
 					}
-					fprintf(dest, " %s", base_class.type_name.c_str());
+					fprintf(dest, " %s", base_class.type->as<ast::TypeName>().type_name.c_str());
 				}
 			}
 			fprintf(dest, " { // 0x%x\n", struct_or_union.size_bits / 8);
