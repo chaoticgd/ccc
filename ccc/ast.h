@@ -51,6 +51,7 @@ struct Node {
 	bool conflict = false; // Are there multiple differing types with the same name?
 	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = "";
+	s32 stabs_type_number = -1; // Only populated for the root.
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -161,6 +162,7 @@ struct SourceFile : Node {
 	std::vector<std::unique_ptr<ast::Node>> types;
 	std::vector<ParsedSymbol> symbols;
 	s32 next_order = 0; // Next order value to set.
+	std::map<s32, s32> stabs_type_number_to_deduplicated_type_index;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
@@ -195,6 +197,8 @@ struct SourceFile : Node {
 
 struct TypeName : Node {
 	std::string type_name;
+	s32 file_index = -1;
+	s32 stabs_type_number = -1;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
@@ -241,13 +245,17 @@ struct Variable : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
 };
 
-std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
-std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
-std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
-std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
+struct StabsToAstState {
+	s32 file_index;
+	std::map<s32, const StabsType*>* stabs_types;
+};
+std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
+std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state);
+std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
+std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
-std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
+std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr<ast::SourceFile>>& source_files);
 enum class CompareFailReason {
 	DESCRIPTOR,
 	STORAGE_CLASS,

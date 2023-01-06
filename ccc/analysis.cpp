@@ -27,10 +27,11 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
 		assert(file_descriptor_index < symbol_table.files.size());
-		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], flags);
+		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], file_descriptor_index, flags);
 	} else {
-		for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
-			analyse_file(results, symbol_table, fd, flags);
+		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
+			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
+			analyse_file(results, symbol_table, fd, i, flags);
 		}
 	}
 	
@@ -50,17 +51,13 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	// Deduplicate types from different translation units, preserving multiple
 	// copies of types that actually differ.
 	if(flags & DEDUPLICATE_TYPES) {
-		std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>> per_file_types;
-		for(std::unique_ptr<ast::SourceFile>& source_file : results.source_files) {
-			per_file_types.emplace_back(source_file->full_path, std::move(source_file->types));
-		}
-		results.deduplicated_types = ast::deduplicate_types(per_file_types);
+		results.deduplicated_types = ast::deduplicate_types(results.source_files);
 	}
 	
 	return results;
 }
 
-void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, u32 flags) {
+void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
@@ -74,6 +71,10 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);
 		}
 	}
+	
+	ast::StabsToAstState stabs_to_ast_state;
+	stabs_to_ast_state.file_index = file_index;
+	stabs_to_ast_state.stabs_types = &stabs_types;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
 	ast::FunctionDefinition* current_function = nullptr;
@@ -93,7 +94,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						
 						std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
 						current_function_type = function_type.get();
-						function_type->return_type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						function_type->return_type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
 						function_type->parameters.emplace();
 						function->type = std::move(function_type);
 						
@@ -125,7 +126,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 							std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
 								mips::map_dbx_register_index(parameter->storage.dbx_register_number);
 						}
-						parameter->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						parameter->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
 						current_function_type->parameters->emplace_back(std::move(parameter));
 						break;
 					}
@@ -151,7 +152,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 							local->storage.location = ast::VariableStorageLocation::STACK;
 							local->storage.stack_pointer_offset = symbol.raw->value;
 						}
-						local->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						local->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
 						current_function_body->children.emplace_back(std::move(local));
 						break;
 					}
@@ -168,18 +169,17 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						} else {
 							global->storage.location = ast::VariableStorageLocation::DATA;
 						}
-						global->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_types, 0, 0, true);
+						global->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
 						global->order = file->next_order++;
 						file->globals.emplace_back(std::move(global));
 						break;
 					}
 					case StabsSymbolDescriptor::TYPE_NAME:
 					case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG: {
-						std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_types);
-						if(node != nullptr) {
-							node->order = file->next_order++;
-							file->types.emplace_back(std::move(node));
-						}
+						std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_to_ast_state);
+						node->order = file->next_order++;
+						node->stabs_type_number = symbol.name_colon_type.type->type_number;
+						file->types.emplace_back(std::move(node));
 						break;
 					}
 				}

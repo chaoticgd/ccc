@@ -26,7 +26,7 @@ enum AnalysisFlags {
 
 mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules);
 AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
-void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, u32 flags);
+void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, s32 file_index, u32 flags);
 
 };
 
