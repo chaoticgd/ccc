@@ -316,6 +316,8 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 				flat_nodes.emplace_back(std::move(node));
 				name_to_deduplicated_index[name] = index;
 			} else {
+				// Types with this name have previously been processed, we need
+				// to figure out if this one matches any of the previous ones.
 				std::vector<s32>& existing_nodes = deduplicated_nodes[existing_node_index->second];
 				bool match = false;
 				for(s32 existing_node_index : existing_nodes) {
@@ -332,6 +334,7 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 						// This type matches another that has already been
 						// processed, so we omit it from the output.
 						existing_node->files.emplace_back(i);
+						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
 						match = true;
 					}
 				}
@@ -468,7 +471,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 		case TYPE_NAME: {
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
 			if(lhs.type_name != rhs.type_name) return CompareFailReason::TYPE_NAME;
-			// The whole point of comparing nodes is the merge matching nodes
+			// The whole point of comparing nodes is to merge matching nodes
 			// from different translation units, so we don't check the file
 			// index or the STABS type number, since those vary between
 			// different files.
