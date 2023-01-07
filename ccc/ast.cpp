@@ -539,7 +539,7 @@ const char* node_type_to_string(const Node& node) {
 		case NodeDescriptor::POINTER: return "pointer";
 		case NodeDescriptor::REFERENCE: return "reference";
 		case NodeDescriptor::SOURCE_FILE: return "source_file";
-		case NodeDescriptor::TYPE_NAME: return "typename";
+		case NodeDescriptor::TYPE_NAME: return "type_name";
 		case NodeDescriptor::VARIABLE: return "variable";
 	}
 	return "CCC_BADNODEDESC";

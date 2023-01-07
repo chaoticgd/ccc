@@ -30,6 +30,8 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
+	json.number_property("version", 1);
+	
 	json.property("files");
 	json.begin_array();
 	for(const std::unique_ptr<ast::SourceFile>& file : src.source_files) {
