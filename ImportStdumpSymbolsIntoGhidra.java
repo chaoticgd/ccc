@@ -77,7 +77,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			if(importer.types.get(i) == null) {
 				importer.current_type = i;
 				AST.Node node = importer.nodes.get(i);
-				print("Importing " + node.getClass().getSimpleName() + " " + node.name + "\n");
 				Pair<DataType, Integer> type = node.create_type(importer);
 				importer.types.set(i, type);
 				importer.program_type_manager.addDataType(type.first, null);
@@ -225,7 +224,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			boolean is_constructor = false;
 			
 			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
-				return new Pair<>(Undefined8DataType.dataType, 1);
+				return new Pair<>(Undefined1DataType.dataType, 1);
 			}
 		}
 		
@@ -262,6 +261,11 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				int size_bytes = size_bits / 8;
 				if(is_struct) {
 					StructureDataType type = new StructureDataType(type_name, size_bytes, importer.program_type_manager);
+					for(int i = 0; i < base_classes.size(); i++) {
+						BaseClass base_class = base_classes.get(i);
+						Pair<DataType, Integer> base_type = base_class.type.create_type(importer);
+						type.replaceAtOffset(base_class.offset, base_type.first, base_type.second, "base_class_" + Integer.toString(i), "");
+					}
 					for(AST.Node node : fields) {
 						if(node.storage_class != StorageClass.STATIC) {
 							Pair<DataType, Integer> field = node.create_type(importer);
@@ -327,13 +331,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				}
 				if(referenced_file_index == -1 || referenced_stabs_type_number == -1) {
 					importer.console.print("Type lookup failed #1: " + type_name + "\n");
-					return new Pair<>(Undefined8DataType.dataType, 1);
+					return new Pair<>(Undefined1DataType.dataType, 1);
 				}
 				HashMap<Integer, Integer> index_lookup = importer.stabs_type_number_to_deduplicated_type_index.get(referenced_file_index);
 				Integer index = index_lookup.get(referenced_stabs_type_number);
 				if(index == null || index == importer.current_type) {
 					importer.console.print("Type lookup failed #2: " + type_name + "\n");
-					return new Pair<>(Undefined8DataType.dataType, 1);
+					return new Pair<>(Undefined1DataType.dataType, 1);
 				}
 				Pair<DataType, Integer> type = importer.types.get(index);
 				if(type == null) {
