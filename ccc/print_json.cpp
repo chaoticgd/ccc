@@ -155,9 +155,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
 			json.property("constants");
 			json.begin_array();
-			for(const auto& [number, name] : inline_enum.constants) {
+			for(const auto& [value, name] : inline_enum.constants) {
 				json.begin_object();
-				json.number_property("number", number);
+				json.number_property("value", value);
 				json.string_property("name", name.c_str());
 				json.end_object();
 			}

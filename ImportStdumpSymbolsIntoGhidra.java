@@ -129,6 +129,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
 				throw new Exception("Method create_type() called on AST node that isn't a type.");
 			}
+			
+			String generate_name() {
+				if(conflict || name == null || name.isEmpty()) {
+					return name + "__" + Integer.toString(first_file) + "_" + Integer.toString(stabs_type_number);
+				}
+				return name;
+			}
 		}
 		
 		public static class Array extends Node {
@@ -159,7 +166,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			UNSIGNED_64, SIGNED_64, FLOAT_64,
 			UNSIGNED_128, SIGNED_128, UNQUALIFIED_128, FLOAT_128,
 			UNKNOWN_PROBABLY_ARRAY
-		};
+		}
 		
 		public static class BuiltIn extends Node {
 			BuiltInClass builtin_class;
@@ -218,7 +225,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			boolean is_constructor = false;
 			
 			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
-				return new Pair<>(CharDataType.dataType, 1);
+				return new Pair<>(Undefined8DataType.dataType, 1);
 			}
 		}
 		
@@ -231,7 +238,11 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			ArrayList<EnumConstant> constants = new ArrayList<EnumConstant>();
 			
 			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
-				return new Pair<>(CharDataType.dataType, 4);
+				EnumDataType type = new EnumDataType(generate_name(), 4);
+				for(EnumConstant constant : constants) {
+					type.add(constant.name, constant.value);
+				}
+				return new Pair<>(type, 4);
 			}
 		}
 		
@@ -247,12 +258,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			ArrayList<Node> member_functions = new ArrayList<Node>();
 			
 			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
-				String type_name;
-				if(conflict || name == null || name.isEmpty()) {
-					type_name = name + "__" + Integer.toString(first_file) + "_" + Integer.toString(stabs_type_number);
-				} else {
-					type_name = name;
-				}
+				String type_name = generate_name();
 				int size_bytes = size_bits / 8;
 				if(is_struct) {
 					StructureDataType type = new StructureDataType(type_name, size_bytes, importer.program_type_manager);
@@ -267,7 +273,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					return new Pair<>(type, size_bytes);
 				}
 				UnionDataType type = new UnionDataType(type_name);
-				importer.console.print(Integer.toString(fields.size()) + "\n");
 				for(AST.Node node : fields) {
 					if(node.storage_class != StorageClass.STATIC) {
 						Pair<DataType, Integer> field = node.create_type(importer);
@@ -322,13 +327,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				}
 				if(referenced_file_index == -1 || referenced_stabs_type_number == -1) {
 					importer.console.print("Type lookup failed #1: " + type_name + "\n");
-					return new Pair<>(CharDataType.dataType, 1);
+					return new Pair<>(Undefined8DataType.dataType, 1);
 				}
 				HashMap<Integer, Integer> index_lookup = importer.stabs_type_number_to_deduplicated_type_index.get(referenced_file_index);
 				Integer index = index_lookup.get(referenced_stabs_type_number);
 				if(index == null || index == importer.current_type) {
 					importer.console.print("Type lookup failed #2: " + type_name + "\n");
-					return new Pair<>(CharDataType.dataType, 1);
+					return new Pair<>(Undefined8DataType.dataType, 1);
 				}
 				Pair<DataType, Integer> type = importer.types.get(index);
 				if(type == null) {
@@ -470,7 +475,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				for(JsonElement src : object.get("constants").getAsJsonArray()) {
 					AST.EnumConstant dest = new AST.EnumConstant();
 					JsonObject src_object = src.getAsJsonObject();
-					dest.value = src_object.get("number").getAsInt();
+					dest.value = src_object.get("value").getAsInt();
 					dest.name = src_object.get("name").getAsString();
 					inline_enum.constants.add(dest);
 				}

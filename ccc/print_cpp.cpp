@@ -203,11 +203,11 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			}
 			fprintf(dest, "\n");
 			for(size_t i = 0; i < inline_enum.constants.size(); i++) {
-				s32 number = inline_enum.constants[i].first;
+				s32 value = inline_enum.constants[i].first;
 				const std::string& name = inline_enum.constants[i].second;
 				bool is_last = i == inline_enum.constants.size() - 1;
 				indent(dest, indentation_level + 1);
-				fprintf(dest, "%s = %d%s\n", name.c_str(), number, is_last ? "" : ",");
+				fprintf(dest, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
 			}
 			indent(dest, indentation_level);
 			fprintf(dest, "}");
