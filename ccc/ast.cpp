@@ -33,8 +33,8 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		throw std::runtime_error("CCC_BADRECURSION");
 	}
 	
-	// This makes sure that if types are referenced by their number, their name
-	// is shown instead their contents in places where that would be suitable.
+	// This makes sure that types are replaced with their type name in cases
+	// where that would be more appropriate.
 	if(type.name.has_value()) {
 		bool try_substitute = depth > 0 && (type.is_root
 			|| type.descriptor == StabsTypeDescriptor::RANGE
