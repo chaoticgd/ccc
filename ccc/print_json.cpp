@@ -244,6 +244,13 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 		}
 		case ast::NodeDescriptor::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
+			const char* source = "";
+			switch(type_name.source) {
+				case ast::TypeNameSource::REFERENCE: source = "reference"; break;
+				case ast::TypeNameSource::CROSS_REFERENCE: source = "cross_reference"; break;
+				case ast::TypeNameSource::ERROR: source = "error"; break;
+			}
+			json.string_property("source", source);
 			json.string_property("type_name", type_name.type_name.c_str());
 			if(type_name.referenced_file_index > -1) {
 				json.number_property("referenced_file_index", type_name.referenced_file_index);

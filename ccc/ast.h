@@ -205,7 +205,14 @@ struct SourceFile : Node {
 	}
 };
 
+enum class TypeNameSource {
+	REFERENCE,
+	CROSS_REFERENCE,
+	ERROR
+};
+
 struct TypeName : Node {
+	TypeNameSource source = TypeNameSource::ERROR;
 	std::string type_name;
 	s32 referenced_file_index = -1;
 	s32 referenced_stabs_type_number = -1;

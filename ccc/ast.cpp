@@ -21,6 +21,7 @@ std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const St
 		return stabs_type_to_ast(type, state, absolute_parent_offset_bytes, depth, substitute_type_name);
 	} catch(std::runtime_error& e) {
 		auto error = std::make_unique<ast::TypeName>();
+		error->source = TypeNameSource::ERROR;
 		error->type_name = e.what();
 		return error;
 	}
@@ -46,6 +47,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		bool is_va_list = type.name == "__builtin_va_list";
 		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
 			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->source = TypeNameSource::REFERENCE;
 			type_name->type_name = *type.name;
 			type_name->referenced_file_index = state.file_index;
 			type_name->referenced_stabs_type_number = type.type_number;
@@ -57,6 +59,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		auto stabs_type = state.stabs_types->find(type.type_number);
 		if(type.anonymous || stabs_type == state.stabs_types->end() || !stabs_type->second || !stabs_type->second->has_body) {
 			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->source = TypeNameSource::ERROR;
 			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d)", type.type_number);
 			return type_name;
 		}
@@ -74,6 +77,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
 				auto type_name = std::make_unique<ast::TypeName>();
+				type_name->source = TypeNameSource::REFERENCE;
 				type_name->type_name = "void";
 				result = std::move(type_name);
 			}
@@ -163,6 +167,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
 			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->source = TypeNameSource::CROSS_REFERENCE;
 			type_name->type_name = type.as<StabsCrossReferenceType>().identifier;
 			result = std::move(type_name);
 			break;
@@ -470,6 +475,8 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 		}
 		case TYPE_NAME: {
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
+			// Don't check the source so that REFERENCE and CROSS_REFERENCE are
+			// treated as the same.
 			if(lhs.type_name != rhs.type_name) return CompareFailReason::TYPE_NAME;
 			// The whole point of comparing nodes is to merge matching nodes
 			// from different translation units, so we don't check the file
