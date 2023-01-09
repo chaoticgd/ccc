@@ -122,11 +122,18 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 			break;
 		}
 		case ast::NodeDescriptor::FUNCTION_DEFINITION: {
-			const ast::FunctionDefinition& function_definition = node.as<ast::FunctionDefinition>();
+			const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
+			if(function.address_range.valid()) {
+				json.property("address_range");
+				json.begin_object();
+				json.number_property("low", function.address_range.low);
+				json.number_property("high", function.address_range.high);
+				json.end_object();
+			}
 			json.property("type");
-			print_json_ast_node(json, *function_definition.type.get());
+			print_json_ast_node(json, *function.type.get());
 			json.property("body");
-			print_json_ast_node(json, *function_definition.body.get());
+			print_json_ast_node(json, *function.body.get());
 			break;
 		}
 		case ast::NodeDescriptor::FUNCTION_TYPE: {

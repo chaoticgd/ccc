@@ -82,6 +82,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	ast::CompoundStatement* current_function_body = nullptr;
 	std::vector<ast::Variable*> pending_variables_begin;
 	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
+	bool next_function_is_static = false;
+	s32 next_function_size = -1;
 	for(const ParsedSymbol& symbol : file->symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
@@ -91,6 +93,18 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						std::unique_ptr<ast::FunctionDefinition> function = std::make_unique<ast::FunctionDefinition>();
 						current_function = function.get();
 						function->name = symbol.name_colon_type.name;
+						
+						function->address_range.low = symbol.raw->value;
+						assert(next_function_size >= 0);
+						if(function->address_range.low >= 0) {
+							function->address_range.high = function->address_range.low + (u32) next_function_size;
+						}
+						next_function_size = -1;
+						
+						if(next_function_is_static) {
+							function->storage_class = ast::StorageClass::STATIC;
+						}
+						next_function_is_static = false;
 						
 						std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
 						current_function_type = function_type.get();
@@ -210,6 +224,15 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 				break;
 			}
 			case ParsedSymbolType::NON_STABS: {
+				if(symbol.raw->storage_class == mdebug::SymbolClass::TEXT) {
+					if(symbol.raw->storage_type == mdebug::SymbolType::PROC) {
+						next_function_is_static = false;
+					} else if(symbol.raw->storage_type == mdebug::SymbolType::STATICPROC) {
+						next_function_is_static = true;
+					} else if(symbol.raw->storage_type == mdebug::SymbolType::END) {
+						next_function_size = symbol.raw->value;
+					}
+				}
 				break;
 			}
 		}

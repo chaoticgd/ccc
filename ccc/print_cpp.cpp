@@ -110,6 +110,13 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
+	if(node.descriptor == ast::FunctionDefinition::DESCRIPTOR) {
+		const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
+		if(func_def.address_range.valid()) {
+			fprintf(dest, "/* %08x %08x */ ", func_def.address_range.low, func_def.address_range.high);
+		}
+	}
+	
 	print_cpp_storage_class(dest, node.storage_class);
 	
 	switch(node.descriptor) {

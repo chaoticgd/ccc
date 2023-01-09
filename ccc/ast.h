@@ -32,6 +32,15 @@ enum NodeDescriptor {
 	VARIABLE
 };
 
+struct AddressRange {
+	s32 low = -1;
+	s32 high = -1;
+	
+	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
+	bool valid() const { return low >= 0; }
+};
+
+
 struct Node {
 	const NodeDescriptor descriptor;
 	
@@ -100,6 +109,7 @@ struct CompoundStatement : Node {
 };
 
 struct FunctionDefinition : Node {
+	AddressRange address_range;
 	std::unique_ptr<Node> type;
 	std::unique_ptr<Node> body;
 	
@@ -226,13 +236,6 @@ struct VariableStorage {
 	s32 stack_pointer_offset = -1;
 	
 	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;
-};
-
-struct AddressRange {
-	u32 low = 0;
-	u32 high = 0;
-	
-	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
 };
 
 struct Variable : Node {

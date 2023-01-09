@@ -8,6 +8,7 @@ import java.util.*;
 import com.google.gson.*;
 import com.google.gson.stream.JsonReader;
 import generic.stl.Pair;
+import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;
 import ghidra.app.services.ConsoleService;
 import ghidra.app.services.DataTypeManagerService;
@@ -33,21 +34,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		gson_builder.registerTypeAdapter(ParsedJsonFile.class, new JsonFileDeserializer());
 		gson_builder.registerTypeAdapter(AST.Node.class, new NodeDeserializer());
 		Gson gson = gson_builder.create();
-		ParsedJsonFile json = gson.fromJson(reader, ParsedJsonFile.class);
+		ParsedJsonFile asts = gson.fromJson(reader, ParsedJsonFile.class);
 		
-		TypeImporterState importer = new TypeImporterState();
-		importer.nodes = json.deduplicated_types;
-		import_types(importer, json.files);
+		ImporterState importer = new ImporterState();
+		importer.ast = asts;
+		import_types(importer);
 		import_functions(importer);
 		import_globals(importer);
 	}
 	
 	// *************************************************************************
 
-	public class TypeImporterState {
+	public class ImporterState {
 		DataTypeManager program_type_manager = null;
 		
-		List<AST.Node> nodes;
+		ParsedJsonFile ast;
 		ArrayList<Pair<DataType, Integer>> types = new ArrayList<>(); // (data type, size in bytes)
 		ArrayList<HashMap<Integer, Integer>> stabs_type_number_to_deduplicated_type_index = new ArrayList<>();
 		
@@ -56,30 +57,30 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		ConsoleService console;
 	}
 	
-	public void import_types(TypeImporterState importer, List<AST.Node> source_files) throws Exception {
+	public void import_types(ImporterState importer) throws Exception {
 		importer.program_type_manager = currentProgram.getDataTypeManager();
 		int transaction_id = importer.program_type_manager.startTransaction("stdump import script");
 		
 		importer.console = state.getTool().getService(ConsoleService.class);
 		
 		// Gather information required for type lookup.
-		for(AST.Node node : source_files) {
+		for(AST.Node node : importer.ast.files) {
 			AST.SourceFile file = (AST.SourceFile) node;
 			importer.stabs_type_number_to_deduplicated_type_index.add(file.stabs_type_number_to_deduplicated_type_index);
 		}
 		
-		for(int i = 0; i < importer.nodes.size(); i++) {
+		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
 			importer.types.add(null);
 		}
 		
 		// Create and register the types recursively.
-		for(int i = 0; i < importer.nodes.size(); i++) {
+		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
 			if(importer.types.get(i) == null) {
 				importer.current_type = i;
-				AST.Node node = importer.nodes.get(i);
+				AST.Node node = importer.ast.deduplicated_types.get(i);
 				Pair<DataType, Integer> type = node.create_type(importer);
-				importer.types.set(i, type);
-				importer.program_type_manager.addDataType(type.first, null);
+				DataType owned_type = importer.program_type_manager.addDataType(type.first, null);
+				importer.types.set(i, new Pair<>(owned_type, type.second));
 			}
 		}
 		
@@ -89,14 +90,76 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	
 	// *************************************************************************
 	
-	public void import_functions(TypeImporterState importer) {
+	public void import_functions(ImporterState importer) throws Exception {
+		AddressSpace space = getAddressFactory().getDefaultAddressSpace();
+		for(AST.Node node : importer.ast.files) {
+			AST.SourceFile source_file = (AST.SourceFile) node;
+			for(AST.Node function_node : source_file.functions) {
+				AST.FunctionDefinition def = (AST.FunctionDefinition) function_node;
+				AST.FunctionType type = (AST.FunctionType) def.type;
+				println("Importing function " + def.name);
+				if(def.address_range.valid()) {
+					// Find or create the function.
+					Address low = space.getAddress(def.address_range.low);
+					Address high = space.getAddress(def.address_range.high);
+					AddressSet range = new AddressSet(low, high);
+					Function function = getFunctionAt(low);
+					if(function == null) {
+						CreateFunctionCmd cmd = new CreateFunctionCmd(def.name, low, range, SourceType.ANALYSIS);
+						boolean success = cmd.applyTo(currentProgram, monitor);
+						if(!success) {
+							throw new Exception("Failed to create function " + def.name + ": " + cmd.getStatusMsg());
+						}
+						function = getFunctionAt(low);
+					}
+					
+					// Add the parameters.
+					ArrayList<Variable> parameters = new ArrayList<>();
+					for(int i = 0; i < type.parameters.size(); i++) {
+						AST.Variable variable = (AST.Variable) type.parameters.get(i);
+						Pair<DataType, Integer> parameter_type = variable.type.create_type(importer);
+						if(parameter_type.second > 16) {
+							parameter_type = new Pair<>(new PointerDataType(parameter_type.first), 4);
+						}
+						DataType owned_type = importer.program_type_manager.addDataType(parameter_type.first, null);
+						parameters.add(new ParameterImpl(variable.name, owned_type, currentProgram));
+					}
+					try {
+						function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
+					} catch(VariableSizeException exception) {
+						print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
+					}
+				}
+			}
+		}
+	}
+	
+	// *************************************************************************
+	
+	public void import_globals(ImporterState importer) throws Exception {
 		
 	}
 	
 	// *************************************************************************
 	
-	public void import_globals(TypeImporterState importer) {
-		
+	public Register get_sleigh_register(AST.VariableStorage storage, int size) throws Exception {
+		if(storage.location != AST.VariableStorageLocation.REGISTER) {
+			throw new Exception("Call to get_sleigh_register() with non-register storage information.");
+		}
+		String sleigh_register_name = null;
+		if(storage.register_class.equals("gpr")) {
+			if(size > 8) {
+				sleigh_register_name = storage.register + "_qw";
+			} else if(size > 4) {
+				sleigh_register_name = storage.register;
+			} else {
+				sleigh_register_name = storage.register + "_lo";
+			}
+		}
+		if(sleigh_register_name == null) {
+			return null;
+		}
+		return currentProgram.getRegister(sleigh_register_name);
 	}
 	
 	// *************************************************************************
@@ -112,6 +175,15 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			REGISTER
 		}
 		
+		public static class AddressRange {
+			int low = -1;
+			int high = -1;
+			
+			public boolean valid() {
+				return low >= 0;
+			}
+		}
+		
 		public static class Node {
 			String name;
 			StorageClass storage_class = StorageClass.NONE;
@@ -125,7 +197,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			int stabs_type_number = -1;
 			
 			// Return (data type, size in bytes) pair.
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				throw new Exception("Method create_type() called on AST node that isn't a type.");
 			}
 			
@@ -141,7 +213,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			Node element_type;
 			int element_count;
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				Pair<DataType, Integer> element = element_type.create_type(importer);
 				DataType type = new ArrayDataType(element.first, element_count, element.second);
 				int size_bytes = element_count * element.second;
@@ -152,7 +224,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class BitField extends Node {
 			Node underlying_type;
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				return underlying_type.create_type(importer);
 			}
 		}
@@ -170,7 +242,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class BuiltIn extends Node {
 			BuiltInClass builtin_class;
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				switch(builtin_class) {
 				case VOID:
 					return new Pair<>(VoidDataType.dataType, 1);
@@ -213,6 +285,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		}
 		
 		public static class FunctionDefinition extends Node {
+			AddressRange address_range = new AddressRange();
 			Node type;
 			Node body;
 		}
@@ -223,7 +296,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			String modifiers;
 			boolean is_constructor = false;
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				return new Pair<>(Undefined1DataType.dataType, 1);
 			}
 		}
@@ -236,7 +309,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class InlineEnum extends Node {
 			ArrayList<EnumConstant> constants = new ArrayList<EnumConstant>();
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				EnumDataType type = new EnumDataType(generate_name(), 4);
 				for(EnumConstant constant : constants) {
 					type.add(constant.name, constant.value);
@@ -256,7 +329,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			ArrayList<Node> fields = new ArrayList<Node>();
 			ArrayList<Node> member_functions = new ArrayList<Node>();
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				String type_name = generate_name();
 				int size_bytes = size_bits / 8;
 				if(is_struct) {
@@ -290,11 +363,11 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class Pointer extends Node {
 			Node value_type;
 			
-			public int size_bytes(TypeImporterState importer) throws Exception {
+			public int size_bytes(ImporterState importer) throws Exception {
 				return 4;
 			}
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				return new Pair<>(PointerDataType.dataType, 4);
 			}
 		}
@@ -302,11 +375,11 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class Reference extends Node {
 			Node value_type;
 			
-			public int size_bytes(TypeImporterState importer) throws Exception {
+			public int size_bytes(ImporterState importer) throws Exception {
 				return 4;
 			}
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				return new Pair<>(new PointerDataType(value_type.create_type(importer).first), 4);
 			}
 		}
@@ -325,7 +398,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			int referenced_file_index = -1;
 			int referenced_stabs_type_number = -1;
 			
-			public Pair<DataType, Integer> create_type(TypeImporterState importer) throws Exception {
+			public Pair<DataType, Integer> create_type(ImporterState importer) throws Exception {
 				if(type_name.equals("void")) {
 					return new Pair<>(VoidDataType.dataType, 1);
 				}
@@ -341,7 +414,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				}
 				Pair<DataType, Integer> type = importer.types.get(index);
 				if(type == null) {
-					AST.Node node = importer.nodes.get(index);
+					AST.Node node = importer.ast.deduplicated_types.get(index);
 					type = node.create_type(importer);
 					importer.types.set(index, type);
 					importer.program_type_manager.addDataType(type.first, null);
@@ -462,6 +535,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				node = compound;
 			} else if(descriptor.equals("function_definition")) {
 				AST.FunctionDefinition function = new AST.FunctionDefinition();
+				if(object.has("address_range")) {
+					function.address_range = read_address_range(object.get("address_range").getAsJsonObject());
+				}
 				function.type = context.deserialize(object.get("type"), AST.Node.class);
 				function.body = context.deserialize(object.get("body"), AST.Node.class);
 				node = function;
@@ -634,6 +710,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			} else {
 				throw new JsonParseException("Bad variable location: " + location);
 			}
+			return dest;
+		}
+		
+		private AST.AddressRange read_address_range(JsonObject src) {
+			AST.AddressRange dest = new AST.AddressRange();
+			dest.low = src.get("low").getAsInt();
+			dest.high = src.get("high").getAsInt();
 			return dest;
 		}
 	}
