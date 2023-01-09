@@ -17,6 +17,11 @@ The following output formats are supported:
 - C++
 - JSON
 
+The JSON output can be fed into the included `ImportStdumpSymbolsIntoGhidra.java` script, which will import functions, global variables and data types in [Ghidra](https://github.com/NationalSecurityAgency/ghidra). Said script is intended to be used alongside the [ghidra-emotionengine](https://github.com/beardypig/ghidra-emotionengine) extension. The intended procedure for using this script on a fresh file is as follows:
+
+1. Run the script.
+2. Run auto analysis, making sure to enable the "Use Deprecated Demangler" setting for the GNU Demangler analyser if the program you're analysing uses the old GNU mangling.
+
 ### objdump
 
 Half-working EE core MIPS disassembler. Probably not too interesting.
@@ -28,8 +33,9 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 ## Project Structure
 
-	objdump.cpp: See above.
+	ImportStdumpSymbolsIntoGhidra.java: See above.
 	stdump.cpp: See above.
+	objdump.cpp: See above.
 	ccc/analysis.cpp: Runs all the different analysis passes.
 	ccc/ast.cpp: Converts parsed STABS types to a C++ AST structure.
 	ccc/elf.cpp: Parses ELF files.
