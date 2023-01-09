@@ -26,6 +26,8 @@ import ghidra.program.model.listing.*;
 import ghidra.program.model.address.*;
 
 public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
+	public static boolean ENABLE_BROKEN_LOCAL_VARIABLES = false;
+	
 	public void run() throws Exception {
 		String json_path = askString("Enter Path", "Path to .json file:");
 		JsonReader reader = new JsonReader(new FileReader(json_path));
@@ -119,6 +121,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				AST.FunctionDefinition def = (AST.FunctionDefinition) function_node;
 				AST.FunctionType type = (AST.FunctionType) def.type;
 				if(def.address_range.valid()) {
+					print("imporing " + def.name + "\n");
 					// Find or create the function.
 					Address low = space.getAddress(def.address_range.low);
 					Address high = space.getAddress(def.address_range.high);
@@ -132,6 +135,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						}
 						function = getFunctionAt(low);
 					}
+					
+					// Specify the return type.
+					function.setReturnType(type.return_type.create_type(importer).first, SourceType.ANALYSIS);
 					
 					// Add the parameters.
 					ArrayList<Variable> parameters = new ArrayList<>();
@@ -147,6 +153,31 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
 					} catch(VariableSizeException exception) {
 						print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
+					}
+					
+					// This is currently far too broken to enable by default.
+					if(ENABLE_BROKEN_LOCAL_VARIABLES) {
+						// Add local variables.
+						int i = 0;
+						for(AST.Node child : ((AST.CompoundStatement) def.body).children) {
+							if(child instanceof AST.Variable) {
+								AST.Variable src = (AST.Variable) child;
+								if(src.storage_class != AST.StorageClass.STATIC) {
+									LocalVariable dest = null;
+									String name = src.name + "__" + Integer.toString(i);
+									Pair<DataType, Integer> local_type = src.type.create_type(importer);
+									if(src.storage.location == AST.VariableStorageLocation.REGISTER) {
+										int first_use = src.block_low - def.address_range.low;
+										Register register = get_sleigh_register(src.storage, local_type.second);
+										dest = new LocalVariableImpl(name, first_use, local_type.first, register, currentProgram, SourceType.ANALYSIS);
+									} else if(src.storage.location == AST.VariableStorageLocation.STACK) {
+										dest = new LocalVariableImpl(name, local_type.first, src.storage.stack_pointer_offset, currentProgram, SourceType.ANALYSIS);
+									}
+									function.addLocalVariable(dest, SourceType.ANALYSIS);
+									i++;
+								}
+							}
+						}
 					}
 				}
 			}
