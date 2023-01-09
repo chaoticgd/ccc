@@ -51,6 +51,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		ParsedJsonFile ast;
 		ArrayList<Pair<DataType, Integer>> types = new ArrayList<>(); // (data type, size in bytes)
 		ArrayList<HashMap<Integer, Integer>> stabs_type_number_to_deduplicated_type_index = new ArrayList<>();
+		HashMap<String, Integer> type_name_to_deduplicated_type_index = new HashMap<>();
 		
 		int current_type = -1;
 		
@@ -67,6 +68,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		for(AST.Node node : importer.ast.files) {
 			AST.SourceFile file = (AST.SourceFile) node;
 			importer.stabs_type_number_to_deduplicated_type_index.add(file.stabs_type_number_to_deduplicated_type_index);
+		}
+
+		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
+			AST.Node node = importer.ast.deduplicated_types.get(i);
+			if(node.name != null && !node.name.isEmpty()) {
+				importer.type_name_to_deduplicated_type_index.put(node.name, i);
+			}
 		}
 		
 		// Create all the structs and unions first, set everything else to null.
@@ -428,14 +436,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				if(type_name.equals("void")) {
 					return new Pair<>(VoidDataType.dataType, 1);
 				}
-				if(referenced_file_index == -1 || referenced_stabs_type_number == -1) {
-					importer.console.print("Type lookup failed #1: " + type_name + "\n");
-					return new Pair<>(Undefined1DataType.dataType, 1);
+				Integer index;
+				if(referenced_file_index >= 0 && referenced_stabs_type_number >= 0) {
+					// Lookup the type by its STABS type number. This path
+					// ensures that the correct type is found even if multiple
+					// types have the same name.
+					HashMap<Integer, Integer> index_lookup = importer.stabs_type_number_to_deduplicated_type_index.get(referenced_file_index);
+					index = index_lookup.get(referenced_stabs_type_number);
+				} else {
+					// For STABS cross references, no type number is provided,
+					// so we must lookup the type by name instead. This is
+					// riskier but I think it's the best we can really do.
+					index = importer.type_name_to_deduplicated_type_index.get(type_name);
 				}
-				HashMap<Integer, Integer> index_lookup = importer.stabs_type_number_to_deduplicated_type_index.get(referenced_file_index);
-				Integer index = index_lookup.get(referenced_stabs_type_number);
 				if(index == null || index == importer.current_type) {
-					importer.console.print("Type lookup failed #2: " + type_name + "\n");
+					importer.console.print("Type lookup failed: " + type_name + "\n");
 					return new Pair<>(Undefined1DataType.dataType, 1);
 				}
 				Pair<DataType, Integer> type = importer.types.get(index);
@@ -443,6 +458,10 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					AST.Node node = importer.ast.deduplicated_types.get(index);
 					type = node.create_type(importer);
 					importer.types.set(index, type);
+					importer.program_type_manager.addDataType(type.first, null);
+				}
+				if(storage_class == StorageClass.TYPEDEF) {
+					type = new Pair<>(new TypedefDataType(name, type.first), type.second);
 					importer.program_type_manager.addDataType(type.first, null);
 				}
 				return type;
