@@ -24,14 +24,23 @@ mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
 AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
 	AnalysisResults results;
 	
+	// The addresses of the global variables aren't present in the local symbol
+	// table, so here we extract them from the external table.
+	std::map<std::string, s32> global_addresses;
+	for(const mdebug::Symbol& external : symbol_table.externals) {
+		if(external.storage_type == mdebug::SymbolType::GLOBAL) {
+			global_addresses[external.string] = external.value;
+		}
+	}
+	
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
 		assert(file_descriptor_index < symbol_table.files.size());
-		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], file_descriptor_index, flags);
+		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], global_addresses, file_descriptor_index, flags);
 	} else {
 		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
-			analyse_file(results, symbol_table, fd, i, flags);
+			analyse_file(results, symbol_table, fd, global_addresses, i, flags);
 		}
 	}
 	
@@ -57,7 +66,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	return results;
 }
 
-void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, s32 file_index, u32 flags) {
+void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, s32>& global_addresses, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
@@ -182,6 +191,20 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 							global->storage.location = ast::VariableStorageLocation::BSS;
 						} else {
 							global->storage.location = ast::VariableStorageLocation::DATA;
+						}
+						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
+							// The address for non-static global variables is
+							// only stored in the external symbol table (and
+							// the ELF symbol table), so we pull that
+							// information in here.
+							auto global_address = global_addresses.find(global->name);
+							if(global_address != global_addresses.end()) {
+								global->storage.bss_or_data_address = global_address->second;
+							}
+						} else {
+							// And for static global variables it's just stored
+							// in the local symbol table.
+							global->storage.bss_or_data_address = symbol.raw->value;
 						}
 						global->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
 						global->order = file->next_order++;

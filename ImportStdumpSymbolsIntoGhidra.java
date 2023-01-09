@@ -19,6 +19,7 @@ import ghidra.program.model.pcode.*;
 import ghidra.program.model.util.*;
 import ghidra.program.model.reloc.*;
 import ghidra.program.model.data.*;
+import ghidra.program.model.data.DataUtilities.ClearDataMode;
 import ghidra.program.model.block.*;
 import ghidra.program.model.symbol.*;
 import ghidra.program.model.scalar.*;
@@ -49,15 +50,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 
 	public class ImporterState {
 		DataTypeManager program_type_manager = null;
+		ConsoleService console;
 		
 		ParsedJsonFile ast;
 		ArrayList<Pair<DataType, Integer>> types = new ArrayList<>(); // (data type, size in bytes)
 		ArrayList<HashMap<Integer, Integer>> stabs_type_number_to_deduplicated_type_index = new ArrayList<>();
 		HashMap<String, Integer> type_name_to_deduplicated_type_index = new HashMap<>();
-		
 		int current_type = -1;
-		
-		ConsoleService console;
 	}
 	
 	public void import_types(ImporterState importer) throws Exception {
@@ -155,7 +154,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
 					}
 					
-					// This is currently far too broken to enable by default.
+					// This is currently far too broken to be enabled by default.
 					if(ENABLE_BROKEN_LOCAL_VARIABLES) {
 						// Add local variables.
 						int i = 0;
@@ -187,7 +186,19 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	// *************************************************************************
 	
 	public void import_globals(ImporterState importer) throws Exception {
-		
+		AddressSpace space = getAddressFactory().getDefaultAddressSpace();
+		for(AST.Node file_node : importer.ast.files) {
+			AST.SourceFile file = (AST.SourceFile) file_node;
+			for(AST.Node global_node : file.globals) {
+				AST.Variable global = (AST.Variable) global_node;
+				if(global.storage.bss_or_data_address > -1) {
+					Address address = space.getAddress(global.storage.bss_or_data_address);
+					Pair<DataType, Integer> type = global.type.create_type(importer);
+					DataUtilities.createData(currentProgram, address, type.first, type.second, false, ClearDataMode.CLEAR_ALL_CONFLICT_DATA);
+					this.createLabel(address, global.name, true);
+				}
+			}
+		}
 	}
 	
 	// *************************************************************************
@@ -230,7 +241,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			int high = -1;
 			
 			public boolean valid() {
-				return low >= 0;
+				return low > -1;
 			}
 		}
 		
@@ -468,7 +479,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					return new Pair<>(VoidDataType.dataType, 1);
 				}
 				Integer index;
-				if(referenced_file_index >= 0 && referenced_stabs_type_number >= 0) {
+				if(referenced_file_index > -1 && referenced_stabs_type_number > -1) {
 					// Lookup the type by its STABS type number. This path
 					// ensures that the correct type is found even if multiple
 					// types have the same name.
