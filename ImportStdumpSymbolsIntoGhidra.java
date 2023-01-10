@@ -99,11 +99,16 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				AST.InlineStructOrUnion struct_or_union = (AST.InlineStructOrUnion) node;
 				type = importer.types.get(i);
 				struct_or_union.fill(type.first, importer);
-			} else {
+			} else if(node != null) {
 				type = node.create_type(importer);
+			} else {
+				continue;
 			}
-			DataType owned_type = importer.program_type_manager.addDataType(type.first, null);
-			importer.types.set(i, new Pair<>(owned_type, type.second));
+			importer.types.set(i, type);
+		}
+		
+		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
+			importer.program_type_manager.addDataType(importer.types.get(i).first, null);
 		}
 		
 		importer.program_type_manager.endTransaction(transaction_id, true);
@@ -503,12 +508,12 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						return new Pair<>(Undefined1DataType.dataType, 1);
 					}
 					AST.Node node = importer.ast.deduplicated_types.get(index);
+					if(node instanceof AST.InlineStructOrUnion) {
+						importer.console.print("Bad type name referencing to struct or union: " + type_name + "\n");
+						return new Pair<>(Undefined1DataType.dataType, 1);
+					}
 					type = node.create_type(importer);
 					importer.types.set(index, type);
-					importer.program_type_manager.addDataType(type.first, null);
-				}
-				if(storage_class == StorageClass.TYPEDEF) {
-					type = new Pair<>(new TypedefDataType(name, type.first), type.second);
 					importer.program_type_manager.addDataType(type.first, null);
 				}
 				return type;
