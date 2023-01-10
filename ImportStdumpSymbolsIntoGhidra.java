@@ -139,6 +139,8 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						function = getFunctionAt(low);
 					}
 					
+					function.setComment(source_file.path);
+					
 					// Specify the return type.
 					function.setReturnType(type.return_type.create_type(importer).first, SourceType.ANALYSIS);
 					
@@ -509,7 +511,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					AST.Node node = importer.ast.deduplicated_types.get(index);
 					if(node instanceof AST.InlineStructOrUnion) {
-						importer.console.print("Bad type name referencing to struct or union: " + type_name + "\n");
+						importer.console.print("Bad type name referencing struct or union: " + type_name + "\n");
 						return new Pair<>(Undefined1DataType.dataType, 1);
 					}
 					type = node.create_type(importer);
