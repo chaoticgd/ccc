@@ -64,7 +64,6 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 					ParsedSymbol so_symbol;
 					so_symbol.type = ParsedSymbolType::SOURCE_FILE;
 					so_symbol.raw = &symbol;
-					so_symbol.so.translation_unit_text_address = symbol.value;
 					output.emplace_back(std::move(so_symbol));
 					break;
 				}

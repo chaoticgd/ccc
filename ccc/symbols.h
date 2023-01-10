@@ -42,9 +42,6 @@ struct ParsedSymbol {
 		std::unique_ptr<StabsType> type;
 	} name_colon_type;
 	struct {
-		u32 translation_unit_text_address;
-	} so;
-	struct {
 		const char* path;
 	} sub_source_file;
 	struct {

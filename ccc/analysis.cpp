@@ -86,174 +86,93 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	stabs_to_ast_state.stabs_types = &stabs_types;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
-	ast::FunctionDefinition* current_function = nullptr;
-	ast::FunctionType* current_function_type = nullptr;
-	ast::CompoundStatement* current_function_body = nullptr;
-	std::vector<ast::Variable*> pending_variables_begin;
-	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
-	bool next_function_is_static = false;
-	s32 next_function_size = -1;
+	LocalSymbolTableAnalyser analyser(*file.get(), stabs_to_ast_state);
 	for(const ParsedSymbol& symbol : file->symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
 				switch(symbol.name_colon_type.descriptor) {
 					case StabsSymbolDescriptor::LOCAL_FUNCTION:
 					case StabsSymbolDescriptor::GLOBAL_FUNCTION: {
-						std::unique_ptr<ast::FunctionDefinition> function = std::make_unique<ast::FunctionDefinition>();
-						current_function = function.get();
-						function->name = symbol.name_colon_type.name;
-						
-						function->address_range.low = symbol.raw->value;
-						assert(next_function_size >= 0);
-						if(function->address_range.low >= 0) {
-							function->address_range.high = function->address_range.low + (u32) next_function_size;
-						}
-						next_function_size = -1;
-						
-						if(next_function_is_static) {
-							function->storage_class = ast::StorageClass::STATIC;
-						}
-						next_function_is_static = false;
-						
-						std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
-						current_function_type = function_type.get();
-						function_type->return_type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
-						function_type->parameters.emplace();
-						function->type = std::move(function_type);
-						
-						auto body = std::make_unique<ast::CompoundStatement>();
-						current_function_body = body.get();
-						function->body = std::move(body);
-						
-						function->order = file->next_order++;
-						file->functions.emplace_back(std::move(function));
-						
-						pending_variables_begin.clear();
-						pending_variables_end.clear();
-						
+						const char* name = symbol.name_colon_type.name.c_str();
+						const StabsType& type = *symbol.name_colon_type.type.get();
+						analyser.return_type(name, type, symbol.raw->value);
 						break;
 					}
 					case StabsSymbolDescriptor::REFERENCE_PARAMETER:
 					case StabsSymbolDescriptor::REGISTER_PARAMETER:
 					case StabsSymbolDescriptor::VALUE_PARAMETER: {
-						verify(current_function, "Parameter variable symbol before first function symbol.");
-						std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
-						parameter->name = symbol.name_colon_type.name;
-						parameter->variable_class = ast::VariableClass::PARAMETER;
-						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER) {
-							parameter->storage.location = ast::VariableStorageLocation::STACK;
-							parameter->storage.stack_pointer_offset = symbol.raw->value;
-						} else {
-							parameter->storage.location = ast::VariableStorageLocation::REGISTER;
-							parameter->storage.dbx_register_number = symbol.raw->value;
-							std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
-								mips::map_dbx_register_index(parameter->storage.dbx_register_number);
-						}
-						parameter->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
-						current_function_type->parameters->emplace_back(std::move(parameter));
+						const char* name = symbol.name_colon_type.name.c_str();
+						const StabsType& type = *symbol.name_colon_type.type.get();
+						bool is_stack_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER;
+						analyser.parameter(name, type, is_stack_variable, symbol.raw->value);
 						break;
 					}
 					case StabsSymbolDescriptor::REGISTER_VARIABLE:
 					case StabsSymbolDescriptor::LOCAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
-						if(!current_function) {
-							continue;
-						}
-						std::unique_ptr<ast::Variable> local = std::make_unique<ast::Variable>();
-						pending_variables_begin.emplace_back(local.get());
-						local->name = symbol.name_colon_type.name;
-						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
-							local->storage_class = ast::StorageClass::STATIC;
-						}
-						local->variable_class = ast::VariableClass::LOCAL;
-						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
-							local->storage.location = ast::VariableStorageLocation::REGISTER;
-							local->storage.dbx_register_number = symbol.raw->value;
-							std::tie(local->storage.register_class, local->storage.register_index_relative) =
-								mips::map_dbx_register_index(local->storage.dbx_register_number);
-						} else {
-							local->storage.location = ast::VariableStorageLocation::STACK;
-							local->storage.stack_pointer_offset = symbol.raw->value;
-						}
-						local->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
-						current_function_body->children.emplace_back(std::move(local));
+						const char* name = symbol.name_colon_type.name.c_str();
+						const StabsType& type = *symbol.name_colon_type.type.get();
+						bool is_register_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE;
+						bool is_static = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE;
+						analyser.local_variable(name, type, is_register_variable, symbol.raw->value, is_static);
 						break;
 					}
 					case StabsSymbolDescriptor::GLOBAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
-						std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
-						global->name = symbol.name_colon_type.name;
-						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE) {
-							global->storage_class = ast::StorageClass::STATIC;
-						}
-						global->variable_class = ast::VariableClass::GLOBAL;
-						if(symbol.raw->code == mdebug::N_LCSYM) {
-							global->storage.location = ast::VariableStorageLocation::BSS;
-						} else {
-							global->storage.location = ast::VariableStorageLocation::DATA;
-						}
+						const char* name = symbol.name_colon_type.name.c_str();
+						s32 address = -1;
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
 							// The address for non-static global variables is
 							// only stored in the external symbol table (and
 							// the ELF symbol table), so we pull that
 							// information in here.
-							auto global_address = global_addresses.find(global->name);
+							auto global_address = global_addresses.find(symbol.name_colon_type.name);
 							if(global_address != global_addresses.end()) {
-								global->storage.bss_or_data_address = global_address->second;
+								address = global_address->second;
 							}
 						} else {
 							// And for static global variables it's just stored
 							// in the local symbol table.
-							global->storage.bss_or_data_address = symbol.raw->value;
+							address = symbol.raw->value;
 						}
-						global->type = ast::stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), stabs_to_ast_state, 0, 0, true);
-						global->order = file->next_order++;
-						file->globals.emplace_back(std::move(global));
+						const StabsType& type = *symbol.name_colon_type.type.get();
+						bool is_static = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE;
+						bool is_bss = symbol.raw->code == mdebug::N_LCSYM;
+						analyser.global_variable(name, address, type, is_static, is_bss);
 						break;
 					}
 					case StabsSymbolDescriptor::TYPE_NAME:
 					case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG: {
-						std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_to_ast_state);
-						node->order = file->next_order++;
-						node->stabs_type_number = symbol.name_colon_type.type->type_number;
-						file->types.emplace_back(std::move(node));
+						analyser.data_type(symbol);
 						break;
 					}
 				}
 				break;
 			}
 			case ParsedSymbolType::SOURCE_FILE: {
-				file->text_address = symbol.so.translation_unit_text_address;
+				analyser.source_file(symbol.raw->string, symbol.raw->value);
 				break;
 			}
 			case ParsedSymbolType::SUB_SOURCE_FILE: {
+				analyser.sub_source_file(symbol.raw->string, symbol.raw->value);
 				break;
 			}
 			case ParsedSymbolType::SCOPE_BEGIN: {
-				auto& pending_end = pending_variables_end[symbol.scope.number];
-				for(ast::Variable* variable : pending_variables_begin) {
-					pending_end.emplace_back(variable);
-					variable->block.low = file->text_address + symbol.raw->value;
-				}
-				pending_variables_begin.clear();
+				analyser.lbrac(symbol.scope.number, symbol.raw->value);
 				break;
 			}
 			case ParsedSymbolType::SCOPE_END: {
-				auto variables = pending_variables_end.find(symbol.scope.number);
-				verify(variables != pending_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
-				for(ast::Variable* variable : variables->second) {
-					variable->block.high = file->text_address + symbol.raw->value;
-				}
+				analyser.rbrac(symbol.scope.number, symbol.raw->value);
 				break;
 			}
 			case ParsedSymbolType::NON_STABS: {
 				if(symbol.raw->storage_class == mdebug::SymbolClass::TEXT) {
 					if(symbol.raw->storage_type == mdebug::SymbolType::PROC) {
-						next_function_is_static = false;
+						analyser.function(symbol.raw->string, symbol.raw->value, false);
 					} else if(symbol.raw->storage_type == mdebug::SymbolType::STATICPROC) {
-						next_function_is_static = true;
+						analyser.function(symbol.raw->string, symbol.raw->value, true);
 					} else if(symbol.raw->storage_type == mdebug::SymbolType::END) {
-						next_function_size = symbol.raw->value;
+						analyser.text_end(symbol.raw->string, symbol.raw->value);
 					}
 				}
 				break;
@@ -263,6 +182,149 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	
 	results.source_files.emplace_back(std::move(file));
 }
+
+void LocalSymbolTableAnalyser::stab_magic(const char* magic) {
+	
+}
+
+void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
+	output.text_address = text_address;
+}
+
+void LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
+	std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_to_ast_state);
+	node->order = output.next_order++;
+	node->stabs_type_number = symbol.name_colon_type.type->type_number;
+	output.types.emplace_back(std::move(node));
+}
+
+void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, const StabsType& type, bool is_static, bool is_bss) {
+	std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
+	global->name = name;
+	if(is_static) {
+		global->storage_class = ast::StorageClass::STATIC;
+	}
+	global->variable_class = ast::VariableClass::GLOBAL;
+	if(is_bss) {
+		global->storage.location = ast::VariableStorageLocation::BSS;
+	} else {
+		global->storage.location = ast::VariableStorageLocation::DATA;
+	}
+	global->storage.bss_or_data_address = address;
+	global->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
+	global->order = output.next_order++;
+	output.globals.emplace_back(std::move(global));
+}
+
+void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_address) {
+	
+}
+
+void LocalSymbolTableAnalyser::function(const char* name, s32 address, bool is_static) {
+	next_function_is_static = is_static;
+}
+
+void LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
+	
+}
+
+void LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
+	next_function_size = function_size;
+}
+
+void LocalSymbolTableAnalyser::return_type(const char* name, const StabsType& return_type, s32 function_address) {
+	std::unique_ptr<ast::FunctionDefinition> function = std::make_unique<ast::FunctionDefinition>();
+	current_function = function.get();
+	function->name = name;
+	
+	function->address_range.low = function_address;
+	assert(next_function_size >= 0);
+	if(function->address_range.low >= 0) {
+		function->address_range.high = function->address_range.low + (u32) next_function_size;
+	}
+	next_function_size = -1;
+	
+	if(next_function_is_static) {
+		function->storage_class = ast::StorageClass::STATIC;
+	}
+	next_function_is_static = false;
+	
+	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
+	current_function_type = function_type.get();
+	function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true);
+	function_type->parameters.emplace();
+	function->type = std::move(function_type);
+	
+	auto body = std::make_unique<ast::CompoundStatement>();
+	current_function_body = body.get();
+	function->body = std::move(body);
+	
+	function->order = output.next_order++;
+	output.functions.emplace_back(std::move(function));
+	
+	pending_variables_begin.clear();
+	pending_variables_end.clear();
+}
+
+void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register) {
+	verify(current_function, "Parameter variable symbol before first function symbol.");
+	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
+	parameter->name = name;
+	parameter->variable_class = ast::VariableClass::PARAMETER;
+	if(is_stack_variable) {
+		parameter->storage.location = ast::VariableStorageLocation::STACK;
+		parameter->storage.stack_pointer_offset = offset_or_register;
+	} else {
+		parameter->storage.location = ast::VariableStorageLocation::REGISTER;
+		parameter->storage.dbx_register_number = offset_or_register;
+		std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
+			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
+	}
+	parameter->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
+	current_function_type->parameters->emplace_back(std::move(parameter));
+}
+
+void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, bool is_register_variable, s32 register_or_offset, bool is_static) {
+	if(!current_function) {
+		return;
+	}
+	std::unique_ptr<ast::Variable> local = std::make_unique<ast::Variable>();
+	pending_variables_begin.emplace_back(local.get());
+	local->name = name;
+	if(is_static) {
+		local->storage_class = ast::StorageClass::STATIC;
+	}
+	local->variable_class = ast::VariableClass::LOCAL;
+	if(is_register_variable) {
+		local->storage.location = ast::VariableStorageLocation::REGISTER;
+		local->storage.dbx_register_number = register_or_offset;
+		std::tie(local->storage.register_class, local->storage.register_index_relative) =
+			mips::map_dbx_register_index(local->storage.dbx_register_number);
+	} else {
+		local->storage.location = ast::VariableStorageLocation::STACK;
+		local->storage.stack_pointer_offset = register_or_offset;
+	}
+	local->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
+	current_function_body->children.emplace_back(std::move(local));
+}
+
+void LocalSymbolTableAnalyser::lbrac(s32 number, s32 begin_offset) {
+	auto& pending_end = pending_variables_end[number];
+	for(ast::Variable* variable : pending_variables_begin) {
+		pending_end.emplace_back(variable);
+		variable->block.low = output.text_address + begin_offset;
+	}
+	pending_variables_begin.clear();
+}
+
+void LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
+	auto variables = pending_variables_end.find(number);
+	verify(variables != pending_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
+	for(ast::Variable* variable : variables->second) {
+		variable->block.high = output.text_address + end_offset;
+	}
+}
+
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 	switch(ast_node.descriptor) {
