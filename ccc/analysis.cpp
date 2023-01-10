@@ -26,21 +26,21 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	
 	// The addresses of the global variables aren't present in the local symbol
 	// table, so here we extract them from the external table.
-	std::map<std::string, ExternalGlobalVariable> global_addresses;
+	std::map<std::string, const mdebug::Symbol*> globals;
 	for(const mdebug::Symbol& external : symbol_table.externals) {
 		if(external.storage_type == mdebug::SymbolType::GLOBAL) {
-			global_addresses[external.string] = {external.value, external.storage_class};
+			globals[external.string] = &external;
 		}
 	}
 	
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
 		assert(file_descriptor_index < symbol_table.files.size());
-		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], global_addresses, file_descriptor_index, flags);
+		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
 	} else {
 		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
-			analyse_file(results, symbol_table, fd, global_addresses, i, flags);
+			analyse_file(results, symbol_table, fd, globals, i, flags);
 		}
 	}
 	
@@ -66,7 +66,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	return results;
 }
 
-void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, ExternalGlobalVariable>& global_addresses, s32 file_index, u32 flags) {
+void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
@@ -138,10 +138,10 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 							// only stored in the external symbol table (and
 							// the ELF symbol table), so we pull that
 							// information in here.
-							auto global_address = global_addresses.find(symbol.name_colon_type.name);
-							if(global_address != global_addresses.end()) {
-								address = global_address->second.address;
-								location = symbol_class_to_global_variable_location(global_address->second.location);
+							auto global_symbol = globals.find(symbol.name_colon_type.name);
+							if(global_symbol != globals.end()) {
+								address = global_symbol->second->value;
+								location = symbol_class_to_global_variable_location(global_symbol->second->storage_class);
 							}
 						} else {
 							// And for static global variables it's just stored
