@@ -142,7 +142,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					function.setComment(source_file.path);
 					
 					// Specify the return type.
-					function.setReturnType(type.return_type.create_type(importer).first, SourceType.ANALYSIS);
+					if(type.return_type != null) {
+						function.setReturnType(type.return_type.create_type(importer).first, SourceType.ANALYSIS);
+					}
 					
 					// Add the parameters.
 					ArrayList<Variable> parameters = new ArrayList<>();
@@ -359,7 +361,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		}
 		
 		public static class FunctionType extends Node {
-			Node return_type;
+			Node return_type = null;
 			ArrayList<Node> parameters = new ArrayList<Node>();
 			String modifiers;
 			boolean is_constructor = false;
@@ -641,7 +643,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				node = function;
 			} else if(descriptor.equals("function_type")) {
 				AST.FunctionType function_type = new AST.FunctionType();
-				function_type.return_type = context.deserialize(object.get("return_type"), AST.Node.class);
+				if(object.has("return_type")) {
+					function_type.return_type = context.deserialize(object.get("return_type"), AST.Node.class);
+				}
 				if(object.has("parameters")) {
 					for(JsonElement parameter : object.get("parameters").getAsJsonArray()) {
 						function_type.parameters.add(context.deserialize(parameter, AST.Node.class));
