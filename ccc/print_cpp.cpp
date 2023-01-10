@@ -113,11 +113,14 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
-	if(node.descriptor == ast::FunctionDefinition::DESCRIPTOR) {
+	if(node.descriptor == ast::FUNCTION_DEFINITION) {
 		const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
 		if(func_def.address_range.valid()) {
 			fprintf(dest, "/* %08x %08x */ ", func_def.address_range.low, func_def.address_range.high);
 		}
+	} else if(node.descriptor == ast::VARIABLE) {
+		const ast::Variable& variable = node.as<ast::Variable>();
+		print_variable_storage_comment(stdout, variable.storage);
 	}
 	
 	print_cpp_storage_class(dest, node.storage_class);
@@ -308,7 +311,6 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		}
 		case ast::VARIABLE: {
 			const ast::Variable& variable = node.as<ast::Variable>();
-			print_variable_storage_comment(stdout, variable.storage);
 			print_cpp_ast_node(dest, *variable.type.get(), name, indentation_level, digits_for_offset);
 			break;
 		}
