@@ -28,8 +28,8 @@ enum class ParsedSymbolType {
 	NAME_COLON_TYPE,
 	SOURCE_FILE,
 	SUB_SOURCE_FILE,
-	SCOPE_BEGIN,
-	SCOPE_END,
+	LBRAC,
+	RBRAC,
 	NON_STABS
 };
 

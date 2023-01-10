@@ -169,11 +169,11 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 				analyser.sub_source_file(symbol.raw->string, symbol.raw->value);
 				break;
 			}
-			case ParsedSymbolType::SCOPE_BEGIN: {
+			case ParsedSymbolType::LBRAC: {
 				analyser.lbrac(symbol.scope.number, symbol.raw->value);
 				break;
 			}
-			case ParsedSymbolType::SCOPE_END: {
+			case ParsedSymbolType::RBRAC: {
 				analyser.rbrac(symbol.scope.number, symbol.raw->value);
 				break;
 			}
@@ -191,6 +191,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 			}
 		}
 	}
+	
+	analyser.finish();
 	
 	results.source_files.emplace_back(std::move(file));
 }
@@ -244,7 +246,29 @@ void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_addres
 }
 
 void LocalSymbolTableAnalyser::function(const char* name, s32 address, bool is_static) {
-	next_function_is_static = is_static;
+	std::unique_ptr<ast::FunctionDefinition> ptr = std::make_unique<ast::FunctionDefinition>();
+	current_function = ptr.get();
+	ptr->order = output.next_order++;
+	output.functions.emplace_back(std::move(ptr));
+	
+	current_function->name = name;
+	current_function->address_range.low = address;
+	if(is_static) {
+		current_function->storage_class = ast::StorageClass::STATIC;
+	}
+	
+	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
+	current_function_type = function_type.get();
+	current_function->type = std::move(function_type);
+	
+	auto body = std::make_unique<ast::CompoundStatement>();
+	current_function_body = body.get();
+	current_function->body = std::move(body);
+	
+	pending_variables_begin.clear();
+	pending_variables_end.clear();
+	
+	state = IN_FUNCTION_BEGINNING;
 }
 
 void LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
@@ -252,45 +276,24 @@ void LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_nu
 }
 
 void LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
-	next_function_size = function_size;
+	if(state == IN_FUNCTION_BEGINNING) {
+		if(current_function->address_range.low >= 0) {
+			assert(current_function);
+			current_function->address_range.high = current_function->address_range.low + function_size;
+		}
+		state = IN_FUNCTION_MIDDLE;
+	}
 }
 
 void LocalSymbolTableAnalyser::return_type(const char* name, const StabsType& return_type, s32 function_address) {
-	std::unique_ptr<ast::FunctionDefinition> function = std::make_unique<ast::FunctionDefinition>();
-	current_function = function.get();
-	function->name = name;
-	
-	function->address_range.low = function_address;
-	assert(next_function_size >= 0);
-	if(function->address_range.low >= 0) {
-		function->address_range.high = function->address_range.low + (u32) next_function_size;
-	}
-	next_function_size = -1;
-	
-	if(next_function_is_static) {
-		function->storage_class = ast::StorageClass::STATIC;
-	}
-	next_function_is_static = false;
-	
-	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
-	current_function_type = function_type.get();
-	function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true);
-	function_type->parameters.emplace();
-	function->type = std::move(function_type);
-	
-	auto body = std::make_unique<ast::CompoundStatement>();
-	current_function_body = body.get();
-	function->body = std::move(body);
-	
-	function->order = output.next_order++;
-	output.functions.emplace_back(std::move(function));
-	
-	pending_variables_begin.clear();
-	pending_variables_end.clear();
+	assert(current_function_type && state == IN_FUNCTION_MIDDLE);
+	current_function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true);
+	current_function_type->parameters.emplace();
+	state = IN_FUNCTION_END;
 }
 
 void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register) {
-	verify(current_function, "Parameter variable symbol before first function symbol.");
+	assert(current_function_type && state == IN_FUNCTION_END);
 	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
 	parameter->name = name;
 	parameter->variable_class = ast::VariableClass::PARAMETER;
@@ -355,6 +358,11 @@ void LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
 	for(ast::Variable* variable : variables->second) {
 		variable->block.high = output.text_address + end_offset;
 	}
+}
+
+void LocalSymbolTableAnalyser::finish() {
+	verify(state != IN_FUNCTION_BEGINNING,
+		"Unexpected end of symbol table for '%s'.", output.full_path.c_str());
 }
 
 

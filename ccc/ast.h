@@ -118,7 +118,7 @@ struct FunctionDefinition : Node {
 };
 
 struct FunctionType : Node {
-	std::unique_ptr<Node> return_type;
+	std::optional<std::unique_ptr<Node>> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	bool is_constructor = false;
@@ -287,6 +287,7 @@ enum class CompareFailReason {
 	ARRAY_ELEMENT_COUNT,
 	BUILTIN_CLASS,
 	COMPOUND_STATEMENT_SIZE,
+	FUNCTION_RETURN_TYPE_HAS_VALUE,
 	FUNCTION_PARAMAETER_SIZE,
 	FUNCTION_PARAMETERS_HAS_VALUE,
 	FUNCTION_MODIFIER,

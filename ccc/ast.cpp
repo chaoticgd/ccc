@@ -415,8 +415,11 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 		}
 		case FUNCTION_TYPE: {
 			const auto [lhs, rhs] = Node::as<FunctionType>(node_lhs, node_rhs);
-			auto return_compare = compare_ast_nodes(*lhs.return_type.get(), *rhs.return_type.get());
-			if(return_compare.has_value()) return return_compare;
+			if(lhs.return_type.has_value() != rhs.return_type.has_value()) return CompareFailReason::FUNCTION_RETURN_TYPE_HAS_VALUE;
+			if(lhs.return_type.has_value()) {
+				auto return_compare = compare_ast_nodes(*lhs.return_type->get(), *rhs.return_type->get());
+				if(return_compare.has_value()) return return_compare;
+			}
 			if(lhs.parameters.has_value() && rhs.parameters.has_value()) {
 				if(lhs.parameters->size() != rhs.parameters->size()) return CompareFailReason::FUNCTION_PARAMAETER_SIZE;
 				for(size_t i = 0; i < lhs.parameters->size(); i++) {
@@ -509,6 +512,7 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::ARRAY_ELEMENT_COUNT: return "array element count";
 		case CompareFailReason::BUILTIN_CLASS: return "builtin class";
 		case CompareFailReason::COMPOUND_STATEMENT_SIZE: return "compound statement size";
+		case CompareFailReason::FUNCTION_RETURN_TYPE_HAS_VALUE: return "function return type has value";
 		case CompareFailReason::FUNCTION_PARAMAETER_SIZE: return "function paramaeter size";
 		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameter";
 		case CompareFailReason::FUNCTION_MODIFIER: return "function modifier";

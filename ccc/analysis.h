@@ -36,13 +36,19 @@ struct LocalSymbolTableAnalyser {
 	LocalSymbolTableAnalyser(ast::SourceFile& o, const ast::StabsToAstState& s)
 		: output(o), stabs_to_ast_state(s) {}
 	
+	enum AnalysisState {
+		NOT_IN_FUNCTION,
+		IN_FUNCTION_BEGINNING,
+		IN_FUNCTION_MIDDLE,
+		IN_FUNCTION_END
+	};
+	
+	AnalysisState state = NOT_IN_FUNCTION;
 	ast::FunctionDefinition* current_function = nullptr;
 	ast::FunctionType* current_function_type = nullptr;
 	ast::CompoundStatement* current_function_body = nullptr;
 	std::vector<ast::Variable*> pending_variables_begin;
 	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
-	bool next_function_is_static = false;
-	s32 next_function_size = -1;
 	
 	// Functions for processing individual symbols.
 	void stab_magic(const char* magic);
@@ -58,6 +64,8 @@ struct LocalSymbolTableAnalyser {
 	void local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
 	void lbrac(s32 number, s32 begin_offset);
 	void rbrac(s32 number, s32 end_offset);
+	
+	void finish();
 };
 
 };

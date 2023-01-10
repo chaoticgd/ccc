@@ -181,16 +181,18 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 				fprintf(dest, "virtual ");
 			}
 			if(!function.is_constructor) {
-				assert(function.return_type.get());
-				VariableName dummy{nullptr};
-				print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
-				fprintf(dest, " ");
+				if(function.return_type.has_value()) {
+					VariableName dummy{nullptr};
+					print_cpp_ast_node(dest, *function.return_type->get(), dummy, indentation_level, digits_for_offset);
+					fprintf(dest, " ");
+				} else {
+					fprintf(dest, "CCC_UNKNOWN ");
+				}
 			}
 			print_cpp_variable_name(dest, name, BRACKETS_IF_POINTER);
 			fprintf(dest, "(");
 			if(function.parameters.has_value()) {
 				for(size_t i = 0; i < function.parameters->size(); i++) {
-					assert((*function.parameters)[i].get());
 					VariableName dummy{nullptr};
 					print_cpp_ast_node(dest, *(*function.parameters)[i].get(), dummy, indentation_level, digits_for_offset);
 					if(i != function.parameters->size() - 1) {
@@ -267,7 +269,6 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 				}
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
 					ast::FunctionType& member_func = struct_or_union.member_functions[i]->as<ast::FunctionType>();
-					assert(struct_or_union.member_functions[i].get());
 					indent(dest, indentation_level + 1);
 					print_cpp_ast_node(dest, *struct_or_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset);
 					fprintf(dest, ";\n");

@@ -42,7 +42,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				case mdebug::N_LBRAC: { // Begin scope
 					verify(strlen(symbol.string) >= 4, "N_LBRAC symbol has bad string.");
 					ParsedSymbol begin_scope;
-					begin_scope.type = ParsedSymbolType::SCOPE_BEGIN;
+					begin_scope.type = ParsedSymbolType::LBRAC;
 					begin_scope.raw = &symbol;
 					begin_scope.scope.number = atoi(&symbol.string[4]);
 					output.emplace_back(std::move(begin_scope));
@@ -51,7 +51,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				case mdebug::N_RBRAC: { // End scope
 					verify(strlen(symbol.string) >= 4, "N_RBRAC symbol has bad string.");
 					ParsedSymbol end_scope;
-					end_scope.type = ParsedSymbolType::SCOPE_END;
+					end_scope.type = ParsedSymbolType::RBRAC;
 					end_scope.raw = &symbol;
 					end_scope.scope.number = atoi(&symbol.string[4]);
 					output.emplace_back(std::move(end_scope));
