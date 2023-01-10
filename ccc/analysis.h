@@ -27,6 +27,7 @@ enum AnalysisFlags {
 mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules);
 AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
 void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, s32>& global_addresses, s32 file_index, u32 flags);
+ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
 struct LocalSymbolTableAnalyser {
 	ast::SourceFile& output;
@@ -47,14 +48,14 @@ struct LocalSymbolTableAnalyser {
 	void stab_magic(const char* magic);
 	void source_file(const char* path, s32 text_address);
 	void data_type(const ParsedSymbol& symbol);
-	void global_variable(const char* name, s32 address, const StabsType& type, bool is_static, bool is_bss);
+	void global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location);
 	void sub_source_file(const char* name, s32 text_address);
 	void function(const char* name, s32 address, bool is_static);
 	void label(const char* label, s32 address, s32 line_number);
 	void text_end(const char* name, s32 function_size);
 	void return_type(const char* name, const StabsType& return_type, s32 function_address);
 	void parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register);
-	void local_variable(const char* name, const StabsType& type, bool is_register_variable, s32 register_or_offset, bool is_static);
+	void local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
 	void lbrac(s32 number, s32 begin_offset);
 	void rbrac(s32 number, s32 end_offset);
 };

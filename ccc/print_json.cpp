@@ -264,9 +264,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 			const ast::Variable& variable = node.as<ast::Variable>();
 			const char* class_string = "";
 			switch(variable.variable_class) {
-				case ast::VariableClass::GLOBAL: class_string = "global";
-				case ast::VariableClass::LOCAL: class_string = "local";
-				case ast::VariableClass::PARAMETER: class_string = "parameter";
+				case ast::VariableClass::GLOBAL: class_string = "global"; break;
+				case ast::VariableClass::LOCAL: class_string = "local"; break;
+				case ast::VariableClass::PARAMETER: class_string = "parameter"; break;
 			}
 			json.string_property("class", class_string);
 			print_json_variable_storage(json, variable.storage);
@@ -285,27 +285,23 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node& node) {
 static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage) {
 	json.property("storage");
 	json.begin_object();
-	switch(storage.location) {
-		case ast::VariableStorageLocation::BSS: {
-			json.string_property("location", "bss");
-			json.number_property("address", storage.bss_or_data_address);
+	switch(storage.type) {
+		case ast::VariableStorageType::GLOBAL: {
+			json.string_property("type", "global");
+			json.string_property("global_location", ast::global_variable_location_to_string(storage.global_location));
+			json.number_property("global_address", storage.global_address);
 			break;
 		}
-		case ast::VariableStorageLocation::DATA: {
-			json.string_property("location", "data");
-			json.number_property("address", storage.bss_or_data_address);
-			break;
-		}
-		case ast::VariableStorageLocation::REGISTER: {
-			json.string_property("location", "register");
+		case ast::VariableStorageType::REGISTER: {
+			json.string_property("type", "register");
 			json.string_property("register", mips::REGISTER_STRING_TABLES[(s32) storage.register_class][storage.register_index_relative]);
 			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) storage.register_class]);
 			json.number_property("dbx_register_number", storage.dbx_register_number);
 			json.number_property("register_index", storage.register_index_relative);
 			break;
 		}
-		case ast::VariableStorageLocation::STACK: {
-			json.string_property("location", "stack");
+		case ast::VariableStorageType::STACK: {
+			json.string_property("type", "stack");
 			json.number_property("stack_offset", storage.stack_pointer_offset);
 			break;
 		}

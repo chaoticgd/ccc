@@ -567,4 +567,16 @@ const char* storage_class_to_string(StorageClass storage_class) {
 	return "";
 }
 
+const char* global_variable_location_to_string(GlobalVariableLocation location) {
+	switch(location) {
+		case GlobalVariableLocation::NIL: return "nil";
+		case GlobalVariableLocation::BSS: return "bss";
+		case GlobalVariableLocation::DATA: return "data";
+		case GlobalVariableLocation::SDATA: return "sdata";
+		case GlobalVariableLocation::SBSS: return "sbss";
+		case GlobalVariableLocation::RDATA: return "rdata";
+	}
+	return "";
+}
+
 }

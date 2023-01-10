@@ -113,8 +113,15 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
 						bool is_register_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE;
-						bool is_static = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE;
-						analyser.local_variable(name, type, is_register_variable, symbol.raw->value, is_static);
+						ast::VariableStorageType storage_type = ast::VariableStorageType::GLOBAL;
+						ast::GlobalVariableLocation location = ast::GlobalVariableLocation::NIL;
+						bool is_static = false;
+						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
+							storage_type = ast::VariableStorageType::GLOBAL;
+							location = symbol_class_to_global_variable_location(symbol.raw->storage_class);
+							is_static = true;
+						}
+						analyser.local_variable(name, type, storage_type, symbol.raw->value, location, is_static);
 						break;
 					}
 					case StabsSymbolDescriptor::GLOBAL_VARIABLE:
@@ -137,8 +144,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						}
 						const StabsType& type = *symbol.name_colon_type.type.get();
 						bool is_static = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE;
-						bool is_bss = symbol.raw->code == mdebug::N_LCSYM;
-						analyser.global_variable(name, address, type, is_static, is_bss);
+						ast::GlobalVariableLocation location = symbol_class_to_global_variable_location(symbol.raw->storage_class);
+						analyser.global_variable(name, address, type, is_static, location);
 						break;
 					}
 					case StabsSymbolDescriptor::TYPE_NAME:
@@ -183,6 +190,19 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	results.source_files.emplace_back(std::move(file));
 }
 
+ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {
+	switch(symbol_class) {
+		case mdebug::SymbolClass::NIL: return ast::GlobalVariableLocation::NIL;
+		case mdebug::SymbolClass::BSS: return ast::GlobalVariableLocation::BSS;
+		case mdebug::SymbolClass::DATA: return ast::GlobalVariableLocation::DATA;
+		case mdebug::SymbolClass::SDATA: return ast::GlobalVariableLocation::SDATA;
+		case mdebug::SymbolClass::SBSS: return ast::GlobalVariableLocation::SBSS;
+		case mdebug::SymbolClass::RDATA: return ast::GlobalVariableLocation::RDATA;
+		default: {}
+	}
+	verify_not_reached("Bad variable storage location '%s'.", mdebug::symbol_class(symbol_class));
+}
+
 void LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 	
 }
@@ -198,19 +218,16 @@ void LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	output.types.emplace_back(std::move(node));
 }
 
-void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, const StabsType& type, bool is_static, bool is_bss) {
+void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location) {
 	std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
 	global->name = name;
 	if(is_static) {
 		global->storage_class = ast::StorageClass::STATIC;
 	}
 	global->variable_class = ast::VariableClass::GLOBAL;
-	if(is_bss) {
-		global->storage.location = ast::VariableStorageLocation::BSS;
-	} else {
-		global->storage.location = ast::VariableStorageLocation::DATA;
-	}
-	global->storage.bss_or_data_address = address;
+	global->storage.type = ast::VariableStorageType::GLOBAL;
+	global->storage.global_location = location;
+	global->storage.global_address = address;
 	global->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
 	global->order = output.next_order++;
 	output.globals.emplace_back(std::move(global));
@@ -272,10 +289,10 @@ void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type
 	parameter->name = name;
 	parameter->variable_class = ast::VariableClass::PARAMETER;
 	if(is_stack_variable) {
-		parameter->storage.location = ast::VariableStorageLocation::STACK;
+		parameter->storage.type = ast::VariableStorageType::STACK;
 		parameter->storage.stack_pointer_offset = offset_or_register;
 	} else {
-		parameter->storage.location = ast::VariableStorageLocation::REGISTER;
+		parameter->storage.type = ast::VariableStorageType::REGISTER;
 		parameter->storage.dbx_register_number = offset_or_register;
 		std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
 			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
@@ -284,7 +301,7 @@ void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type
 	current_function_type->parameters->emplace_back(std::move(parameter));
 }
 
-void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, bool is_register_variable, s32 register_or_offset, bool is_static) {
+void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static) {
 	if(!current_function) {
 		return;
 	}
@@ -295,14 +312,23 @@ void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType&
 		local->storage_class = ast::StorageClass::STATIC;
 	}
 	local->variable_class = ast::VariableClass::LOCAL;
-	if(is_register_variable) {
-		local->storage.location = ast::VariableStorageLocation::REGISTER;
-		local->storage.dbx_register_number = register_or_offset;
-		std::tie(local->storage.register_class, local->storage.register_index_relative) =
-			mips::map_dbx_register_index(local->storage.dbx_register_number);
-	} else {
-		local->storage.location = ast::VariableStorageLocation::STACK;
-		local->storage.stack_pointer_offset = register_or_offset;
+	local->storage.type = storage_type;
+	switch(storage_type) {
+		case ast::VariableStorageType::GLOBAL: {
+			local->storage.global_location = location;
+			local->storage.global_address = value;
+			break;
+		}
+		case ast::VariableStorageType::REGISTER: {
+			local->storage.dbx_register_number = value;
+			std::tie(local->storage.register_class, local->storage.register_index_relative) =
+				mips::map_dbx_register_index(local->storage.dbx_register_number);
+			break;
+		}
+		case ast::VariableStorageType::STACK: {
+			local->storage.stack_pointer_offset = value;
+			break;
+		}
 	}
 	local->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
 	current_function_body->children.emplace_back(std::move(local));

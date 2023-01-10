@@ -367,16 +367,12 @@ static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_o
 
 void print_variable_storage_comment(FILE* dest, const ast::VariableStorage& storage) {
 	fprintf(dest, "/* ");
-	if(storage.location == ast::VariableStorageLocation::BSS || storage.location == ast::VariableStorageLocation::DATA) {
-		if(storage.location == ast::VariableStorageLocation::BSS) {
-			fprintf(dest, "bss");
-		} else {
-			fprintf(dest, "data");
+	if(storage.type == ast::VariableStorageType::GLOBAL) {
+		fprintf(dest, "%s", ast::global_variable_location_to_string(storage.global_location));
+		if(storage.global_address != -1) {
+			fprintf(dest, " %x", storage.global_address);
 		}
-		if(storage.bss_or_data_address != -1) {
-			fprintf(dest, " %x", storage.bss_or_data_address);
-		}
-	} else if(storage.location == ast::VariableStorageLocation::REGISTER) {
+	} else if(storage.type == ast::VariableStorageType::REGISTER) {
 		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) storage.register_class];
 		assert(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
 		const char* register_name = name_table[storage.register_index_relative];

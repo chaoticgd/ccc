@@ -171,11 +171,11 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 									LocalVariable dest = null;
 									String name = src.name + "__" + Integer.toString(i);
 									Pair<DataType, Integer> local_type = src.type.create_type(importer);
-									if(src.storage.location == AST.VariableStorageLocation.REGISTER) {
+									if(src.storage.type == AST.VariableStorageType.REGISTER) {
 										int first_use = src.block_low - def.address_range.low;
 										Register register = get_sleigh_register(src.storage, local_type.second);
 										dest = new LocalVariableImpl(name, first_use, local_type.first, register, currentProgram, SourceType.ANALYSIS);
-									} else if(src.storage.location == AST.VariableStorageLocation.STACK) {
+									} else if(src.storage.type == AST.VariableStorageType.STACK) {
 										dest = new LocalVariableImpl(name, local_type.first, src.storage.stack_pointer_offset, currentProgram, SourceType.ANALYSIS);
 									}
 									function.addLocalVariable(dest, SourceType.ANALYSIS);
@@ -197,8 +197,8 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			AST.SourceFile file = (AST.SourceFile) file_node;
 			for(AST.Node global_node : file.globals) {
 				AST.Variable global = (AST.Variable) global_node;
-				if(global.storage.bss_or_data_address > -1) {
-					Address address = space.getAddress(global.storage.bss_or_data_address);
+				if(global.storage.global_address > -1) {
+					Address address = space.getAddress(global.storage.global_address);
 					Pair<DataType, Integer> type = global.type.create_type(importer);
 					DataUtilities.createData(currentProgram, address, type.first, type.second, false, ClearDataMode.CLEAR_ALL_CONFLICT_DATA);
 					this.createLabel(address, global.name, true);
@@ -210,7 +210,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	// *************************************************************************
 	
 	public Register get_sleigh_register(AST.VariableStorage storage, int size) throws Exception {
-		if(storage.location != AST.VariableStorageLocation.REGISTER) {
+		if(storage.type != AST.VariableStorageType.REGISTER) {
 			throw new Exception("Call to get_sleigh_register() with non-register storage information.");
 		}
 		String sleigh_register_name = null;
@@ -528,16 +528,15 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			PARAMETER
 		}
 		
-		public static enum VariableStorageLocation {
-			BSS,
-			DATA,
+		public static enum VariableStorageType {
+			GLOBAL,
 			REGISTER,
 			STACK
 		}
 		
 		public static class VariableStorage {
-			VariableStorageLocation location;
-			int bss_or_data_address = -1;
+			VariableStorageType type;
+			int global_address = -1;
 			String register;
 			String register_class;
 			int dbx_register_number = -1;
@@ -790,24 +789,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		
 		private AST.VariableStorage read_variable_storage(JsonObject src) {
 			AST.VariableStorage dest = new AST.VariableStorage();
-			String location = src.get("location").getAsString();
-			if(location.equals("bss")) {
-				dest.location = AST.VariableStorageLocation.BSS;
-				dest.bss_or_data_address = src.get("address").getAsInt();
-			} else if(location.equals("data")) {
-				dest.location = AST.VariableStorageLocation.DATA;
-				dest.bss_or_data_address = src.get("address").getAsInt();
-			} else if(location.equals("register")) {
-				dest.location = AST.VariableStorageLocation.REGISTER;
+			String type = src.get("type").getAsString();
+			if(type.equals("global")) {
+				dest.type = AST.VariableStorageType.GLOBAL;
+				dest.global_address = src.get("global_address").getAsInt();
+			} else if(type.equals("register")) {
+				dest.type = AST.VariableStorageType.REGISTER;
 				dest.register = src.get("register").getAsString();
 				dest.register_class = src.get("register_class").getAsString();
 				dest.dbx_register_number = src.get("dbx_register_number").getAsInt();
 				dest.register_index_relative = src.get("register_index").getAsInt();
-			} else if(location.equals("stack")) {
-				dest.location = AST.VariableStorageLocation.STACK;
+			} else if(type.equals("stack")) {
+				dest.type = AST.VariableStorageType.STACK;
 				dest.stack_pointer_offset = src.get("stack_offset").getAsInt();
 			} else {
-				throw new JsonParseException("Bad variable location: " + location);
+				throw new JsonParseException("Bad variable storage type: " + type);
 			}
 			return dest;
 		}

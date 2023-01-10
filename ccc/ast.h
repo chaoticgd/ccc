@@ -227,16 +227,25 @@ enum class VariableClass {
 	PARAMETER
 };
 
-enum class VariableStorageLocation {
-	BSS, // uninitialized global
-	DATA, // initialized global
+enum class VariableStorageType {
+	GLOBAL,
 	REGISTER,
 	STACK
 };
 
+enum class GlobalVariableLocation {
+	NIL,
+	BSS,
+	DATA,
+	SDATA,
+	SBSS,
+	RDATA,
+};
+
 struct VariableStorage {
-	VariableStorageLocation location;
-	s32 bss_or_data_address = -1;
+	VariableStorageType type = VariableStorageType::GLOBAL;
+	GlobalVariableLocation global_location = GlobalVariableLocation::NIL;
+	s32 global_address = -1;
 	mips::RegisterClass register_class = mips::RegisterClass::GPR;
 	s32 dbx_register_number = -1;
 	s32 register_index_relative = -1;
@@ -298,6 +307,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const a
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
+const char* global_variable_location_to_string(GlobalVariableLocation location);
 
 }
 
