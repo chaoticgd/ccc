@@ -235,8 +235,9 @@ enum class VariableStorageType {
 
 enum class GlobalVariableLocation {
 	NIL,
-	BSS,
 	DATA,
+	BSS,
+	ABS,
 	SDATA,
 	SBSS,
 	RDATA,

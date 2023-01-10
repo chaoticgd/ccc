@@ -26,10 +26,10 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	
 	// The addresses of the global variables aren't present in the local symbol
 	// table, so here we extract them from the external table.
-	std::map<std::string, s32> global_addresses;
+	std::map<std::string, ExternalGlobalVariable> global_addresses;
 	for(const mdebug::Symbol& external : symbol_table.externals) {
 		if(external.storage_type == mdebug::SymbolType::GLOBAL) {
-			global_addresses[external.string] = external.value;
+			global_addresses[external.string] = {external.value, external.storage_class};
 		}
 	}
 	
@@ -66,7 +66,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	return results;
 }
 
-void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, s32>& global_addresses, s32 file_index, u32 flags) {
+void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, ExternalGlobalVariable>& global_addresses, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	// Parse the stab strings into a data structure that's vaguely
@@ -120,6 +120,10 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 							storage_type = ast::VariableStorageType::GLOBAL;
 							location = symbol_class_to_global_variable_location(symbol.raw->storage_class);
 							is_static = true;
+						} else if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
+							storage_type = ast::VariableStorageType::REGISTER;
+						} else {
+							storage_type = ast::VariableStorageType::STACK;
 						}
 						analyser.local_variable(name, type, storage_type, symbol.raw->value, location, is_static);
 						break;
@@ -128,6 +132,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						s32 address = -1;
+						ast::GlobalVariableLocation location = symbol_class_to_global_variable_location(symbol.raw->storage_class);
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
 							// The address for non-static global variables is
 							// only stored in the external symbol table (and
@@ -135,7 +140,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 							// information in here.
 							auto global_address = global_addresses.find(symbol.name_colon_type.name);
 							if(global_address != global_addresses.end()) {
-								address = global_address->second;
+								address = global_address->second.address;
+								location = symbol_class_to_global_variable_location(global_address->second.location);
 							}
 						} else {
 							// And for static global variables it's just stored
@@ -144,7 +150,6 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						}
 						const StabsType& type = *symbol.name_colon_type.type.get();
 						bool is_static = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE;
-						ast::GlobalVariableLocation location = symbol_class_to_global_variable_location(symbol.raw->storage_class);
 						analyser.global_variable(name, address, type, is_static, location);
 						break;
 					}
@@ -193,8 +198,9 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {
 	switch(symbol_class) {
 		case mdebug::SymbolClass::NIL: return ast::GlobalVariableLocation::NIL;
-		case mdebug::SymbolClass::BSS: return ast::GlobalVariableLocation::BSS;
 		case mdebug::SymbolClass::DATA: return ast::GlobalVariableLocation::DATA;
+		case mdebug::SymbolClass::BSS: return ast::GlobalVariableLocation::BSS;
+		case mdebug::SymbolClass::ABS: return ast::GlobalVariableLocation::ABS;
 		case mdebug::SymbolClass::SDATA: return ast::GlobalVariableLocation::SDATA;
 		case mdebug::SymbolClass::SBSS: return ast::GlobalVariableLocation::SBSS;
 		case mdebug::SymbolClass::RDATA: return ast::GlobalVariableLocation::RDATA;
