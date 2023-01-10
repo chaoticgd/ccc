@@ -120,7 +120,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				AST.FunctionDefinition def = (AST.FunctionDefinition) function_node;
 				AST.FunctionType type = (AST.FunctionType) def.type;
 				if(def.address_range.valid()) {
-					print("imporing " + def.name + "\n");
 					// Find or create the function.
 					Address low = space.getAddress(def.address_range.low);
 					Address high = space.getAddress(def.address_range.high);
@@ -246,6 +245,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		}
 		
 		public static class Node {
+			String prefix = ""; // Used for nested structs.
 			String name;
 			StorageClass storage_class = StorageClass.NONE;
 			int relative_offset_bytes = -1;
@@ -264,7 +264,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			
 			String generate_name() {
 				if(conflict || name == null || name.isEmpty()) {
-					return name + "__" + Integer.toString(first_file) + "_" + Integer.toString(stabs_type_number);
+					return prefix + name + "__" + Integer.toString(first_file) + "_" + Integer.toString(stabs_type_number);
 				}
 				return name;
 			}
@@ -418,6 +418,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					for(AST.Node node : fields) {
 						if(node.storage_class != StorageClass.STATIC) {
+							node.prefix += name + "__";
 							Pair<DataType, Integer> field = node.create_type(importer);
 							if(field.second > 0) {
 								type.replaceAtOffset(node.relative_offset_bytes, field.first, field.second, node.name, "");
@@ -491,12 +492,16 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					// riskier but I think it's the best we can really do.
 					index = importer.type_name_to_deduplicated_type_index.get(type_name);
 				}
-				if(index == null || index == importer.current_type) {
+				if(index == null) {
 					importer.console.print("Type lookup failed: " + type_name + "\n");
 					return new Pair<>(Undefined1DataType.dataType, 1);
 				}
 				Pair<DataType, Integer> type = importer.types.get(index);
 				if(type == null) {
+					if(index == importer.current_type) {
+						importer.console.print("Circular type definition: " + type_name + "\n");
+						return new Pair<>(Undefined1DataType.dataType, 1);
+					}
 					AST.Node node = importer.ast.deduplicated_types.get(index);
 					type = node.create_type(importer);
 					importer.types.set(index, type);
