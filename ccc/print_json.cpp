@@ -113,16 +113,6 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			json.string_property("class", builtin_class_to_string(builtin.bclass));
 			break;
 		}
-		case ast::NodeDescriptor::COMPOUND_STATEMENT: {
-			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
-			json.property("children");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
-				print_json_ast_node(json, child.get());
-			}
-			json.end_array();
-			break;
-		}
 		case ast::NodeDescriptor::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
 			if(function.address_range.valid()) {
@@ -134,8 +124,12 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			}
 			json.property("type");
 			print_json_ast_node(json, function.type.get());
-			json.property("body");
-			print_json_ast_node(json, function.body.get());
+			json.property("locals");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Variable>& local : function.locals) {
+				print_json_ast_node(json, local.get());
+			}
+			json.end_array();
 			break;
 		}
 		case ast::NodeDescriptor::FUNCTION_TYPE: {

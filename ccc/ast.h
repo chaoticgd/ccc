@@ -20,7 +20,6 @@ enum NodeDescriptor {
 	ARRAY,
 	BITFIELD,
 	BUILTIN,
-	COMPOUND_STATEMENT,
 	FUNCTION_DEFINITION,
 	FUNCTION_TYPE,
 	INLINE_ENUM,
@@ -101,17 +100,12 @@ struct BuiltIn : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
 };
 
-struct CompoundStatement : Node {
-	std::vector<std::unique_ptr<Node>> children;
-	
-	CompoundStatement() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = COMPOUND_STATEMENT;
-};
+struct Variable;
 
 struct FunctionDefinition : Node {
 	AddressRange address_range;
 	std::unique_ptr<Node> type;
-	std::unique_ptr<Node> body;
+	std::vector<std::unique_ptr<ast::Variable>> locals;
 	
 	FunctionDefinition() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_DEFINITION;

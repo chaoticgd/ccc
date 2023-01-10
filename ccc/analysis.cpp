@@ -261,10 +261,6 @@ void LocalSymbolTableAnalyser::function(const char* name, s32 address, bool is_s
 	current_function_type = function_type.get();
 	current_function->type = std::move(function_type);
 	
-	auto body = std::make_unique<ast::CompoundStatement>();
-	current_function_body = body.get();
-	current_function->body = std::move(body);
-	
 	pending_variables_begin.clear();
 	pending_variables_end.clear();
 	
@@ -340,7 +336,7 @@ void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType&
 		}
 	}
 	local->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
-	current_function_body->children.emplace_back(std::move(local));
+	current_function->locals.emplace_back(std::move(local));
 }
 
 void LocalSymbolTableAnalyser::lbrac(s32 number, s32 begin_offset) {
@@ -433,7 +429,6 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 				filter_ast_by_flags(*child.get(), flags);
 			}
 		}
-		case ast::NodeDescriptor::COMPOUND_STATEMENT:
 		case ast::NodeDescriptor::TYPE_NAME:
 		case ast::NodeDescriptor::VARIABLE: {
 			break;

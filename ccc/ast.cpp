@@ -396,22 +396,8 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 			if(lhs.bclass != rhs.bclass) return CompareFailReason::BUILTIN_CLASS;
 			break;
 		}
-		case COMPOUND_STATEMENT: {
-			const auto [lhs, rhs] = Node::as<CompoundStatement>(node_lhs, node_rhs);
-			if(lhs.children.size() != rhs.children.size()) return CompareFailReason::COMPOUND_STATEMENT_SIZE;
-			for(size_t i = 0; i < lhs.children.size(); i++) {
-				auto child_compare = compare_ast_nodes(*lhs.children[i].get(), *rhs.children[i].get());
-				if(child_compare.has_value()) return child_compare;
-			}
-			break;
-		}
 		case FUNCTION_DEFINITION: {
-			const auto [lhs, rhs] = Node::as<FunctionDefinition>(node_lhs, node_rhs);
-			auto type_compare = compare_ast_nodes(*lhs.type.get(), *rhs.type.get());
-			if(type_compare.has_value()) return type_compare;
-			auto body_compare = compare_ast_nodes(*lhs.body.get(), *rhs.body.get());
-			if(body_compare.has_value()) return body_compare;
-			break;
+			verify_not_reached("Tried to compare function definition AST nodes.");
 		}
 		case FUNCTION_TYPE: {
 			const auto [lhs, rhs] = Node::as<FunctionType>(node_lhs, node_rhs);
@@ -538,7 +524,6 @@ const char* node_type_to_string(const Node& node) {
 		case NodeDescriptor::ARRAY: return "array";
 		case NodeDescriptor::BITFIELD: return "bitfield";
 		case NodeDescriptor::BUILTIN: return "builtin";
-		case NodeDescriptor::COMPOUND_STATEMENT: return "compound_statement";
 		case NodeDescriptor::FUNCTION_DEFINITION: return "function_definition";
 		case NodeDescriptor::FUNCTION_TYPE: return "function_type";
 		case NodeDescriptor::INLINE_ENUM: return "enum";

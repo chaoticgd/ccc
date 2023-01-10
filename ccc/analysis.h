@@ -46,7 +46,6 @@ struct LocalSymbolTableAnalyser {
 	AnalysisState state = NOT_IN_FUNCTION;
 	ast::FunctionDefinition* current_function = nullptr;
 	ast::FunctionType* current_function_type = nullptr;
-	ast::CompoundStatement* current_function_body = nullptr;
 	std::vector<ast::Variable*> pending_variables_begin;
 	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
 	

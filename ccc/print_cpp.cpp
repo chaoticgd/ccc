@@ -150,27 +150,22 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
-		case ast::COMPOUND_STATEMENT: {
-			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
-			if(!compound_statement.children.empty()) {
+		case ast::FUNCTION_DEFINITION: {
+			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
+			print_cpp_ast_node(dest, *func_def.type.get(), name, indentation_level, digits_for_offset);
+			fprintf(dest, " ");
+			if(!func_def.locals.empty()) {
 				fprintf(dest, "{\n");
-				for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
+				for(const std::unique_ptr<ast::Variable>& variable : func_def.locals) {
 					indent(dest, indentation_level + 1);
-					print_cpp_ast_node(dest, *child.get(), name, indentation_level + 1, digits_for_offset);
+					print_cpp_ast_node(dest, *variable.get(), name, indentation_level + 1, digits_for_offset);
 					fprintf(dest, ";\n");
 				}
 				indent(dest, indentation_level);
 				fprintf(dest, "}\n");
 			} else {
-				fprintf(dest, "{}\n");
+				fprintf(dest, "{}");
 			}
-			break;
-		}
-		case ast::FUNCTION_DEFINITION: {
-			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
-			print_cpp_ast_node(dest, *func_def.type.get(), name, indentation_level, digits_for_offset);
-			fprintf(dest, " ");
-			print_cpp_ast_node(dest, *func_def.body.get(), name, indentation_level, digits_for_offset);
 			break;
 		}
 		case ast::FUNCTION_TYPE: {
@@ -185,8 +180,6 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 					VariableName dummy{nullptr};
 					print_cpp_ast_node(dest, *function.return_type->get(), dummy, indentation_level, digits_for_offset);
 					fprintf(dest, " ");
-				} else {
-					fprintf(dest, "CCC_UNKNOWN ");
 				}
 			}
 			print_cpp_variable_name(dest, name, BRACKETS_IF_POINTER);

@@ -166,7 +166,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					if(ENABLE_BROKEN_LOCAL_VARIABLES) {
 						// Add local variables.
 						int i = 0;
-						for(AST.Node child : ((AST.CompoundStatement) def.body).children) {
+						for(AST.Node child : def.locals) {
 							if(child instanceof AST.Variable) {
 								AST.Variable src = (AST.Variable) child;
 								if(src.storage_class != AST.StorageClass.STATIC) {
@@ -350,14 +350,10 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			}
 		}
 		
-		public static class CompoundStatement extends Node {
-			ArrayList<Node> children = new ArrayList<Node>();
-		}
-		
 		public static class FunctionDefinition extends Node {
 			AddressRange address_range = new AddressRange();
 			Node type;
-			Node body;
+			ArrayList<Variable> locals = new ArrayList<>();
 		}
 		
 		public static class FunctionType extends Node {
@@ -627,19 +623,15 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				else if(builtin_class.equals("128-bit floating point")) { builtin.builtin_class = AST.BuiltInClass.FLOAT_128; }
 				else { throw new JsonParseException("Bad builtin class."); }
 				node = builtin;
-			} else if(descriptor.equals("compound_statement")) {
-				AST.CompoundStatement compound = new AST.CompoundStatement();
-				for(JsonElement child : object.get("children").getAsJsonArray()) {
-					compound.children.add(context.deserialize(child, AST.Node.class));
-				}
-				node = compound;
 			} else if(descriptor.equals("function_definition")) {
 				AST.FunctionDefinition function = new AST.FunctionDefinition();
 				if(object.has("address_range")) {
 					function.address_range = read_address_range(object.get("address_range").getAsJsonObject());
 				}
 				function.type = context.deserialize(object.get("type"), AST.Node.class);
-				function.body = context.deserialize(object.get("body"), AST.Node.class);
+				for(JsonElement local : object.get("locals").getAsJsonArray()) {
+					function.locals.add(context.deserialize(local.getAsJsonObject(), AST.Node.class));
+				}
 				node = function;
 			} else if(descriptor.equals("function_type")) {
 				AST.FunctionType function_type = new AST.FunctionType();
