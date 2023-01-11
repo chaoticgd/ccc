@@ -28,8 +28,8 @@ enum class ParsedSymbolType {
 	NAME_COLON_TYPE,
 	SOURCE_FILE,
 	SUB_SOURCE_FILE,
-	SCOPE_BEGIN,
-	SCOPE_END,
+	LBRAC,
+	RBRAC,
 	NON_STABS
 };
 
@@ -42,14 +42,8 @@ struct ParsedSymbol {
 		std::unique_ptr<StabsType> type;
 	} name_colon_type;
 	struct {
-		u32 translation_unit_text_address;
-	} so;
-	struct {
-		const char* path;
-	} sub_source_file;
-	struct {
 		s32 number;
-	} scope;
+	} lrbrac;
 };
 
 std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);

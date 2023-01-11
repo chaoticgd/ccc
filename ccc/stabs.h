@@ -166,7 +166,7 @@ struct StabsFunctionType : StabsType {
 struct StabsRangeType : StabsType {
 	std::unique_ptr<StabsType> type;
 	s64 low_maybe_wrong = 0;
-	s64 high_maybe_wrong = 0;
+	s64 high_maybe_wrong = -1; // For some zero-length arrays gcc writes out a malformed range, in which case these defaults are used.
 	BuiltInClass range_class;
 	
 	StabsRangeType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}

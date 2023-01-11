@@ -86,8 +86,11 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 		if(!last_was_multiline && multiline) {
 			fprintf(dest, "\n");
 		}
-		if(node->compare_fail_reason) {
-			fprintf(dest, "// warning: multiple differing types with the same name (%s not equal)\n", node->compare_fail_reason);
+		if(node->conflict) {
+			fprintf(dest, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node->files.at(0), node->compare_fail_reason);
+		}
+		if(node->descriptor == ast::NodeDescriptor::TYPE_NAME && node->as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
+			fprintf(dest, "// warning: this type name was generated to handle an error\n");
 		}
 		if(verbose && node->symbol != nullptr) {
 			fprintf(dest, "// symbol: %s\n", node->symbol->raw->string);
@@ -109,6 +112,16 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_name, s32 indentation_level, s32 digits_for_offset) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
+	
+	if(node.descriptor == ast::FUNCTION_DEFINITION) {
+		const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
+		if(func_def.address_range.valid()) {
+			fprintf(dest, "/* %08x %08x */ ", func_def.address_range.low, func_def.address_range.high);
+		}
+	} else if(node.descriptor == ast::VARIABLE) {
+		const ast::Variable& variable = node.as<ast::Variable>();
+		print_variable_storage_comment(stdout, variable.storage);
+	}
 	
 	print_cpp_storage_class(dest, node.storage_class);
 	
@@ -137,27 +150,22 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
-		case ast::COMPOUND_STATEMENT: {
-			const ast::CompoundStatement& compound_statement = node.as<ast::CompoundStatement>();
-			if(!compound_statement.children.empty()) {
+		case ast::FUNCTION_DEFINITION: {
+			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
+			print_cpp_ast_node(dest, *func_def.type.get(), name, indentation_level, digits_for_offset);
+			fprintf(dest, " ");
+			if(!func_def.locals.empty()) {
 				fprintf(dest, "{\n");
-				for(const std::unique_ptr<ast::Node>& child : compound_statement.children) {
+				for(const std::unique_ptr<ast::Variable>& variable : func_def.locals) {
 					indent(dest, indentation_level + 1);
-					print_cpp_ast_node(dest, *child.get(), name, indentation_level + 1, digits_for_offset);
+					print_cpp_ast_node(dest, *variable.get(), name, indentation_level + 1, digits_for_offset);
 					fprintf(dest, ";\n");
 				}
 				indent(dest, indentation_level);
 				fprintf(dest, "}\n");
 			} else {
-				fprintf(dest, "{}\n");
+				fprintf(dest, "{}");
 			}
-			break;
-		}
-		case ast::FUNCTION_DEFINITION: {
-			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
-			print_cpp_ast_node(dest, *func_def.type.get(), name, indentation_level, digits_for_offset);
-			fprintf(dest, " ");
-			print_cpp_ast_node(dest, *func_def.body.get(), name, indentation_level, digits_for_offset);
 			break;
 		}
 		case ast::FUNCTION_TYPE: {
@@ -168,16 +176,16 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 				fprintf(dest, "virtual ");
 			}
 			if(!function.is_constructor) {
-				assert(function.return_type.get());
-				VariableName dummy{nullptr};
-				print_cpp_ast_node(dest, *function.return_type.get(), dummy, indentation_level, digits_for_offset);
-				fprintf(dest, " ");
+				if(function.return_type.has_value()) {
+					VariableName dummy{nullptr};
+					print_cpp_ast_node(dest, *function.return_type->get(), dummy, indentation_level, digits_for_offset);
+					fprintf(dest, " ");
+				}
 			}
 			print_cpp_variable_name(dest, name, BRACKETS_IF_POINTER);
 			fprintf(dest, "(");
 			if(function.parameters.has_value()) {
 				for(size_t i = 0; i < function.parameters->size(); i++) {
-					assert((*function.parameters)[i].get());
 					VariableName dummy{nullptr};
 					print_cpp_ast_node(dest, *(*function.parameters)[i].get(), dummy, indentation_level, digits_for_offset);
 					if(i != function.parameters->size() - 1) {
@@ -203,11 +211,11 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			}
 			fprintf(dest, "\n");
 			for(size_t i = 0; i < inline_enum.constants.size(); i++) {
-				s32 number = inline_enum.constants[i].first;
+				s32 value = inline_enum.constants[i].first;
 				const std::string& name = inline_enum.constants[i].second;
 				bool is_last = i == inline_enum.constants.size() - 1;
 				indent(dest, indentation_level + 1);
-				fprintf(dest, "%s = %d%s\n", name.c_str(), number, is_last ? "" : ",");
+				fprintf(dest, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
 			}
 			indent(dest, indentation_level);
 			fprintf(dest, "}");
@@ -234,7 +242,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 					if(base_class.offset > -1) {
 						fprintf(dest, " /* 0x%0*x */", digits_for_offset, base_class.offset);
 					}
-					fprintf(dest, " %s", base_class.type_name.c_str());
+					fprintf(dest, " %s", base_class.type->as<ast::TypeName>().type_name.c_str());
 				}
 			}
 			fprintf(dest, " { // 0x%x\n", struct_or_union.size_bits / 8);
@@ -254,7 +262,6 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 				}
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
 					ast::FunctionType& member_func = struct_or_union.member_functions[i]->as<ast::FunctionType>();
-					assert(struct_or_union.member_functions[i].get());
 					indent(dest, indentation_level + 1);
 					print_cpp_ast_node(dest, *struct_or_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset);
 					fprintf(dest, ";\n");
@@ -298,7 +305,6 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		}
 		case ast::VARIABLE: {
 			const ast::Variable& variable = node.as<ast::Variable>();
-			print_variable_storage_comment(stdout, variable.storage);
 			print_cpp_ast_node(dest, *variable.type.get(), name, indentation_level, digits_for_offset);
 			break;
 		}
@@ -355,16 +361,12 @@ static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_o
 
 void print_variable_storage_comment(FILE* dest, const ast::VariableStorage& storage) {
 	fprintf(dest, "/* ");
-	if(storage.location == ast::VariableStorageLocation::BSS || storage.location == ast::VariableStorageLocation::DATA) {
-		if(storage.location == ast::VariableStorageLocation::BSS) {
-			fprintf(dest, "bss");
-		} else {
-			fprintf(dest, "data");
+	if(storage.type == ast::VariableStorageType::GLOBAL) {
+		fprintf(dest, "%s", ast::global_variable_location_to_string(storage.global_location));
+		if(storage.global_address != -1) {
+			fprintf(dest, " %x", storage.global_address);
 		}
-		if(storage.bss_or_data_address != -1) {
-			fprintf(dest, " %x", storage.bss_or_data_address);
-		}
-	} else if(storage.location == ast::VariableStorageLocation::REGISTER) {
+	} else if(storage.type == ast::VariableStorageType::REGISTER) {
 		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) storage.register_class];
 		assert(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
 		const char* register_name = name_table[storage.register_index_relative];

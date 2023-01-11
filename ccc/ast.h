@@ -20,7 +20,6 @@ enum NodeDescriptor {
 	ARRAY,
 	BITFIELD,
 	BUILTIN,
-	COMPOUND_STATEMENT,
 	FUNCTION_DEFINITION,
 	FUNCTION_TYPE,
 	INLINE_ENUM,
@@ -31,6 +30,15 @@ enum NodeDescriptor {
 	TYPE_NAME,
 	VARIABLE
 };
+
+struct AddressRange {
+	s32 low = -1;
+	s32 high = -1;
+	
+	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
+	bool valid() const { return low >= 0; }
+};
+
 
 struct Node {
 	const NodeDescriptor descriptor;
@@ -46,10 +54,12 @@ struct Node {
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
 	
-	const ParsedSymbol* symbol = nullptr;
-	const char* compare_fail_reason = nullptr;
-	
 	s32 order = -1; // Used to preserve the order of children of SourceFile.
+	std::vector<s32> files; // List of files for which a given top-level type is present.
+	bool conflict = false; // Are there multiple differing types with the same name?
+	const ParsedSymbol* symbol = nullptr;
+	const char* compare_fail_reason = "";
+	s32 stabs_type_number = -1; // Only populated for the root.
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -90,25 +100,33 @@ struct BuiltIn : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
 };
 
-struct CompoundStatement : Node {
-	std::vector<std::unique_ptr<Node>> children;
-	
-	CompoundStatement() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = COMPOUND_STATEMENT;
+struct Variable;
+
+struct LineNumberPair {
+	s32 address;
+	s32 line_number;
+};
+
+struct SubSourceFile {
+	s32 address;
+	std::string relative_path;
 };
 
 struct FunctionDefinition : Node {
+	AddressRange address_range;
 	std::unique_ptr<Node> type;
-	std::unique_ptr<Node> body;
+	std::vector<std::unique_ptr<ast::Variable>> locals;
+	std::vector<LineNumberPair> line_numbers;
+	std::vector<SubSourceFile> sub_source_files;
 	
 	FunctionDefinition() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_DEFINITION;
 };
 
 struct FunctionType : Node {
-	std::unique_ptr<Node> return_type;
+	std::optional<std::unique_ptr<Node>> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
-	MemberFunctionModifier modifier;
+	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	bool is_constructor = false;
 	
 	FunctionType() : Node(DESCRIPTOR) {}
@@ -125,7 +143,7 @@ struct InlineEnum : Node {
 struct BaseClass {
 	StabsFieldVisibility visibility;
 	s32 offset = -1;
-	std::string type_name;
+	std::unique_ptr<Node> type;
 };
 
 struct InlineStructOrUnion : Node {
@@ -154,12 +172,14 @@ struct Reference : Node {
 
 struct SourceFile : Node {
 	std::string full_path;
+	std::string relative_path = "";
 	u32 text_address = 0;
 	std::vector<std::unique_ptr<ast::Node>> functions;
 	std::vector<std::unique_ptr<ast::Node>> globals;
 	std::vector<std::unique_ptr<ast::Node>> types;
 	std::vector<ParsedSymbol> symbols;
 	s32 next_order = 0; // Next order value to set.
+	std::map<s32, s32> stabs_type_number_to_deduplicated_type_index;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
@@ -192,8 +212,17 @@ struct SourceFile : Node {
 	}
 };
 
+enum class TypeNameSource {
+	REFERENCE,
+	CROSS_REFERENCE,
+	ERROR
+};
+
 struct TypeName : Node {
+	TypeNameSource source = TypeNameSource::ERROR;
 	std::string type_name;
+	s32 referenced_file_index = -1;
+	s32 referenced_stabs_type_number = -1;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
@@ -205,29 +234,32 @@ enum class VariableClass {
 	PARAMETER
 };
 
-enum class VariableStorageLocation {
-	BSS, // uninitialized global
-	DATA, // initialized global
+enum class VariableStorageType {
+	GLOBAL,
 	REGISTER,
 	STACK
 };
 
+enum class GlobalVariableLocation {
+	NIL,
+	DATA,
+	BSS,
+	ABS,
+	SDATA,
+	SBSS,
+	RDATA,
+};
+
 struct VariableStorage {
-	VariableStorageLocation location;
-	s32 bss_or_data_address = -1;
+	VariableStorageType type = VariableStorageType::GLOBAL;
+	GlobalVariableLocation global_location = GlobalVariableLocation::NIL;
+	s32 global_address = -1;
 	mips::RegisterClass register_class = mips::RegisterClass::GPR;
 	s32 dbx_register_number = -1;
 	s32 register_index_relative = -1;
 	s32 stack_pointer_offset = -1;
 	
 	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;
-};
-
-struct AddressRange {
-	u32 low = 0;
-	u32 high = 0;
-	
-	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
 };
 
 struct Variable : Node {
@@ -240,12 +272,17 @@ struct Variable : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
 };
 
-std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
-std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const std::map<s32, const StabsType*>& stabs_types);
-std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
-std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const std::map<s32, const StabsType*>& stabs_types, s32 absolute_parent_offset_bytes, s32 depth);
+struct StabsToAstState {
+	s32 file_index;
+	std::map<s32, const StabsType*>* stabs_types;
+};
+std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
+std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state);
+std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
+std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
-std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::pair<std::string, std::vector<std::unique_ptr<ast::Node>>>>& per_file_ast);
+void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
+std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr<ast::SourceFile>>& source_files);
 enum class CompareFailReason {
 	DESCRIPTOR,
 	STORAGE_CLASS,
@@ -257,6 +294,7 @@ enum class CompareFailReason {
 	ARRAY_ELEMENT_COUNT,
 	BUILTIN_CLASS,
 	COMPOUND_STATEMENT_SIZE,
+	FUNCTION_RETURN_TYPE_HAS_VALUE,
 	FUNCTION_PARAMAETER_SIZE,
 	FUNCTION_PARAMETERS_HAS_VALUE,
 	FUNCTION_MODIFIER,
@@ -265,7 +303,6 @@ enum class CompareFailReason {
 	BASE_CLASS_SIZE,
 	BASE_CLASS_VISIBILITY,
 	BASE_CLASS_OFFSET,
-	BASE_CLASS_TYPE_NAME,
 	FIELDS_SIZE,
 	MEMBER_FUNCTION_SIZE,
 	SOURCE_FILE_SIZE,
@@ -279,6 +316,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const a
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
+const char* global_variable_location_to_string(GlobalVariableLocation location);
 
 }
 
