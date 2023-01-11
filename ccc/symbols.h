@@ -42,11 +42,8 @@ struct ParsedSymbol {
 		std::unique_ptr<StabsType> type;
 	} name_colon_type;
 	struct {
-		const char* path;
-	} sub_source_file;
-	struct {
 		s32 number;
-	} scope;
+	} lrbrac;
 };
 
 std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);

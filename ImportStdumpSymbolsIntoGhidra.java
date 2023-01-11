@@ -163,9 +163,20 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					
 					// Add line numbers as EOL comments.
-					
 					for(AST.LineNumberPair pair : def.line_numbers) {
 						setEOLComment(space.getAddress(pair.address), "Line " + Integer.toString(pair.line_number));
+					}
+					
+					// Add comments to mark inlined code.
+					boolean was_inlining = false;
+					for(AST.SubSourceFile sub : def.sub_source_files) {
+						boolean is_inlining = !sub.relative_path.equals(source_file.relative_path);
+						if(is_inlining && !was_inlining) {
+							setPreComment(space.getAddress(sub.address), "inlined from " + sub.relative_path);
+						} else if(!is_inlining && was_inlining) {
+							setPreComment(space.getAddress(sub.address), "end of inlined section");
+						}
+						was_inlining = is_inlining;
 					}
 					
 					// This is currently far too broken to be enabled by default.
@@ -361,11 +372,17 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			int line_number;
 		}
 		
+		public static class SubSourceFile {
+			int address;
+			String relative_path;
+		}
+		
 		public static class FunctionDefinition extends Node {
 			AddressRange address_range = new AddressRange();
 			Node type;
 			ArrayList<Variable> locals = new ArrayList<>();
 			ArrayList<LineNumberPair> line_numbers = new ArrayList<>();
+			ArrayList<SubSourceFile> sub_source_files = new ArrayList<>();
 		}
 		
 		public static class FunctionType extends Node {
@@ -480,6 +497,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		
 		public static class SourceFile extends Node {
 			String path;
+			String relative_path;
 			int text_address;
 			ArrayList<Node> types = new ArrayList<Node>();
 			ArrayList<Node> functions = new ArrayList<Node>();
@@ -651,6 +669,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					dest.line_number = src.get(1).getAsInt();
 					function.line_numbers.add(dest);
 				}
+				for(JsonElement sub : object.get("sub_source_files").getAsJsonArray()) {
+					JsonObject src = sub.getAsJsonObject();
+					AST.SubSourceFile dest = new AST.SubSourceFile();
+					dest.address = src.get("address").getAsInt();
+					dest.relative_path = src.get("path").getAsString();
+					function.sub_source_files.add(dest);
+				}
 				node = function;
 			} else if(descriptor.equals("function_type")) {
 				AST.FunctionType function_type = new AST.FunctionType();
@@ -703,6 +728,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			} else if(descriptor.equals("source_file")) {
 				AST.SourceFile source_file = new AST.SourceFile();
 				source_file.path = object.get("path").getAsString();
+				source_file.relative_path = object.get("relative_path").getAsString();
 				source_file.text_address = object.get("text_address").getAsInt();
 				for(JsonElement type_object : object.get("types").getAsJsonArray()) {
 					source_file.types.add(context.deserialize(type_object, AST.Node.class));

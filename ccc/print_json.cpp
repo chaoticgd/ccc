@@ -139,6 +139,15 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 				json.end_array();
 			}
 			json.end_array();
+			json.property("sub_source_files");
+			json.begin_array();
+			for(const ast::SubSourceFile& sub : function.sub_source_files) {
+				json.begin_object();
+				json.number_property("address", sub.address);
+				json.string_property("path", sub.relative_path.c_str());
+				json.end_object();
+			}
+			json.end_array();
 			break;
 		}
 		case ast::NodeDescriptor::FUNCTION_TYPE: {
@@ -222,6 +231,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 		case ast::NodeDescriptor::SOURCE_FILE: {
 			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
 			json.string_property("path", source_file.full_path.c_str());
+			json.string_property("relative_path", source_file.relative_path.c_str());
 			json.number_property("text_address", source_file.text_address);
 			json.property("types");
 			json.begin_array();

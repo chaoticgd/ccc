@@ -107,11 +107,17 @@ struct LineNumberPair {
 	s32 line_number;
 };
 
+struct SubSourceFile {
+	s32 address;
+	std::string relative_path;
+};
+
 struct FunctionDefinition : Node {
 	AddressRange address_range;
 	std::unique_ptr<Node> type;
 	std::vector<std::unique_ptr<ast::Variable>> locals;
 	std::vector<LineNumberPair> line_numbers;
+	std::vector<SubSourceFile> sub_source_files;
 	
 	FunctionDefinition() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_DEFINITION;
@@ -166,6 +172,7 @@ struct Reference : Node {
 
 struct SourceFile : Node {
 	std::string full_path;
+	std::string relative_path = "";
 	u32 text_address = 0;
 	std::vector<std::unique_ptr<ast::Node>> functions;
 	std::vector<std::unique_ptr<ast::Node>> globals;

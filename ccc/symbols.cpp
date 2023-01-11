@@ -37,34 +37,34 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 					break;
 				}
 				case mdebug::N_SOL: { // Sub-source file
+					ParsedSymbol& sub = output.emplace_back();
+					sub.type = ParsedSymbolType::SUB_SOURCE_FILE;
+					sub.raw = &symbol;
 					break;
 				}
 				case mdebug::N_LBRAC: { // Begin scope
 					verify(strlen(symbol.string) >= 4, "N_LBRAC symbol has bad string.");
-					ParsedSymbol begin_scope;
+					ParsedSymbol& begin_scope = output.emplace_back();
 					begin_scope.type = ParsedSymbolType::LBRAC;
 					begin_scope.raw = &symbol;
-					begin_scope.scope.number = atoi(&symbol.string[4]);
-					output.emplace_back(std::move(begin_scope));
+					begin_scope.lrbrac.number = atoi(&symbol.string[4]);
 					break;
 				}
 				case mdebug::N_RBRAC: { // End scope
 					verify(strlen(symbol.string) >= 4, "N_RBRAC symbol has bad string.");
-					ParsedSymbol end_scope;
+					ParsedSymbol& end_scope = output.emplace_back();;
 					end_scope.type = ParsedSymbolType::RBRAC;
 					end_scope.raw = &symbol;
-					end_scope.scope.number = atoi(&symbol.string[4]);
-					output.emplace_back(std::move(end_scope));
+					end_scope.lrbrac.number = atoi(&symbol.string[4]);
 					break;
 				}
 				case mdebug::STAB: {// "@stabs"
 					break;
 				}
 				case mdebug::N_SO: { // Source filename
-					ParsedSymbol so_symbol;
+					ParsedSymbol& so_symbol = output.emplace_back();
 					so_symbol.type = ParsedSymbolType::SOURCE_FILE;
 					so_symbol.raw = &symbol;
-					output.emplace_back(std::move(so_symbol));
 					break;
 				}
 				case mdebug::N_FNAME:  case mdebug::N_MAIN:
@@ -87,10 +87,9 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				}
 			}
 		} else {
-			ParsedSymbol non_stabs_symbol;
+			ParsedSymbol& non_stabs_symbol = output.emplace_back();
 			non_stabs_symbol.type = ParsedSymbolType::NON_STABS;
 			non_stabs_symbol.raw = &symbol;
-			output.emplace_back(std::move(non_stabs_symbol));
 		}
 	}
 	return output;
