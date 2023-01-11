@@ -22,6 +22,8 @@ The JSON output can be fed into the included `ImportStdumpSymbolsIntoGhidra.java
 1. Run the script.
 2. Run auto analysis, making sure to enable the "Use Deprecated Demangler" setting for the GNU Demangler analyser if the program you're analysing uses the old GNU mangling. I also recommend running the "MIPS-R5900 Constant Reference Analyzer" included with ghidra-emotionengine.
 
+Note that the Ghidra script currently has some trouble with certain games.
+
 ### objdump
 
 Half-working EE core MIPS disassembler. Probably not too interesting.
