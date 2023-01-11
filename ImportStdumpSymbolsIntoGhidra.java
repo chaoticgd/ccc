@@ -448,13 +448,15 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					for(int i = 0; i < base_classes.size(); i++) {
 						BaseClass base_class = base_classes.get(i);
 						Pair<DataType, Integer> base_type = base_class.type.create_type(importer);
-						type.replaceAtOffset(base_class.offset, base_type.first, base_type.second, "base_class_" + Integer.toString(i), "");
+						if(base_type.first.isEquivalent(VoidDataType.dataType) && base_class.offset > -1) {
+							type.replaceAtOffset(base_class.offset, base_type.first, base_type.second, "base_class_" + Integer.toString(i), "");
+						}
 					}
 					for(AST.Node node : fields) {
 						if(node.storage_class != StorageClass.STATIC) {
 							node.prefix += name + "__";
 							Pair<DataType, Integer> field = node.create_type(importer);
-							if(field.second > 0) {
+							if(!field.first.isEquivalent(VoidDataType.dataType) && field.second > 0) {
 								type.replaceAtOffset(node.relative_offset_bytes, field.first, field.second, node.name, "");
 							}
 						}
@@ -464,7 +466,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					for(AST.Node node : fields) {
 						if(node.storage_class != StorageClass.STATIC) {
 							Pair<DataType, Integer> field = node.create_type(importer);
-							type.add(field.first, field.second, node.name, "");
+							if(!field.first.isEquivalent(VoidDataType.dataType)) {
+								type.add(field.first, field.second, node.name, "");
+							}
 						}
 					}
 				}
