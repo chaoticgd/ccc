@@ -146,7 +146,7 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 		if(base_path.empty() || raw_path[0] == '/' || (raw_path[1] == ':' && raw_path[2] == '/')) {
 			fd.full_path = raw_path;
 		} else {
-			fd.full_path = fs::weakly_canonical(fs::path(base_path)/fs::path(raw_path));
+			fd.full_path = fs::weakly_canonical(fs::path(base_path)/fs::path(raw_path)).string();
 		}
 		
 		// Parse procedure descriptors.
