@@ -379,8 +379,8 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 	s64 low_value = 0;
 	s64 high_value = 0;
 	try {
-		low_value = std::stol(low, nullptr, low[0] == '0' ? 8 : 10);
-		high_value = std::stol(high, nullptr, high[0] == '0' ? 8 : 10);
+		low_value = std::stoll(low, nullptr, low[0] == '0' ? 8 : 10);
+		high_value = std::stoll(high, nullptr, high[0] == '0' ? 8 : 10);
 	} catch(std::out_of_range&) {
 		return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 	}
@@ -424,7 +424,7 @@ s64 eat_s64_literal(const char*& input) {
 	}
 	verify(number.size() > 0, "Unexpected '%c' (%02hhx).", *input, *input);
 	try {
-		return std::stol(number);
+		return std::stoll(number);
 	} catch(std::out_of_range&) {
 		return 0;
 	}
