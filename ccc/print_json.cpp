@@ -130,6 +130,15 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 				print_json_ast_node(json, local.get());
 			}
 			json.end_array();
+			json.property("line_numbers");
+			json.begin_array();
+			for(const ast::LineNumberPair& pair : function.line_numbers) {
+				json.begin_array();
+				json.number(pair.address);
+				json.number(pair.line_number);
+				json.end_array();
+			}
+			json.end_array();
 			break;
 		}
 		case ast::NodeDescriptor::FUNCTION_TYPE: {

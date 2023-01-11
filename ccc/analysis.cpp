@@ -183,6 +183,8 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						analyser.function(symbol.raw->string, symbol.raw->value, false);
 					} else if(symbol.raw->storage_type == mdebug::SymbolType::STATICPROC) {
 						analyser.function(symbol.raw->string, symbol.raw->value, true);
+					} else if(symbol.raw->storage_type == mdebug::SymbolType::LABEL) {
+						analyser.label(symbol.raw->string, symbol.raw->value, symbol.raw->index);
 					} else if(symbol.raw->storage_type == mdebug::SymbolType::END) {
 						analyser.text_end(symbol.raw->string, symbol.raw->value);
 					}
@@ -268,7 +270,12 @@ void LocalSymbolTableAnalyser::function(const char* name, s32 address, bool is_s
 }
 
 void LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
-	
+	if(address > -1 && current_function && label[0] == '$') {
+		assert(address < 256 * 1024 * 1024);
+		ast::LineNumberPair& pair = current_function->line_numbers.emplace_back();
+		pair.address = address;
+		pair.line_number = line_number;
+	}
 }
 
 void LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {

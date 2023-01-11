@@ -162,6 +162,12 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
 					}
 					
+					// Add line numbers as EOL comments.
+					
+					for(AST.LineNumberPair pair : def.line_numbers) {
+						setEOLComment(space.getAddress(pair.address), "Line " + Integer.toString(pair.line_number));
+					}
+					
 					// This is currently far too broken to be enabled by default.
 					if(ENABLE_BROKEN_LOCAL_VARIABLES) {
 						// Add local variables.
@@ -350,10 +356,16 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			}
 		}
 		
+		public static class LineNumberPair {
+			int address;
+			int line_number;
+		}
+		
 		public static class FunctionDefinition extends Node {
 			AddressRange address_range = new AddressRange();
 			Node type;
 			ArrayList<Variable> locals = new ArrayList<>();
+			ArrayList<LineNumberPair> line_numbers = new ArrayList<>();
 		}
 		
 		public static class FunctionType extends Node {
@@ -631,6 +643,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				function.type = context.deserialize(object.get("type"), AST.Node.class);
 				for(JsonElement local : object.get("locals").getAsJsonArray()) {
 					function.locals.add(context.deserialize(local.getAsJsonObject(), AST.Node.class));
+				}
+				for(JsonElement pair : object.get("line_numbers").getAsJsonArray()) {
+					JsonArray src = pair.getAsJsonArray();
+					AST.LineNumberPair dest = new AST.LineNumberPair();
+					dest.address = src.get(0).getAsInt();
+					dest.line_number = src.get(1).getAsInt();
+					function.line_numbers.add(dest);
 				}
 				node = function;
 			} else if(descriptor.equals("function_type")) {
