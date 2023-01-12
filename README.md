@@ -17,12 +17,12 @@ The following output formats are supported:
 - C++
 - JSON
 
-The JSON output can be fed into the included `ImportStdumpSymbolsIntoGhidra.java` script, which will import functions, global variables and data types into [Ghidra](https://github.com/NationalSecurityAgency/ghidra). The script is intended to be used alongside the [ghidra-emotionengine](https://github.com/beardypig/ghidra-emotionengine) extension. The procedure for using this script on a fresh file is as follows:
+The JSON output can be fed into the included `ImportStdumpSymbolsIntoGhidra.java` script, which will import functions, global variables and data types into [Ghidra](https://github.com/NationalSecurityAgency/ghidra). **Ghidra 10.1 or later is required.** The script is intended to be used alongside the [ghidra-emotionengine](https://github.com/beardypig/ghidra-emotionengine) extension. The procedure for using this script on a fresh file is as follows:
 
 1. Run the script **before running auto analysis**.
 2. Run auto analysis, making sure to enable the "Use Deprecated Demangler" setting for the GNU Demangler analyser if the program you're analysing uses the old GNU mangling. I also recommend running the "MIPS-R5900 Constant Reference Analyzer" included with ghidra-emotionengine.
 
-Note that the Ghidra script currently has some trouble with certain games. **Ghidra 10.1 or later is required.**
+Note that the Ghidra script currently has some trouble with certain games.
 
 ### objdump
 
