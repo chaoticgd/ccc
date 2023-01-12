@@ -27,20 +27,20 @@ import ghidra.program.model.listing.*;
 import ghidra.program.model.address.*;
 
 public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
-	public static boolean ENABLE_BROKEN_LOCAL_VARIABLES = false;
-	
 	public void run() throws Exception {
-		String json_path = askString("Enter Path", "Path to .json file:");
-		JsonReader reader = new JsonReader(new FileReader(json_path));
+		ImporterState importer = new ImporterState();
 		
+		String json_path = askString("Enter Path", "Path to .json file:");
+		importer.emit_line_numbers = askYesNo("Configure Line Numbers", "Emit source line numbers as EOL comments?");
+		importer.mark_inlined_code = askYesNo("Configure Inlined Code", "Mark inlined code using pre comments?");
+		
+		JsonReader reader = new JsonReader(new FileReader(json_path));
 		GsonBuilder gson_builder = new GsonBuilder();
 		gson_builder.registerTypeAdapter(ParsedJsonFile.class, new JsonFileDeserializer());
 		gson_builder.registerTypeAdapter(AST.Node.class, new NodeDeserializer());
 		Gson gson = gson_builder.create();
-		ParsedJsonFile asts = gson.fromJson(reader, ParsedJsonFile.class);
+		importer.ast = gson.fromJson(reader, ParsedJsonFile.class);
 		
-		ImporterState importer = new ImporterState();
-		importer.ast = asts;
 		import_types(importer);
 		import_functions(importer);
 		import_globals(importer);
@@ -57,6 +57,10 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		ArrayList<HashMap<Integer, Integer>> stabs_type_number_to_deduplicated_type_index = new ArrayList<>();
 		HashMap<String, Integer> type_name_to_deduplicated_type_index = new HashMap<>();
 		int current_type = -1;
+		
+		boolean emit_line_numbers = false;
+		boolean mark_inlined_code = false;
+		boolean enable_broken_local_variables = false;
 	}
 	
 	public void import_types(ImporterState importer) throws Exception {
@@ -162,25 +166,29 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
 					}
 					
-					// Add line numbers as EOL comments.
-					for(AST.LineNumberPair pair : def.line_numbers) {
-						setEOLComment(space.getAddress(pair.address), "Line " + Integer.toString(pair.line_number));
+					if(importer.emit_line_numbers) {
+						// Add line numbers as EOL comments.
+						for(AST.LineNumberPair pair : def.line_numbers) {
+							setEOLComment(space.getAddress(pair.address), "Line " + Integer.toString(pair.line_number));
+						}
 					}
 					
-					// Add comments to mark inlined code.
-					boolean was_inlining = false;
-					for(AST.SubSourceFile sub : def.sub_source_files) {
-						boolean is_inlining = !sub.relative_path.equals(source_file.relative_path);
-						if(is_inlining && !was_inlining) {
-							setPreComment(space.getAddress(sub.address), "inlined from " + sub.relative_path);
-						} else if(!is_inlining && was_inlining) {
-							setPreComment(space.getAddress(sub.address), "end of inlined section");
-						}
+					if(importer.mark_inlined_code) {
+						// Add comments to mark inlined code.
+						boolean was_inlining = false;
+						for(AST.SubSourceFile sub : def.sub_source_files) {
+							boolean is_inlining = !sub.relative_path.equals(source_file.relative_path);
+							if(is_inlining && !was_inlining) {
+								setPreComment(space.getAddress(sub.address), "inlined from " + sub.relative_path);
+							} else if(!is_inlining && was_inlining) {
+								setPreComment(space.getAddress(sub.address), "end of inlined section");
+							}
 						was_inlining = is_inlining;
+						}
 					}
 					
 					// This is currently far too broken to be enabled by default.
-					if(ENABLE_BROKEN_LOCAL_VARIABLES) {
+					if(importer.enable_broken_local_variables) {
 						// Add local variables.
 						int i = 0;
 						for(AST.Node child : def.locals) {
