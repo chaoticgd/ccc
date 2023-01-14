@@ -31,10 +31,10 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		ImporterState importer = new ImporterState();
 		
 		String json_path = askString("Enter Path", "Path to .json file:");
+		JsonReader reader = new JsonReader(new FileReader(json_path));
 		importer.emit_line_numbers = askYesNo("Configure Line Numbers", "Emit source line numbers as EOL comments?");
 		importer.mark_inlined_code = askYesNo("Configure Inlined Code", "Mark inlined code using pre comments?");
 		
-		JsonReader reader = new JsonReader(new FileReader(json_path));
 		GsonBuilder gson_builder = new GsonBuilder();
 		gson_builder.registerTypeAdapter(ParsedJsonFile.class, new JsonFileDeserializer());
 		gson_builder.registerTypeAdapter(AST.Node.class, new NodeDeserializer());
@@ -112,7 +112,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		}
 		
 		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
-			importer.program_type_manager.addDataType(importer.types.get(i), null);
+			importer.types.set(i, importer.program_type_manager.addDataType(importer.types.get(i), null));
 		}
 		
 		importer.program_type_manager.endTransaction(transaction_id, true);
@@ -558,7 +558,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					type = node.create_type(importer);
 					importer.types.set(index, type);
-					importer.program_type_manager.addDataType(type, null);
 				}
 				return type;
 			}
