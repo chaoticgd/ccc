@@ -268,7 +268,10 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 }
 
 static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input) {
-	if(*input == ',') {
+	// Check for if the next character is from an enclosing field list. If this
+	// is the case, the next character will be ',' for normal fields and ':' for
+	// static fields (see above).
+	if(*input == ',' || *input == ':') {
 		return {};
 	}
 	
