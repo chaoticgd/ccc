@@ -389,7 +389,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
 				// This allows us to deduplicate types with vtables.
 				if(node->name.starts_with("$vf")) {
-					node->name = "CCC_VTABLE";
+					node->name = "__vtable";
 				}
 			}
 			if(flags & STRIP_MEMBER_FUNCTIONS) {

@@ -105,17 +105,18 @@ enum class MemberFunctionModifier {
 	VIRTUAL
 };
 
-struct StabsMemberFunctionOverload {
+struct StabsMemberFunction {
 	std::unique_ptr<StabsType> type;
 	StabsFieldVisibility visibility;
 	bool is_const;
 	bool is_volatile;
 	MemberFunctionModifier modifier;
+	s32 vtable_index = -1;
 };
 
 struct StabsMemberFunctionSet {
 	std::string name;
-	std::vector<StabsMemberFunctionOverload> overloads;
+	std::vector<StabsMemberFunction> overloads;
 };
 
 struct StabsTypeReferenceType : StabsType {
@@ -195,7 +196,7 @@ struct StabsStructOrUnionType : StabsType {
 			field.type->enumerate_numbered_types(output);
 		}
 		for(const StabsMemberFunctionSet& member_function_set : member_functions) {
-			for(const StabsMemberFunctionOverload& member_function : member_function_set.overloads) {
+			for(const StabsMemberFunction& member_function : member_function_set.overloads) {
 				member_function.type->enumerate_numbered_types(output);
 			}
 		}

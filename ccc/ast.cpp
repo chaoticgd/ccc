@@ -142,8 +142,8 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 					type.name->substr(0, type.name->find("<"));
 			}
 			for(const StabsMemberFunctionSet& function_set : stabs_struct_or_union->member_functions) {
-				for(const StabsMemberFunctionOverload& overload : function_set.overloads) {
-					auto node = stabs_type_to_ast(*overload.type, state, absolute_parent_offset_bytes, depth + 1, true);
+				for(const StabsMemberFunction& stabs_func : function_set.overloads) {
+					auto node = stabs_type_to_ast(*stabs_func.type, state, absolute_parent_offset_bytes, depth + 1, true);
 					if(function_set.name == "__as") {
 						node->name = "operator=";
 					} else {
@@ -151,12 +151,13 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 					}
 					if(node->descriptor == FUNCTION_TYPE) {
 						FunctionType& function = node->as<FunctionType>();
-						function.modifier = overload.modifier;
+						function.modifier = stabs_func.modifier;
 						function.is_constructor = false;
 						if(type.name.has_value()) {
 							function.is_constructor |= function_set.name == type.name;
 							function.is_constructor |= function_set.name == struct_or_union_name_no_template_parameters;
 						}
+						function.vtable_index = stabs_func.vtable_index;
 					}
 					struct_or_union->member_functions.emplace_back(std::move(node));
 				}
@@ -509,6 +510,7 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::BASE_CLASS_OFFSET: return "base class offset";
 		case CompareFailReason::FIELDS_SIZE: return "fields size";
 		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function size";
+		case CompareFailReason::VTABLE_GLOBAL: return "vtable global";
 		case CompareFailReason::SOURCE_FILE_SIZE: return "source file size";
 		case CompareFailReason::TYPE_NAME: return "type name";
 		case CompareFailReason::VARIABLE_CLASS: return "variable class";

@@ -31,9 +31,9 @@ ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::Sym
 
 struct LocalSymbolTableAnalyser {
 	ast::SourceFile& output;
-	const ast::StabsToAstState& stabs_to_ast_state;
+	ast::StabsToAstState& stabs_to_ast_state;
 	
-	LocalSymbolTableAnalyser(ast::SourceFile& o, const ast::StabsToAstState& s)
+	LocalSymbolTableAnalyser(ast::SourceFile& o, ast::StabsToAstState& s)
 		: output(o), stabs_to_ast_state(s) {}
 	
 	enum AnalysisState {

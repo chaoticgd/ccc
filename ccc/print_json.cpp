@@ -32,7 +32,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 1);
+	json.number_property("version", 2);
 	
 	json.property("files");
 	json.begin_array();
@@ -173,6 +173,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 				modifier = "virtual";
 			}
 			json.string_property("modifier", modifier);
+			json.number_property("vtable_index", function.vtable_index);
 			json.boolean_property("is_constructor", function.is_constructor);
 			break;
 		}

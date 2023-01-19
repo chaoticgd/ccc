@@ -292,7 +292,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 				break;
 			}
 			
-			StabsMemberFunctionOverload function;
+			StabsMemberFunction function;
 			function.type = parse_stabs_type(input);
 			
 			expect_s8(input, ':', "member function");
@@ -339,7 +339,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 					function.modifier = MemberFunctionModifier::STATIC;
 					break;
 				case '*': // virtual member function
-					eat_s64_literal(input);
+					function.vtable_index = eat_s64_literal(input);
 					expect_s8(input, ';', "virtual member function");
 					parse_stabs_type(input);
 					expect_s8(input, ';', "virtual member function");
