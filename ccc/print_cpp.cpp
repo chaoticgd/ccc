@@ -167,7 +167,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 					fprintf(dest, ";\n");
 				}
 				indent(dest, indentation_level);
-				fprintf(dest, "}\n");
+				fprintf(dest, "}");
 			} else {
 				fprintf(dest, "{}");
 			}

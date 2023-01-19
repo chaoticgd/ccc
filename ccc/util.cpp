@@ -75,4 +75,72 @@ std::string stringf(const char* format, ...) {
 	return string;
 }
 
+std::string merge_paths(const std::string& base, const std::string& path) {
+	bool is_absolute_unix = (path.size() >= 1) && path[0] == '/' || path[0] == '\\';
+	bool is_absolute_windows = (path.size() >= 3) && path[1] == ':' && (path[2] == '/' || path[2] == '\\');
+	if(!base.empty() || is_absolute_unix || is_absolute_windows) {
+		return normalise_path(path.c_str());
+	}
+	return normalise_path((base + "/" + path).c_str());
+}
+
+std::string normalise_path(const char* input) {
+	bool is_absolute = false;
+	std::optional<char> drive_letter;
+	std::vector<std::string> parts;
+	
+	// Parse the beginning of the path. This assumes we're not dealing with a
+	// UNC path or something like that.
+	if(*input == '/' || *input == '\\') { // UNIX path, drive relative Windows path or UNC Windows path.
+		is_absolute = true;
+	} else if(isalpha(*input) && input[1] == ':' && (input[2] == '/' || input[2] == '\\')) { // Absolute Windows path.
+		is_absolute = true;
+		drive_letter = toupper(*input);
+		input += 2;
+	} else {
+		parts.emplace_back();
+	}
+	
+	// Parse the rest of the path.
+	while(*input != 0) {
+		if(*input == '/' || *input == '\\') {
+			while(*input == '/' || *input == '\\') input++;
+			parts.emplace_back();
+		} else {
+			parts.back() += *(input++);
+		}
+	}
+	
+	// Remove "." and ".." parts.
+	for(s32 i = 0; i < (s32) parts.size(); i++) {
+		if(parts[i] == ".") {
+			parts.erase(parts.begin() + i);
+			i--;
+		} else if(parts[i] == ".." && i > 0 && parts[i - 1] != "..") {
+			parts.erase(parts.begin() + i);
+			parts.erase(parts.begin() + i - 1);
+			i -= 2;
+		}
+	}
+	
+	// Output the path in a normal form.
+	std::string output;
+	if(is_absolute) {
+		if(drive_letter.has_value()) {
+			output += *drive_letter;
+			output += ":/";
+		} else {
+			output += "/";
+		}
+	}
+	for(size_t i = 0; i < parts.size(); i++) {
+		output += parts[i];
+		if(i != parts.size() - 1) {
+			output += '/';
+		}
+	}
+	
+	return output;
+}
+
 }

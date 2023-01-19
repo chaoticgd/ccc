@@ -138,16 +138,7 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 			}
 		}
 		
-		// Determine the full path.
-		std::string base_path = fd.base_path;
-		std::string raw_path = fd.raw_path;
-		for(char& c : base_path) if(c == '\\') c = '/';
-		for(char& c : raw_path) if(c == '\\') c = '/';
-		if(base_path.empty() || raw_path[0] == '/' || (raw_path[1] == ':' && raw_path[2] == '/')) {
-			fd.full_path = raw_path;
-		} else {
-			fd.full_path = fs::weakly_canonical(fs::path(base_path)/fs::path(raw_path)).string();
-		}
+		fd.full_path = merge_paths(fd.base_path, fd.raw_path);
 		
 		// Parse procedure descriptors.
 		// This is buggy.

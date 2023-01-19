@@ -51,7 +51,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		
 		boolean emit_line_numbers = false;
 		boolean mark_inlined_code = false;
-		boolean enable_broken_local_variables = false;
 	}
 	
 	public void import_types(ImporterState importer) throws Exception {
@@ -150,6 +149,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					
 					// Add the parameters.
+					HashSet<String> parameter_names = new HashSet<>();
 					if(type.parameters.size() > 0) {
 						ArrayList<Variable> parameters = new ArrayList<>();
 						for(int i = 0; i < type.parameters.size(); i++) {
@@ -159,6 +159,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 								parameter_type = new PointerDataType(parameter_type);
 							}
 							parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
+							parameter_names.add(variable.name);
 						}
 						try {
 							function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
@@ -176,9 +177,15 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					
 					if(importer.mark_inlined_code) {
 						// Add comments to mark inlined code.
+						String path;
+						if(def.relative_path != null) {
+							path = def.relative_path;
+						} else {
+							path = source_file.relative_path;
+						}
 						boolean was_inlining = false;
 						for(AST.SubSourceFile sub : def.sub_source_files) {
-							boolean is_inlining = !sub.relative_path.equals(source_file.relative_path);
+							boolean is_inlining = !sub.relative_path.equals(path);
 							if(is_inlining && !was_inlining) {
 								setPreComment(space.getAddress(sub.address), "inlined from " + sub.relative_path);
 							} else if(!is_inlining && was_inlining) {
@@ -188,29 +195,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						}
 					}
 					
-					// This is currently far too broken to be enabled by default.
-					if(importer.enable_broken_local_variables) {
-						// Add local variables.
-						int i = 0;
-						for(AST.Node child : def.locals) {
-							if(child instanceof AST.Variable) {
-								AST.Variable src = (AST.Variable) child;
-								if(src.storage_class != AST.StorageClass.STATIC) {
-									LocalVariable dest = null;
-									String name = src.name + "__" + Integer.toString(i);
-									DataType local_type = AST.replace_void_with_undefined1(src.type.create_type(importer));
-									if(src.storage.type == AST.VariableStorageType.REGISTER) {
-										int first_use = src.block_low - def.address_range.low;
-										Register register = get_sleigh_register(src.storage, local_type.getLength());
-										dest = new LocalVariableImpl(name, first_use, local_type, register, currentProgram, SourceType.ANALYSIS);
-									} else if(src.storage.type == AST.VariableStorageType.STACK) {
-										dest = new LocalVariableImpl(name, local_type, src.storage.stack_pointer_offset, currentProgram, SourceType.ANALYSIS);
-									}
-									function.addLocalVariable(dest, SourceType.ANALYSIS);
-									i++;
-								}
+					// Add local variables.
+					HashMap<String, AST.Variable> stack_locals = new HashMap<>();
+					for(AST.Node child : def.locals) {
+						if(child instanceof AST.Variable && !parameter_names.contains(child.name)) {
+							AST.Variable src = (AST.Variable) child;
+							if(src.storage_class != AST.StorageClass.STATIC && src.storage.type == AST.VariableStorageType.STACK) {
+								stack_locals.put(src.name, src);
 							}
 						}
+					}
+					for(Map.Entry<String, AST.Variable> local : stack_locals.entrySet()) {
+						AST.Variable var = local.getValue();
+						DataType local_type = AST.replace_void_with_undefined1(var.type.create_type(importer));
+						LocalVariable dest = new LocalVariableImpl(var.name, local_type, var.storage.stack_pointer_offset, currentProgram, SourceType.ANALYSIS);
+						function.addLocalVariable(dest, SourceType.ANALYSIS);
 					}
 				}
 			}
@@ -397,6 +396,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		
 		public static class FunctionDefinition extends Node {
 			AddressRange address_range = new AddressRange();
+			String relative_path;
 			Node type;
 			ArrayList<Variable> locals = new ArrayList<>();
 			ArrayList<LineNumberPair> line_numbers = new ArrayList<>();
@@ -511,7 +511,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 								vtable.growStructure(end - vtable.getLength());
 							}
 							try {
-							vtable.replaceAtOffset(function.vtable_index * 4, PointerDataType.dataType, 4, function.name, "");
+								vtable.replaceAtOffset(function.vtable_index * 4, PointerDataType.dataType, 4, function.name, "");
 							} catch(IllegalArgumentException e) {}
 						}
 					}
@@ -646,7 +646,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				throws JsonParseException {
 			ParsedJsonFile result = new ParsedJsonFile();
 			JsonObject object = element.getAsJsonObject();
-			int supported_version = 2;
+			int supported_version = 3;
 			if(!object.has("version")) {
 				throw new JsonParseException("JSON file has missing version number field.");
 			}
@@ -709,6 +709,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				AST.FunctionDefinition function = new AST.FunctionDefinition();
 				if(object.has("address_range")) {
 					function.address_range = read_address_range(object.get("address_range").getAsJsonObject());
+				}
+				if(object.has("relative_path")) {
+					function.relative_path = object.get("relative_path").getAsString();
 				}
 				function.type = context.deserialize(object.get("type"), AST.Node.class);
 				for(JsonElement local : object.get("locals").getAsJsonArray()) {

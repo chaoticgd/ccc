@@ -19,8 +19,6 @@ struct JsonWriter {
 	void string_property(const char* name, const char* value);
 	void number_property(const char* name, s64 value);
 	void boolean_property(const char* name, bool value);
-
-	static std::string sanitize_path(const std::string& path);
 };
 
 static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr);
@@ -32,7 +30,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 2);
+	json.number_property("version", 3);
 	
 	json.property("files");
 	json.begin_array();
@@ -124,6 +122,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 				json.number_property("high", function.address_range.high);
 				json.end_object();
 			}
+			if(!function.relative_path.empty()) {
+				json.string_property("relative_path", function.relative_path.c_str());
+			}
 			json.property("type");
 			print_json_ast_node(json, function.type.get());
 			json.property("locals");
@@ -146,7 +147,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			for(const ast::SubSourceFile& sub : function.sub_source_files) {
 				json.begin_object();
 				json.number_property("address", sub.address);
-				json.string_property("path", JsonWriter::sanitize_path(sub.relative_path).c_str());
+				json.string_property("path", sub.relative_path.c_str());
 				json.end_object();
 			}
 			json.end_array();
@@ -233,8 +234,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 		}
 		case ast::NodeDescriptor::SOURCE_FILE: {
 			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
-			json.string_property("path", JsonWriter::sanitize_path(source_file.full_path).c_str());
-			json.string_property("relative_path", JsonWriter::sanitize_path(source_file.relative_path).c_str());
+			json.string_property("path", source_file.full_path.c_str());
+			json.string_property("relative_path", source_file.relative_path.c_str());
 			json.number_property("text_address", source_file.text_address);
 			json.property("types");
 			json.begin_array();
@@ -400,16 +401,6 @@ void JsonWriter::number_property(const char* name, s64 value) {
 void JsonWriter::boolean_property(const char* name, bool value) {
 	property(name);
 	boolean(value);
-}
-
-std::string JsonWriter::sanitize_path(const std::string& path) {
-	std::string path_new(path);
-
-	for(auto& c : path_new)
-		if(c == '\\')
-			c = '/';
-
-	return path_new;
 }
 
 }

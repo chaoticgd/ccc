@@ -218,8 +218,11 @@ void LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 }
 
 void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
-	output.relative_path = fs::weakly_canonical(fs::path(std::string(path))).string();
+	output.relative_path = normalise_path(path);
 	output.text_address = text_address;
+	if(next_relative_path.empty()) {
+		next_relative_path = output.relative_path;
+	}
 }
 
 void LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
@@ -245,10 +248,12 @@ void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, co
 }
 
 void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_address) {
-	if(current_function) {
+	if(state == IN_FUNCTION_BEGINNING) {
 		ast::SubSourceFile& sub = current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
-		sub.relative_path = fs::weakly_canonical(fs::path(std::string(path))).string();;
+		sub.relative_path = normalise_path(path);
+	} else {
+		next_relative_path = path;
 	}
 }
 
@@ -262,6 +267,9 @@ void LocalSymbolTableAnalyser::function(const char* name, s32 address, bool is_s
 	current_function->address_range.low = address;
 	if(is_static) {
 		current_function->storage_class = ast::StorageClass::STATIC;
+	}
+	if(!next_relative_path.empty() && current_function->relative_path != output.relative_path) {
+		current_function->relative_path = next_relative_path;
 	}
 	
 	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
