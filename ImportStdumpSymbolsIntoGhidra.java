@@ -1,34 +1,26 @@
 // Imports symbols from JSON files written out by stdump.
 //@author chaoticgd
 //@category _NEW_
-import java.io.Console;
 import java.io.FileReader;
 import java.lang.reflect.Type;
 import java.util.*;
 import com.google.gson.*;
 import com.google.gson.stream.JsonReader;
-import generic.stl.Pair;
 import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;
 import ghidra.app.services.ConsoleService;
-import ghidra.app.services.DataTypeManagerService;
-import ghidra.framework.plugintool.PluginTool;
-import ghidra.program.model.mem.*;
 import ghidra.program.model.lang.*;
-import ghidra.program.model.pcode.*;
-import ghidra.program.model.util.*;
-import ghidra.program.model.reloc.*;
 import ghidra.program.model.data.*;
 import ghidra.program.model.data.DataUtilities.ClearDataMode;
-import ghidra.program.model.block.*;
 import ghidra.program.model.symbol.*;
-import ghidra.program.model.scalar.*;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.address.*;
 
 public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	public void run() throws Exception {
 		ImporterState importer = new ImporterState();
+		importer.program_type_manager = currentProgram.getDataTypeManager();
+		importer.console = state.getTool().getService(ConsoleService.class);
 		
 		String json_path = askString("Enter Path", "Path to .json file:");
 		JsonReader reader = new JsonReader(new FileReader(json_path));
@@ -64,11 +56,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	}
 	
 	public void import_types(ImporterState importer) throws Exception {
-		importer.program_type_manager = currentProgram.getDataTypeManager();
-		int transaction_id = importer.program_type_manager.startTransaction("stdump import script");
-		
-		importer.console = state.getTool().getService(ConsoleService.class);
-		
 		// Gather information required for type lookup.
 		for(AST.Node node : importer.ast.files) {
 			AST.SourceFile file = (AST.SourceFile) node;
@@ -82,40 +69,33 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			}
 		}
 		
-		// Create all the structs and unions first, set everything else to null.
+		// Create all the top-level enums, structs and unions first.
 		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
 			AST.Node node = importer.ast.deduplicated_types.get(i);
-			if(node instanceof AST.InlineStructOrUnion) {
+			if(node instanceof AST.InlineEnum) {
+				AST.InlineEnum inline_enum = (AST.InlineEnum) node;
+				DataType type = inline_enum.create_type(importer);
+				importer.types.add(importer.program_type_manager.addDataType(type, null));
+			} else if(node instanceof AST.InlineStructOrUnion) {
 				AST.InlineStructOrUnion struct_or_union = (AST.InlineStructOrUnion) node;
 				DataType type = struct_or_union.create_empty(importer);
-				importer.types.add(type);
+				importer.types.add(importer.program_type_manager.addDataType(type, null));
 			} else {
 				importer.types.add(null);
 			}
 		}
 		
-		// Create and register the types recursively.
+		// Fill in the structs and unions recursively.
 		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
 			importer.current_type = i;
 			AST.Node node = importer.ast.deduplicated_types.get(i);
-			DataType type;
 			if(node instanceof AST.InlineStructOrUnion) {
 				AST.InlineStructOrUnion struct_or_union = (AST.InlineStructOrUnion) node;
-				type = importer.types.get(i);
+				DataType type = importer.types.get(i);
 				struct_or_union.fill(type, importer);
-			} else if(node != null) {
-				type = node.create_type(importer);
-			} else {
-				continue;
+				importer.types.set(i, type);
 			}
-			importer.types.set(i, type);
 		}
-		
-		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
-			importer.types.set(i, importer.program_type_manager.addDataType(importer.types.get(i), null));
-		}
-		
-		importer.program_type_manager.endTransaction(transaction_id, true);
 	}
 	
 	
@@ -123,6 +103,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	
 	public void import_functions(ImporterState importer) throws Exception {
 		AddressSpace space = getAddressFactory().getDefaultAddressSpace();
+		SymbolTable symbol_table = currentProgram.getSymbolTable();
 		for(AST.Node node : importer.ast.files) {
 			AST.SourceFile source_file = (AST.SourceFile) node;
 			for(AST.Node function_node : source_file.functions) {
@@ -131,11 +112,16 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				if(def.address_range.valid()) {
 					// Find or create the function.
 					Address low = space.getAddress(def.address_range.low);
-					Address high = space.getAddress(def.address_range.high);
+					Address high = space.getAddress(def.address_range.high - 1);
 					AddressSet range = new AddressSet(low, high);
 					Function function = getFunctionAt(low);
 					if(function == null) {
-						CreateFunctionCmd cmd = new CreateFunctionCmd(def.name, low, range, SourceType.ANALYSIS);
+						CreateFunctionCmd cmd;
+						if(high.getOffset() < low.getOffset()) {
+							cmd = new CreateFunctionCmd(new AddressSet(low), SourceType.ANALYSIS);
+						} else {
+							cmd = new CreateFunctionCmd(def.name, low, range, SourceType.ANALYSIS);
+						}
 						boolean success = cmd.applyTo(currentProgram, monitor);
 						if(!success) {
 							throw new Exception("Failed to create function " + def.name + ": " + cmd.getStatusMsg());
@@ -143,6 +129,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						function = getFunctionAt(low);
 					}
 					
+					// Remove spam like "gcc2_compiled." and remove the
+					// existing label for the function name so it can be
+					// reapplied below.
+					Symbol[] existing_symbols = symbol_table.getSymbols(low);
+					for(Symbol existing_symbol : existing_symbols) {
+						String name = existing_symbol.getName();
+						if(name.equals("__gnu_compiled_cplusplus") || name.equals("gcc2_compiled.") || name.equals(def.name)) {
+							symbol_table.removeSymbolSpecial(existing_symbol);
+						}
+					}
+					
+					// Ghidra will sometimes find the wrong label and use it as
+					// a function name e.g. "gcc2_compiled." so it's important
+					// that we set the name explicitly here.
+					function.setName(def.name, SourceType.ANALYSIS);
 					function.setComment(source_file.path);
 					
 					// Specify the return type.
@@ -151,19 +152,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					
 					// Add the parameters.
-					ArrayList<Variable> parameters = new ArrayList<>();
-					for(int i = 0; i < type.parameters.size(); i++) {
-						AST.Variable variable = (AST.Variable) type.parameters.get(i);
-						DataType parameter_type = AST.replace_void_with_undefined1(variable.type.create_type(importer));
-						if(parameter_type.getLength() > 16) {
-							parameter_type = new PointerDataType(parameter_type);
+					if(type.parameters.size() > 0) {
+						ArrayList<Variable> parameters = new ArrayList<>();
+						for(int i = 0; i < type.parameters.size(); i++) {
+							AST.Variable variable = (AST.Variable) type.parameters.get(i);
+							DataType parameter_type = AST.replace_void_with_undefined1(variable.type.create_type(importer));
+							if(parameter_type.getLength() > 16) {
+								parameter_type = new PointerDataType(parameter_type);
+							}
+							parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
 						}
-						parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
-					}
-					try {
-						function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
-					} catch(VariableSizeException exception) {
-						print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
+						try {
+							function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
+						} catch(VariableSizeException exception) {
+							print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
+						}
 					}
 					
 					if(importer.emit_line_numbers) {
@@ -450,7 +453,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			
 			public void fill(DataType dest, ImporterState importer) throws Exception {
 				if(is_struct) {
-					StructureDataType type = (StructureDataType) dest;
+					Structure type = (Structure) dest;
 					for(int i = 0; i < base_classes.size(); i++) {
 						BaseClass base_class = base_classes.get(i);
 						DataType base_type = replace_void_with_undefined1(base_class.type.create_type(importer));
@@ -474,7 +477,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						}
 					}
 				} else {
-					UnionDataType type = (UnionDataType) dest;
+					Union type = (Union) dest;
 					for(AST.Node node : fields) {
 						if(node.storage_class != StorageClass.STATIC) {
 							DataType field = replace_void_with_undefined1(node.create_type(importer));
