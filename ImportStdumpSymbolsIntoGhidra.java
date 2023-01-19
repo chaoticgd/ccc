@@ -531,7 +531,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				if(type_name.equals("void")) {
 					return VoidDataType.dataType;
 				}
-				Integer index;
+				Integer index = null;
 				if(referenced_file_index > -1 && referenced_stabs_type_number > -1) {
 					// Lookup the type by its STABS type number. This path
 					// ensures that the correct type is found even if multiple
