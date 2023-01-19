@@ -551,11 +551,11 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				}
 				DataType type = importer.types.get(index);
 				if(type == null) {
-					if(index == importer.current_type) {
+					AST.Node node = importer.ast.deduplicated_types.get(index);
+					if(index == importer.current_type || node == this) {
 						importer.console.print("Circular type definition: " + type_name + "\n");
 						return Undefined1DataType.dataType;
 					}
-					AST.Node node = importer.ast.deduplicated_types.get(index);
 					if(node instanceof AST.InlineStructOrUnion) {
 						importer.console.print("Bad type name referencing struct or union: " + type_name + "\n");
 						return Undefined1DataType.dataType;
