@@ -59,3 +59,12 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992)
 - [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html)
 - `stabs.c` from binutils (reading), `dbxout.c` from gcc (writing) and `stab.def` from gcc (symbol codes).
+
+## JSON Format
+
+### Version History
+
+| Version | Changes |
+| - | - |
+| 2       | Added vtable_index property to function type nodes. |
+| 1       | First version. |

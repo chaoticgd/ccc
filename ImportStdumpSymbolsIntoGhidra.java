@@ -184,7 +184,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 							} else if(!is_inlining && was_inlining) {
 								setPreComment(space.getAddress(sub.address), "end of inlined section");
 							}
-						was_inlining = is_inlining;
+							was_inlining = is_inlining;
 						}
 					}
 					
@@ -406,8 +406,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class FunctionType extends Node {
 			Node return_type = null;
 			ArrayList<Node> parameters = new ArrayList<Node>();
-			String modifiers;
-			boolean is_constructor = false;
+			int vtable_index = -1;
 			
 			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return Undefined1DataType.dataType;
@@ -475,8 +474,13 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						if(node.storage_class != StorageClass.STATIC) {
 							// Currently we don't try to import bit fields.
 							boolean is_bitfield = node instanceof BitField;
-							node.prefix += name + "__";
-							DataType field = replace_void_with_undefined1(node.create_type(importer));
+							DataType field = null;
+							if(node.name != null && node.name.equals("__vtable")) {
+								field = new PointerDataType(create_vtable(importer));
+							} else {
+								node.prefix += name + "__";
+								field = replace_void_with_undefined1(node.create_type(importer));
+							}
 							boolean is_beyond_end = node.relative_offset_bytes + field.getLength() > size_bits / 8;
 							if(!is_bitfield && !is_beyond_end) {
 								if(node.relative_offset_bytes + field.getLength() <= size_bits / 8) {
@@ -494,6 +498,25 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						}
 					}
 				}
+			}
+			
+			public DataType create_vtable(ImporterState importer) {
+				StructureDataType vtable = new StructureDataType(generate_name() + "__vtable", 0, importer.program_type_manager);
+				for(AST.Node node : member_functions) {
+					if(node instanceof AST.FunctionType) {
+						AST.FunctionType function = (AST.FunctionType) node;
+						if(function.vtable_index > -1) {
+							int end = (function.vtable_index + 1) * 4;
+							if(end > vtable.getLength()) {
+								vtable.growStructure(end - vtable.getLength());
+							}
+							try {
+							vtable.replaceAtOffset(function.vtable_index * 4, PointerDataType.dataType, 4, function.name, "");
+							} catch(IllegalArgumentException e) {}
+						}
+					}
+				}
+				return vtable;
 			}
 		}
 		
@@ -623,12 +646,12 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				throws JsonParseException {
 			ParsedJsonFile result = new ParsedJsonFile();
 			JsonObject object = element.getAsJsonObject();
-			int supported_version = 1;
+			int supported_version = 2;
 			if(!object.has("version")) {
 				throw new JsonParseException("JSON file has missing version number field.");
 			}
 			int version = object.get("version").getAsInt();
-			if(version != 1) {
+			if(version != supported_version) {
 				String version_info = Integer.toString(version) + ", should be " + Integer.toString(supported_version);
 				throw new JsonParseException("JSON file is in an unsupported format (version is " + version_info + ")!");
 			}
@@ -716,6 +739,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						function_type.parameters.add(context.deserialize(parameter, AST.Node.class));
 					}
 				}
+				function_type.vtable_index = object.get("vtable_index").getAsInt();
 				node = function_type;
 			} else if(descriptor.equals("enum")) {
 				AST.InlineEnum inline_enum = new AST.InlineEnum();

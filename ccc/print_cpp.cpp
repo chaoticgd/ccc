@@ -118,6 +118,11 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		if(func_def.address_range.valid()) {
 			fprintf(dest, "/* %08x %08x */ ", func_def.address_range.low, func_def.address_range.high);
 		}
+	} else if(node.descriptor == ast::FUNCTION_TYPE) {
+		const ast::FunctionType& func_type = node.as<ast::FunctionType>();
+		if(func_type.vtable_index > -1) {
+			fprintf(dest, "/* vtable[%d] */ ", func_type.vtable_index);
+		}
 	} else if(node.descriptor == ast::VARIABLE) {
 		const ast::Variable& variable = node.as<ast::Variable>();
 		print_variable_storage_comment(stdout, variable.storage);

@@ -127,6 +127,7 @@ struct FunctionType : Node {
 	std::optional<std::unique_ptr<Node>> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
+	s32 vtable_index = -1;
 	bool is_constructor = false;
 	
 	FunctionType() : Node(DESCRIPTOR) {}
@@ -305,6 +306,7 @@ enum class CompareFailReason {
 	BASE_CLASS_OFFSET,
 	FIELDS_SIZE,
 	MEMBER_FUNCTION_SIZE,
+	VTABLE_GLOBAL,
 	SOURCE_FILE_SIZE,
 	TYPE_NAME,
 	VARIABLE_CLASS,
