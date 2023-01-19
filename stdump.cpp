@@ -125,6 +125,9 @@ static void print_functions(mdebug::SymbolTable& symbol_table) {
 			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
 			printf("\n");
 		}
+		if(!source_file.functions.empty() && i != (s32) symbol_table.files.size()) {
+			printf("\n");
+		}
 	}
 }
 
@@ -136,14 +139,12 @@ static void print_globals(mdebug::SymbolTable& symbol_table) {
 		printf("// FILE -- %s\n", source_file.full_path.c_str());
 		printf("// *****************************************************************************\n");
 		printf("\n");
-		bool has_globals = false;
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			VariableName dummy{};
 			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
 			printf(";\n");
-			has_globals = true;
 		}
-		if(has_globals && i != (s32) symbol_table.files.size()) {
+		if(!source_file.globals.empty() && i != (s32) symbol_table.files.size()) {
 			printf("\n");
 		}
 	}
