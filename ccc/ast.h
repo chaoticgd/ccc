@@ -114,6 +114,7 @@ struct SubSourceFile {
 
 struct FunctionDefinition : Node {
 	AddressRange address_range;
+	std::string relative_path;
 	std::unique_ptr<Node> type;
 	std::vector<std::unique_ptr<ast::Variable>> locals;
 	std::vector<LineNumberPair> line_numbers;

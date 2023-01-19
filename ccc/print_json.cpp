@@ -30,7 +30,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 2);
+	json.number_property("version", 3);
 	
 	json.property("files");
 	json.begin_array();
@@ -121,6 +121,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 				json.number_property("low", function.address_range.low);
 				json.number_property("high", function.address_range.high);
 				json.end_object();
+			}
+			if(!function.relative_path.empty()) {
+				json.string_property("relative_path", function.relative_path.c_str());
 			}
 			json.property("type");
 			print_json_ast_node(json, function.type.get());

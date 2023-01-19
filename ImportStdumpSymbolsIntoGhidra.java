@@ -176,9 +176,15 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					
 					if(importer.mark_inlined_code) {
 						// Add comments to mark inlined code.
+						String path;
+						if(def.relative_path != null) {
+							path = def.relative_path;
+						} else {
+							path = source_file.relative_path;
+						}
 						boolean was_inlining = false;
 						for(AST.SubSourceFile sub : def.sub_source_files) {
-							boolean is_inlining = !sub.relative_path.equals(source_file.relative_path);
+							boolean is_inlining = !sub.relative_path.equals(path);
 							if(is_inlining && !was_inlining) {
 								setPreComment(space.getAddress(sub.address), "inlined from " + sub.relative_path);
 							} else if(!is_inlining && was_inlining) {
@@ -397,6 +403,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		
 		public static class FunctionDefinition extends Node {
 			AddressRange address_range = new AddressRange();
+			String relative_path;
 			Node type;
 			ArrayList<Variable> locals = new ArrayList<>();
 			ArrayList<LineNumberPair> line_numbers = new ArrayList<>();
@@ -511,7 +518,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 								vtable.growStructure(end - vtable.getLength());
 							}
 							try {
-							vtable.replaceAtOffset(function.vtable_index * 4, PointerDataType.dataType, 4, function.name, "");
+								vtable.replaceAtOffset(function.vtable_index * 4, PointerDataType.dataType, 4, function.name, "");
 							} catch(IllegalArgumentException e) {}
 						}
 					}
@@ -646,7 +653,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				throws JsonParseException {
 			ParsedJsonFile result = new ParsedJsonFile();
 			JsonObject object = element.getAsJsonObject();
-			int supported_version = 2;
+			int supported_version = 3;
 			if(!object.has("version")) {
 				throw new JsonParseException("JSON file has missing version number field.");
 			}
@@ -709,6 +716,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				AST.FunctionDefinition function = new AST.FunctionDefinition();
 				if(object.has("address_range")) {
 					function.address_range = read_address_range(object.get("address_range").getAsJsonObject());
+				}
+				if(object.has("relative_path")) {
+					function.relative_path = object.get("relative_path").getAsString();
 				}
 				function.type = context.deserialize(object.get("type"), AST.Node.class);
 				for(JsonElement local : object.get("locals").getAsJsonArray()) {

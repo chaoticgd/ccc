@@ -48,6 +48,7 @@ struct LocalSymbolTableAnalyser {
 	ast::FunctionType* current_function_type = nullptr;
 	std::vector<ast::Variable*> pending_variables_begin;
 	std::map<s32, std::vector<ast::Variable*>> pending_variables_end;
+	std::string next_relative_path;
 	
 	// Functions for processing individual symbols.
 	void stab_magic(const char* magic);

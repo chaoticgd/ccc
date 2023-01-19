@@ -66,5 +66,6 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 | Version | Changes |
 | - | - |
-| 2       | Added vtable_index property to function type nodes. |
-| 1       | First version. |
+| 3 | Added optional relative_path property to function definition nodes. |
+| 2 | Added vtable_index property to function type nodes. |
+| 1 | First version. |
