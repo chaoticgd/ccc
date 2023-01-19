@@ -78,7 +78,7 @@ std::string stringf(const char* format, ...) {
 std::string merge_paths(const std::string& base, const std::string& path) {
 	bool is_absolute_unix = (path.size() >= 1) && path[0] == '/' || path[0] == '\\';
 	bool is_absolute_windows = (path.size() >= 3) && path[1] == ':' && (path[2] == '/' || path[2] == '\\');
-	if(!base.empty() || is_absolute_unix || is_absolute_windows) {
+	if(base.empty() || is_absolute_unix || is_absolute_windows) {
 		return normalise_path(path.c_str());
 	}
 	return normalise_path((base + "/" + path).c_str());
