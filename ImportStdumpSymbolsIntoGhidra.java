@@ -538,7 +538,8 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					// types have the same name.
 					HashMap<Integer, Integer> index_lookup = importer.stabs_type_number_to_deduplicated_type_index.get(referenced_file_index);
 					index = index_lookup.get(referenced_stabs_type_number);
-				} else {
+				}
+				if(index == null) {
 					// For STABS cross references, no type number is provided,
 					// so we must lookup the type by name instead. This is
 					// riskier but I think it's the best we can really do.
