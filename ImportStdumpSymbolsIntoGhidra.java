@@ -51,7 +51,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		
 		boolean emit_line_numbers = false;
 		boolean mark_inlined_code = false;
-		boolean enable_broken_local_variables = false;
 	}
 	
 	public void import_types(ImporterState importer) throws Exception {
@@ -150,6 +149,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					
 					// Add the parameters.
+					HashSet<String> parameter_names = new HashSet<>();
 					if(type.parameters.size() > 0) {
 						ArrayList<Variable> parameters = new ArrayList<>();
 						for(int i = 0; i < type.parameters.size(); i++) {
@@ -159,6 +159,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 								parameter_type = new PointerDataType(parameter_type);
 							}
 							parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
+							parameter_names.add(variable.name);
 						}
 						try {
 							function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
@@ -194,29 +195,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						}
 					}
 					
-					// This is currently far too broken to be enabled by default.
-					if(importer.enable_broken_local_variables) {
-						// Add local variables.
-						int i = 0;
-						for(AST.Node child : def.locals) {
-							if(child instanceof AST.Variable) {
-								AST.Variable src = (AST.Variable) child;
-								if(src.storage_class != AST.StorageClass.STATIC) {
-									LocalVariable dest = null;
-									String name = src.name + "__" + Integer.toString(i);
-									DataType local_type = AST.replace_void_with_undefined1(src.type.create_type(importer));
-									if(src.storage.type == AST.VariableStorageType.REGISTER) {
-										int first_use = src.block_low - def.address_range.low;
-										Register register = get_sleigh_register(src.storage, local_type.getLength());
-										dest = new LocalVariableImpl(name, first_use, local_type, register, currentProgram, SourceType.ANALYSIS);
-									} else if(src.storage.type == AST.VariableStorageType.STACK) {
-										dest = new LocalVariableImpl(name, local_type, src.storage.stack_pointer_offset, currentProgram, SourceType.ANALYSIS);
-									}
-									function.addLocalVariable(dest, SourceType.ANALYSIS);
-									i++;
-								}
+					// Add local variables.
+					HashMap<String, AST.Variable> stack_locals = new HashMap<>();
+					for(AST.Node child : def.locals) {
+						if(child instanceof AST.Variable && !parameter_names.contains(child.name)) {
+							AST.Variable src = (AST.Variable) child;
+							if(src.storage_class != AST.StorageClass.STATIC && src.storage.type == AST.VariableStorageType.STACK) {
+								stack_locals.put(src.name, src);
 							}
 						}
+					}
+					for(Map.Entry<String, AST.Variable> local : stack_locals.entrySet()) {
+						AST.Variable var = local.getValue();
+						DataType local_type = AST.replace_void_with_undefined1(var.type.create_type(importer));
+						LocalVariable dest = new LocalVariableImpl(var.name, local_type, var.storage.stack_pointer_offset, currentProgram, SourceType.ANALYSIS);
+						function.addLocalVariable(dest, SourceType.ANALYSIS);
 					}
 				}
 			}
