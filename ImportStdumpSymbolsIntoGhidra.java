@@ -1,28 +1,18 @@
 // Imports symbols from JSON files written out by stdump.
 //@author chaoticgd
 //@category _NEW_
-import java.io.Console;
 import java.io.FileReader;
 import java.lang.reflect.Type;
 import java.util.*;
 import com.google.gson.*;
 import com.google.gson.stream.JsonReader;
-import generic.stl.Pair;
 import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;
 import ghidra.app.services.ConsoleService;
-import ghidra.app.services.DataTypeManagerService;
-import ghidra.framework.plugintool.PluginTool;
-import ghidra.program.model.mem.*;
 import ghidra.program.model.lang.*;
-import ghidra.program.model.pcode.*;
-import ghidra.program.model.util.*;
-import ghidra.program.model.reloc.*;
 import ghidra.program.model.data.*;
 import ghidra.program.model.data.DataUtilities.ClearDataMode;
-import ghidra.program.model.block.*;
 import ghidra.program.model.symbol.*;
-import ghidra.program.model.scalar.*;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.address.*;
 
@@ -113,6 +103,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	
 	public void import_functions(ImporterState importer) throws Exception {
 		AddressSpace space = getAddressFactory().getDefaultAddressSpace();
+		SymbolTable symbol_table = currentProgram.getSymbolTable();
 		for(AST.Node node : importer.ast.files) {
 			AST.SourceFile source_file = (AST.SourceFile) node;
 			for(AST.Node function_node : source_file.functions) {
@@ -121,11 +112,16 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				if(def.address_range.valid()) {
 					// Find or create the function.
 					Address low = space.getAddress(def.address_range.low);
-					Address high = space.getAddress(def.address_range.high);
+					Address high = space.getAddress(def.address_range.high - 1);
 					AddressSet range = new AddressSet(low, high);
 					Function function = getFunctionAt(low);
 					if(function == null) {
-						CreateFunctionCmd cmd = new CreateFunctionCmd(def.name, low, range, SourceType.ANALYSIS);
+						CreateFunctionCmd cmd;
+						if(high.getOffset() < low.getOffset()) {
+							cmd = new CreateFunctionCmd(new AddressSet(low), SourceType.ANALYSIS);
+						} else {
+							cmd = new CreateFunctionCmd(def.name, low, range, SourceType.ANALYSIS);
+						}
 						boolean success = cmd.applyTo(currentProgram, monitor);
 						if(!success) {
 							throw new Exception("Failed to create function " + def.name + ": " + cmd.getStatusMsg());
@@ -133,6 +129,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						function = getFunctionAt(low);
 					}
 					
+					// Remove spam like "gcc2_compiled." and remove the
+					// existing label for the function name so it can be
+					// reapplied below.
+					Symbol[] existing_symbols = symbol_table.getSymbols(low);
+					for(Symbol existing_symbol : existing_symbols) {
+						String name = existing_symbol.getName();
+						if(name.equals("__gnu_compiled_cplusplus") || name.equals("gcc2_compiled.") || name.equals(def.name)) {
+							symbol_table.removeSymbolSpecial(existing_symbol);
+						}
+					}
+					
+					// Ghidra will sometimes find the wrong label and use it as
+					// a function name e.g. "gcc2_compiled." so it's important
+					// that we set the name explicitly here.
+					function.setName(def.name, SourceType.ANALYSIS);
 					function.setComment(source_file.path);
 					
 					// Specify the return type.
@@ -141,19 +152,21 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 					}
 					
 					// Add the parameters.
-					ArrayList<Variable> parameters = new ArrayList<>();
-					for(int i = 0; i < type.parameters.size(); i++) {
-						AST.Variable variable = (AST.Variable) type.parameters.get(i);
-						DataType parameter_type = AST.replace_void_with_undefined1(variable.type.create_type(importer));
-						if(parameter_type.getLength() > 16) {
-							parameter_type = new PointerDataType(parameter_type);
+					if(type.parameters.size() > 0) {
+						ArrayList<Variable> parameters = new ArrayList<>();
+						for(int i = 0; i < type.parameters.size(); i++) {
+							AST.Variable variable = (AST.Variable) type.parameters.get(i);
+							DataType parameter_type = AST.replace_void_with_undefined1(variable.type.create_type(importer));
+							if(parameter_type.getLength() > 16) {
+								parameter_type = new PointerDataType(parameter_type);
+							}
+							parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
 						}
-						parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
-					}
-					try {
-						function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
-					} catch(VariableSizeException exception) {
-						print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
+						try {
+							function.replaceParameters(parameters, Function.FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true, SourceType.ANALYSIS);
+						} catch(VariableSizeException exception) {
+							print("Failed to setup parameters for " + def.name + ": " + exception.getMessage());
+						}
 					}
 					
 					if(importer.emit_line_numbers) {
