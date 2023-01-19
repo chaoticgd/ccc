@@ -48,7 +48,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		ArrayList<DataType> types = new ArrayList<>(); // (data type, size in bytes)
 		ArrayList<HashMap<Integer, Integer>> stabs_type_number_to_deduplicated_type_index = new ArrayList<>();
 		HashMap<String, Integer> type_name_to_deduplicated_type_index = new HashMap<>();
-		int current_type = -1;
 		
 		boolean emit_line_numbers = false;
 		boolean mark_inlined_code = false;
@@ -87,7 +86,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		
 		// Fill in the structs and unions recursively.
 		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
-			importer.current_type = i;
 			AST.Node node = importer.ast.deduplicated_types.get(i);
 			if(node instanceof AST.InlineStructOrUnion) {
 				AST.InlineStructOrUnion struct_or_union = (AST.InlineStructOrUnion) node;
@@ -293,9 +291,20 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			int first_file = -1;
 			boolean conflict = false;
 			int stabs_type_number = -1;
+			boolean is_in_create_type_call = false;
 			
-			// Return (data type, size in bytes) pair.
 			public DataType create_type(ImporterState importer) throws Exception {
+				if(is_in_create_type_call) {
+					importer.console.print("Bad circular type definition: " + name + "\n");
+					return Undefined1DataType.dataType;
+				}
+				is_in_create_type_call = true;
+				DataType type = create_type_impl(importer);
+				is_in_create_type_call = false;
+				return type;
+			}
+			
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				throw new Exception("Method create_type() called on AST node that isn't a type.");
 			}
 			
@@ -311,7 +320,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			Node element_type;
 			int element_count;
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				DataType element = replace_void_with_undefined1(element_type.create_type(importer));
 				return new ArrayDataType(element, element_count, element.getLength());
 			}
@@ -320,7 +329,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class BitField extends Node {
 			Node underlying_type;
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return underlying_type.create_type(importer);
 			}
 		}
@@ -338,7 +347,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class BuiltIn extends Node {
 			BuiltInClass builtin_class;
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				switch(builtin_class) {
 				case VOID:
 					return VoidDataType.dataType;
@@ -400,7 +409,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			String modifiers;
 			boolean is_constructor = false;
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return Undefined1DataType.dataType;
 			}
 		}
@@ -413,7 +422,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class InlineEnum extends Node {
 			ArrayList<EnumConstant> constants = new ArrayList<EnumConstant>();
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				EnumDataType type = new EnumDataType(generate_name(), 4);
 				for(EnumConstant constant : constants) {
 					type.add(constant.name, constant.value);
@@ -433,7 +442,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			ArrayList<Node> fields = new ArrayList<Node>();
 			ArrayList<Node> member_functions = new ArrayList<Node>();
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				DataType result = create_empty(importer);
 				fill(result, importer);
 				return result;
@@ -495,7 +504,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				return 4;
 			}
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return new PointerDataType(value_type.create_type(importer));
 			}
 		}
@@ -507,7 +516,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				return 4;
 			}
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return new PointerDataType(value_type.create_type(importer));
 			}
 		}
@@ -527,7 +536,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			int referenced_file_index = -1;
 			int referenced_stabs_type_number = -1;
 			
-			public DataType create_type(ImporterState importer) throws Exception {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
 				if(type_name.equals("void")) {
 					return VoidDataType.dataType;
 				}
@@ -552,10 +561,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				DataType type = importer.types.get(index);
 				if(type == null) {
 					AST.Node node = importer.ast.deduplicated_types.get(index);
-					if(index == importer.current_type || node == this) {
-						importer.console.print("Circular type definition: " + type_name + "\n");
-						return Undefined1DataType.dataType;
-					}
 					if(node instanceof AST.InlineStructOrUnion) {
 						importer.console.print("Bad type name referencing struct or union: " + type_name + "\n");
 						return Undefined1DataType.dataType;
