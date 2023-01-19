@@ -89,8 +89,7 @@ std::string normalise_path(const char* input) {
 	std::optional<char> drive_letter;
 	std::vector<std::string> parts;
 	
-	// Parse the beginning of the path. This assumes we're not dealing with a
-	// UNC path or something like that.
+	// Parse the beginning of the path.
 	if(*input == '/' || *input == '\\') { // UNIX path, drive relative Windows path or UNC Windows path.
 		is_absolute = true;
 	} else if(isalpha(*input) && input[1] == ':' && (input[2] == '/' || input[2] == '\\')) { // Absolute Windows path.
