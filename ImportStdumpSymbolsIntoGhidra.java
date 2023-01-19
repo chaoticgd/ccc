@@ -29,6 +29,8 @@ import ghidra.program.model.address.*;
 public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	public void run() throws Exception {
 		ImporterState importer = new ImporterState();
+		importer.program_type_manager = currentProgram.getDataTypeManager();
+		importer.console = state.getTool().getService(ConsoleService.class);
 		
 		String json_path = askString("Enter Path", "Path to .json file:");
 		JsonReader reader = new JsonReader(new FileReader(json_path));
@@ -64,11 +66,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 	}
 	
 	public void import_types(ImporterState importer) throws Exception {
-		importer.program_type_manager = currentProgram.getDataTypeManager();
-		int transaction_id = importer.program_type_manager.startTransaction("stdump import script");
-		
-		importer.console = state.getTool().getService(ConsoleService.class);
-		
 		// Gather information required for type lookup.
 		for(AST.Node node : importer.ast.files) {
 			AST.SourceFile file = (AST.SourceFile) node;
@@ -82,40 +79,33 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			}
 		}
 		
-		// Create all the structs and unions first, set everything else to null.
+		// Create all the top-level enums, structs and unions first.
 		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
 			AST.Node node = importer.ast.deduplicated_types.get(i);
-			if(node instanceof AST.InlineStructOrUnion) {
+			if(node instanceof AST.InlineEnum) {
+				AST.InlineEnum inline_enum = (AST.InlineEnum) node;
+				DataType type = inline_enum.create_type(importer);
+				importer.types.add(importer.program_type_manager.addDataType(type, null));
+			} else if(node instanceof AST.InlineStructOrUnion) {
 				AST.InlineStructOrUnion struct_or_union = (AST.InlineStructOrUnion) node;
 				DataType type = struct_or_union.create_empty(importer);
-				importer.types.add(type);
+				importer.types.add(importer.program_type_manager.addDataType(type, null));
 			} else {
 				importer.types.add(null);
 			}
 		}
 		
-		// Create and register the types recursively.
+		// Fill in the structs and unions recursively.
 		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
 			importer.current_type = i;
 			AST.Node node = importer.ast.deduplicated_types.get(i);
-			DataType type;
 			if(node instanceof AST.InlineStructOrUnion) {
 				AST.InlineStructOrUnion struct_or_union = (AST.InlineStructOrUnion) node;
-				type = importer.types.get(i);
+				DataType type = importer.types.get(i);
 				struct_or_union.fill(type, importer);
-			} else if(node != null) {
-				type = node.create_type(importer);
-			} else {
-				continue;
+				importer.types.set(i, type);
 			}
-			importer.types.set(i, type);
 		}
-		
-		for(int i = 0; i < importer.ast.deduplicated_types.size(); i++) {
-			importer.types.set(i, importer.program_type_manager.addDataType(importer.types.get(i), null));
-		}
-		
-		importer.program_type_manager.endTransaction(transaction_id, true);
 	}
 	
 	
@@ -450,7 +440,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			
 			public void fill(DataType dest, ImporterState importer) throws Exception {
 				if(is_struct) {
-					StructureDataType type = (StructureDataType) dest;
+					Structure type = (Structure) dest;
 					for(int i = 0; i < base_classes.size(); i++) {
 						BaseClass base_class = base_classes.get(i);
 						DataType base_type = replace_void_with_undefined1(base_class.type.create_type(importer));
@@ -474,7 +464,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						}
 					}
 				} else {
-					UnionDataType type = (UnionDataType) dest;
+					Union type = (Union) dest;
 					for(AST.Node node : fields) {
 						if(node.storage_class != StorageClass.STATIC) {
 							DataType field = replace_void_with_undefined1(node.create_type(importer));
