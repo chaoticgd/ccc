@@ -87,6 +87,12 @@ struct Range {
 std::string string_format(const char* format, va_list args);
 std::string stringf(const char* format, ...);
 
+// These functions are to be used only for source file paths present in the
+// symbol table, since we want them to be handled consistently across different
+// platforms, which with std::filesystem::path doesn't seem to be possible.
+std::string merge_paths(const std::string& base, const std::string& path);
+std::string normalise_path(const char* input);
+
 }
 
 #endif

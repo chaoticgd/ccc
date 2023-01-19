@@ -218,7 +218,7 @@ void LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 }
 
 void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
-	output.relative_path = fs::weakly_canonical(fs::path(std::string(path))).string();
+	output.relative_path = normalise_path(path);
 	output.text_address = text_address;
 }
 
@@ -248,7 +248,7 @@ void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_addres
 	if(current_function) {
 		ast::SubSourceFile& sub = current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
-		sub.relative_path = fs::weakly_canonical(fs::path(std::string(path))).string();;
+		sub.relative_path = normalise_path(path);
 	}
 }
 
