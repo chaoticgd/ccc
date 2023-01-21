@@ -272,6 +272,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			switch(type_name.source) {
 				case ast::TypeNameSource::REFERENCE: source = "reference"; break;
 				case ast::TypeNameSource::CROSS_REFERENCE: source = "cross_reference"; break;
+				case ast::TypeNameSource::ANONYMOUS_REFERENCE: source = "anonymous_reference"; break;
 				case ast::TypeNameSource::ERROR: source = "error"; break;
 			}
 			json.string_property("source", source);

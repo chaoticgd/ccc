@@ -57,7 +57,7 @@ struct StabsType : StabsTypeInfo {
 	bool is_typedef = false;
 	bool is_root = false;
 	// If !has_body, the descriptor isn't filled in.
-	StabsTypeDescriptor descriptor;
+	StabsTypeDescriptor descriptor = (StabsTypeDescriptor) -1;
 	
 	StabsType(const StabsTypeInfo& i, StabsTypeDescriptor d) : StabsTypeInfo(i), descriptor(d) {}
 	StabsType(const StabsTypeInfo& i) : StabsTypeInfo(i) {}

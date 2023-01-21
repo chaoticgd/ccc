@@ -66,7 +66,7 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 | Version | Changes |
 | - | - |
-| 4 | Added optional is_const property to all nodes. |
+| 4 | Added optional is_const property to all nodes. Added 'anonymous_reference' type names, where the type name is not valid but the type number is. |
 | 3 | Added optional relative_path property to function definition nodes. |
 | 2 | Added vtable_index property to function type nodes. |
 | 1 | First version. |
