@@ -1,3 +1,6 @@
+# CMake toolchain file for building with a musl libc cross compiler on Linux.
+# To use: cmake -B bin -DCMAKE_TOOLCHAIN_FILE=musl.cmake
+
 set(CMAKE_SYSTEM_NAME "Linux")
 set(CMAKE_SYSTEM_PROCESSOR "x86_64")
 
