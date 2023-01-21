@@ -1,4 +1,4 @@
-# Chaos Compiler Collection
+# Chaos Compiler Collection [![](https://github.com/chaoticgd/ccc/actions/workflows/cmake.yml/badge.svg?branch=main)](https://github.com/chaoticgd/ccc/actions/workflows/cmake.yml)
 
 A set of tools for reverse engineering PS2 games.
 
