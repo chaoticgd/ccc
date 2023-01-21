@@ -111,10 +111,17 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			result = std::move(function);
 			break;
 		}
+		case StabsTypeDescriptor::CONST_QUALIFIER: {
+			const auto& const_qualifier = type.as<StabsConstQualifierType>();
+			result = stabs_type_to_ast(*const_qualifier.type.get(), state, absolute_parent_offset_bytes, depth + 1, substitute_type_name);
+			result->is_const = true;
+			break;
+		}
 		case StabsTypeDescriptor::RANGE: {
 			auto builtin = std::make_unique<ast::BuiltIn>();
 			builtin->bclass = type.as<StabsRangeType>().range_class;
-			return builtin;
+			result = std::move(builtin);
+			break;
 		}
 		case StabsTypeDescriptor::STRUCT:
 		case StabsTypeDescriptor::UNION: {
@@ -216,13 +223,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			break;
 		}
 	}
-	
-	if(result == nullptr) {
-		auto bad = std::make_unique<ast::TypeName>();
-		bad->type_name = "CCC_BADTYPEINFO";
-		return bad;
-	}
-	
+	assert(result);
 	return result;
 }
 
@@ -261,15 +262,19 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
 	// Resolve type references.
 	const StabsType* type = field.type.get();
-	while(!type->has_body) {
-		if(type->anonymous) {
-			return false;
+	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
+		if(!type->has_body) {
+			if(type->anonymous) {
+				return false;
+			}
+			auto next_type = state.stabs_types->find(type->type_number);
+			if(next_type == state.stabs_types->end() || next_type->second == type) {
+				return false;
+			}
+			type = next_type->second;
+		} else {
+			type = type->as<StabsConstQualifierType>().type.get();
 		}
-		auto next_type = state.stabs_types->find(type->type_number);
-		if(next_type == state.stabs_types->end() || next_type->second == type) {
-			return false;
-		}
-		type = next_type->second;
 	}
 	
 	// Determine the size of the underlying type.

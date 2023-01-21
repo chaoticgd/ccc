@@ -130,6 +130,10 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 	
 	print_cpp_storage_class(dest, node.storage_class);
 	
+	if(node.is_const) {
+		fprintf(dest, "const ");
+	}
+	
 	switch(node.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();

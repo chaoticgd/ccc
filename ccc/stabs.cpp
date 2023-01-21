@@ -76,6 +76,12 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			type = std::move(function);
 			break;
 		}
+		case StabsTypeDescriptor::CONST_QUALIFIER: { // k
+			auto const_qualifier = std::make_unique<StabsConstQualifierType>(info);
+			const_qualifier->type = parse_stabs_type(input);
+			type = std::move(const_qualifier);
+			break;
+		}
 		case StabsTypeDescriptor::RANGE: { // r
 			auto range = std::make_unique<StabsRangeType>(info);
 			range->type = parse_stabs_type(input);

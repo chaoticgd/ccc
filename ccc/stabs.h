@@ -14,6 +14,7 @@ enum class StabsTypeDescriptor : s8 {
 	ARRAY = 'a',
 	ENUM = 'e',
 	FUNCTION = 'f',
+	CONST_QUALIFIER = 'k',
 	RANGE = 'r',
 	STRUCT = 's',
 	UNION = 'u',
@@ -161,6 +162,18 @@ struct StabsFunctionType : StabsType {
 	void enumerate_numbered_types(std::map<s32, const StabsType*>& output) const override {
 		StabsType::enumerate_numbered_types(output);
 		return_type->enumerate_numbered_types(output);
+	}
+};
+
+struct StabsConstQualifierType : StabsType {
+	std::unique_ptr<StabsType> type;
+	
+	StabsConstQualifierType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
+	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::CONST_QUALIFIER;
+	
+	void enumerate_numbered_types(std::map<s32, const StabsType*>& output) const override {
+		StabsType::enumerate_numbered_types(output);
+		type->enumerate_numbered_types(output);
 	}
 };
 
