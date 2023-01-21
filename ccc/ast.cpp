@@ -5,6 +5,8 @@ namespace ccc::ast {
 #define AST_DEBUG(...) //__VA_ARGS__
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
 
+static bool detect_bitfield(const StabsField& field, const StabsToAstState& state);
+
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.name.c_str());
 	auto node = stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), state, 0, 0, false);
@@ -56,8 +58,10 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 	}
 	
 	if(!type.has_body) {
+		// The definition of the type has been defined previously, so we have to
+		// look it up by its type number.
 		auto stabs_type = state.stabs_types->find(type.type_number);
-		if(type.anonymous || stabs_type == state.stabs_types->end() || !stabs_type->second || !stabs_type->second->has_body) {
+		if(type.anonymous || stabs_type == state.stabs_types->end()) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = TypeNameSource::ERROR;
 			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d)", type.type_number);
@@ -225,8 +229,8 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth) {
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
-	// Bitfields
-	if(field.offset_bits % 8 != 0 || field.size_bits % 8 != 0) {
+	if(detect_bitfield(field, state)) {
+		// Process bitfields.
 		std::unique_ptr<BitField> bitfield = std::make_unique<BitField>();
 		bitfield->name = (field.name == " ") ? "" : field.name;
 		bitfield->relative_offset_bytes = field.offset_bits / 8;
@@ -240,7 +244,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 		return bitfield;
 	}
 	
-	// Normal fields
+	// Process a normal field.
 	s32 relative_offset_bytes = field.offset_bits / 8;
 	s32 absolute_offset_bytes = absolute_parent_offset_bytes + relative_offset_bytes;
 	std::unique_ptr<Node> child = stabs_type_to_ast(*field.type, state, absolute_offset_bytes, depth + 1, true);
@@ -252,6 +256,50 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 		child->storage_class = ast::StorageClass::STATIC;
 	}
 	return child;
+}
+
+static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
+	// Resolve type references.
+	const StabsType* type = field.type.get();
+	while(!type->has_body) {
+		if(type->anonymous) {
+			return false;
+		}
+		auto next_type = state.stabs_types->find(type->type_number);
+		if(next_type == state.stabs_types->end() || next_type->second == type) {
+			return false;
+		}
+		type = next_type->second;
+	}
+	
+	// Determine the size of the underlying type.
+	s32 underlying_type_size_bits = 0;
+	switch(type->descriptor) {
+		case ccc::StabsTypeDescriptor::RANGE: {
+			underlying_type_size_bits = builtin_class_size(type->as<StabsRangeType>().range_class) * 8;
+			break;
+		}
+		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {
+			if(type->as<StabsCrossReferenceType>().type == StabsCrossReferenceType::ENUM) {
+				underlying_type_size_bits = 4;
+			} else {
+				return false;
+			}
+			break;
+		}
+		case ccc::StabsTypeDescriptor::TYPE_ATTRIBUTE: {
+			underlying_type_size_bits = type->as<StabsSizeTypeAttributeType>().size_bits;
+			break;
+		}
+		case ccc::StabsTypeDescriptor::BUILTIN: {
+			underlying_type_size_bits = 8; // bool
+			break;
+		}
+		default: {
+			return false;
+		}
+	}
+	return field.size_bits != underlying_type_size_bits;
 }
 
 // Some enums have two symbols associated with them: One named " " and another

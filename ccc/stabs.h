@@ -213,8 +213,13 @@ struct StabsUnionType : StabsStructOrUnionType {
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::UNION;
 };
 
+
 struct StabsCrossReferenceType : StabsType {
-	char type;
+	enum {
+		ENUM,
+		STRUCT,
+		UNION
+	} type;
 	std::string identifier;
 	
 	StabsCrossReferenceType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
@@ -292,6 +297,7 @@ std::string eat_stabs_identifier(const char*& input);
 std::string eat_dodgy_stabs_identifier(const char*& input);
 void expect_s8(const char*& input, s8 expected, const char* subject);
 const char* builtin_class_to_string(BuiltInClass bclass);
+s32 builtin_class_size(BuiltInClass bclass);
 const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);
 
 }

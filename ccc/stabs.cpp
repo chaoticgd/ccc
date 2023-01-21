@@ -8,15 +8,9 @@ namespace ccc {
 #define STABS_DEBUG(...) //__VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
-// parse_stabs_type
 static std::vector<StabsField> parse_field_list(const char*& input);
 static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& input);
 static BuiltInClass classify_range(const std::string& low, const std::string& high);
-// eat_s8
-// eat_s64_literal
-// eat_stabs_identifier
-// eat_dodgy_stabs_identifier
-// expect_s8
 static void print_field(const StabsField& field);
 
 std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
@@ -135,11 +129,10 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: { // x
 			auto cross_reference = std::make_unique<StabsCrossReferenceType>(info);
-			cross_reference->type = eat_s8(input);
-			switch(cross_reference->type) {
-				case 's': // struct
-				case 'u': // union
-				case 'e': // enum
+			switch(eat_s8(input)) {
+				case 'e': cross_reference->type = StabsCrossReferenceType::ENUM; break;
+				case 's': cross_reference->type = StabsCrossReferenceType::STRUCT; break;
+				case 'u': cross_reference->type = StabsCrossReferenceType::UNION; break;
 					break;
 				default:
 					verify_not_reached("Invalid cross reference type '%c'.",
@@ -511,6 +504,30 @@ const char* builtin_class_to_string(BuiltInClass bclass) {
 		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
 	}
 	return "";
+}
+
+s32 builtin_class_size(BuiltInClass bclass) {
+	switch(bclass) {
+		case BuiltInClass::VOID: return 0;
+		case BuiltInClass::UNSIGNED_8: return 1;
+		case BuiltInClass::SIGNED_8: return 1;
+		case BuiltInClass::UNQUALIFIED_8: return 1;
+		case BuiltInClass::BOOL_8: return 1;
+		case BuiltInClass::UNSIGNED_16: return 2;
+		case BuiltInClass::SIGNED_16: return 2;
+		case BuiltInClass::UNSIGNED_32: return 4;
+		case BuiltInClass::SIGNED_32: return 4;
+		case BuiltInClass::FLOAT_32: return 4;
+		case BuiltInClass::UNSIGNED_64: return 8;
+		case BuiltInClass::SIGNED_64: return 8;
+		case BuiltInClass::FLOAT_64: return 8;
+		case BuiltInClass::UNSIGNED_128: return 16;
+		case BuiltInClass::SIGNED_128: return 16;
+		case BuiltInClass::UNQUALIFIED_128: return 16;
+		case BuiltInClass::FLOAT_128: return 16;
+		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return 0;
+	}
+	return 0;
 }
 
 const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility) {

@@ -2,11 +2,7 @@
 
 namespace ccc {
 
-// read_symbol_table
-// analyse_program
-// analyse_file
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
-// scan_for_functions
 
 mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
 	std::optional<mdebug::SymbolTable> symbol_table;
