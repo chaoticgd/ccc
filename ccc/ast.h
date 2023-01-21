@@ -53,6 +53,7 @@ struct Node {
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
+	bool is_const = false;
 	
 	s32 order = -1; // Used to preserve the order of children of SourceFile.
 	std::vector<s32> files; // List of files for which a given top-level type is present.
@@ -217,6 +218,7 @@ struct SourceFile : Node {
 enum class TypeNameSource {
 	REFERENCE,
 	CROSS_REFERENCE,
+	ANONYMOUS_REFERENCE,
 	ERROR
 };
 
@@ -278,9 +280,9 @@ struct StabsToAstState {
 	s32 file_index;
 	std::map<s32, const StabsType*>* stabs_types;
 };
-std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
+std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state);
-std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name);
+std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
@@ -293,6 +295,7 @@ enum class CompareFailReason {
 	ABSOLUTE_OFFSET_BYTES,
 	BITFIELD_OFFSET_BITS,
 	SIZE_BITS,
+	CONSTNESS,
 	ARRAY_ELEMENT_COUNT,
 	BUILTIN_CLASS,
 	COMPOUND_STATEMENT_SIZE,

@@ -30,7 +30,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 3);
+	json.number_property("version", 4);
 	
 	json.property("files");
 	json.begin_array();
@@ -73,6 +73,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	}
 	if(node.size_bits != -1) {
 		json.number_property("size_bits", node.size_bits);
+	}
+	if(node.is_const) {
+		json.boolean_property("is_const", node.is_const);
 	}
 	if(node.order != -1) {
 		json.number_property("order", node.order);
@@ -269,6 +272,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			switch(type_name.source) {
 				case ast::TypeNameSource::REFERENCE: source = "reference"; break;
 				case ast::TypeNameSource::CROSS_REFERENCE: source = "cross_reference"; break;
+				case ast::TypeNameSource::ANONYMOUS_REFERENCE: source = "anonymous_reference"; break;
 				case ast::TypeNameSource::ERROR: source = "error"; break;
 			}
 			json.string_property("source", source);

@@ -2,11 +2,7 @@
 
 namespace ccc {
 
-// read_symbol_table
-// analyse_program
-// analyse_file
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
-// scan_for_functions
 
 mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
 	std::optional<mdebug::SymbolTable> symbol_table;
@@ -242,7 +238,7 @@ void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, co
 	global->storage.type = ast::VariableStorageType::GLOBAL;
 	global->storage.global_location = location;
 	global->storage.global_address = address;
-	global->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
+	global->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true, false);
 	global->order = output.next_order++;
 	output.globals.emplace_back(std::move(global));
 }
@@ -303,7 +299,7 @@ void LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
 
 void LocalSymbolTableAnalyser::return_type(const char* name, const StabsType& return_type, s32 function_address) {
 	assert(current_function_type && state == IN_FUNCTION_MIDDLE);
-	current_function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true);
+	current_function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true, true);
 	current_function_type->parameters.emplace();
 	state = IN_FUNCTION_END;
 }
@@ -322,7 +318,7 @@ void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type
 		std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
 			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
 	}
-	parameter->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
+	parameter->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true, true);
 	current_function_type->parameters->emplace_back(std::move(parameter));
 }
 
@@ -355,7 +351,7 @@ void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType&
 			break;
 		}
 	}
-	local->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true);
+	local->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true, false);
 	current_function->locals.emplace_back(std::move(local));
 }
 

@@ -14,6 +14,7 @@ enum class StabsTypeDescriptor : s8 {
 	ARRAY = 'a',
 	ENUM = 'e',
 	FUNCTION = 'f',
+	CONST_QUALIFIER = 'k',
 	RANGE = 'r',
 	STRUCT = 's',
 	UNION = 'u',
@@ -56,7 +57,7 @@ struct StabsType : StabsTypeInfo {
 	bool is_typedef = false;
 	bool is_root = false;
 	// If !has_body, the descriptor isn't filled in.
-	StabsTypeDescriptor descriptor;
+	StabsTypeDescriptor descriptor = (StabsTypeDescriptor) -1;
 	
 	StabsType(const StabsTypeInfo& i, StabsTypeDescriptor d) : StabsTypeInfo(i), descriptor(d) {}
 	StabsType(const StabsTypeInfo& i) : StabsTypeInfo(i) {}
@@ -164,6 +165,18 @@ struct StabsFunctionType : StabsType {
 	}
 };
 
+struct StabsConstQualifierType : StabsType {
+	std::unique_ptr<StabsType> type;
+	
+	StabsConstQualifierType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
+	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::CONST_QUALIFIER;
+	
+	void enumerate_numbered_types(std::map<s32, const StabsType*>& output) const override {
+		StabsType::enumerate_numbered_types(output);
+		type->enumerate_numbered_types(output);
+	}
+};
+
 struct StabsRangeType : StabsType {
 	std::unique_ptr<StabsType> type;
 	s64 low_maybe_wrong = 0;
@@ -213,8 +226,13 @@ struct StabsUnionType : StabsStructOrUnionType {
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::UNION;
 };
 
+
 struct StabsCrossReferenceType : StabsType {
-	char type;
+	enum {
+		ENUM,
+		STRUCT,
+		UNION
+	} type;
 	std::string identifier;
 	
 	StabsCrossReferenceType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
@@ -292,6 +310,7 @@ std::string eat_stabs_identifier(const char*& input);
 std::string eat_dodgy_stabs_identifier(const char*& input);
 void expect_s8(const char*& input, s8 expected, const char* subject);
 const char* builtin_class_to_string(BuiltInClass bclass);
+s32 builtin_class_size(BuiltInClass bclass);
 const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);
 
 }
