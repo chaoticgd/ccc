@@ -44,7 +44,7 @@ static void print_external_symbols(const mdebug::SymbolTable& symbol_table);
 static void print_symbol(const mdebug::Symbol& symbol, bool indent);
 static u32 build_analysis_flags(u32 flags);
 static void list_files(mdebug::SymbolTable& symbol_table);
-static void self_test(const fs::path& directory);
+static void test(const fs::path& directory);
 static Options parse_args(int argc, char** argv);
 static void print_help();
 
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 	Module mod;
 	mdebug::SymbolTable symbol_table;
 	if(options.mode == OutputMode::TEST) {
-		self_test(options.input_file);
+		test(options.input_file);
 	} else if(options.mode == OutputMode::HELP) {
 		print_help();
 	} else if(options.mode == OutputMode::BAD_COMMAND) {
@@ -240,9 +240,13 @@ static void list_files(mdebug::SymbolTable& symbol_table) {
 	}
 }
 
-static void self_test(const fs::path& directory) {
+static void test(const fs::path& directory) {
 	for(auto entry : fs::directory_iterator(directory)) {
-		if(entry.path().filename().string().ends_with(".elf")) {
+		fs::path filename = entry.path().filename();
+		if(!filename.has_extension()
+			|| filename.extension() == ".elf"
+			|| filename.extension() == ".ELF"
+			|| isalpha(filename.extension().string().at(0))) {
 			printf("%s\n", entry.path().filename().string().c_str());
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
