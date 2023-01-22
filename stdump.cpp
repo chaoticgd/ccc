@@ -243,10 +243,7 @@ static void list_files(mdebug::SymbolTable& symbol_table) {
 static void test(const fs::path& directory) {
 	for(auto entry : fs::directory_iterator(directory)) {
 		fs::path filename = entry.path().filename();
-		if(!filename.has_extension()
-			|| filename.extension() == ".elf"
-			|| filename.extension() == ".ELF"
-			|| (filename.extension().string().at(1) >= '0' && filename.extension().string().at(1) <= '9')) {
+		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
 			printf("%s\n", entry.path().filename().string().c_str());
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
