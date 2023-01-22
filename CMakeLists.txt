@@ -39,7 +39,7 @@ add_library(ccc STATIC
 
 add_executable(stdump stdump.cpp)
 target_link_libraries(stdump ccc)
-add_test(NAME stdump_test COMMAND stdump self_test ${CMAKE_SOURCE_DIR}/test)
+add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
 add_executable(objdump objdump.cpp)
 target_link_libraries(objdump ccc)

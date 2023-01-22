@@ -14,7 +14,7 @@ enum class OutputMode {
 	PRINT_SYMBOLS,
 	PRINT_EXTERNAL_SYMBOLS,
 	LIST_FILES,
-	SELF_TEST,
+	TEST,
 	HELP,
 	BAD_COMMAND
 };
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
 	Module mod;
 	mdebug::SymbolTable symbol_table;
-	if(options.mode == OutputMode::SELF_TEST) {
+	if(options.mode == OutputMode::TEST) {
 		self_test(options.input_file);
 	} else if(options.mode == OutputMode::HELP) {
 		print_help();
@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
 			list_files(symbol_table);
 			return 0;
 		}
-		case OutputMode::SELF_TEST:
+		case OutputMode::TEST:
 		case OutputMode::HELP: {
 			return 0;
 		}
@@ -275,8 +275,8 @@ static Options parse_args(int argc, char** argv) {
 		options.mode = OutputMode::PRINT_EXTERNAL_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {
 		options.mode = OutputMode::LIST_FILES;
-	} else if(strcmp(command, "self_test") == 0) {
-		options.mode = OutputMode::SELF_TEST;
+	} else if(strcmp(command, "test") == 0) {
+		options.mode = OutputMode::TEST;
 	} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
 		options.mode = OutputMode::HELP;
 	}
@@ -337,7 +337,7 @@ static void print_help() {
 	puts("  list_files <input file>");
 	puts("    List the names of each of the source files.");
 	puts("");
-	puts("  self_test <input directory>");
+	puts("  test <input directory>");
 	puts("    Parse all the ELF files in a directory, but don't produce any output.");
 	puts("");
 	puts("  help | --help | -h");
