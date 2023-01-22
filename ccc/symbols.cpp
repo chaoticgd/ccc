@@ -85,8 +85,8 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				case mdebug::N_NBDATA: case mdebug::N_NBBSS:
 				case mdebug::N_NBSTS:  case mdebug::N_NBLCS:
 				case mdebug::N_LENG: {
-					verify_not_reached("Unhandled STABS symbol code '%s'. Please file a bug report!",
-						mdebug::stabs_code(symbol.code));
+					fprintf(stderr, "warning: Unhandled STABS symbol code '%s'.", mdebug::stabs_code(symbol.code));
+					break;
 				}
 			}
 		} else {
