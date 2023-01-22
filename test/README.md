@@ -1,0 +1,1 @@
+Put your test executables here and then you can run `./bin/stdump test test/` to check that stdump doesn't crash on any of them. Those that are checked into the git repository will also be tested by the CI system. The included `simple.elf` file was built from `simple.cpp` using the old homebrew PS2 SDK.
