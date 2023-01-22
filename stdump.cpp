@@ -246,7 +246,7 @@ static void test(const fs::path& directory) {
 		if(!filename.has_extension()
 			|| filename.extension() == ".elf"
 			|| filename.extension() == ".ELF"
-			|| isalpha(filename.extension().string().at(1))) {
+			|| (filename.extension().string().at(1) >= '0' && filename.extension().string().at(1) <= '9')) {
 			printf("%s\n", entry.path().filename().string().c_str());
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
