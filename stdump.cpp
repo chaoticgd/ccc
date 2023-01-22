@@ -14,6 +14,7 @@ enum class OutputMode {
 	PRINT_SYMBOLS,
 	PRINT_EXTERNAL_SYMBOLS,
 	LIST_FILES,
+	SELF_TEST,
 	HELP,
 	BAD_COMMAND
 };
@@ -43,6 +44,7 @@ static void print_external_symbols(const mdebug::SymbolTable& symbol_table);
 static void print_symbol(const mdebug::Symbol& symbol, bool indent);
 static u32 build_analysis_flags(u32 flags);
 static void list_files(mdebug::SymbolTable& symbol_table);
+static void self_test(const fs::path& directory);
 static Options parse_args(int argc, char** argv);
 static void print_help();
 
@@ -50,7 +52,9 @@ int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
 	Module mod;
 	mdebug::SymbolTable symbol_table;
-	if(options.mode == OutputMode::HELP) {
+	if(options.mode == OutputMode::SELF_TEST) {
+		self_test(options.input_file);
+	} else if(options.mode == OutputMode::HELP) {
 		print_help();
 	} else if(options.mode == OutputMode::BAD_COMMAND) {
 		print_help();
@@ -103,6 +107,7 @@ int main(int argc, char** argv) {
 			list_files(symbol_table);
 			return 0;
 		}
+		case OutputMode::SELF_TEST:
 		case OutputMode::HELP: {
 			return 0;
 		}
@@ -235,6 +240,19 @@ static void list_files(mdebug::SymbolTable& symbol_table) {
 	}
 }
 
+static void self_test(const fs::path& directory) {
+	for(auto entry : fs::directory_iterator(directory)) {
+		if(entry.path().filename().string().ends_with(".elf")) {
+			printf("%s\n", entry.path().filename().string().c_str());
+			Module mod = loaders::read_elf_file(entry.path());
+			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+			verify(mdebug_section, "No .mdebug section.");
+			mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
+			ccc::AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
+		}
+	}
+}
+
 static Options parse_args(int argc, char** argv) {
 	Options options;
 	if(argc < 2) {
@@ -257,6 +275,8 @@ static Options parse_args(int argc, char** argv) {
 		options.mode = OutputMode::PRINT_EXTERNAL_SYMBOLS;
 	} else if(strcmp(command, "list_files") == 0) {
 		options.mode = OutputMode::LIST_FILES;
+	} else if(strcmp(command, "self_test") == 0) {
+		options.mode = OutputMode::SELF_TEST;
 	} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
 		options.mode = OutputMode::HELP;
 	}
@@ -300,7 +320,7 @@ static void print_help() {
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");
 	puts("");
-	puts("  print_json <input file>");
+	puts("  print_json [options] <input file>");
 	puts("    Print all of the above as JSON.");
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
@@ -314,8 +334,11 @@ static void print_help() {
 	puts("  print_external_symbols <input file>");
 	puts("    List all of the external symbols for each file.");
 	puts("");
-	puts("  list_files <input_file>");
+	puts("  list_files <input file>");
 	puts("    List the names of each of the source files.");
+	puts("");
+	puts("  self_test <input directory>");
+	puts("    Parse all the ELF files in a directory, but don't produce any output.");
 	puts("");
 	puts("  help | --help | -h");
 	puts("    Print this help message.");
