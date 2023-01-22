@@ -42,7 +42,7 @@ struct ParsedSymbol {
 		std::unique_ptr<StabsType> type;
 	} name_colon_type;
 	struct {
-		s32 number;
+		s32 number = -1;
 	} lrbrac;
 };
 

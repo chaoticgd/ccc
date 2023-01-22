@@ -182,7 +182,7 @@ struct SourceFile : Node {
 	std::vector<std::unique_ptr<ast::Node>> types;
 	std::vector<ParsedSymbol> symbols;
 	s32 next_order = 0; // Next order value to set.
-	std::map<s32, s32> stabs_type_number_to_deduplicated_type_index;
+	std::map<s64, s32> stabs_type_number_to_deduplicated_type_index;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
@@ -226,7 +226,7 @@ struct TypeName : Node {
 	TypeNameSource source = TypeNameSource::ERROR;
 	std::string type_name;
 	s32 referenced_file_index = -1;
-	s32 referenced_stabs_type_number = -1;
+	s64 referenced_stabs_type_number = -1;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
@@ -278,7 +278,7 @@ struct Variable : Node {
 
 struct StabsToAstState {
 	s32 file_index;
-	std::map<s32, const StabsType*>* stabs_types;
+	std::map<s64, const StabsType*>* stabs_types;
 };
 std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state);

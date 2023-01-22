@@ -206,6 +206,20 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			result = std::move(type_name);
 			break;
 		}
+		case ccc::StabsTypeDescriptor::FLOATING_POINT_BUILTIN: {
+			const auto& fp_builtin = type.as<StabsFloatingPointBuiltInType>();
+			auto builtin = std::make_unique<ast::BuiltIn>();
+			switch(fp_builtin.bytes) {
+				case 1: builtin->bclass = BuiltInClass::UNSIGNED_8; break;
+				case 2: builtin->bclass = BuiltInClass::UNSIGNED_16; break;
+				case 4: builtin->bclass = BuiltInClass::UNSIGNED_32; break;
+				case 8: builtin->bclass = BuiltInClass::UNSIGNED_64; break;
+				case 16: builtin->bclass = BuiltInClass::UNSIGNED_128; break;
+				default: builtin->bclass = BuiltInClass::UNSIGNED_8; break;
+			}
+			result = std::move(builtin);
+			break;
+		}
 		case StabsTypeDescriptor::METHOD: {
 			const auto& stabs_method = type.as<StabsMethodType>();
 			auto function = std::make_unique<ast::FunctionType>();

@@ -16,7 +16,23 @@ static void print_field(const StabsField& field);
 std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 	StabsTypeInfo info;
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
-	if(*input >= '0' && *input <= '9') {
+	if(*input == '(') {
+		// Certain compiler versions provide two numbers surrounded in brackets
+		// instead of a single number. This isn't too common, so here we use a
+		// hack to deal with this case.
+		input++;
+		s64 file_number = eat_s64_literal(input);
+		expect_s8(input, ',', "weird type number");
+		s64 type_number = eat_s64_literal(input);
+		expect_s8(input, ')', "weird type number");
+		info.anonymous = false;
+		info.type_number = type_number | (file_number << 32);
+		if(*input != '=') {
+			info.has_body = false;
+			return std::make_unique<StabsType>(info);
+		}
+		input++;
+	} else if(*input >= '0' && *input <= '9') {
 		info.anonymous = false;
 		info.type_number = eat_s64_literal(input);
 		if(*input != '=') {
@@ -31,7 +47,7 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	
 	StabsTypeDescriptor descriptor;
-	if(*input >= '0' && *input <= '9') {
+	if((*input >= '0' && *input <= '9') || *input == '(') {
 		descriptor = StabsTypeDescriptor::TYPE_REFERENCE;
 	} else {
 		descriptor = (StabsTypeDescriptor) eat_s8(input);
@@ -148,6 +164,15 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			cross_reference->name = cross_reference->identifier;
 			expect_s8(input, ':', "cross reference");
 			type = std::move(cross_reference);
+			break;
+		}
+		case StabsTypeDescriptor::FLOATING_POINT_BUILTIN: {
+			auto fp_builtin = std::make_unique<StabsFloatingPointBuiltInType>(info);
+			fp_builtin->fpclass = (s32) eat_s64_literal(input);
+			expect_s8(input, ';', "floating point builtin");
+			fp_builtin->bytes = (s32) eat_s64_literal(input);
+			expect_s8(input, ';', "floating point builtin");
+			type = std::move(fp_builtin);
 			break;
 		}
 		case StabsTypeDescriptor::METHOD: { // #

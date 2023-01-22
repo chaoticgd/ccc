@@ -70,7 +70,7 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	file->symbols = parse_symbols(fd.symbols, fd.detected_language);
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
-	std::map<s32, const StabsType*> stabs_types;
+	std::map<s64, const StabsType*> stabs_types;
 	for(const ParsedSymbol& symbol : file->symbols) {
 		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);

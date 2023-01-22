@@ -43,19 +43,21 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 					break;
 				}
 				case mdebug::N_LBRAC: { // Begin scope
-					verify(strlen(symbol.string) >= 4, "N_LBRAC symbol has bad string.");
 					ParsedSymbol& begin_scope = output.emplace_back();
 					begin_scope.type = ParsedSymbolType::LBRAC;
 					begin_scope.raw = &symbol;
-					begin_scope.lrbrac.number = atoi(&symbol.string[4]);
+					if(strlen(symbol.string) >= 4) {
+						begin_scope.lrbrac.number = atoi(&symbol.string[4]);
+					}
 					break;
 				}
 				case mdebug::N_RBRAC: { // End scope
-					verify(strlen(symbol.string) >= 4, "N_RBRAC symbol has bad string.");
 					ParsedSymbol& end_scope = output.emplace_back();;
 					end_scope.type = ParsedSymbolType::RBRAC;
 					end_scope.raw = &symbol;
-					end_scope.lrbrac.number = atoi(&symbol.string[4]);
+					if(strlen(symbol.string) >= 4) {
+						end_scope.lrbrac.number = atoi(&symbol.string[4]);
+					}
 					break;
 				}
 				case mdebug::N_SO: { // Source filename
@@ -65,7 +67,8 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 					break;
 				}
 				case mdebug::STAB:
-				case mdebug::N_OPT: {
+				case mdebug::N_OPT:
+				case mdebug::N_BINCL: {
 					break;
 				}
 				case mdebug::N_FNAME:  case mdebug::N_MAIN:
@@ -75,13 +78,13 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				case mdebug::N_DSLINE: case mdebug::N_BSLINE:
 				case mdebug::N_EFD:    case mdebug::N_EHDECL:
 				case mdebug::N_CATCH:  case mdebug::N_SSYM:
-				case mdebug::N_BINCL:  case mdebug::N_EINCL:
-				case mdebug::N_ENTRY:  case mdebug::N_EXCL:
-				case mdebug::N_SCOPE:  case mdebug::N_BCOMM:
-				case mdebug::N_ECOMM:  case mdebug::N_ECOML:
-				case mdebug::N_NBTEXT: case mdebug::N_NBDATA:
-				case mdebug::N_NBBSS:  case mdebug::N_NBSTS:
-				case mdebug::N_NBLCS:  case mdebug::N_LENG: {
+				case mdebug::N_EINCL:  case mdebug::N_ENTRY:
+				case mdebug::N_EXCL:   case mdebug::N_SCOPE:
+				case mdebug::N_BCOMM:  case mdebug::N_ECOMM:
+				case mdebug::N_ECOML:  case mdebug::N_NBTEXT:
+				case mdebug::N_NBDATA: case mdebug::N_NBBSS:
+				case mdebug::N_NBSTS:  case mdebug::N_NBLCS:
+				case mdebug::N_LENG: {
 					verify_not_reached("Unhandled STABS symbol code '%s'. Please file a bug report!",
 						mdebug::stabs_code(symbol.code));
 				}
@@ -103,7 +106,7 @@ ParsedSymbol parse_stabs_type_symbol(const char* input) {
 	symbol.name_colon_type.name = eat_dodgy_stabs_identifier(input);
 	expect_s8(input, ':', "identifier");
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
-	if(*input >= '0' && *input <= '9') {
+	if((*input >= '0' && *input <= '9') || *input == '(') {
 		symbol.name_colon_type.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
 	} else {
 		symbol.name_colon_type.descriptor = (StabsSymbolDescriptor) eat_s8(input);
