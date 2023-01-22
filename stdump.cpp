@@ -244,12 +244,16 @@ static void test(const fs::path& directory) {
 	for(auto entry : fs::directory_iterator(directory)) {
 		fs::path filename = entry.path().filename();
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
-			printf("%s\n", entry.path().filename().string().c_str());
+			printf("%s ", entry.path().filename().string().c_str());
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
-			verify(mdebug_section, "No .mdebug section.");
-			mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
-			ccc::AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
+			if(mdebug_section) {
+				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
+				ccc::AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
+				printf("pass\n");
+			} else {
+				printf("no .mdebug section\n");
+			}
 		}
 	}
 }
