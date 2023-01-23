@@ -241,6 +241,7 @@ static void list_files(mdebug::SymbolTable& symbol_table) {
 }
 
 static void test(const fs::path& directory) {
+	verify(fs::is_directory(directory), "Input path is not a directory.");
 	for(auto entry : fs::directory_iterator(directory)) {
 		fs::path filename = entry.path().filename();
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
