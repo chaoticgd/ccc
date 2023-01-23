@@ -658,6 +658,7 @@ const char* global_variable_location_to_string(GlobalVariableLocation location) 
 		case GlobalVariableLocation::SDATA: return "sdata";
 		case GlobalVariableLocation::SBSS: return "sbss";
 		case GlobalVariableLocation::RDATA: return "rdata";
+		case GlobalVariableLocation::COMMON: return "common";
 	}
 	return "";
 }

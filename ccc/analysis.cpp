@@ -25,7 +25,8 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	// table, so here we extract them from the external table.
 	std::map<std::string, const mdebug::Symbol*> globals;
 	for(const mdebug::Symbol& external : symbol_table.externals) {
-		if(external.storage_type == mdebug::SymbolType::GLOBAL) {
+		if(external.storage_type == mdebug::SymbolType::GLOBAL
+			&& (external.storage_class != mdebug::SymbolClass::UNDEFINED)) {
 			globals[external.string] = &external;
 		}
 	}
@@ -205,6 +206,7 @@ ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::Sym
 		case mdebug::SymbolClass::SDATA: return ast::GlobalVariableLocation::SDATA;
 		case mdebug::SymbolClass::SBSS: return ast::GlobalVariableLocation::SBSS;
 		case mdebug::SymbolClass::RDATA: return ast::GlobalVariableLocation::RDATA;
+		case mdebug::SymbolClass::COMMON: return ast::GlobalVariableLocation::COMMON;
 		default: {}
 	}
 	verify_not_reached("Bad variable storage location '%s'.", mdebug::symbol_class(symbol_class));
