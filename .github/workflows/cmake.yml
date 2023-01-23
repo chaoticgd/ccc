@@ -28,7 +28,9 @@ jobs:
     - name: Install Dependencies
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
+          sudo apt update
           sudo apt install musl-dev
+          sudo apt install musl-tools
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
