@@ -29,13 +29,16 @@ jobs:
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
           sudo apt update
+          sudo apt install gcc-multilib g++-multilib
           sudo apt install musl-dev
           sudo apt install musl-tools
           sudo apt install musl-gcc
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
-      run: cmake -DCMAKE_TOOLCHAIN_FILE=musl.cmake
+      run: |
+        sudo ln -s "/usr/bin/g++" "/usr/bin/musl-g++"
+        cmake -DCMAKE_TOOLCHAIN_FILE=musl.cmake
 
     - name: Configure Global CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
