@@ -32,7 +32,7 @@ jobs:
         arch: x86_64
         packages: >
           cmake
-          libc-dev
+          g++
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
