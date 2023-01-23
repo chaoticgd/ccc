@@ -25,20 +25,25 @@ jobs:
       with:
         submodules: 'recursive'
     
-    - uses: jirutka/setup-alpine@v1.1.1
+    - name: Setup latest Alpine Linux
+      uses: jirutka/setup-alpine@v1.1.2
       if: ${{ matrix.os == 'ubuntu-latest' }}
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
-        cmake -DCMAKE_TOOLCHAIN_FILE=musl.cmake
+        cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_TOOLCHAIN_FILE=musl.cmake
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      shell: alpine.sh --root {0}
 
     - name: Configure Global CMake
+      if: ${{ matrix.os == 'windows-latest' }}
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: Build
+      if: ${{ matrix.os == 'windows-latest' }}
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
