@@ -31,6 +31,7 @@ jobs:
           sudo apt update
           sudo apt install musl-dev
           sudo apt install musl-tools
+          sudo apt install linux-musl-dev
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
