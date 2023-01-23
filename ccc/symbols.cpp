@@ -66,24 +66,24 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 					so_symbol.raw = &symbol;
 					break;
 				}
-				case mdebug::STAB: {
+				case mdebug::STAB:
+				case mdebug::N_OPT: {
 					break;
 				}
 				case mdebug::N_FNAME:  case mdebug::N_MAIN:
 				case mdebug::N_PC:     case mdebug::N_NSYMS:
 				case mdebug::N_NOMAP:  case mdebug::N_OBJ:
-				case mdebug::N_OPT:    case mdebug::N_M2C:
-				case mdebug::N_SLINE:  case mdebug::N_DSLINE:
-				case mdebug::N_BSLINE: case mdebug::N_EFD:
-				case mdebug::N_EHDECL: case mdebug::N_CATCH:
-				case mdebug::N_SSYM:   case mdebug::N_BINCL:
-				case mdebug::N_EINCL:  case mdebug::N_ENTRY:
-				case mdebug::N_EXCL:   case mdebug::N_SCOPE:
-				case mdebug::N_BCOMM:  case mdebug::N_ECOMM:
-				case mdebug::N_ECOML:  case mdebug::N_NBTEXT:
-				case mdebug::N_NBDATA: case mdebug::N_NBBSS:
-				case mdebug::N_NBSTS:  case mdebug::N_NBLCS:
-				case mdebug::N_LENG: {
+				case mdebug::N_M2C:    case mdebug::N_SLINE:
+				case mdebug::N_DSLINE: case mdebug::N_BSLINE:
+				case mdebug::N_EFD:    case mdebug::N_EHDECL:
+				case mdebug::N_CATCH:  case mdebug::N_SSYM:
+				case mdebug::N_BINCL:  case mdebug::N_EINCL:
+				case mdebug::N_ENTRY:  case mdebug::N_EXCL:
+				case mdebug::N_SCOPE:  case mdebug::N_BCOMM:
+				case mdebug::N_ECOMM:  case mdebug::N_ECOML:
+				case mdebug::N_NBTEXT: case mdebug::N_NBDATA:
+				case mdebug::N_NBBSS:  case mdebug::N_NBSTS:
+				case mdebug::N_NBLCS:  case mdebug::N_LENG: {
 					fprintf(stderr, "warning: Unhandled N_%s symbol: %s\n", mdebug::stabs_code(symbol.code), symbol.string);
 					break;
 				}
