@@ -19,6 +19,9 @@ if(MSVC)
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-g")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+	set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+	set(BUILD_SHARED_LIBS OFF)
+	set(CMAKE_EXE_LINKER_FLAGS "-static")
 endif()
 
 add_library(ccc STATIC
