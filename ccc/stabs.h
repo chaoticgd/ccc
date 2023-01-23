@@ -9,8 +9,8 @@ namespace ccc {
 static const char* ERR_END_OF_SYMBOL =
 	"Unexpected end of input while parsing symbol.";
 
-enum class StabsTypeDescriptor : s8 {
-	TYPE_REFERENCE = '\0',
+enum class StabsTypeDescriptor : u8 {
+	TYPE_REFERENCE = 0xef, // '0'..'9','('
 	ARRAY = 'a',
 	ENUM = 'e',
 	FUNCTION = 'f',
@@ -25,6 +25,7 @@ enum class StabsTypeDescriptor : s8 {
 	REFERENCE = '&',
 	POINTER = '*',
 	TYPE_ATTRIBUTE = '@',
+	POINTER_TO_NON_STATIC_MEMBER = 0xee, // also '@'
 	BUILTIN = '-'
 };
 
@@ -318,6 +319,20 @@ struct StabsSizeTypeAttributeType : StabsType {
 	}
 };
 
+struct StabsPointerToNonStaticDataMember : StabsType {
+	std::unique_ptr<StabsType> class_type;
+	std::unique_ptr<StabsType> member_type;
+	
+	StabsPointerToNonStaticDataMember(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
+	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER;
+	
+	void enumerate_numbered_types(std::map<s64, const StabsType*>& output) const override {
+		StabsType::enumerate_numbered_types(output);
+		class_type->enumerate_numbered_types(output);
+		member_type->enumerate_numbered_types(output);
+	}
+};
+
 struct StabsBuiltInType : StabsType {
 	s64 type_id;
 	
@@ -326,11 +341,11 @@ struct StabsBuiltInType : StabsType {
 };
 
 std::unique_ptr<StabsType> parse_stabs_type(const char*& input);
-s8 eat_s8(const char*& input);
+char eat_char(const char*& input);
 s64 eat_s64_literal(const char*& input);
 std::string eat_stabs_identifier(const char*& input);
 std::string eat_dodgy_stabs_identifier(const char*& input);
-void expect_s8(const char*& input, s8 expected, const char* subject);
+void expect_char(const char*& input, char expected, const char* subject);
 const char* builtin_class_to_string(BuiltInClass bclass);
 s32 builtin_class_size(BuiltInClass bclass);
 const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);

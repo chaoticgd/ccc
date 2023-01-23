@@ -234,6 +234,14 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			print_json_ast_node(json, pointer.value_type.get());
 			break;
 		}
+		case ast::NodeDescriptor::POINTER_TO_DATA_MEMBER: {
+			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
+			json.property("class_type");
+			print_json_ast_node(json, member_pointer.class_type.get());
+			json.property("member_type");
+			print_json_ast_node(json, member_pointer.member_type.get());
+			break;
+		}
 		case ast::NodeDescriptor::REFERENCE: {
 			const ast::Reference& reference = node.as<ast::Reference>();
 			json.property("value_type");

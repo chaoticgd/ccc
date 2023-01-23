@@ -25,6 +25,7 @@ enum NodeDescriptor {
 	INLINE_ENUM,
 	INLINE_STRUCT_OR_UNION,
 	POINTER,
+	POINTER_TO_DATA_MEMBER,
 	REFERENCE,
 	SOURCE_FILE,
 	TYPE_NAME,
@@ -165,6 +166,14 @@ struct Pointer : Node {
 	
 	Pointer() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER;
+};
+
+struct PointerToDataMember : Node {
+	std::unique_ptr<Node> class_type;
+	std::unique_ptr<Node> member_type;
+	
+	PointerToDataMember() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_TO_DATA_MEMBER;
 };
 
 struct Reference : Node {

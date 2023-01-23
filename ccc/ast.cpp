@@ -256,6 +256,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
+		case StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER: {
+			const auto& stabs_member_pointer = type.as<StabsPointerToNonStaticDataMember>();
+			auto member_pointer = std::make_unique<ast::PointerToDataMember>();
+			member_pointer->class_type = stabs_type_to_ast(*stabs_member_pointer.class_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			member_pointer->member_type = stabs_type_to_ast(*stabs_member_pointer.member_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			result = std::move(member_pointer);
+			break;
+		}
 		case StabsTypeDescriptor::BUILTIN: {
 			verify(type.as<StabsBuiltInType>().type_id == 16,
 				"Unknown built-in type! Please file a bug report.");
@@ -552,6 +560,14 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 			if(pointer_compare.has_value()) return pointer_compare;
 			break;
 		}
+		case POINTER_TO_DATA_MEMBER: {
+			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
+			auto class_compare = compare_ast_nodes(*lhs.class_type.get(), *rhs.class_type.get());
+			if(class_compare.has_value()) return class_compare;
+			auto member_compare = compare_ast_nodes(*lhs.member_type.get(), *rhs.member_type.get());
+			if(member_compare.has_value()) return member_compare;
+			break;
+		}
 		case REFERENCE: {
 			const auto [lhs, rhs] = Node::as<Reference>(node_lhs, node_rhs);
 			auto reference_compare = compare_ast_nodes(*lhs.value_type.get(), *rhs.value_type.get());
@@ -637,6 +653,7 @@ const char* node_type_to_string(const Node& node) {
 			}
 		}
 		case NodeDescriptor::POINTER: return "pointer";
+		case NodeDescriptor::POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
 		case NodeDescriptor::REFERENCE: return "reference";
 		case NodeDescriptor::SOURCE_FILE: return "source_file";
 		case NodeDescriptor::TYPE_NAME: return "type_name";

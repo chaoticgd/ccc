@@ -295,6 +295,18 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
+		case ast::POINTER_TO_DATA_MEMBER: {
+			// This probably isn't correct for nested pointers to data members
+			// but for now lets not think about that.
+			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
+			VariableName dummy;
+			print_cpp_ast_node(dest, *member_pointer.member_type.get(), dummy, indentation_level, digits_for_offset);
+			fprintf(dest, " ");
+			print_cpp_ast_node(dest, *member_pointer.class_type.get(), dummy, indentation_level, digits_for_offset);
+			fprintf(dest, "::");
+			print_cpp_variable_name(dest, name, NO_VAR_PRINT_FLAGS);
+			break;
+		}
 		case ast::REFERENCE: {
 			const ast::Reference& reference = node.as<ast::Reference>();
 			assert(reference.value_type.get());

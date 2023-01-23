@@ -47,7 +47,11 @@ struct NestedStructs {
 
 typedef struct {
 	int a, b, c;
-} TypdefedStruct;
+} TypedefedStruct;
+
+struct MemberPointer {
+	int TypedefedStruct::*pointertomemberfunc;
+};
 
 Primitives globalvariable;
 

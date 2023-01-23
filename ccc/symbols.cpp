@@ -103,12 +103,12 @@ ParsedSymbol parse_stabs_type_symbol(const char* input) {
 	ParsedSymbol symbol;
 	symbol.type = ParsedSymbolType::NAME_COLON_TYPE;
 	symbol.name_colon_type.name = eat_dodgy_stabs_identifier(input);
-	expect_s8(input, ':', "identifier");
+	expect_char(input, ':', "identifier");
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	if((*input >= '0' && *input <= '9') || *input == '(') {
 		symbol.name_colon_type.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
 	} else {
-		symbol.name_colon_type.descriptor = (StabsSymbolDescriptor) eat_s8(input);
+		symbol.name_colon_type.descriptor = (StabsSymbolDescriptor) eat_char(input);
 	}
 	validate_symbol_descriptor(symbol.name_colon_type.descriptor);
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
