@@ -133,6 +133,12 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			result = std::move(function);
 			break;
 		}
+		case StabsTypeDescriptor::VOLATILE_QUALIFIER: {
+			const auto& volatile_qualifier = type.as<StabsVolatileQualifierType>();
+			result = stabs_type_to_ast(*volatile_qualifier.type.get(), state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			result->is_volatile = true;
+			break;
+		}
 		case StabsTypeDescriptor::CONST_QUALIFIER: {
 			const auto& const_qualifier = type.as<StabsConstQualifierType>();
 			result = stabs_type_to_ast(*const_qualifier.type.get(), state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
@@ -298,7 +304,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
 	// Resolve type references.
 	const StabsType* type = field.type.get();
-	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
+	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER || type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
 		if(!type->has_body) {
 			if(type->anonymous) {
 				return false;
@@ -308,8 +314,10 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 				return false;
 			}
 			type = next_type->second;
-		} else {
+		} else if(type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
 			type = type->as<StabsConstQualifierType>().type.get();
+		} else {
+			type = type->as<StabsVolatileQualifierType>().type.get();
 		}
 	}
 	

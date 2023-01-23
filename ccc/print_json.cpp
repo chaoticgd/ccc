@@ -30,7 +30,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 4);
+	json.number_property("version", 5);
 	
 	json.property("files");
 	json.begin_array();
@@ -76,6 +76,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	}
 	if(node.is_const) {
 		json.boolean_property("is_const", node.is_const);
+	}
+	if(node.is_volatile) {
+		json.boolean_property("is_volatile", node.is_volatile);
 	}
 	if(node.order != -1) {
 		json.number_property("order", node.order);

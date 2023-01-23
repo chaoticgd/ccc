@@ -134,6 +134,10 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		fprintf(dest, "const ");
 	}
 	
+	if(node.is_volatile) {
+		fprintf(dest, "const ");
+	}
+	
 	switch(node.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();

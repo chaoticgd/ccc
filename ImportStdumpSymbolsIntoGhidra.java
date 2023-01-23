@@ -646,7 +646,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				throws JsonParseException {
 			ParsedJsonFile result = new ParsedJsonFile();
 			JsonObject object = element.getAsJsonObject();
-			int supported_version = 4;
+			int supported_version = 5;
 			if(!object.has("version")) {
 				throw new JsonParseException("JSON file has missing version number field.");
 			}

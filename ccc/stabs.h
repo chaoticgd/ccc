@@ -19,6 +19,7 @@ enum class StabsTypeDescriptor : s8 {
 	STRUCT = 's',
 	UNION = 'u',
 	CROSS_REFERENCE = 'x',
+	VOLATILE_QUALIFIER = 'B',
 	FLOATING_POINT_BUILTIN = 'R',
 	METHOD = '#',
 	REFERENCE = '&',
@@ -163,6 +164,18 @@ struct StabsFunctionType : StabsType {
 	void enumerate_numbered_types(std::map<s64, const StabsType*>& output) const override {
 		StabsType::enumerate_numbered_types(output);
 		return_type->enumerate_numbered_types(output);
+	}
+};
+
+struct StabsVolatileQualifierType : StabsType {
+	std::unique_ptr<StabsType> type;
+	
+	StabsVolatileQualifierType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
+	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::VOLATILE_QUALIFIER;
+	
+	void enumerate_numbered_types(std::map<s64, const StabsType*>& output) const override {
+		StabsType::enumerate_numbered_types(output);
+		type->enumerate_numbered_types(output);
 	}
 };
 

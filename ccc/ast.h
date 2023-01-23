@@ -54,6 +54,7 @@ struct Node {
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
 	bool is_const = false;
+	bool is_volatile = false;
 	
 	s32 order = -1; // Used to preserve the order of children of SourceFile.
 	std::vector<s32> files; // List of files for which a given top-level type is present.
