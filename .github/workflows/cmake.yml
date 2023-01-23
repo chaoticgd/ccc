@@ -29,8 +29,10 @@ jobs:
       uses: jirutka/setup-alpine@v1.1.2
       if: ${{ matrix.os == 'ubuntu-latest' }}
       with:
+        arch: x86_64
         packages: >
           cmake
+          libc-dev
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
