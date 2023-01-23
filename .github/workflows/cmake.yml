@@ -31,6 +31,7 @@ jobs:
       with:
         arch: x86_64
         packages: >
+          libstdc++
           cmake
           g++
 
