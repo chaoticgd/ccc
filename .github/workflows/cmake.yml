@@ -28,6 +28,9 @@ jobs:
     - name: Setup latest Alpine Linux
       uses: jirutka/setup-alpine@v1.1.2
       if: ${{ matrix.os == 'ubuntu-latest' }}
+      with:
+        packages: >
+          cmake
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
