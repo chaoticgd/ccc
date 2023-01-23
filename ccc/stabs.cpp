@@ -472,7 +472,7 @@ std::string eat_stabs_identifier(const char*& input) {
 	bool first = true;
 	for(; *input != '\0'; input++) {
 		bool valid_char = false;
-		valid_char |= isprint(*input) && *input != ':' && *input != ';';
+		valid_char |= *input != ':' && *input != ';';
 		valid_char |= !first && isalnum(*input);
 		if(valid_char) {
 			identifier += *input;
@@ -498,7 +498,7 @@ std::string eat_dodgy_stabs_identifier(const char*& input) {
 			template_depth--;
 		}
 		bool valid_char = false;
-		valid_char |= isprint(*input) && (*input != ':' || template_depth != 0) && *input != ';';
+		valid_char |= (*input != ':' || template_depth != 0) && *input != ';';
 		valid_char |= !first && isalnum(*input);
 		if(valid_char) {
 			identifier += *input;

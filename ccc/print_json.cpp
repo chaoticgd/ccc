@@ -19,6 +19,8 @@ struct JsonWriter {
 	void string_property(const char* name, const char* value);
 	void number_property(const char* name, s64 value);
 	void boolean_property(const char* name, bool value);
+	
+	std::string encode_string(const char* string);
 };
 
 static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr);
@@ -363,7 +365,8 @@ void JsonWriter::string(const char* value) {
 		fprintf(dest, ",");
 	}
 	needs_comma = true;
-	fprintf(dest, "\"%s\"", value);
+	std::string encoded = encode_string(value);
+	fprintf(dest, "\"%s\"", encoded.c_str());
 }
 
 void JsonWriter::number(s64 value) {
@@ -408,6 +411,26 @@ void JsonWriter::number_property(const char* name, s64 value) {
 void JsonWriter::boolean_property(const char* name, bool value) {
 	property(name);
 	boolean(value);
+}
+
+std::string JsonWriter::encode_string(const char* string) {
+	static const char* HEX_DIGITS = "0123456789abcdef";
+	
+	std::string encoded;
+	for(const char* ptr = string; *ptr != 0; ptr++) {
+		if(isprint(*ptr)) {
+			if(*ptr == '"' || *ptr == '\\') {
+				encoded += '\\';
+			}
+			encoded += *ptr;
+		} else {
+			encoded += '%';
+			encoded += HEX_DIGITS[*ptr >> 4];
+			encoded += HEX_DIGITS[*ptr & 0xf];
+		}
+	}
+	
+	return encoded;
 }
 
 }
