@@ -49,8 +49,9 @@ typedef struct {
 	int a, b, c;
 } TypdefedStruct;
 
-struct MemberFuncs {
-	int a;
-	
-	int f(int, int);
-};
+Primitives globalvariable;
+
+int main(int argc, char **argv) {
+	int a = 9;
+	int128 b;
+}
