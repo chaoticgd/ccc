@@ -32,7 +32,6 @@ jobs:
           sudo apt install gcc-multilib g++-multilib
           sudo apt install musl-dev
           sudo apt install musl-tools
-          sudo apt install musl-gcc
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
