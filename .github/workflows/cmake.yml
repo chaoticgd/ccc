@@ -35,6 +35,7 @@ jobs:
           libstdc++
           cmake
           g++
+          x86_64-linux-musl-gcc
 
     - name: Configure Linux CMake
       if: ${{ matrix.os == 'ubuntu-latest' }}
