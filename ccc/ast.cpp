@@ -63,12 +63,12 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 	}
 	
 	// This prevents infinite recursion when an automatically generated member
-	// function references an anonymous type.
+	// function references an unnamed type.
 	if(force_substitute) {
 		const char* type_string = nullptr;
-		if(type.descriptor == StabsTypeDescriptor::ENUM) type_string = "__anonymous_enum";
-		if(type.descriptor == StabsTypeDescriptor::STRUCT) type_string = "__anonymous_struct";
-		if(type.descriptor == StabsTypeDescriptor::UNION) type_string = "__anonymous_union";
+		if(type.descriptor == StabsTypeDescriptor::ENUM) type_string = "__unnamed_enum";
+		if(type.descriptor == StabsTypeDescriptor::STRUCT) type_string = "__unnamed_struct";
+		if(type.descriptor == StabsTypeDescriptor::UNION) type_string = "__unnamed_union";
 		if(type_string) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = TypeNameSource::REFERENCE;
