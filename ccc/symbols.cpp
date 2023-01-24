@@ -84,7 +84,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				case mdebug::N_NBTEXT: case mdebug::N_NBDATA:
 				case mdebug::N_NBBSS:  case mdebug::N_NBSTS:
 				case mdebug::N_NBLCS:  case mdebug::N_LENG: {
-					fprintf(stderr, "warning: Unhandled N_%s symbol: %s\n", mdebug::stabs_code(symbol.code), symbol.string);
+					warn("Unhandled N_%s symbol: %s", mdebug::stabs_code(symbol.code), symbol.string);
 					break;
 				}
 			}

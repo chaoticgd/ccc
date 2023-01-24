@@ -196,7 +196,7 @@ static s32 get_corruption_fixing_fudge_offset(const Module& mod, const ModuleSec
 	// Try to fix it.
 	s32 fudge_offset = section.file_offset - (right_after_header - sizeof(SymbolicHeader));
 	if(fudge_offset != 0) {
-		fprintf(stderr, "warning: The .mdebug section is probably corrupted, but I can try to fix it for you (fudge offset %d).\n", fudge_offset);
+		warn("The .mdebug section is probably corrupted, but I can try to fix it for you (fudge offset %d).", fudge_offset);
 	}
 	return fudge_offset;
 }
