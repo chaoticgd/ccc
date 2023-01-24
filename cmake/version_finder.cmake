@@ -1,5 +1,5 @@
-# Fetch the git tag at build time (not configure time!) and generate a .cpp file
-# that defines GIT_TAG as a global variable.
+# Fetch the git tag and generate a .h/.cpp file pair that defines the git_tag
+# function to make it available at runtime.
 set(GIT_TAG_CPP_PATH "${CMAKE_BINARY_DIR}/git_tag.cpp")
 set(GIT_TAG_CPP [[
 const char* git_tag() {
