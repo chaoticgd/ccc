@@ -523,21 +523,19 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class Pointer extends Node {
 			Node value_type;
 			
-			public int size_bytes(ImporterState importer) throws Exception {
-				return 4;
-			}
-			
 			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return new PointerDataType(value_type.create_type(importer));
 			}
 		}
 		
+		public static class PointerToDataMember extends Node {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
+				return Undefined4DataType.dataType;
+			}
+		}
+		
 		public static class Reference extends Node {
 			Node value_type;
-			
-			public int size_bytes(ImporterState importer) throws Exception {
-				return 4;
-			}
 			
 			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return new PointerDataType(value_type.create_type(importer));
@@ -777,6 +775,8 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				AST.Pointer pointer = new AST.Pointer();
 				pointer.value_type = context.deserialize(object.get("value_type"), AST.Node.class);
 				node = pointer;
+			} else if(descriptor.equals("pointer_to_data_member")) {
+				node = new AST.PointerToDataMember();
 			} else if(descriptor.equals("reference")) {
 				AST.Reference reference = new AST.Reference();
 				reference.value_type = context.deserialize(object.get("value_type"), AST.Node.class);
