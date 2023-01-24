@@ -129,6 +129,7 @@ struct SymFileDescriptor {
 	std::string base_path;
 	std::string raw_path;
 	std::string full_path;
+	bool is_windows_path = false;
 	std::vector<Symbol> symbols;
 	std::vector<SymProcedureDescriptor> procedures;
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
@@ -138,9 +139,6 @@ struct SymbolTable {
 	const SymbolicHeader* header;
 	std::vector<SymFileDescriptor> files;
 	std::vector<Symbol> externals;
-	u64 procedure_descriptor_table_offset;
-	u64 local_symbol_table_offset;
-	u64 file_descriptor_table_offset;
 };
 
 SymbolTable parse_symbol_table(const Module& module, const ModuleSection& section);

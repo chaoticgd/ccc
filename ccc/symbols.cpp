@@ -67,8 +67,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 					break;
 				}
 				case mdebug::STAB:
-				case mdebug::N_OPT:
-				case mdebug::N_BINCL: {
+				case mdebug::N_OPT: {
 					break;
 				}
 				case mdebug::N_FNAME:  case mdebug::N_MAIN:
@@ -78,15 +77,15 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				case mdebug::N_DSLINE: case mdebug::N_BSLINE:
 				case mdebug::N_EFD:    case mdebug::N_EHDECL:
 				case mdebug::N_CATCH:  case mdebug::N_SSYM:
-				case mdebug::N_EINCL:  case mdebug::N_ENTRY:
-				case mdebug::N_EXCL:   case mdebug::N_SCOPE:
-				case mdebug::N_BCOMM:  case mdebug::N_ECOMM:
-				case mdebug::N_ECOML:  case mdebug::N_NBTEXT:
-				case mdebug::N_NBDATA: case mdebug::N_NBBSS:
-				case mdebug::N_NBSTS:  case mdebug::N_NBLCS:
-				case mdebug::N_LENG: {
-					verify_not_reached("Unhandled STABS symbol code '%s'. Please file a bug report!",
-						mdebug::stabs_code(symbol.code));
+				case mdebug::N_BINCL:  case mdebug::N_EINCL:
+				case mdebug::N_ENTRY:  case mdebug::N_EXCL:
+				case mdebug::N_SCOPE:  case mdebug::N_BCOMM:
+				case mdebug::N_ECOMM:  case mdebug::N_ECOML:
+				case mdebug::N_NBTEXT: case mdebug::N_NBDATA:
+				case mdebug::N_NBBSS:  case mdebug::N_NBSTS:
+				case mdebug::N_NBLCS:  case mdebug::N_LENG: {
+					warn("Unhandled N_%s symbol: %s", mdebug::stabs_code(symbol.code), symbol.string);
+					break;
 				}
 			}
 		} else {
@@ -104,12 +103,12 @@ ParsedSymbol parse_stabs_type_symbol(const char* input) {
 	ParsedSymbol symbol;
 	symbol.type = ParsedSymbolType::NAME_COLON_TYPE;
 	symbol.name_colon_type.name = eat_dodgy_stabs_identifier(input);
-	expect_s8(input, ':', "identifier");
+	expect_char(input, ':', "identifier");
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	if((*input >= '0' && *input <= '9') || *input == '(') {
 		symbol.name_colon_type.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
 	} else {
-		symbol.name_colon_type.descriptor = (StabsSymbolDescriptor) eat_s8(input);
+		symbol.name_colon_type.descriptor = (StabsSymbolDescriptor) eat_char(input);
 	}
 	validate_symbol_descriptor(symbol.name_colon_type.descriptor);
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
@@ -133,7 +132,7 @@ ParsedSymbol parse_stabs_type_symbol(const char* input) {
 static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 	switch(descriptor) {
 		case StabsSymbolDescriptor::LOCAL_VARIABLE:
-		case StabsSymbolDescriptor::REFERENCE_PARAMETER:
+		case StabsSymbolDescriptor::REFERENCE_PARAMETER_A:
 		case StabsSymbolDescriptor::LOCAL_FUNCTION:
 		case StabsSymbolDescriptor::GLOBAL_FUNCTION:
 		case StabsSymbolDescriptor::GLOBAL_VARIABLE:
@@ -144,6 +143,7 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 		case StabsSymbolDescriptor::TYPE_NAME:
 		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
 		case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE:
+		case StabsSymbolDescriptor::REFERENCE_PARAMETER_V:
 			break;
 		default:
 			verify_not_reached("Unknown symbol descriptor: %c.", (s8) descriptor);

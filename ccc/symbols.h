@@ -9,7 +9,7 @@ namespace ccc {
 
 enum class StabsSymbolDescriptor : u8 {
 	LOCAL_VARIABLE = '_',
-	REFERENCE_PARAMETER = 'a',
+	REFERENCE_PARAMETER_A = 'a',
 	LOCAL_FUNCTION = 'f',
 	GLOBAL_FUNCTION = 'F',
 	GLOBAL_VARIABLE = 'G',
@@ -19,7 +19,8 @@ enum class StabsSymbolDescriptor : u8 {
 	STATIC_GLOBAL_VARIABLE = 'S',
 	TYPE_NAME = 't',
 	ENUM_STRUCT_OR_TYPE_TAG = 'T',
-	STATIC_LOCAL_VARIABLE = 'V'
+	STATIC_LOCAL_VARIABLE = 'V',
+	REFERENCE_PARAMETER_V = 'v'
 };
 
 struct StabsType;

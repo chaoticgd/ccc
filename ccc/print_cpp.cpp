@@ -134,6 +134,10 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		fprintf(dest, "const ");
 	}
 	
+	if(node.is_volatile) {
+		fprintf(dest, "const ");
+	}
+	
 	switch(node.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
@@ -289,6 +293,18 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			name.pointer_chars.emplace_back('*');
 			print_cpp_ast_node(dest, *pointer.value_type.get(), name, indentation_level, digits_for_offset);
 			print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
+			break;
+		}
+		case ast::POINTER_TO_DATA_MEMBER: {
+			// This probably isn't correct for nested pointers to data members
+			// but for now lets not think about that.
+			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
+			VariableName dummy;
+			print_cpp_ast_node(dest, *member_pointer.member_type.get(), dummy, indentation_level, digits_for_offset);
+			fprintf(dest, " ");
+			print_cpp_ast_node(dest, *member_pointer.class_type.get(), dummy, indentation_level, digits_for_offset);
+			fprintf(dest, "::");
+			print_cpp_variable_name(dest, name, NO_VAR_PRINT_FLAGS);
 			break;
 		}
 		case ast::REFERENCE: {

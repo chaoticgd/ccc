@@ -2,6 +2,7 @@
 
 namespace ccc {
 
+static void create_function(LocalSymbolTableAnalyser& analyser, const char* name);
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 
 mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
@@ -24,7 +25,8 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	// table, so here we extract them from the external table.
 	std::map<std::string, const mdebug::Symbol*> globals;
 	for(const mdebug::Symbol& external : symbol_table.externals) {
-		if(external.storage_type == mdebug::SymbolType::GLOBAL) {
+		if(external.storage_type == mdebug::SymbolType::GLOBAL
+			&& (external.storage_class != mdebug::SymbolClass::UNDEFINED)) {
 			globals[external.string] = &external;
 		}
 	}
@@ -65,6 +67,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
+	file->is_windows_path = fd.is_windows_path;
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
 	file->symbols = parse_symbols(fd.symbols, fd.detected_language);
@@ -91,16 +94,19 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 					case StabsSymbolDescriptor::GLOBAL_FUNCTION: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
-						analyser.return_type(name, type, symbol.raw->value);
+						analyser.function(name, type, symbol.raw->value);
 						break;
 					}
-					case StabsSymbolDescriptor::REFERENCE_PARAMETER:
+					case StabsSymbolDescriptor::REFERENCE_PARAMETER_A:
 					case StabsSymbolDescriptor::REGISTER_PARAMETER:
-					case StabsSymbolDescriptor::VALUE_PARAMETER: {
+					case StabsSymbolDescriptor::VALUE_PARAMETER:
+					case StabsSymbolDescriptor::REFERENCE_PARAMETER_V: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
 						bool is_stack_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER;
-						analyser.parameter(name, type, is_stack_variable, symbol.raw->value);
+						bool is_by_reference = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REFERENCE_PARAMETER_A
+							|| symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REFERENCE_PARAMETER_V;
+						analyser.parameter(name, type, is_stack_variable, symbol.raw->value, is_by_reference);
 						break;
 					}
 					case StabsSymbolDescriptor::REGISTER_VARIABLE:
@@ -176,9 +182,9 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 			case ParsedSymbolType::NON_STABS: {
 				if(symbol.raw->storage_class == mdebug::SymbolClass::TEXT) {
 					if(symbol.raw->storage_type == mdebug::SymbolType::PROC) {
-						analyser.function(symbol.raw->string, symbol.raw->value, false);
+						analyser.procedure(symbol.raw->string, symbol.raw->value, false);
 					} else if(symbol.raw->storage_type == mdebug::SymbolType::STATICPROC) {
-						analyser.function(symbol.raw->string, symbol.raw->value, true);
+						analyser.procedure(symbol.raw->string, symbol.raw->value, true);
 					} else if(symbol.raw->storage_type == mdebug::SymbolType::LABEL) {
 						analyser.label(symbol.raw->string, symbol.raw->value, symbol.raw->index);
 					} else if(symbol.raw->storage_type == mdebug::SymbolType::END) {
@@ -204,6 +210,8 @@ ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::Sym
 		case mdebug::SymbolClass::SDATA: return ast::GlobalVariableLocation::SDATA;
 		case mdebug::SymbolClass::SBSS: return ast::GlobalVariableLocation::SBSS;
 		case mdebug::SymbolClass::RDATA: return ast::GlobalVariableLocation::RDATA;
+		case mdebug::SymbolClass::COMMON: return ast::GlobalVariableLocation::COMMON;
+		case mdebug::SymbolClass::SCOMMON: return ast::GlobalVariableLocation::SCOMMON;
 		default: {}
 	}
 	verify_not_reached("Bad variable storage location '%s'.", mdebug::symbol_class(symbol_class));
@@ -214,7 +222,7 @@ void LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 }
 
 void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
-	output.relative_path = normalise_path(path);
+	output.relative_path = normalise_path(path, output.is_windows_path);
 	output.text_address = text_address;
 	if(next_relative_path.empty()) {
 		next_relative_path = output.relative_path;
@@ -247,35 +255,24 @@ void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_addres
 	if(state == IN_FUNCTION_BEGINNING) {
 		ast::SubSourceFile& sub = current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
-		sub.relative_path = normalise_path(path);
+		sub.relative_path = normalise_path(path, output.is_windows_path);
 	} else {
 		next_relative_path = path;
 	}
 }
 
-void LocalSymbolTableAnalyser::function(const char* name, s32 address, bool is_static) {
-	std::unique_ptr<ast::FunctionDefinition> ptr = std::make_unique<ast::FunctionDefinition>();
-	current_function = ptr.get();
-	ptr->order = output.next_order++;
-	output.functions.emplace_back(std::move(ptr));
+void LocalSymbolTableAnalyser::procedure(const char* name, s32 address, bool is_static) {
+	if(!current_function || strcmp(name, current_function->name.c_str())) {
+		create_function(*this, name);
+	}
 	
-	current_function->name = name;
 	current_function->address_range.low = address;
 	if(is_static) {
 		current_function->storage_class = ast::StorageClass::STATIC;
 	}
-	if(!next_relative_path.empty() && current_function->relative_path != output.relative_path) {
-		current_function->relative_path = next_relative_path;
-	}
-	
-	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
-	current_function_type = function_type.get();
-	current_function->type = std::move(function_type);
 	
 	pending_variables_begin.clear();
 	pending_variables_end.clear();
-	
-	state = IN_FUNCTION_BEGINNING;
 }
 
 void LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
@@ -293,19 +290,21 @@ void LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
 			assert(current_function);
 			current_function->address_range.high = current_function->address_range.low + function_size;
 		}
-		state = IN_FUNCTION_MIDDLE;
+		state = IN_FUNCTION_END;
 	}
 }
 
-void LocalSymbolTableAnalyser::return_type(const char* name, const StabsType& return_type, s32 function_address) {
-	assert(current_function_type && state == IN_FUNCTION_MIDDLE);
+void LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, s32 function_address) {
+	if(!current_function || strcmp(name, current_function->name.c_str())) {
+		create_function(*this, name);
+	}
+	
 	current_function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true, true);
 	current_function_type->parameters.emplace();
-	state = IN_FUNCTION_END;
 }
 
-void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register) {
-	assert(current_function_type && state == IN_FUNCTION_END);
+void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
+	assert(current_function_type);
 	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
 	parameter->name = name;
 	parameter->variable_class = ast::VariableClass::PARAMETER;
@@ -317,6 +316,7 @@ void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type
 		parameter->storage.dbx_register_number = offset_or_register;
 		std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
 			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
+		parameter->storage.is_by_reference = is_by_reference;
 	}
 	parameter->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true, true);
 	current_function_type->parameters->emplace_back(std::move(parameter));
@@ -377,6 +377,22 @@ void LocalSymbolTableAnalyser::finish() {
 		"Unexpected end of symbol table for '%s'.", output.full_path.c_str());
 }
 
+static void create_function(LocalSymbolTableAnalyser& analyser, const char* name) {
+	std::unique_ptr<ast::FunctionDefinition> ptr = std::make_unique<ast::FunctionDefinition>();
+	analyser.current_function = ptr.get();
+	ptr->order = analyser.output.next_order++;
+	analyser.output.functions.emplace_back(std::move(ptr));
+	analyser.current_function->name = name;
+	analyser.state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
+	
+	if(!analyser.next_relative_path.empty() && analyser.current_function->relative_path != analyser.output.relative_path) {
+		analyser.current_function->relative_path = analyser.next_relative_path;
+	}
+	
+	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
+	analyser.current_function_type = function_type.get();
+	analyser.current_function->type = std::move(function_type);
+}
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 	switch(ast_node.descriptor) {
@@ -433,6 +449,9 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		}
 		case ast::NodeDescriptor::POINTER: {
 			filter_ast_by_flags(*ast_node.as<ast::Pointer>().value_type.get(), flags);
+			break;
+		}
+		case ast::NodeDescriptor::POINTER_TO_DATA_MEMBER: {
 			break;
 		}
 		case ast::NodeDescriptor::REFERENCE: {

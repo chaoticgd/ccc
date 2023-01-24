@@ -36,10 +36,10 @@ using s64 = int64_t;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
 template <typename... Args>
-void verify_impl(const char* file, int line, bool condition, const char* error_message, Args... args) {
+void verify_impl(const char* file, int line, bool condition, const char* format, Args... args) {
 	if(!condition) {
 		fprintf(stderr, "[%s:%d] \033[31merror:\033[0m ", file, line);
-		fprintf(stderr, error_message, args...);
+		fprintf(stderr, format, args...);
 	fprintf(stderr, "\n");
 		exit(1);
 	}
@@ -47,14 +47,22 @@ void verify_impl(const char* file, int line, bool condition, const char* error_m
 #define verify(condition, ...) \
 	ccc::verify_impl(__FILE__, __LINE__, condition, __VA_ARGS__)
 template <typename... Args>
-[[noreturn]] void verify_not_reached_impl(const char* file, int line, const char* error_message, Args... args) {
+[[noreturn]] void verify_not_reached_impl(const char* file, int line, const char* format, Args... args) {
 	fprintf(stderr, "[%s:%d] \033[31merror:\033[0m ", file, line);
-	fprintf(stderr, error_message, args...);
+	fprintf(stderr, format, args...);
 	fprintf(stderr, "\n");
 	exit(1);
 }
 #define verify_not_reached(...) \
 	ccc::verify_not_reached_impl(__FILE__, __LINE__, __VA_ARGS__)
+template <typename... Args>
+void warn_impl(const char* file, int line, const char* format, Args... args) {
+	fprintf(stderr, "[%s:%d] \033[35mwarning:\033[0m ", file, line);
+	fprintf(stderr, format, args...);
+	fprintf(stderr, "\n");
+}
+#define warn(...) \
+	ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
 #pragma GCC diagnostic pop
 
 #ifdef _MSC_VER
@@ -90,8 +98,9 @@ std::string stringf(const char* format, ...);
 // These functions are to be used only for source file paths present in the
 // symbol table, since we want them to be handled consistently across different
 // platforms, which with std::filesystem::path doesn't seem to be possible.
-std::string merge_paths(const std::string& base, const std::string& path);
-std::string normalise_path(const char* input);
+std::pair<std::string, bool> merge_paths(const std::string& base, const std::string& path);
+std::string normalise_path(const char* input, bool use_backslashes_as_path_separators);
+bool guess_is_windows_path(const char* path);
 
 }
 

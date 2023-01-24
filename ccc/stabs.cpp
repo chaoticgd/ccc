@@ -22,9 +22,9 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 		// hack to deal with this case.
 		input++;
 		s64 file_number = eat_s64_literal(input);
-		expect_s8(input, ',', "weird type number");
+		expect_char(input, ',', "weird type number");
 		s64 type_number = eat_s64_literal(input);
-		expect_s8(input, ')', "weird type number");
+		expect_char(input, ')', "weird type number");
 		info.anonymous = false;
 		info.type_number = type_number | (file_number << 32);
 		if(*input != '=') {
@@ -50,7 +50,7 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 	if((*input >= '0' && *input <= '9') || *input == '(') {
 		descriptor = StabsTypeDescriptor::TYPE_REFERENCE;
 	} else {
-		descriptor = (StabsTypeDescriptor) eat_s8(input);
+		descriptor = (StabsTypeDescriptor) eat_char(input);
 	}
 	
 	std::unique_ptr<StabsType> type;
@@ -74,10 +74,10 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
 				std::string name = eat_dodgy_stabs_identifier(input);
-				expect_s8(input, ':', "identifier");
+				expect_char(input, ':', "identifier");
 				s64 value = eat_s64_literal(input);
 				enum_type->fields.emplace_back(value, name);
-				verify(eat_s8(input) == ',',
+				verify(eat_char(input) == ',',
 					"Expecting ',' while parsing enum, got '%c' (%02hhx)",
 					*input, *input);
 			}
@@ -92,6 +92,12 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			type = std::move(function);
 			break;
 		}
+		case StabsTypeDescriptor::VOLATILE_QUALIFIER: { // k
+			auto volatile_qualifier = std::make_unique<StabsVolatileQualifierType>(info);
+			volatile_qualifier->type = parse_stabs_type(input);
+			type = std::move(volatile_qualifier);
+			break;
+		}
 		case StabsTypeDescriptor::CONST_QUALIFIER: { // k
 			auto const_qualifier = std::make_unique<StabsConstQualifierType>(info);
 			const_qualifier->type = parse_stabs_type(input);
@@ -101,11 +107,11 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 		case StabsTypeDescriptor::RANGE: { // r
 			auto range = std::make_unique<StabsRangeType>(info);
 			range->type = parse_stabs_type(input);
-			expect_s8(input, ';', "range type descriptor");
+			expect_char(input, ';', "range type descriptor");
 			std::string low = eat_dodgy_stabs_identifier(input);
-			expect_s8(input, ';', "low range value");
+			expect_char(input, ';', "low range value");
 			std::string high = eat_dodgy_stabs_identifier(input);
-			expect_s8(input, ';', "high range value");
+			expect_char(input, ';', "high range value");
 			try {
 				range->low_maybe_wrong = std::stoi(low);
 				range->high_maybe_wrong = std::stoi(high);
@@ -121,15 +127,15 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			if(*input == '!') {
 				input++;
 				s64 base_class_count = eat_s64_literal(input);
-				expect_s8(input, ',', "base class section");
+				expect_char(input, ',', "base class section");
 				for(s64 i = 0; i < base_class_count; i++) {
 					StabsBaseClass base_class;
-					eat_s8(input);
-					base_class.visibility = (StabsFieldVisibility) eat_s8(input);
+					eat_char(input);
+					base_class.visibility = (StabsFieldVisibility) eat_char(input);
 					base_class.offset = eat_s64_literal(input);
-					expect_s8(input, ',', "base class section");
+					expect_char(input, ',', "base class section");
 					base_class.type = parse_stabs_type(input);
-					expect_s8(input, ';', "base class section");
+					expect_char(input, ';', "base class section");
 					struct_type->base_classes.emplace_back(std::move(base_class));
 				}
 			}
@@ -151,7 +157,7 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: { // x
 			auto cross_reference = std::make_unique<StabsCrossReferenceType>(info);
-			switch(eat_s8(input)) {
+			switch(eat_char(input)) {
 				case 'e': cross_reference->type = StabsCrossReferenceType::ENUM; break;
 				case 's': cross_reference->type = StabsCrossReferenceType::STRUCT; break;
 				case 'u': cross_reference->type = StabsCrossReferenceType::UNION; break;
@@ -162,16 +168,16 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			}
 			cross_reference->identifier = eat_dodgy_stabs_identifier(input);
 			cross_reference->name = cross_reference->identifier;
-			expect_s8(input, ':', "cross reference");
+			expect_char(input, ':', "cross reference");
 			type = std::move(cross_reference);
 			break;
 		}
 		case StabsTypeDescriptor::FLOATING_POINT_BUILTIN: {
 			auto fp_builtin = std::make_unique<StabsFloatingPointBuiltInType>(info);
 			fp_builtin->fpclass = (s32) eat_s64_literal(input);
-			expect_s8(input, ';', "floating point builtin");
+			expect_char(input, ';', "floating point builtin");
 			fp_builtin->bytes = (s32) eat_s64_literal(input);
-			expect_s8(input, ';', "floating point builtin");
+			expect_char(input, ';', "floating point builtin");
 			type = std::move(fp_builtin);
 			break;
 		}
@@ -180,17 +186,19 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			if(*input == '#') {
 				input++;
 				method->return_type = parse_stabs_type(input);
-				expect_s8(input, ';', "method");
+				if(*input == ';') {
+					input++;
+				}
 			} else {
 				method->class_type = parse_stabs_type(input);
-				expect_s8(input, ',', "method");
+				expect_char(input, ',', "method");
 				method->return_type = parse_stabs_type(input);
 				while(*input != '\0') {
 					if(*input == ';') {
 						input++;
 						break;
 					}
-					expect_s8(input, ',', "method");
+					expect_char(input, ',', "method");
 					method->parameter_types.emplace_back(parse_stabs_type(input));
 				}
 			}
@@ -210,13 +218,21 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			break;
 		}
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: { // @
-			auto type_attribute = std::make_unique<StabsSizeTypeAttributeType>(info);
-			verify(*input == 's', "Weird value following '@' type descriptor. Please submit a bug report!");
-			input++;
-			type_attribute->size_bits = eat_s64_literal(input);
-			expect_s8(input, ';', "type attribute");
-			type_attribute->type = parse_stabs_type(input);
-			type = std::move(type_attribute);
+			if((*input >= '0' && *input <= '9') || *input == '(') {
+				auto member_pointer = std::make_unique<StabsPointerToNonStaticDataMember>(info);
+				member_pointer->class_type = parse_stabs_type(input);
+				expect_char(input, ',', "pointer to non-static data member");
+				member_pointer->member_type = parse_stabs_type(input);
+				type = std::move(member_pointer);
+			} else {
+				auto type_attribute = std::make_unique<StabsSizeTypeAttributeType>(info);
+				verify(*input == 's', "Weird value following '@' type descriptor. Please submit a bug report!");
+				input++;
+				type_attribute->size_bits = eat_s64_literal(input);
+				expect_char(input, ';', "type attribute");
+				type_attribute->type = parse_stabs_type(input);
+				type = std::move(type_attribute);
+			}
 			break;
 		}
 		case StabsTypeDescriptor::BUILTIN: { // -
@@ -244,10 +260,10 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		const char* before_field = input;
 		StabsField field;
 		field.name = eat_dodgy_stabs_identifier(input);
-		expect_s8(input, ':', "identifier");
+		expect_char(input, ':', "identifier");
 		if(*input == '/') {
 			input++;
-			field.visibility = (StabsFieldVisibility) eat_s8(input);
+			field.visibility = (StabsFieldVisibility) eat_char(input);
 			switch(field.visibility) {
 				case StabsFieldVisibility::NONE:
 				case StabsFieldVisibility::PRIVATE:
@@ -266,20 +282,20 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		field.type = parse_stabs_type(input);
 		if(field.name.size() >= 1 && field.name[0] == '$') {
 			// Not sure.
-			expect_s8(input, ',', "field type");
+			expect_char(input, ',', "field type");
 			field.offset_bits = eat_s64_literal(input);
-			expect_s8(input, ';', "field offset");
+			expect_char(input, ';', "field offset");
 		} else if(*input == ':') {
 			input++;
 			field.is_static = true;
 			field.type_name = eat_dodgy_stabs_identifier(input);
-			expect_s8(input, ';', "identifier");
+			expect_char(input, ';', "identifier");
 		} else if(*input == ',') {
 			input++;
 			field.offset_bits = eat_s64_literal(input);
-			expect_s8(input, ',', "field offset");
+			expect_char(input, ',', "field offset");
 			field.size_bits = eat_s64_literal(input);
-			expect_s8(input, ';', "field size");
+			expect_char(input, ';', "field size");
 		} else {
 			verify_not_reached("Expected ':' or ',', got '%c' (%hhx).", *input, *input);
 		}
@@ -308,8 +324,8 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 		const char* before = input;
 		StabsMemberFunctionSet member_function_set;
 		member_function_set.name = eat_stabs_identifier(input);
-		expect_s8(input, ':', "member function");
-		expect_s8(input, ':', "member function");
+		expect_char(input, ':', "member function");
+		expect_char(input, ':', "member function");
 		while(*input != '\0') {
 			if(*input == ';') {
 				input++;
@@ -319,10 +335,10 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 			StabsMemberFunction function;
 			function.type = parse_stabs_type(input);
 			
-			expect_s8(input, ':', "member function");
+			expect_char(input, ':', "member function");
 			eat_dodgy_stabs_identifier(input);
-			expect_s8(input, ';', "member function");
-			function.visibility = (StabsFieldVisibility) eat_s8(input);
+			expect_char(input, ';', "member function");
+			function.visibility = (StabsFieldVisibility) eat_char(input);
 			switch(function.visibility) {
 				case StabsFieldVisibility::PRIVATE:
 				case StabsFieldVisibility::PROTECTED:
@@ -332,7 +348,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 				default:
 					verify_not_reached("Invalid visibility for member function.");
 			}
-			switch(eat_s8(input)) {
+			switch(eat_char(input)) {
 				case 'A':
 					function.is_const = false;
 					function.is_volatile = false;
@@ -355,7 +371,7 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 				default:
 					verify_not_reached("Invalid member function modifiers.");
 			}
-			switch(eat_s8(input)) {
+			switch(eat_char(input)) {
 				case '.': // normal member function
 					function.modifier = MemberFunctionModifier::NONE;
 					break;
@@ -364,9 +380,9 @@ static std::vector<StabsMemberFunctionSet> parse_member_functions(const char*& i
 					break;
 				case '*': // virtual member function
 					function.vtable_index = eat_s64_literal(input);
-					expect_s8(input, ';', "virtual member function");
+					expect_char(input, ';', "virtual member function");
 					parse_stabs_type(input);
-					expect_s8(input, ';', "virtual member function");
+					expect_char(input, ';', "virtual member function");
 					function.modifier = MemberFunctionModifier::VIRTUAL;
 					break;
 				default:
@@ -388,9 +404,11 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 		{"000000000000000000000000", "001777777777777777777777", BuiltInClass::UNSIGNED_64},
 		{"00000000000000000000000000000000000000000000", "00000000000000000000001777777777777777777777", BuiltInClass::UNSIGNED_64},
 		{"0000000000000", "01777777777777777777777", BuiltInClass::UNSIGNED_64}, // iop
+		{"0", "4294967295", BuiltInClass::UNSIGNED_64},
 		{"001000000000000000000000", "000777777777777777777777", BuiltInClass::SIGNED_64},
 		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", BuiltInClass::SIGNED_64},
 		{"01000000000000000000000", "0777777777777777777777", BuiltInClass::SIGNED_64}, // iop
+		{"-9223372036854775808", "9223372036854775807", BuiltInClass::SIGNED_64},
 		{"8", "0", BuiltInClass::FLOAT_64},
 		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", BuiltInClass::UNSIGNED_128},
 		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", BuiltInClass::SIGNED_128},
@@ -434,7 +452,7 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 	return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 }
 
-s8 eat_s8(const char*& input) {
+char eat_char(const char*& input) {
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	return *(input++);
 }
@@ -464,7 +482,7 @@ std::string eat_stabs_identifier(const char*& input) {
 	bool first = true;
 	for(; *input != '\0'; input++) {
 		bool valid_char = false;
-		valid_char |= isprint(*input) && *input != ':' && *input != ';';
+		valid_char |= *input != ':' && *input != ';';
 		valid_char |= !first && isalnum(*input);
 		if(valid_char) {
 			identifier += *input;
@@ -490,7 +508,7 @@ std::string eat_dodgy_stabs_identifier(const char*& input) {
 			template_depth--;
 		}
 		bool valid_char = false;
-		valid_char |= isprint(*input) && (*input != ':' || template_depth != 0) && *input != ';';
+		valid_char |= (*input != ':' || template_depth != 0) && *input != ';';
 		valid_char |= !first && isalnum(*input);
 		if(valid_char) {
 			identifier += *input;
@@ -503,7 +521,7 @@ std::string eat_dodgy_stabs_identifier(const char*& input) {
 }
 
 
-void expect_s8(const char*& input, s8 expected, const char* subject) {
+void expect_char(const char*& input, char expected, const char* subject) {
 	verify(*input != '\0', ERR_END_OF_SYMBOL);
 	char val = *(input++);
 	verify(val == expected, "Expected '%c' in %s, got '%c'.", expected, subject, val);

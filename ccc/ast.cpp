@@ -63,12 +63,12 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 	}
 	
 	// This prevents infinite recursion when an automatically generated member
-	// function references an anonymous type.
+	// function references an unnamed type.
 	if(force_substitute) {
 		const char* type_string = nullptr;
-		if(type.descriptor == StabsTypeDescriptor::ENUM) type_string = "__anonymous_enum";
-		if(type.descriptor == StabsTypeDescriptor::STRUCT) type_string = "__anonymous_struct";
-		if(type.descriptor == StabsTypeDescriptor::UNION) type_string = "__anonymous_union";
+		if(type.descriptor == StabsTypeDescriptor::ENUM) type_string = "__unnamed_enum";
+		if(type.descriptor == StabsTypeDescriptor::STRUCT) type_string = "__unnamed_struct";
+		if(type.descriptor == StabsTypeDescriptor::UNION) type_string = "__unnamed_union";
 		if(type_string) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = TypeNameSource::REFERENCE;
@@ -131,6 +131,12 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			auto function = std::make_unique<ast::FunctionType>();
 			function->return_type = stabs_type_to_ast(*type.as<StabsFunctionType>().return_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
 			result = std::move(function);
+			break;
+		}
+		case StabsTypeDescriptor::VOLATILE_QUALIFIER: {
+			const auto& volatile_qualifier = type.as<StabsVolatileQualifierType>();
+			result = stabs_type_to_ast(*volatile_qualifier.type.get(), state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			result->is_volatile = true;
 			break;
 		}
 		case StabsTypeDescriptor::CONST_QUALIFIER: {
@@ -250,6 +256,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
+		case StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER: {
+			const auto& stabs_member_pointer = type.as<StabsPointerToNonStaticDataMember>();
+			auto member_pointer = std::make_unique<ast::PointerToDataMember>();
+			member_pointer->class_type = stabs_type_to_ast(*stabs_member_pointer.class_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			member_pointer->member_type = stabs_type_to_ast(*stabs_member_pointer.member_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			result = std::move(member_pointer);
+			break;
+		}
 		case StabsTypeDescriptor::BUILTIN: {
 			verify(type.as<StabsBuiltInType>().type_id == 16,
 				"Unknown built-in type! Please file a bug report.");
@@ -298,7 +312,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
 	// Resolve type references.
 	const StabsType* type = field.type.get();
-	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
+	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER || type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
 		if(!type->has_body) {
 			if(type->anonymous) {
 				return false;
@@ -308,8 +322,10 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 				return false;
 			}
 			type = next_type->second;
-		} else {
+		} else if(type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
 			type = type->as<StabsConstQualifierType>().type.get();
+		} else {
+			type = type->as<StabsVolatileQualifierType>().type.get();
 		}
 	}
 	
@@ -544,6 +560,14 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 			if(pointer_compare.has_value()) return pointer_compare;
 			break;
 		}
+		case POINTER_TO_DATA_MEMBER: {
+			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
+			auto class_compare = compare_ast_nodes(*lhs.class_type.get(), *rhs.class_type.get());
+			if(class_compare.has_value()) return class_compare;
+			auto member_compare = compare_ast_nodes(*lhs.member_type.get(), *rhs.member_type.get());
+			if(member_compare.has_value()) return member_compare;
+			break;
+		}
 		case REFERENCE: {
 			const auto [lhs, rhs] = Node::as<Reference>(node_lhs, node_rhs);
 			auto reference_compare = compare_ast_nodes(*lhs.value_type.get(), *rhs.value_type.get());
@@ -629,6 +653,7 @@ const char* node_type_to_string(const Node& node) {
 			}
 		}
 		case NodeDescriptor::POINTER: return "pointer";
+		case NodeDescriptor::POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
 		case NodeDescriptor::REFERENCE: return "reference";
 		case NodeDescriptor::SOURCE_FILE: return "source_file";
 		case NodeDescriptor::TYPE_NAME: return "type_name";
@@ -658,6 +683,8 @@ const char* global_variable_location_to_string(GlobalVariableLocation location) 
 		case GlobalVariableLocation::SDATA: return "sdata";
 		case GlobalVariableLocation::SBSS: return "sbss";
 		case GlobalVariableLocation::RDATA: return "rdata";
+		case GlobalVariableLocation::COMMON: return "common";
+		case GlobalVariableLocation::SCOMMON: return "scommon";
 	}
 	return "";
 }

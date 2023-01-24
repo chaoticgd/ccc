@@ -25,6 +25,7 @@ enum NodeDescriptor {
 	INLINE_ENUM,
 	INLINE_STRUCT_OR_UNION,
 	POINTER,
+	POINTER_TO_DATA_MEMBER,
 	REFERENCE,
 	SOURCE_FILE,
 	TYPE_NAME,
@@ -54,6 +55,7 @@ struct Node {
 	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
 	bool is_const = false;
+	bool is_volatile = false;
 	
 	s32 order = -1; // Used to preserve the order of children of SourceFile.
 	std::vector<s32> files; // List of files for which a given top-level type is present.
@@ -166,6 +168,14 @@ struct Pointer : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER;
 };
 
+struct PointerToDataMember : Node {
+	std::unique_ptr<Node> class_type;
+	std::unique_ptr<Node> member_type;
+	
+	PointerToDataMember() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_TO_DATA_MEMBER;
+};
+
 struct Reference : Node {
 	std::unique_ptr<Node> value_type;
 	
@@ -175,6 +185,7 @@ struct Reference : Node {
 
 struct SourceFile : Node {
 	std::string full_path;
+	bool is_windows_path = false;
 	std::string relative_path = "";
 	u32 text_address = 0;
 	std::vector<std::unique_ptr<ast::Node>> functions;
@@ -252,6 +263,8 @@ enum class GlobalVariableLocation {
 	SDATA,
 	SBSS,
 	RDATA,
+	COMMON,
+	SCOMMON
 };
 
 struct VariableStorage {
@@ -261,6 +274,7 @@ struct VariableStorage {
 	mips::RegisterClass register_class = mips::RegisterClass::GPR;
 	s32 dbx_register_number = -1;
 	s32 register_index_relative = -1;
+	bool is_by_reference = false;
 	s32 stack_pointer_offset = -1;
 	
 	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;

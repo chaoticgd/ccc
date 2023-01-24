@@ -19,6 +19,8 @@ struct JsonWriter {
 	void string_property(const char* name, const char* value);
 	void number_property(const char* name, s64 value);
 	void boolean_property(const char* name, bool value);
+	
+	std::string encode_string(const char* string);
 };
 
 static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr);
@@ -30,7 +32,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 4);
+	json.number_property("version", 5);
 	
 	json.property("files");
 	json.begin_array();
@@ -76,6 +78,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	}
 	if(node.is_const) {
 		json.boolean_property("is_const", node.is_const);
+	}
+	if(node.is_volatile) {
+		json.boolean_property("is_volatile", node.is_volatile);
 	}
 	if(node.order != -1) {
 		json.number_property("order", node.order);
@@ -229,6 +234,14 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			print_json_ast_node(json, pointer.value_type.get());
 			break;
 		}
+		case ast::NodeDescriptor::POINTER_TO_DATA_MEMBER: {
+			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
+			json.property("class_type");
+			print_json_ast_node(json, member_pointer.class_type.get());
+			json.property("member_type");
+			print_json_ast_node(json, member_pointer.member_type.get());
+			break;
+		}
 		case ast::NodeDescriptor::REFERENCE: {
 			const ast::Reference& reference = node.as<ast::Reference>();
 			json.property("value_type");
@@ -323,6 +336,7 @@ static void print_json_variable_storage(JsonWriter& json, const ast::VariableSto
 			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) storage.register_class]);
 			json.number_property("dbx_register_number", storage.dbx_register_number);
 			json.number_property("register_index", storage.register_index_relative);
+			json.boolean_property("is_by_reference", storage.is_by_reference);
 			break;
 		}
 		case ast::VariableStorageType::STACK: {
@@ -360,7 +374,8 @@ void JsonWriter::string(const char* value) {
 		fprintf(dest, ",");
 	}
 	needs_comma = true;
-	fprintf(dest, "\"%s\"", value);
+	std::string encoded = encode_string(value);
+	fprintf(dest, "\"%s\"", encoded.c_str());
 }
 
 void JsonWriter::number(s64 value) {
@@ -405,6 +420,26 @@ void JsonWriter::number_property(const char* name, s64 value) {
 void JsonWriter::boolean_property(const char* name, bool value) {
 	property(name);
 	boolean(value);
+}
+
+std::string JsonWriter::encode_string(const char* string) {
+	static const char* HEX_DIGITS = "0123456789abcdef";
+	
+	std::string encoded;
+	for(const char* ptr = string; *ptr != 0; ptr++) {
+		if(isprint(*ptr)) {
+			if(*ptr == '"' || *ptr == '\\') {
+				encoded += '\\';
+			}
+			encoded += *ptr;
+		} else {
+			encoded += '%';
+			encoded += HEX_DIGITS[*ptr >> 4];
+			encoded += HEX_DIGITS[*ptr & 0xf];
+		}
+	}
+	
+	return encoded;
 }
 
 }
