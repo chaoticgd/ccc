@@ -208,6 +208,7 @@ ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::Sym
 		case mdebug::SymbolClass::SBSS: return ast::GlobalVariableLocation::SBSS;
 		case mdebug::SymbolClass::RDATA: return ast::GlobalVariableLocation::RDATA;
 		case mdebug::SymbolClass::COMMON: return ast::GlobalVariableLocation::COMMON;
+		case mdebug::SymbolClass::SCOMMON: return ast::GlobalVariableLocation::SCOMMON;
 		default: {}
 	}
 	verify_not_reached("Bad variable storage location '%s'.", mdebug::symbol_class(symbol_class));

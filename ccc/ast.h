@@ -263,7 +263,8 @@ enum class GlobalVariableLocation {
 	SDATA,
 	SBSS,
 	RDATA,
-	COMMON
+	COMMON,
+	SCOMMON
 };
 
 struct VariableStorage {
