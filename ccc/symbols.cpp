@@ -132,7 +132,7 @@ ParsedSymbol parse_stabs_type_symbol(const char* input) {
 static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 	switch(descriptor) {
 		case StabsSymbolDescriptor::LOCAL_VARIABLE:
-		case StabsSymbolDescriptor::REFERENCE_PARAMETER:
+		case StabsSymbolDescriptor::REFERENCE_PARAMETER_A:
 		case StabsSymbolDescriptor::LOCAL_FUNCTION:
 		case StabsSymbolDescriptor::GLOBAL_FUNCTION:
 		case StabsSymbolDescriptor::GLOBAL_VARIABLE:
@@ -143,6 +143,7 @@ static void validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 		case StabsSymbolDescriptor::TYPE_NAME:
 		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
 		case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE:
+		case StabsSymbolDescriptor::REFERENCE_PARAMETER_V:
 			break;
 		default:
 			verify_not_reached("Unknown symbol descriptor: %c.", (s8) descriptor);

@@ -97,13 +97,16 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 						analyser.function(name, type, symbol.raw->value);
 						break;
 					}
-					case StabsSymbolDescriptor::REFERENCE_PARAMETER:
+					case StabsSymbolDescriptor::REFERENCE_PARAMETER_A:
 					case StabsSymbolDescriptor::REGISTER_PARAMETER:
-					case StabsSymbolDescriptor::VALUE_PARAMETER: {
+					case StabsSymbolDescriptor::VALUE_PARAMETER:
+					case StabsSymbolDescriptor::REFERENCE_PARAMETER_V: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
 						bool is_stack_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER;
-						analyser.parameter(name, type, is_stack_variable, symbol.raw->value);
+						bool is_by_reference = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REFERENCE_PARAMETER_A
+							|| symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REFERENCE_PARAMETER_V;
+						analyser.parameter(name, type, is_stack_variable, symbol.raw->value, is_by_reference);
 						break;
 					}
 					case StabsSymbolDescriptor::REGISTER_VARIABLE:
@@ -300,7 +303,7 @@ void LocalSymbolTableAnalyser::function(const char* name, const StabsType& retur
 	current_function_type->parameters.emplace();
 }
 
-void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register) {
+void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
 	assert(current_function_type);
 	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
 	parameter->name = name;
@@ -313,6 +316,7 @@ void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type
 		parameter->storage.dbx_register_number = offset_or_register;
 		std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
 			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
+		parameter->storage.is_by_reference = is_by_reference;
 	}
 	parameter->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true, true);
 	current_function_type->parameters->emplace_back(std::move(parameter));

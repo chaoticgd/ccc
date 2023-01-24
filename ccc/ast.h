@@ -274,6 +274,7 @@ struct VariableStorage {
 	mips::RegisterClass register_class = mips::RegisterClass::GPR;
 	s32 dbx_register_number = -1;
 	s32 register_index_relative = -1;
+	bool is_by_reference = false;
 	s32 stack_pointer_offset = -1;
 	
 	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;

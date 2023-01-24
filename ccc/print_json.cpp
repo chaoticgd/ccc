@@ -336,6 +336,7 @@ static void print_json_variable_storage(JsonWriter& json, const ast::VariableSto
 			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) storage.register_class]);
 			json.number_property("dbx_register_number", storage.dbx_register_number);
 			json.number_property("register_index", storage.register_index_relative);
+			json.boolean_property("is_by_reference", storage.is_by_reference);
 			break;
 		}
 		case ast::VariableStorageType::STACK: {

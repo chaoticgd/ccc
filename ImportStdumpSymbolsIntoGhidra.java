@@ -155,7 +155,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						for(int i = 0; i < type.parameters.size(); i++) {
 							AST.Variable variable = (AST.Variable) type.parameters.get(i);
 							DataType parameter_type = AST.replace_void_with_undefined1(variable.type.create_type(importer));
-							if(parameter_type.getLength() > 16) {
+							if(variable.storage.is_by_reference) {
 								parameter_type = new PointerDataType(parameter_type);
 							}
 							parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
@@ -612,6 +612,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			String register_class;
 			int dbx_register_number = -1;
 			int register_index_relative = -1;
+			boolean is_by_reference = false;
 			int stack_pointer_offset = -1;
 		}
 		
@@ -896,6 +897,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				dest.register_class = src.get("register_class").getAsString();
 				dest.dbx_register_number = src.get("dbx_register_number").getAsInt();
 				dest.register_index_relative = src.get("register_index").getAsInt();
+				dest.is_by_reference = src.get("is_by_reference").getAsBoolean();
 			} else if(type.equals("stack")) {
 				dest.type = AST.VariableStorageType.STACK;
 				dest.stack_pointer_offset = src.get("stack_offset").getAsInt();
