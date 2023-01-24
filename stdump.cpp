@@ -311,9 +311,13 @@ static Options parse_args(int argc, char** argv) {
 	return options;
 }
 
+const char* git_tag();
+
 static void print_help() {
-	puts("stdump -- https://github.com/chaoticgd/ccc");
-	puts("  MIPS/STABS symbol table parser.");
+	const char* tag = git_tag();
+	printf("stdump %s -- https://github.com/chaoticgd/ccc\n",
+		(strlen(tag) > 0) ? tag : "development version");
+	puts("  Mdebug/STABS symbol table parser and dumper.");
 	puts("");
 	puts("Commands:");
 	puts("  print_functions <input file>");
