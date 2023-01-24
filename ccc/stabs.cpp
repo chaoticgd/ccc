@@ -186,7 +186,9 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			if(*input == '#') {
 				input++;
 				method->return_type = parse_stabs_type(input);
-				expect_char(input, ';', "method");
+				if(*input == ';') {
+					input++;
+				}
 			} else {
 				method->class_type = parse_stabs_type(input);
 				expect_char(input, ',', "method");
