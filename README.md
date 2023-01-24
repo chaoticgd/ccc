@@ -6,7 +6,7 @@ A set of tools for reverse engineering PS2 games.
 
 ### stdump
 
-Symbol table parser and dumper. It can extract the following information:
+Mdebug/STABS symbol table parser and dumper. It can extract the following information:
 
 - Functions including parameters and local variables
 - Global variables

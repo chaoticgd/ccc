@@ -21,6 +21,8 @@ else()
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
 
+include(cmake/version_finder.cmake)
+
 add_library(ccc STATIC
 	ccc/analysis.cpp
 	ccc/ast.cpp
@@ -38,8 +40,8 @@ add_library(ccc STATIC
 )
 
 add_executable(stdump stdump.cpp)
-target_link_libraries(stdump ccc)
+target_link_libraries(stdump ccc versioninfo)
 add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
 add_executable(objdump objdump.cpp)
-target_link_libraries(objdump ccc)
+target_link_libraries(objdump ccc versioninfo)
