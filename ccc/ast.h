@@ -185,6 +185,7 @@ struct Reference : Node {
 
 struct SourceFile : Node {
 	std::string full_path;
+	bool is_windows_path = false;
 	std::string relative_path = "";
 	u32 text_address = 0;
 	std::vector<std::unique_ptr<ast::Node>> functions;

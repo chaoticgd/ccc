@@ -67,6 +67,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
+	file->is_windows_path = fd.is_windows_path;
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
 	file->symbols = parse_symbols(fd.symbols, fd.detected_language);
@@ -217,7 +218,7 @@ void LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 }
 
 void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
-	output.relative_path = normalise_path(path);
+	output.relative_path = normalise_path(path, output.is_windows_path);
 	output.text_address = text_address;
 	if(next_relative_path.empty()) {
 		next_relative_path = output.relative_path;
@@ -250,7 +251,7 @@ void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_addres
 	if(state == IN_FUNCTION_BEGINNING) {
 		ast::SubSourceFile& sub = current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
-		sub.relative_path = normalise_path(path);
+		sub.relative_path = normalise_path(path, output.is_windows_path);
 	} else {
 		next_relative_path = path;
 	}
@@ -443,6 +444,9 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		}
 		case ast::NodeDescriptor::POINTER: {
 			filter_ast_by_flags(*ast_node.as<ast::Pointer>().value_type.get(), flags);
+			break;
+		}
+		case ast::NodeDescriptor::POINTER_TO_DATA_MEMBER: {
 			break;
 		}
 		case ast::NodeDescriptor::REFERENCE: {

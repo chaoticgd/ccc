@@ -138,7 +138,7 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 			}
 		}
 		
-		fd.full_path = merge_paths(fd.base_path, fd.raw_path);
+		std::tie(fd.full_path, fd.is_windows_path) = merge_paths(fd.base_path, fd.raw_path);
 		
 		// Parse procedure descriptors.
 		// This is buggy.

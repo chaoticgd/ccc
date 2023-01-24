@@ -129,6 +129,7 @@ struct SymFileDescriptor {
 	std::string base_path;
 	std::string raw_path;
 	std::string full_path;
+	bool is_windows_path = false;
 	std::vector<Symbol> symbols;
 	std::vector<SymProcedureDescriptor> procedures;
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;

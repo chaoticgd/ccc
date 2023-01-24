@@ -90,8 +90,9 @@ std::string stringf(const char* format, ...);
 // These functions are to be used only for source file paths present in the
 // symbol table, since we want them to be handled consistently across different
 // platforms, which with std::filesystem::path doesn't seem to be possible.
-std::string merge_paths(const std::string& base, const std::string& path);
-std::string normalise_path(const char* input);
+std::pair<std::string, bool> merge_paths(const std::string& base, const std::string& path);
+std::string normalise_path(const char* input, bool use_backslashes_as_path_separators);
+bool guess_is_windows_path(const char* path);
 
 }
 

@@ -75,16 +75,26 @@ std::string stringf(const char* format, ...) {
 	return string;
 }
 
-std::string merge_paths(const std::string& base, const std::string& path) {
+std::pair<std::string, bool> merge_paths(const std::string& base, const std::string& path) {
+	// Try to figure out if we're dealing with a Windows path of a UNIX path.
+	bool is_windows_path = false;
+	if(base.empty()) {
+		is_windows_path = guess_is_windows_path(path.c_str());
+	} else {
+		is_windows_path = guess_is_windows_path(base.c_str());
+	}
+	
+	// Actually merge the paths. If path is the entire path, we don't need to
+	// append base onto the front, so check for that now.
 	bool is_absolute_unix = (path.size() >= 1) && path[0] == '/' || path[0] == '\\';
 	bool is_absolute_windows = (path.size() >= 3) && path[1] == ':' && (path[2] == '/' || path[2] == '\\');
 	if(base.empty() || is_absolute_unix || is_absolute_windows) {
-		return normalise_path(path.c_str());
+		return {normalise_path(path.c_str(), is_windows_path), is_windows_path};
 	}
-	return normalise_path((base + "/" + path).c_str());
+	return {normalise_path((base + "/" + path).c_str(), is_windows_path), is_windows_path};
 }
 
-std::string normalise_path(const char* input) {
+std::string normalise_path(const char* input, bool use_backslashes_as_path_separators) {
 	bool is_absolute = false;
 	std::optional<char> drive_letter;
 	std::vector<std::string> parts;
@@ -127,19 +137,29 @@ std::string normalise_path(const char* input) {
 	if(is_absolute) {
 		if(drive_letter.has_value()) {
 			output += *drive_letter;
-			output += ":/";
-		} else {
-			output += "/";
+			output += ":";
 		}
+		output += use_backslashes_as_path_separators ? '\\' : '/';
 	}
 	for(size_t i = 0; i < parts.size(); i++) {
 		output += parts[i];
 		if(i != parts.size() - 1) {
-			output += '/';
+			output += use_backslashes_as_path_separators ? '\\' : '/';
 		}
 	}
 	
 	return output;
+}
+
+bool guess_is_windows_path(const char* path) {
+	for(const char* ptr = path; *ptr != 0; ptr++) {
+		if(*ptr == '\\') {
+			return true;
+		} else if(*ptr == '/') {
+			return false;
+		}
+	}
+	return false;
 }
 
 }
