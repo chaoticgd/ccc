@@ -232,7 +232,6 @@ void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
 void LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_to_ast_state);
 	node->order = output.next_order++;
-	node->stabs_type_number = symbol.name_colon_type.type->type_number;
 	output.types.emplace_back(std::move(node));
 }
 
@@ -240,7 +239,7 @@ void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, co
 	std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
 	global->name = name;
 	if(is_static) {
-		global->storage_class = ast::StorageClass::STATIC;
+		global->storage_class = ast::SC_STATIC;
 	}
 	global->variable_class = ast::VariableClass::GLOBAL;
 	global->storage.type = ast::VariableStorageType::GLOBAL;
@@ -268,7 +267,7 @@ void LocalSymbolTableAnalyser::procedure(const char* name, s32 address, bool is_
 	
 	current_function->address_range.low = address;
 	if(is_static) {
-		current_function->storage_class = ast::StorageClass::STATIC;
+		current_function->storage_class = ast::SC_STATIC;
 	}
 	
 	pending_variables_begin.clear();
@@ -330,7 +329,7 @@ void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType&
 	pending_variables_begin.emplace_back(local.get());
 	local->name = name;
 	if(is_static) {
-		local->storage_class = ast::StorageClass::STATIC;
+		local->storage_class = ast::SC_STATIC;
 	}
 	local->variable_class = ast::VariableClass::LOCAL;
 	local->storage.type = storage_type;

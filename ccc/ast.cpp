@@ -13,7 +13,7 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const Stab
 	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
 	node->symbol = &symbol;
 	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
-		node->storage_class = StorageClass::TYPEDEF;
+		node->storage_class = SC_TYPEDEF;
 	}
 	return node;
 }
@@ -290,7 +290,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 		bitfield->underlying_type = stabs_type_to_ast(*field.type, state, bitfield->absolute_offset_bytes, depth + 1, true, false);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
 		if(field.is_static) {
-			bitfield->storage_class = ast::StorageClass::STATIC;
+			bitfield->storage_class = ast::SC_STATIC;
 		}
 		return bitfield;
 	}
@@ -304,7 +304,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 	child->absolute_offset_bytes = absolute_offset_bytes;
 	child->size_bits = field.size_bits;
 	if(field.is_static) {
-		child->storage_class = ast::StorageClass::STATIC;
+		child->storage_class = ast::SC_STATIC;
 	}
 	return child;
 }
@@ -416,6 +416,10 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 		std::vector<std::unique_ptr<Node>>& ast_nodes = file.types;
 		std::string& file_name = file.full_path;
 		for(std::unique_ptr<Node>& node : ast_nodes) {
+			s64 stabs_type_number = -1;
+			if(node->symbol && node->symbol->name_colon_type.type && !node->symbol->name_colon_type.type->anonymous) {
+				stabs_type_number = node->symbol->name_colon_type.type->type_number;
+			}
 			auto existing_node_index = name_to_deduplicated_index.find(node->name);
 			if(existing_node_index == name_to_deduplicated_index.end()) {
 				// No types with this name have previously been processed.
@@ -423,7 +427,9 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 				size_t index = deduplicated_nodes.size();
 				node->files = {i};
 				deduplicated_nodes.emplace_back().emplace_back((s32) flat_nodes.size());
-				file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
+				if(stabs_type_number > -1) {
+					file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = (s32) flat_nodes.size();
+				}
 				flat_nodes.emplace_back(std::move(node));
 				name_to_deduplicated_index[name] = index;
 			} else {
@@ -445,7 +451,9 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 						// This type matches another that has already been
 						// processed, so we omit it from the output.
 						existing_node->files.emplace_back(i);
-						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
+						if(stabs_type_number > -1) {
+							file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = existing_node_index;
+						}
 						match = true;
 					}
 				}
@@ -454,7 +462,9 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 					// that have already been processed.
 					node->files = {i};
 					existing_nodes.emplace_back((s32) flat_nodes.size());
-					file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
+					if(stabs_type_number > -1) {
+						file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = (s32) flat_nodes.size();
+					}
 					flat_nodes.emplace_back(std::move(node));
 				}
 			}
@@ -480,7 +490,6 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 	if(node_lhs.name != node_rhs.name) return CompareFailReason::NAME;
 	if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
 	if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
-	if(node_lhs.bitfield_offset_bits != node_rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
 	if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;
 	if(node_lhs.is_const != node_rhs.is_const) return CompareFailReason::CONSTNESS;
 	// We intentionally don't compare order, files, conflict symbol or compare_fail_reason here.
@@ -494,6 +503,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 		}
 		case BITFIELD: {
 			const auto [lhs, rhs] = Node::as<BitField>(node_lhs, node_rhs);
+			if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
 			auto bitfield_compare = compare_ast_nodes(*lhs.underlying_type.get(), *rhs.underlying_type.get());
 			if(bitfield_compare.has_value()) return bitfield_compare;
 			break;
@@ -664,12 +674,12 @@ const char* node_type_to_string(const Node& node) {
 
 const char* storage_class_to_string(StorageClass storage_class) {
 	switch(storage_class) {
-		case StorageClass::NONE: return "none";
-		case StorageClass::TYPEDEF: return "typedef";
-		case StorageClass::EXTERN: return "extern";
-		case StorageClass::STATIC: return "static";
-		case StorageClass::AUTO: return "auto";
-		case StorageClass::REGISTER: return "register";
+		case SC_NONE: return "none";
+		case SC_TYPEDEF: return "typedef";
+		case SC_EXTERN: return "extern";
+		case SC_STATIC: return "static";
+		case SC_AUTO: return "auto";
+		case SC_REGISTER: return "register";
 	}
 	return "";
 }

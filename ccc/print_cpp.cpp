@@ -128,7 +128,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		print_variable_storage_comment(stdout, variable.storage);
 	}
 	
-	print_cpp_storage_class(dest, node.storage_class);
+	print_cpp_storage_class(dest, (ast::StorageClass) node.storage_class);
 	
 	if(node.is_const) {
 		fprintf(dest, "const ");
@@ -214,7 +214,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		case ast::INLINE_ENUM: {
 			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
 			fprintf(dest, "enum");
-			bool name_on_top = (indentation_level == 0) && (inline_enum.storage_class != ast::StorageClass::TYPEDEF);
+			bool name_on_top = (indentation_level == 0) && (inline_enum.storage_class != ast::SC_TYPEDEF);
 			if(name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
@@ -244,7 +244,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			} else {
 				fprintf(dest, "union");
 			}
-			bool name_on_top = (indentation_level == 0) && (struct_or_union.storage_class != ast::StorageClass::TYPEDEF);
+			bool name_on_top = (indentation_level == 0) && (struct_or_union.storage_class != ast::SC_TYPEDEF);
 			if(name_on_top) {
 				print_cpp_variable_name(dest, name, INSERT_SPACE_TO_LEFT);
 			}
@@ -338,12 +338,12 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 
 static void print_cpp_storage_class(FILE* dest, ast::StorageClass storage_class) {
 	switch(storage_class) {
-		case ast::StorageClass::NONE: break;
-		case ast::StorageClass::TYPEDEF: fprintf(dest, "typedef "); break;
-		case ast::StorageClass::EXTERN: fprintf(dest, "extern "); break;
-		case ast::StorageClass::STATIC: fprintf(dest, "static "); break;
-		case ast::StorageClass::AUTO: fprintf(dest, "auto "); break;
-		case ast::StorageClass::REGISTER: fprintf(dest, "register "); break;
+		case ast::SC_NONE: break;
+		case ast::SC_TYPEDEF: fprintf(dest, "typedef "); break;
+		case ast::SC_EXTERN: fprintf(dest, "extern "); break;
+		case ast::SC_STATIC: fprintf(dest, "static "); break;
+		case ast::SC_AUTO: fprintf(dest, "auto "); break;
+		case ast::SC_REGISTER: fprintf(dest, "register "); break;
 	}
 }
 
@@ -374,11 +374,11 @@ static void print_cpp_variable_name(FILE* dest, VariableName& name, u32 flags) {
 }
 
 static void print_cpp_offset(FILE* dest, const ast::Node& node, s32 digits_for_offset) {
-	if(node.storage_class != ast::StorageClass::STATIC && node.absolute_offset_bytes > -1) {
+	if(node.storage_class != ast::SC_STATIC && node.absolute_offset_bytes > -1) {
 		assert(digits_for_offset > -1 && digits_for_offset < 100);
 		fprintf(dest, "/* 0x%0*x", digits_for_offset, node.absolute_offset_bytes);
-		if(node.bitfield_offset_bits > -1) {
-			fprintf(dest, ":%d", node.bitfield_offset_bits);
+		if(node.descriptor == ast::BITFIELD) {
+			fprintf(dest, ":%d", node.as<ast::BitField>().bitfield_offset_bits);
 		}
 		fprintf(dest, " */ ");
 	}

@@ -61,8 +61,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	if(!node.name.empty()) {
 		json.string_property("name", node.name.c_str());
 	}
-	if(node.storage_class != ast::StorageClass::NONE) {
-		json.string_property("storage_class", storage_class_to_string(node.storage_class));
+	if(node.storage_class != ast::SC_NONE) {
+		json.string_property("storage_class", storage_class_to_string((ast::StorageClass) node.storage_class));
 	}
 	if(node.relative_offset_bytes != -1) {
 		json.number_property("relative_offset_bytes", node.relative_offset_bytes);
@@ -70,8 +70,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	if(node.absolute_offset_bytes != -1) {
 		json.number_property("absolute_offset_bytes", node.absolute_offset_bytes);
 	}
-	if(node.bitfield_offset_bits != -1) {
-		json.number_property("bitfield_offset_bits", node.bitfield_offset_bits);
+	if(node.descriptor == ast::BITFIELD) {
+		json.number_property("bitfield_offset_bits", node.as<ast::BitField>().bitfield_offset_bits);
 	}
 	if(node.size_bits != -1) {
 		json.number_property("size_bits", node.size_bits);
@@ -88,8 +88,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	if(node.conflict) {
 		json.boolean_property("conflict", true);
 	}
-	if(node.stabs_type_number != -1) {
-		json.number_property("stabs_type_number", node.stabs_type_number);
+	if(node.symbol && node.symbol->name_colon_type.type && !node.symbol->name_colon_type.type->anonymous) {
+		json.number_property("stabs_type_number", node.symbol->name_colon_type.type->type_number);
 	}
 	if(!node.files.empty()) {
 		json.property("files");
