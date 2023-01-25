@@ -31,34 +31,29 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 		}
 	}
 	
+	ast::TypeDeduplicatorOMatic deduplicator;
+	
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
 		assert(file_descriptor_index < symbol_table.files.size());
 		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
+		if(flags & DEDUPLICATE_TYPES) {
+			deduplicator.process_file(*results.source_files.back().get(), file_descriptor_index);
+		}
 	} else {
 		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
 			analyse_file(results, symbol_table, fd, globals, i, flags);
+			if(flags & DEDUPLICATE_TYPES) {
+				deduplicator.process_file(*results.source_files.back().get(), i);
+			}
 		}
-	}
-	
-	for(std::unique_ptr<ast::SourceFile>& source_file : results.source_files) {
-		// Some enums have two separate stabs generated for them, one with a
-		// name of " ", where one stab references the other. Remove these
-		// duplicate AST nodes.
-		ast::remove_duplicate_enums(source_file->types);
-		// For some reason typedefs referencing themselves are generated along
-		// with a proper struct of the same name.
-		ast::remove_duplicate_self_typedefs(source_file->types);
-		// Filter the AST depending on the flags parsed, removing things the
-		// calling code didn't ask for.
-		filter_ast_by_flags(*source_file, flags);
 	}
 	
 	// Deduplicate types from different translation units, preserving multiple
 	// copies of types that actually differ.
 	if(flags & DEDUPLICATE_TYPES) {
-		results.deduplicated_types = ast::deduplicate_types(results.source_files);
+		results.deduplicated_types = deduplicator.finish();
 	}
 	
 	return results;
@@ -198,6 +193,17 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	
 	analyser.finish();
 	
+	// Some enums have two separate stabs generated for them, one with a
+	// name of " ", where one stab references the other. Remove these
+	// duplicate AST nodes.
+	ast::remove_duplicate_enums(file->types);
+	// For some reason typedefs referencing themselves are generated along
+	// with a proper struct of the same name.
+	ast::remove_duplicate_self_typedefs(file->types);
+	// Filter the AST depending on the flags parsed, removing things the
+	// calling code didn't ask for.
+	filter_ast_by_flags(*file, flags);
+	
 	results.source_files.emplace_back(std::move(file));
 }
 
@@ -232,7 +238,6 @@ void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
 void LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_to_ast_state);
 	node->order = output.next_order++;
-	node->stabs_type_number = symbol.name_colon_type.type->type_number;
 	output.types.emplace_back(std::move(node));
 }
 
@@ -240,7 +245,7 @@ void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, co
 	std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
 	global->name = name;
 	if(is_static) {
-		global->storage_class = ast::StorageClass::STATIC;
+		global->storage_class = ast::SC_STATIC;
 	}
 	global->variable_class = ast::VariableClass::GLOBAL;
 	global->storage.type = ast::VariableStorageType::GLOBAL;
@@ -268,7 +273,7 @@ void LocalSymbolTableAnalyser::procedure(const char* name, s32 address, bool is_
 	
 	current_function->address_range.low = address;
 	if(is_static) {
-		current_function->storage_class = ast::StorageClass::STATIC;
+		current_function->storage_class = ast::SC_STATIC;
 	}
 	
 	pending_variables_begin.clear();
@@ -300,7 +305,6 @@ void LocalSymbolTableAnalyser::function(const char* name, const StabsType& retur
 	}
 	
 	current_function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true, true);
-	current_function_type->parameters.emplace();
 }
 
 void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
@@ -330,7 +334,7 @@ void LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType&
 	pending_variables_begin.emplace_back(local.get());
 	local->name = name;
 	if(is_static) {
-		local->storage_class = ast::StorageClass::STATIC;
+		local->storage_class = ast::SC_STATIC;
 	}
 	local->variable_class = ast::VariableClass::LOCAL;
 	local->storage.type = storage_type;
@@ -391,6 +395,7 @@ static void create_function(LocalSymbolTableAnalyser& analyser, const char* name
 	
 	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
 	analyser.current_function_type = function_type.get();
+	analyser.current_function_type->parameters.emplace();
 	analyser.current_function->type = std::move(function_type);
 }
 
