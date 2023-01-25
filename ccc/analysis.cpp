@@ -305,7 +305,6 @@ void LocalSymbolTableAnalyser::function(const char* name, const StabsType& retur
 	}
 	
 	current_function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true, true);
-	current_function_type->parameters.emplace();
 }
 
 void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
@@ -396,6 +395,7 @@ static void create_function(LocalSymbolTableAnalyser& analyser, const char* name
 	
 	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
 	analyser.current_function_type = function_type.get();
+	analyser.current_function_type->parameters.emplace();
 	analyser.current_function->type = std::move(function_type);
 }
 
