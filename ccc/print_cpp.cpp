@@ -39,7 +39,7 @@ void print_cpp_comment_block_compiler_version_info(FILE* dest, const mdebug::Sym
 	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		bool known = false;
 		for(const mdebug::Symbol& symbol : fd.symbols) {
-			if(symbol.storage_class == mdebug::SymbolClass::INFO && symbol.string != "@stabs") {
+			if(symbol.storage_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
 				known = true;
 				compiler_version_info.emplace(symbol.string);
 			}
