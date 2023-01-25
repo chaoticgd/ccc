@@ -427,7 +427,7 @@ std::string JsonWriter::encode_string(const char* string) {
 	
 	std::string encoded;
 	for(const char* ptr = string; *ptr != 0; ptr++) {
-		if(isprint(*ptr)) {
+		if(*ptr >= 0 && *ptr <= 0x7f && isprint(*ptr)) {
 			if(*ptr == '"' || *ptr == '\\') {
 				encoded += '\\';
 			}
