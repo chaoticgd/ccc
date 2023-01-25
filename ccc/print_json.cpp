@@ -70,9 +70,6 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	if(node.absolute_offset_bytes != -1) {
 		json.number_property("absolute_offset_bytes", node.absolute_offset_bytes);
 	}
-	if(node.descriptor == ast::BITFIELD) {
-		json.number_property("bitfield_offset_bits", node.as<ast::BitField>().bitfield_offset_bits);
-	}
 	if(node.size_bits != -1) {
 		json.number_property("size_bits", node.size_bits);
 	}
@@ -99,9 +96,6 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 		}
 		json.end_array();
 	}
-	if(node.conflict) {
-		json.boolean_property("conflict", true);
-	}
 	switch(node.descriptor) {
 		case ast::NodeDescriptor::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
@@ -112,6 +106,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 		}
 		case ast::NodeDescriptor::BITFIELD: {
 			const ast::BitField& bitfield = node.as<ast::BitField>();
+			json.number_property("bitfield_offset_bits", node.as<ast::BitField>().bitfield_offset_bits);
 			json.property("underlying_type");
 			print_json_ast_node(json, bitfield.underlying_type.get());
 			break;
