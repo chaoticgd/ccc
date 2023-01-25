@@ -1,13 +1,14 @@
 #include "ccc.h"
 
-#include <filesystem>
-#include <stdexcept>
-#include <fstream>
-#include <iterator>
 #include <vector>
-#include <cstdint>
 #include <string>
+#include <cstdint>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+#include <iterator>
+#include <stdexcept>
+#include <filesystem>
 
 namespace ccc {
 
