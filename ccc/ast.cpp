@@ -10,7 +10,7 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
 	auto node = stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), state, 0, 0, false, false);
-	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
+	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name.c_str();
 	node->symbol = &symbol;
 	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
 		node->storage_class = SC_TYPEDEF;
@@ -186,7 +186,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 					if(function_set.name == "__as") {
 						node->name = "operator=";
 					} else {
-						node->name = function_set.name;
+						node->name = function_set.name.c_str();
 					}
 					if(node->descriptor == FUNCTION_TYPE) {
 						FunctionType& function = node->as<FunctionType>();
@@ -283,7 +283,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 	if(detect_bitfield(field, state)) {
 		// Process bitfields.
 		std::unique_ptr<BitField> bitfield = std::make_unique<BitField>();
-		bitfield->name = (field.name == " ") ? "" : field.name;
+		bitfield->name = (field.name == " ") ? "" : field.name.c_str();
 		bitfield->relative_offset_bytes = field.offset_bits / 8;
 		bitfield->absolute_offset_bytes = absolute_parent_offset_bytes + bitfield->relative_offset_bytes;
 		bitfield->size_bits = field.size_bits;
@@ -299,7 +299,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 	s32 relative_offset_bytes = field.offset_bits / 8;
 	s32 absolute_offset_bytes = absolute_parent_offset_bytes + relative_offset_bytes;
 	std::unique_ptr<Node> child = stabs_type_to_ast(*field.type, state, absolute_offset_bytes, depth + 1, true, false);
-	child->name = (field.name == " ") ? "" : field.name;
+	child->name = (field.name == " ") ? "" : field.name.c_str();
 	child->relative_offset_bytes = relative_offset_bytes;
 	child->absolute_offset_bytes = absolute_offset_bytes;
 	child->size_bits = field.size_bits;
@@ -393,7 +393,7 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 				bool is_match = other.get() != &node
 					&& (other->descriptor == INLINE_ENUM
 						|| other->descriptor == INLINE_STRUCT_OR_UNION)
-					&& other->name == node.name;
+					&& other->name == node.name.c_str();
 				if(is_match) {
 					match = true;
 					break;
@@ -410,7 +410,7 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr<ast::SourceFile>>& source_files) {
 	std::vector<std::unique_ptr<Node>> flat_nodes;
 	std::vector<std::vector<s32>> deduplicated_nodes;
-	std::map<std::string, size_t> name_to_deduplicated_index;
+	std::map<std::string_view, size_t> name_to_deduplicated_index;
 	for(s32 i = 0; i < (s32) source_files.size(); i++) {
 		SourceFile& file = *source_files[i].get();
 		std::vector<std::unique_ptr<Node>>& ast_nodes = file.types;
@@ -420,10 +420,10 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 			if(node->symbol && node->symbol->name_colon_type.type && !node->symbol->name_colon_type.type->anonymous) {
 				stabs_type_number = node->symbol->name_colon_type.type->type_number;
 			}
-			auto existing_node_index = name_to_deduplicated_index.find(node->name);
+			auto existing_node_index = name_to_deduplicated_index.find(std::string_view(node->name.ptr));
 			if(existing_node_index == name_to_deduplicated_index.end()) {
 				// No types with this name have previously been processed.
-				std::string name = node->name;
+				std::string_view name = node->name.ptr;
 				size_t index = deduplicated_nodes.size();
 				node->files = {i};
 				deduplicated_nodes.emplace_back().emplace_back((s32) flat_nodes.size());
@@ -487,7 +487,7 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, const ast::Node& node_rhs) {
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
-	if(node_lhs.name != node_rhs.name) return CompareFailReason::NAME;
+	if(!(node_lhs.name == node_rhs.name.c_str())) return CompareFailReason::NAME;
 	if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
 	if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
 	if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;

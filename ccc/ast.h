@@ -53,7 +53,7 @@ struct Node {
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
 	// should pass the name down.
-	std::string name;
+	StringPointer name;
 	
 	std::vector<s32> files; // List of files for which a given top-level type is present.
 	const ParsedSymbol* symbol = nullptr;
