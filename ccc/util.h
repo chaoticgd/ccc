@@ -103,10 +103,11 @@ std::string normalise_path(const char* input, bool use_backslashes_as_path_separ
 bool guess_is_windows_path(const char* path);
 
 struct StringPointer {
-	const char* ptr = nullptr;
+	const char* ptr = "";
 	
 	StringPointer& operator=(const char* rhs) { ptr = rhs; return *this; }
-	bool operator==(const std::string& rhs) const { return strcmp(ptr, rhs.c_str()); }
+	bool operator==(const StringPointer& rhs) const { return strcmp(ptr, rhs.ptr) == 0; }
+	bool operator==(const std::string& rhs) const { return strcmp(ptr, rhs.c_str()) == 0; }
 	bool empty() const { return !ptr || strlen(ptr) == 0; }
 	const char* c_str() const { return ptr; }
 	bool starts_with(const char* pattern) const { return std::string(ptr).starts_with(pattern); }

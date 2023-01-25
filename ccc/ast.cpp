@@ -407,72 +407,65 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	}
 }
 
-std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr<ast::SourceFile>>& source_files) {
-	std::vector<std::unique_ptr<Node>> flat_nodes;
-	std::vector<std::vector<s32>> deduplicated_nodes;
-	std::map<std::string_view, size_t> name_to_deduplicated_index;
-	for(s32 i = 0; i < (s32) source_files.size(); i++) {
-		SourceFile& file = *source_files[i].get();
-		std::vector<std::unique_ptr<Node>>& ast_nodes = file.types;
-		std::string& file_name = file.full_path;
-		for(std::unique_ptr<Node>& node : ast_nodes) {
-			s64 stabs_type_number = -1;
-			if(node->symbol && node->symbol->name_colon_type.type && !node->symbol->name_colon_type.type->anonymous) {
-				stabs_type_number = node->symbol->name_colon_type.type->type_number;
+void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index) {
+	for(std::unique_ptr<Node>& node : file.types) {
+		s64 stabs_type_number = -1;
+		if(node->symbol && node->symbol->name_colon_type.type && !node->symbol->name_colon_type.type->anonymous) {
+			stabs_type_number = node->symbol->name_colon_type.type->type_number;
+		}
+		auto existing_node_index = name_to_deduplicated_index.find(std::string_view(node->name.ptr));
+		if(existing_node_index == name_to_deduplicated_index.end()) {
+			// No types with this name have previously been processed.
+			std::string_view name = node->name.ptr;
+			size_t index = deduplicated_nodes.size();
+			node->files = {file_index};
+			deduplicated_nodes.emplace_back().emplace_back((s32) flat_nodes.size());
+			if(stabs_type_number > -1) {
+				file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = (s32) flat_nodes.size();
 			}
-			auto existing_node_index = name_to_deduplicated_index.find(std::string_view(node->name.ptr));
-			if(existing_node_index == name_to_deduplicated_index.end()) {
-				// No types with this name have previously been processed.
-				std::string_view name = node->name.ptr;
-				size_t index = deduplicated_nodes.size();
-				node->files = {i};
-				deduplicated_nodes.emplace_back().emplace_back((s32) flat_nodes.size());
+			flat_nodes.emplace_back(std::move(node));
+			name_to_deduplicated_index[name] = index;
+		} else {
+			// Types with this name have previously been processed, we need
+			// to figure out if this one matches any of the previous ones.
+			std::vector<s32>& existing_nodes = deduplicated_nodes[existing_node_index->second];
+			bool match = false;
+			for(s32 existing_node_index : existing_nodes) {
+				std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
+				auto compare_result = compare_ast_nodes(*existing_node.get(), *node.get());
+				if(compare_result.has_value()) {
+					bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
+						&& existing_node->name.empty();
+					if(!is_anonymous_enum) {
+						existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+						node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+					}
+				} else {
+					// This type matches another that has already been
+					// processed, so we omit it from the output.
+					existing_node->files.emplace_back(file_index);
+					if(stabs_type_number > -1) {
+						file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = existing_node_index;
+					}
+					match = true;
+				}
+			}
+			if(!match) {
+				// This type doesn't match the others with the same name
+				// that have already been processed.
+				node->files = {file_index};
+				existing_nodes.emplace_back((s32) flat_nodes.size());
 				if(stabs_type_number > -1) {
 					file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = (s32) flat_nodes.size();
 				}
 				flat_nodes.emplace_back(std::move(node));
-				name_to_deduplicated_index[name] = index;
-			} else {
-				// Types with this name have previously been processed, we need
-				// to figure out if this one matches any of the previous ones.
-				std::vector<s32>& existing_nodes = deduplicated_nodes[existing_node_index->second];
-				bool match = false;
-				for(s32 existing_node_index : existing_nodes) {
-					std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
-					auto compare_result = compare_ast_nodes(*existing_node.get(), *node.get());
-					if(compare_result.has_value()) {
-						bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
-							&& existing_node->name.empty();
-						if(!is_anonymous_enum) {
-							existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
-							node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
-						}
-					} else {
-						// This type matches another that has already been
-						// processed, so we omit it from the output.
-						existing_node->files.emplace_back(i);
-						if(stabs_type_number > -1) {
-							file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = existing_node_index;
-						}
-						match = true;
-					}
-				}
-				if(!match) {
-					// This type doesn't match the others with the same name
-					// that have already been processed.
-					node->files = {i};
-					existing_nodes.emplace_back((s32) flat_nodes.size());
-					if(stabs_type_number > -1) {
-						file.stabs_type_number_to_deduplicated_type_index[stabs_type_number] = (s32) flat_nodes.size();
-					}
-					flat_nodes.emplace_back(std::move(node));
-				}
 			}
 		}
-		source_files[i]->types.clear();
 	}
-	
-	// Set the conflict flag.
+	file.types.clear();
+}
+
+std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
 	for(std::vector<s32>& node_group : deduplicated_nodes) {
 		if(node_group.size() > 1) {
 			for(s32 index : node_group) {
@@ -481,13 +474,13 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 		}
 	}
 	
-	return flat_nodes;
+	return std::move(flat_nodes);
 }
 
 std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, const ast::Node& node_rhs) {
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
-	if(!(node_lhs.name == node_rhs.name.c_str())) return CompareFailReason::NAME;
+	if(!(node_lhs.name == node_rhs.name)) return CompareFailReason::NAME;
 	if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
 	if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
 	if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;

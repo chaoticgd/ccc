@@ -290,6 +290,15 @@ struct Variable : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
 };
 
+struct TypeDeduplicatorOMatic {
+	std::vector<std::unique_ptr<Node>> flat_nodes;
+	std::vector<std::vector<s32>> deduplicated_nodes;
+	std::map<std::string_view, size_t> name_to_deduplicated_index;
+	
+	void process_file(ast::SourceFile& file, s32 file_index);
+	std::vector<std::unique_ptr<Node>> finish();
+};
+
 struct StabsToAstState {
 	s32 file_index;
 	std::map<s64, const StabsType*>* stabs_types;
@@ -300,7 +309,6 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
-std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr<ast::SourceFile>>& source_files);
 enum class CompareFailReason {
 	DESCRIPTOR,
 	STORAGE_CLASS,
