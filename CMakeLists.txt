@@ -14,14 +14,18 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(DBUILD_STATIC)
+	set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+	set(BUILD_SHARED_LIBS OFF)
+	set(CMAKE_EXE_LINKER_FLAGS "-static")
+endif()
+
 if(MSVC)
 	# TODO
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-g")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-	set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-	set(BUILD_SHARED_LIBS OFF)
-	set(CMAKE_EXE_LINKER_FLAGS "-static")
 endif()
 
 include(cmake/version_finder.cmake)
