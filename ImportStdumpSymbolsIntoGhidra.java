@@ -155,7 +155,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 						for(int i = 0; i < type.parameters.size(); i++) {
 							AST.Variable variable = (AST.Variable) type.parameters.get(i);
 							DataType parameter_type = AST.replace_void_with_undefined1(variable.type.create_type(importer));
-							if(parameter_type.getLength() > 16) {
+							if(variable.storage.is_by_reference) {
 								parameter_type = new PointerDataType(parameter_type);
 							}
 							parameters.add(new ParameterImpl(variable.name, parameter_type, currentProgram));
@@ -523,21 +523,19 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 		public static class Pointer extends Node {
 			Node value_type;
 			
-			public int size_bytes(ImporterState importer) throws Exception {
-				return 4;
-			}
-			
 			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return new PointerDataType(value_type.create_type(importer));
 			}
 		}
 		
+		public static class PointerToDataMember extends Node {
+			public DataType create_type_impl(ImporterState importer) throws Exception {
+				return Undefined4DataType.dataType;
+			}
+		}
+		
 		public static class Reference extends Node {
 			Node value_type;
-			
-			public int size_bytes(ImporterState importer) throws Exception {
-				return 4;
-			}
 			
 			public DataType create_type_impl(ImporterState importer) throws Exception {
 				return new PointerDataType(value_type.create_type(importer));
@@ -614,6 +612,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			String register_class;
 			int dbx_register_number = -1;
 			int register_index_relative = -1;
+			boolean is_by_reference = false;
 			int stack_pointer_offset = -1;
 		}
 		
@@ -646,7 +645,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				throws JsonParseException {
 			ParsedJsonFile result = new ParsedJsonFile();
 			JsonObject object = element.getAsJsonObject();
-			int supported_version = 4;
+			int supported_version = 5;
 			if(!object.has("version")) {
 				throw new JsonParseException("JSON file has missing version number field.");
 			}
@@ -777,6 +776,8 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				AST.Pointer pointer = new AST.Pointer();
 				pointer.value_type = context.deserialize(object.get("value_type"), AST.Node.class);
 				node = pointer;
+			} else if(descriptor.equals("pointer_to_data_member")) {
+				node = new AST.PointerToDataMember();
 			} else if(descriptor.equals("reference")) {
 				AST.Reference reference = new AST.Reference();
 				reference.value_type = context.deserialize(object.get("value_type"), AST.Node.class);
@@ -896,6 +897,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				dest.register_class = src.get("register_class").getAsString();
 				dest.dbx_register_number = src.get("dbx_register_number").getAsInt();
 				dest.register_index_relative = src.get("register_index").getAsInt();
+				dest.is_by_reference = src.get("is_by_reference").getAsBoolean();
 			} else if(type.equals("stack")) {
 				dest.type = AST.VariableStorageType.STACK;
 				dest.stack_pointer_offset = src.get("stack_offset").getAsInt();

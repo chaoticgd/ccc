@@ -39,7 +39,6 @@ struct LocalSymbolTableAnalyser {
 	enum AnalysisState {
 		NOT_IN_FUNCTION,
 		IN_FUNCTION_BEGINNING,
-		IN_FUNCTION_MIDDLE,
 		IN_FUNCTION_END
 	};
 	
@@ -51,16 +50,33 @@ struct LocalSymbolTableAnalyser {
 	std::string next_relative_path;
 	
 	// Functions for processing individual symbols.
+	//
+	// In most cases these symbols will appear in the following order:
+	//   proc
+	//   ... line numbers ...
+	//   end
+	//   func
+	//   ... parameters ...
+	//   ... blocks ...
+	//   
+	// For some compiler versions the symbols can appear in this order:
+	//   func
+	//   ... parameters ...
+	//   $LM1
+	//   proc
+	//   ... line numbers ...
+	//   end
+	//   ... blocks ...
 	void stab_magic(const char* magic);
 	void source_file(const char* path, s32 text_address);
 	void data_type(const ParsedSymbol& symbol);
 	void global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location);
 	void sub_source_file(const char* name, s32 text_address);
-	void function(const char* name, s32 address, bool is_static);
+	void procedure(const char* name, s32 address, bool is_static);
 	void label(const char* label, s32 address, s32 line_number);
 	void text_end(const char* name, s32 function_size);
-	void return_type(const char* name, const StabsType& return_type, s32 function_address);
-	void parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register);
+	void function(const char* name, const StabsType& return_type, s32 function_address);
+	void parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
 	void local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
 	void lbrac(s32 number, s32 begin_offset);
 	void rbrac(s32 number, s32 end_offset);

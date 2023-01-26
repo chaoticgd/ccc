@@ -7,28 +7,29 @@
 
 namespace ccc::ast {
 
-enum class StorageClass {
-	NONE,
-	TYPEDEF,
-	EXTERN,
-	STATIC,
-	AUTO,
-	REGISTER
+enum StorageClass {
+	SC_NONE = 0,
+	SC_TYPEDEF = 1,
+	SC_EXTERN = 2,
+	SC_STATIC = 3,
+	SC_AUTO = 4,
+	SC_REGISTER = 5
 };
 
 enum NodeDescriptor {
-	ARRAY,
-	BITFIELD,
-	BUILTIN,
-	FUNCTION_DEFINITION,
-	FUNCTION_TYPE,
-	INLINE_ENUM,
-	INLINE_STRUCT_OR_UNION,
-	POINTER,
-	REFERENCE,
-	SOURCE_FILE,
-	TYPE_NAME,
-	VARIABLE
+	ARRAY = 0,
+	BITFIELD = 1,
+	BUILTIN = 2,
+	FUNCTION_DEFINITION = 3,
+	FUNCTION_TYPE = 4,
+	INLINE_ENUM = 5,
+	INLINE_STRUCT_OR_UNION = 6,
+	POINTER = 7,
+	POINTER_TO_DATA_MEMBER = 8,
+	REFERENCE = 9,
+	SOURCE_FILE = 10,
+	TYPE_NAME = 11,
+	VARIABLE = 12
 };
 
 struct AddressRange {
@@ -41,26 +42,27 @@ struct AddressRange {
 
 
 struct Node {
-	const NodeDescriptor descriptor;
+	u8 descriptor : 4;
+	u8 is_const : 1 = false;
+	u8 is_volatile : 1 = false;
+	u8 conflict : 1 = false; // Are there multiple differing types with the same name?
+	u8 unused : 1;
+	s32 storage_class : 4 = SC_NONE;
+	s32 order : 28 = -1; // Used to preserve the order of children of SourceFile.
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
 	// should pass the name down.
 	std::string name;
-	StorageClass storage_class = StorageClass::NONE;
+	
+	std::vector<s32> files; // List of files for which a given top-level type is present.
+	const ParsedSymbol* symbol = nullptr;
+	const char* compare_fail_reason = "";
+	s64 stabs_type_number = -1;
 	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
-	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	s32 size_bits = -1;
-	bool is_const = false;
-	
-	s32 order = -1; // Used to preserve the order of children of SourceFile.
-	std::vector<s32> files; // List of files for which a given top-level type is present.
-	bool conflict = false; // Are there multiple differing types with the same name?
-	const ParsedSymbol* symbol = nullptr;
-	const char* compare_fail_reason = "";
-	s32 stabs_type_number = -1; // Only populated for the root.
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -88,6 +90,7 @@ struct Array : Node {
 };
 
 struct BitField : Node {
+	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
 	std::unique_ptr<Node> underlying_type;
 	
 	BitField() : Node(DESCRIPTOR) {}
@@ -166,6 +169,14 @@ struct Pointer : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER;
 };
 
+struct PointerToDataMember : Node {
+	std::unique_ptr<Node> class_type;
+	std::unique_ptr<Node> member_type;
+	
+	PointerToDataMember() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_TO_DATA_MEMBER;
+};
+
 struct Reference : Node {
 	std::unique_ptr<Node> value_type;
 	
@@ -175,6 +186,7 @@ struct Reference : Node {
 
 struct SourceFile : Node {
 	std::string full_path;
+	bool is_windows_path = false;
 	std::string relative_path = "";
 	u32 text_address = 0;
 	std::vector<std::unique_ptr<ast::Node>> functions;
@@ -252,6 +264,8 @@ enum class GlobalVariableLocation {
 	SDATA,
 	SBSS,
 	RDATA,
+	COMMON,
+	SCOMMON
 };
 
 struct VariableStorage {
@@ -261,6 +275,7 @@ struct VariableStorage {
 	mips::RegisterClass register_class = mips::RegisterClass::GPR;
 	s32 dbx_register_number = -1;
 	s32 register_index_relative = -1;
+	bool is_by_reference = false;
 	s32 stack_pointer_offset = -1;
 	
 	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;
@@ -276,6 +291,15 @@ struct Variable : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
 };
 
+struct TypeDeduplicatorOMatic {
+	std::vector<std::unique_ptr<Node>> flat_nodes;
+	std::vector<std::vector<s32>> deduplicated_nodes;
+	std::map<std::string, size_t> name_to_deduplicated_index;
+	
+	void process_file(ast::SourceFile& file, s32 file_index);
+	std::vector<std::unique_ptr<Node>> finish();
+};
+
 struct StabsToAstState {
 	s32 file_index;
 	std::map<s64, const StabsType*>* stabs_types;
@@ -286,7 +310,6 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
-std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr<ast::SourceFile>>& source_files);
 enum class CompareFailReason {
 	DESCRIPTOR,
 	STORAGE_CLASS,

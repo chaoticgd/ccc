@@ -13,7 +13,7 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const Stab
 	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
 	node->symbol = &symbol;
 	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
-		node->storage_class = StorageClass::TYPEDEF;
+		node->storage_class = SC_TYPEDEF;
 	}
 	return node;
 }
@@ -63,12 +63,12 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 	}
 	
 	// This prevents infinite recursion when an automatically generated member
-	// function references an anonymous type.
+	// function references an unnamed type.
 	if(force_substitute) {
 		const char* type_string = nullptr;
-		if(type.descriptor == StabsTypeDescriptor::ENUM) type_string = "__anonymous_enum";
-		if(type.descriptor == StabsTypeDescriptor::STRUCT) type_string = "__anonymous_struct";
-		if(type.descriptor == StabsTypeDescriptor::UNION) type_string = "__anonymous_union";
+		if(type.descriptor == StabsTypeDescriptor::ENUM) type_string = "__unnamed_enum";
+		if(type.descriptor == StabsTypeDescriptor::STRUCT) type_string = "__unnamed_struct";
+		if(type.descriptor == StabsTypeDescriptor::UNION) type_string = "__unnamed_union";
 		if(type_string) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = TypeNameSource::REFERENCE;
@@ -131,6 +131,12 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			auto function = std::make_unique<ast::FunctionType>();
 			function->return_type = stabs_type_to_ast(*type.as<StabsFunctionType>().return_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
 			result = std::move(function);
+			break;
+		}
+		case StabsTypeDescriptor::VOLATILE_QUALIFIER: {
+			const auto& volatile_qualifier = type.as<StabsVolatileQualifierType>();
+			result = stabs_type_to_ast(*volatile_qualifier.type.get(), state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			result->is_volatile = true;
 			break;
 		}
 		case StabsTypeDescriptor::CONST_QUALIFIER: {
@@ -250,6 +256,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
+		case StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER: {
+			const auto& stabs_member_pointer = type.as<StabsPointerToNonStaticDataMember>();
+			auto member_pointer = std::make_unique<ast::PointerToDataMember>();
+			member_pointer->class_type = stabs_type_to_ast(*stabs_member_pointer.class_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			member_pointer->member_type = stabs_type_to_ast(*stabs_member_pointer.member_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			result = std::move(member_pointer);
+			break;
+		}
 		case StabsTypeDescriptor::BUILTIN: {
 			verify(type.as<StabsBuiltInType>().type_id == 16,
 				"Unknown built-in type! Please file a bug report.");
@@ -276,7 +290,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 		bitfield->underlying_type = stabs_type_to_ast(*field.type, state, bitfield->absolute_offset_bytes, depth + 1, true, false);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
 		if(field.is_static) {
-			bitfield->storage_class = ast::StorageClass::STATIC;
+			bitfield->storage_class = ast::SC_STATIC;
 		}
 		return bitfield;
 	}
@@ -290,7 +304,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 	child->absolute_offset_bytes = absolute_offset_bytes;
 	child->size_bits = field.size_bits;
 	if(field.is_static) {
-		child->storage_class = ast::StorageClass::STATIC;
+		child->storage_class = ast::SC_STATIC;
 	}
 	return child;
 }
@@ -298,7 +312,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
 	// Resolve type references.
 	const StabsType* type = field.type.get();
-	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
+	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER || type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
 		if(!type->has_body) {
 			if(type->anonymous) {
 				return false;
@@ -308,8 +322,10 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 				return false;
 			}
 			type = next_type->second;
-		} else {
+		} else if(type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
 			type = type->as<StabsConstQualifierType>().type.get();
+		} else {
+			type = type->as<StabsVolatileQualifierType>().type.get();
 		}
 	}
 	
@@ -391,62 +407,59 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	}
 }
 
-std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr<ast::SourceFile>>& source_files) {
-	std::vector<std::unique_ptr<Node>> flat_nodes;
-	std::vector<std::vector<s32>> deduplicated_nodes;
-	std::map<std::string, size_t> name_to_deduplicated_index;
-	for(s32 i = 0; i < (s32) source_files.size(); i++) {
-		SourceFile& file = *source_files[i].get();
-		std::vector<std::unique_ptr<Node>>& ast_nodes = file.types;
-		std::string& file_name = file.full_path;
-		for(std::unique_ptr<Node>& node : ast_nodes) {
-			auto existing_node_index = name_to_deduplicated_index.find(node->name);
-			if(existing_node_index == name_to_deduplicated_index.end()) {
-				// No types with this name have previously been processed.
-				std::string name = node->name;
-				size_t index = deduplicated_nodes.size();
-				node->files = {i};
-				deduplicated_nodes.emplace_back().emplace_back((s32) flat_nodes.size());
+void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index) {
+	for(std::unique_ptr<Node>& node : file.types) {
+		auto existing_node_iterator = name_to_deduplicated_index.find(node->name);
+		if(existing_node_iterator == name_to_deduplicated_index.end()) {
+			// No types with this name have previously been processed.
+			node->files = {file_index};
+			name_to_deduplicated_index[node->name] = deduplicated_nodes.size();
+			deduplicated_nodes.emplace_back().emplace_back((s32) flat_nodes.size());
+			if(node->stabs_type_number > -1) {
 				file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
-				flat_nodes.emplace_back(std::move(node));
-				name_to_deduplicated_index[name] = index;
-			} else {
-				// Types with this name have previously been processed, we need
-				// to figure out if this one matches any of the previous ones.
-				std::vector<s32>& existing_nodes = deduplicated_nodes[existing_node_index->second];
-				bool match = false;
-				for(s32 existing_node_index : existing_nodes) {
-					std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
-					auto compare_result = compare_ast_nodes(*existing_node.get(), *node.get());
-					if(compare_result.has_value()) {
-						bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
-							&& existing_node->name.empty();
-						if(!is_anonymous_enum) {
-							existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
-							node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
-						}
-					} else {
-						// This type matches another that has already been
-						// processed, so we omit it from the output.
-						existing_node->files.emplace_back(i);
-						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
-						match = true;
+			}
+			flat_nodes.emplace_back(std::move(node));
+		} else {
+			// Types with this name have previously been processed, we need
+			// to figure out if this one matches any of the previous ones.
+			std::vector<s32>& existing_nodes = deduplicated_nodes[existing_node_iterator->second];
+			bool match = false;
+			for(s32 existing_node_index : existing_nodes) {
+				std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
+				auto compare_result = compare_ast_nodes(*existing_node.get(), *node.get());
+				if(compare_result.has_value()) {
+					bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
+						&& existing_node->name.empty();
+					if(!is_anonymous_enum) {
+						existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+						node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
 					}
-				}
-				if(!match) {
-					// This type doesn't match the others with the same name
-					// that have already been processed.
-					node->files = {i};
-					existing_nodes.emplace_back((s32) flat_nodes.size());
-					file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
-					flat_nodes.emplace_back(std::move(node));
+				} else {
+					// This type matches another that has already been
+					// processed, so we omit it from the output.
+					existing_node->files.emplace_back(file_index);
+					if(node->stabs_type_number > -1) {
+						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
+					}
+					match = true;
 				}
 			}
+			if(!match) {
+				// This type doesn't match the others with the same name
+				// that have already been processed.
+				node->files = {file_index};
+				existing_nodes.emplace_back((s32) flat_nodes.size());
+				if(node->stabs_type_number > -1) {
+					file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
+				}
+				flat_nodes.emplace_back(std::move(node));
+			}
 		}
-		source_files[i]->types.clear();
 	}
-	
-	// Set the conflict flag.
+	file.types.clear();
+}
+
+std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
 	for(std::vector<s32>& node_group : deduplicated_nodes) {
 		if(node_group.size() > 1) {
 			for(s32 index : node_group) {
@@ -455,7 +468,7 @@ std::vector<std::unique_ptr<Node>> deduplicate_types(std::vector<std::unique_ptr
 		}
 	}
 	
-	return flat_nodes;
+	return std::move(flat_nodes);
 }
 
 std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, const ast::Node& node_rhs) {
@@ -464,7 +477,6 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 	if(node_lhs.name != node_rhs.name) return CompareFailReason::NAME;
 	if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
 	if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
-	if(node_lhs.bitfield_offset_bits != node_rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
 	if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;
 	if(node_lhs.is_const != node_rhs.is_const) return CompareFailReason::CONSTNESS;
 	// We intentionally don't compare order, files, conflict symbol or compare_fail_reason here.
@@ -478,6 +490,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 		}
 		case BITFIELD: {
 			const auto [lhs, rhs] = Node::as<BitField>(node_lhs, node_rhs);
+			if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
 			auto bitfield_compare = compare_ast_nodes(*lhs.underlying_type.get(), *rhs.underlying_type.get());
 			if(bitfield_compare.has_value()) return bitfield_compare;
 			break;
@@ -542,6 +555,14 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 			const auto [lhs, rhs] = Node::as<Pointer>(node_lhs, node_rhs);
 			auto pointer_compare = compare_ast_nodes(*lhs.value_type.get(), *rhs.value_type.get());
 			if(pointer_compare.has_value()) return pointer_compare;
+			break;
+		}
+		case POINTER_TO_DATA_MEMBER: {
+			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
+			auto class_compare = compare_ast_nodes(*lhs.class_type.get(), *rhs.class_type.get());
+			if(class_compare.has_value()) return class_compare;
+			auto member_compare = compare_ast_nodes(*lhs.member_type.get(), *rhs.member_type.get());
+			if(member_compare.has_value()) return member_compare;
 			break;
 		}
 		case REFERENCE: {
@@ -629,6 +650,7 @@ const char* node_type_to_string(const Node& node) {
 			}
 		}
 		case NodeDescriptor::POINTER: return "pointer";
+		case NodeDescriptor::POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
 		case NodeDescriptor::REFERENCE: return "reference";
 		case NodeDescriptor::SOURCE_FILE: return "source_file";
 		case NodeDescriptor::TYPE_NAME: return "type_name";
@@ -639,12 +661,12 @@ const char* node_type_to_string(const Node& node) {
 
 const char* storage_class_to_string(StorageClass storage_class) {
 	switch(storage_class) {
-		case StorageClass::NONE: return "none";
-		case StorageClass::TYPEDEF: return "typedef";
-		case StorageClass::EXTERN: return "extern";
-		case StorageClass::STATIC: return "static";
-		case StorageClass::AUTO: return "auto";
-		case StorageClass::REGISTER: return "register";
+		case SC_NONE: return "none";
+		case SC_TYPEDEF: return "typedef";
+		case SC_EXTERN: return "extern";
+		case SC_STATIC: return "static";
+		case SC_AUTO: return "auto";
+		case SC_REGISTER: return "register";
 	}
 	return "";
 }
@@ -658,6 +680,8 @@ const char* global_variable_location_to_string(GlobalVariableLocation location) 
 		case GlobalVariableLocation::SDATA: return "sdata";
 		case GlobalVariableLocation::SBSS: return "sbss";
 		case GlobalVariableLocation::RDATA: return "rdata";
+		case GlobalVariableLocation::COMMON: return "common";
+		case GlobalVariableLocation::SCOMMON: return "scommon";
 	}
 	return "";
 }

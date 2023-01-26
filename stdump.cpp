@@ -241,17 +241,28 @@ static void list_files(mdebug::SymbolTable& symbol_table) {
 }
 
 static void test(const fs::path& directory) {
+	verify(fs::is_directory(directory), "Input path is not a directory.");
+	s32 passed = 0;
+	s32 skipped = 0;
 	for(auto entry : fs::directory_iterator(directory)) {
 		fs::path filename = entry.path().filename();
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
-			printf("%s\n", entry.path().filename().string().c_str());
+			printf("%s ", entry.path().filename().string().c_str());
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
-			verify(mdebug_section, "No .mdebug section.");
-			mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
-			ccc::AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
+			if(mdebug_section) {
+				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
+				ccc::AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
+				printf("pass\n");
+				passed++;
+			} else {
+				printf("no .mdebug section\n");
+				skipped++;
+			}
 		}
 	}
+	// If it gets to this point it means all of the tests succeded.
+	printf("%d test cases passed, %d skipped, 0 failed\n", passed, skipped);
 }
 
 static Options parse_args(int argc, char** argv) {
@@ -300,9 +311,13 @@ static Options parse_args(int argc, char** argv) {
 	return options;
 }
 
+const char* git_tag();
+
 static void print_help() {
-	puts("stdump -- https://github.com/chaoticgd/ccc");
-	puts("  MIPS/STABS symbol table parser.");
+	const char* tag = git_tag();
+	printf("stdump %s -- https://github.com/chaoticgd/ccc\n",
+		(strlen(tag) > 0) ? tag : "development version");
+	puts("  Mdebug/STABS symbol table parser and dumper.");
 	puts("");
 	puts("Commands:");
 	puts("  print_functions <input file>");
