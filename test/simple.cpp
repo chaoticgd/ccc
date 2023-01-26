@@ -50,12 +50,12 @@ typedef struct {
 } TypedefedStruct;
 
 struct MemberPointer {
-	int TypedefedStruct::*pointertomemberfunc;
+	int TypedefedStruct::*pointertomember;
 };
 
 Primitives globalvariable;
 
-int main(int argc, char **argv) {
+void func(int x, int128 y) {
 	int a = 9;
 	int128 b;
 }
