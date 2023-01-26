@@ -53,11 +53,12 @@ struct Node {
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
 	// should pass the name down.
-	StringPointer name;
+	std::string name;
 	
 	std::vector<s32> files; // List of files for which a given top-level type is present.
 	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = "";
+	s64 stabs_type_number = -1;
 	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
@@ -293,7 +294,7 @@ struct Variable : Node {
 struct TypeDeduplicatorOMatic {
 	std::vector<std::unique_ptr<Node>> flat_nodes;
 	std::vector<std::vector<s32>> deduplicated_nodes;
-	std::map<std::string_view, size_t> name_to_deduplicated_index;
+	std::map<std::string, size_t> name_to_deduplicated_index;
 	
 	void process_file(ast::SourceFile& file, s32 file_index);
 	std::vector<std::unique_ptr<Node>> finish();

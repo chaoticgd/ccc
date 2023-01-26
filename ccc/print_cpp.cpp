@@ -59,7 +59,7 @@ void print_cpp_comment_block_builtin_types(FILE* dest, const std::vector<std::un
 	std::set<std::pair<std::string, BuiltInClass>> builtins;
 	for(const std::unique_ptr<ast::Node>& node : ast_nodes) {
 		if(node->descriptor == ast::BUILTIN) {
-			builtins.emplace(std::string(node->name.ptr), node->as<ast::BuiltIn>().bclass);
+			builtins.emplace(node->name, node->as<ast::BuiltIn>().bclass);
 		}
 	}
 	
