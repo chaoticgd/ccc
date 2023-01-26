@@ -85,8 +85,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	if(node.conflict) {
 		json.boolean_property("conflict", true);
 	}
-	if(node.symbol && node.symbol->name_colon_type.type && !node.symbol->name_colon_type.type->anonymous) {
-		json.number_property("stabs_type_number", node.symbol->name_colon_type.type->type_number);
+	if(node.stabs_type_number != -1) {
+		json.number_property("stabs_type_number", node.stabs_type_number);
 	}
 	if(!node.files.empty()) {
 		json.property("files");

@@ -6,7 +6,7 @@
 namespace ccc {
 
 struct VariableName {
-	const StringPointer* identifier;
+	const std::string* identifier;
 	std::vector<s8> pointer_chars;
 	std::vector<s32> array_indices;
 };

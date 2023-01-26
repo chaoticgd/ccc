@@ -38,6 +38,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 		assert(file_descriptor_index < symbol_table.files.size());
 		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
 		if(flags & DEDUPLICATE_TYPES) {
+			assert(!results.source_files.empty());
 			deduplicator.process_file(*results.source_files.back().get(), file_descriptor_index);
 		}
 	} else {
@@ -45,6 +46,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
 			analyse_file(results, symbol_table, fd, globals, i, flags);
 			if(flags & DEDUPLICATE_TYPES) {
+				assert(!results.source_files.empty());
 				deduplicator.process_file(*results.source_files.back().get(), i);
 			}
 		}
@@ -63,9 +65,11 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	file->is_windows_path = fd.is_windows_path;
+	
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
 	file->symbols = parse_symbols(fd.symbols, fd.detected_language);
+	
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
 	std::map<s64, const StabsType*> stabs_types;
@@ -193,13 +197,20 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	
 	analyser.finish();
 	
+	// The STABS types are no longer needed, so delete them now.
+	for(ParsedSymbol& symbol : file->symbols) {
+		symbol.name_colon_type.type = nullptr;
+	}
+	
 	// Some enums have two separate stabs generated for them, one with a
 	// name of " ", where one stab references the other. Remove these
 	// duplicate AST nodes.
 	ast::remove_duplicate_enums(file->types);
+	
 	// For some reason typedefs referencing themselves are generated along
 	// with a proper struct of the same name.
 	ast::remove_duplicate_self_typedefs(file->types);
+	
 	// Filter the AST depending on the flags parsed, removing things the
 	// calling code didn't ask for.
 	filter_ast_by_flags(*file, flags);
@@ -238,6 +249,7 @@ void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
 void LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_to_ast_state);
 	node->order = output.next_order++;
+	node->stabs_type_number = symbol.name_colon_type.type->type_number;
 	output.types.emplace_back(std::move(node));
 }
 
