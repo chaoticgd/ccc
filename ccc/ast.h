@@ -48,7 +48,6 @@ struct Node {
 	u8 conflict : 1 = false; // Are there multiple differing types with the same name?
 	u8 unused : 1;
 	s32 storage_class : 4 = SC_NONE;
-	s32 order : 28 = -1; // Used to preserve the order of children of SourceFile.
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -189,42 +188,14 @@ struct SourceFile : Node {
 	bool is_windows_path = false;
 	std::string relative_path = "";
 	u32 text_address = 0;
+	std::vector<std::unique_ptr<ast::Node>> data_types;
 	std::vector<std::unique_ptr<ast::Node>> functions;
 	std::vector<std::unique_ptr<ast::Node>> globals;
-	std::vector<std::unique_ptr<ast::Node>> types;
 	std::vector<ParsedSymbol> symbols;
-	s32 next_order = 0; // Next order value to set.
 	std::map<s64, s32> stabs_type_number_to_deduplicated_type_index;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
-	
-	// Used for iterating all the functions, globals and types in the order the
-	// functions and globals were defined in the source file.
-	template <typename Callback>
-	void in_order(Callback callback) const {
-		s32 next_function = 0;
-		s32 next_global = 0;
-		s32 next_types = 0;
-		for(s32 i = 0; i < next_order; i++) {
-			if(next_function < functions.size() && functions[next_function]->order == i) {
-				callback(*functions[i].get());
-				next_function++;
-				continue;
-			}
-			if(next_global < globals.size() && globals[next_global]->order == i) {
-				callback(*globals[i].get());
-				next_global++;
-				continue;
-			}
-			if(next_global < globals.size() && globals[next_global]->order == i) {
-				callback(*globals[i].get());
-				next_global++;
-				continue;
-			}
-			verify_not_reached("Source file AST node has bad ordering.");
-		}
-	}
 };
 
 enum class TypeNameSource {

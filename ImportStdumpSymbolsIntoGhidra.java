@@ -286,7 +286,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			int absolute_offset_bytes = -1;
 			int bitfield_offset_bits = -1;
 			int size_bits = -1;
-			int order = -1;
 			int first_file = -1;
 			boolean conflict = false;
 			int stabs_type_number = -1;
@@ -645,7 +644,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				throws JsonParseException {
 			ParsedJsonFile result = new ParsedJsonFile();
 			JsonObject object = element.getAsJsonObject();
-			int supported_version = 5;
+			int supported_version = 6;
 			if(!object.has("version")) {
 				throw new JsonParseException("JSON file has missing version number field.");
 			}
@@ -870,9 +869,6 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			}
 			if(src.has("size_bits")) {
 				dest.size_bits = src.get("size_bits").getAsInt();
-			}
-			if(src.has("order")) {
-				dest.order = src.get("order").getAsInt();
 			}
 			if(src.has("files")) {
 				dest.first_file = src.get("files").getAsJsonArray().get(0).getAsInt();
