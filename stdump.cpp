@@ -178,9 +178,9 @@ static void print_types_per_file(mdebug::SymbolTable& symbol_table, const Option
 		printf("// *****************************************************************************\n");
 		printf("\n");
 		print_cpp_comment_block_compiler_version_info(stdout, symbol_table);
-		print_cpp_comment_block_builtin_types(stdout, source_file.types);
+		print_cpp_comment_block_builtin_types(stdout, source_file.data_types);
 		printf("\n");
-		print_cpp_ast_nodes(stdout, source_file.types, options.flags & FLAG_VERBOSE);
+		print_cpp_ast_nodes(stdout, source_file.data_types, options.flags & FLAG_VERBOSE);
 		printf("\n");
 	}
 }

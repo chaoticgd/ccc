@@ -205,11 +205,11 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	// Some enums have two separate stabs generated for them, one with a
 	// name of " ", where one stab references the other. Remove these
 	// duplicate AST nodes.
-	ast::remove_duplicate_enums(file->types);
+	ast::remove_duplicate_enums(file->data_types);
 	
 	// For some reason typedefs referencing themselves are generated along
 	// with a proper struct of the same name.
-	ast::remove_duplicate_self_typedefs(file->types);
+	ast::remove_duplicate_self_typedefs(file->data_types);
 	
 	// Filter the AST depending on the flags parsed, removing things the
 	// calling code didn't ask for.
@@ -248,9 +248,8 @@ void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
 
 void LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	std::unique_ptr<ast::Node> node = ast::stabs_symbol_to_ast(symbol, stabs_to_ast_state);
-	node->order = output.next_order++;
 	node->stabs_type_number = symbol.name_colon_type.type->type_number;
-	output.types.emplace_back(std::move(node));
+	output.data_types.emplace_back(std::move(node));
 }
 
 void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location) {
@@ -264,7 +263,6 @@ void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, co
 	global->storage.global_location = location;
 	global->storage.global_address = address;
 	global->type = ast::stabs_type_to_ast_no_throw(type, stabs_to_ast_state, 0, 0, true, false);
-	global->order = output.next_order++;
 	output.globals.emplace_back(std::move(global));
 }
 
@@ -396,7 +394,6 @@ void LocalSymbolTableAnalyser::finish() {
 static void create_function(LocalSymbolTableAnalyser& analyser, const char* name) {
 	std::unique_ptr<ast::FunctionDefinition> ptr = std::make_unique<ast::FunctionDefinition>();
 	analyser.current_function = ptr.get();
-	ptr->order = analyser.output.next_order++;
 	analyser.output.functions.emplace_back(std::move(ptr));
 	analyser.current_function->name = name;
 	analyser.state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
@@ -477,7 +474,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		}
 		case ast::NodeDescriptor::SOURCE_FILE: {
 			ast::SourceFile& source_file = ast_node.as<ast::SourceFile>();
-			for(std::unique_ptr<ast::Node>& child : source_file.types) {
+			for(std::unique_ptr<ast::Node>& child : source_file.data_types) {
 				filter_ast_by_flags(*child.get(), flags);
 			}
 		}

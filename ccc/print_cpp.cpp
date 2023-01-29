@@ -317,9 +317,15 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		}
 		case ast::SOURCE_FILE: {
 			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
-			source_file.in_order([&](const ast::Node& child) {
-				print_cpp_ast_node(dest, child, name, indentation_level, digits_for_offset);
-			});
+			for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
+				print_cpp_ast_node(dest, *type.get(), name, indentation_level, digits_for_offset);
+			}
+			for(const std::unique_ptr<ast::Node>& function : source_file.functions) {
+				print_cpp_ast_node(dest, *function.get(), name, indentation_level, digits_for_offset);
+			}
+			for(const std::unique_ptr<ast::Node>& global : source_file.globals) {
+				print_cpp_ast_node(dest, *global.get(), name, indentation_level, digits_for_offset);
+			}
 			break;
 		}
 		case ast::TYPE_NAME: {

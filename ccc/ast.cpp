@@ -408,7 +408,7 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 }
 
 void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index) {
-	for(std::unique_ptr<Node>& node : file.types) {
+	for(std::unique_ptr<Node>& node : file.data_types) {
 		auto existing_node_iterator = name_to_deduplicated_index.find(node->name);
 		if(existing_node_iterator == name_to_deduplicated_index.end()) {
 			// No types with this name have previously been processed.
@@ -456,7 +456,7 @@ void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index)
 			}
 		}
 	}
-	file.types.clear();
+	file.data_types.clear();
 }
 
 std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
