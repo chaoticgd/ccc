@@ -40,7 +40,7 @@ jobs:
           g++
           musl-dev
       
-    - name: Configure Linux CMake
+    - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=${{env.BUILD_STATIC}}
 
     - name: Build
@@ -63,6 +63,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: build/Release
+        asset_path: build/Release/ccc_${{ matrix.sys.os }}_v${{ github.ref_name }}.zip
         asset_name: ccc_${{ matrix.sys.os }}_v${{ github.ref_name }}.zip
         asset_content_type: application/zip
