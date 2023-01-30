@@ -54,7 +54,7 @@ jobs:
       working-directory: build/Release
       if: ${{ matrix.sys.os == 'windows-latest' }}
       run: |
-        Compress-Archive * ccc_${{ RUNNER_OS }}_v${{ github.ref_name }}.zip
+        Compress-Archive * ccc_${{ matrix.sys.os }}_v${{ github.ref_name }}.zip
 
     - name: Update release asset
       id: upload-release-asset
@@ -64,5 +64,5 @@ jobs:
       with:
         upload_url: ${{ github.event.release.upload_url }}
         asset_path: build/Release
-        asset_name: ccc_${{ RUNNER_OS }}_v${{ github.ref_name }}.zip
+        asset_name: ccc_${{ matrix.sys.os }}_v${{ github.ref_name }}.zip
         asset_content_type: application/zip
