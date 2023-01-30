@@ -1,10 +1,8 @@
-name: CMake
+name: Release
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  release:
+    types: [created]
 
 env:
   BUILD_TYPE: Release
@@ -17,8 +15,8 @@ jobs:
       matrix:
         sys: 
           - { os: windows-latest, shell: pwsh }
-          - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}'  }
-          - { os: macos-latest,   shell: bash  }
+          #- { os: ubuntu-latest,  shell: 'alpine.sh --root {0}'  }
+          #- { os: macos-latest,   shell: bash  }
     defaults:
       run:
         shell: ${{ matrix.sys.shell }}
@@ -42,7 +40,7 @@ jobs:
           g++
           musl-dev
       
-    - name: Configure CMake
+    - name: Configure Linux CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=${{env.BUILD_STATIC}}
 
     - name: Build
@@ -51,3 +49,20 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+
+    - name: Windows Zip App
+      working-directory: build/Release
+      if: ${{ matrix.sys.os == 'windows-latest' }}
+      run: |
+        Compress-Archive * ccc_${{ RUNNER_OS }}_v${{ github.ref_name }}.zip
+
+    - name: Update release asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: build/Release
+        asset_name: ccc_${{ RUNNER_OS }}_v${{ github.ref_name }}.zip
+        asset_content_type: application/zip
