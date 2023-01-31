@@ -50,8 +50,11 @@ int main(int argc, char** argv) {
 						break;
 					}
 					case mips::FlowType::REG: {
-						assert(field < mips::REGISTER_STRING_TABLE_SIZES[(s32) flow.reg_class]);
-						printf("%s", mips::REGISTER_STRING_TABLES[(s32) flow.reg_class][insn.field(flow.field)]);
+						if(field < mips::REGISTER_STRING_TABLE_SIZES[(s32) flow.reg_class]) {
+							printf("%s", mips::REGISTER_STRING_TABLES[(s32) flow.reg_class][insn.field(flow.field)]);
+						} else {
+							printf("error");
+						}
 						break;
 					}
 					case mips::FlowType::FIXED_REG: {
