@@ -313,6 +313,11 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 }
 
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
+	// Static fields can't be bitfields.
+	if(field.is_static) {
+		return false;
+	}
+	
 	// Resolve type references.
 	const StabsType* type = field.type.get();
 	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER || type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
