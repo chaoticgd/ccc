@@ -429,14 +429,9 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 			}
 		}
 		
-		public static class BaseClass {
-			int offset;
-			Node type;
-		}
-		
 		public static class InlineStructOrUnion extends Node {
 			boolean is_struct;
-			ArrayList<BaseClass> base_classes = new ArrayList<BaseClass>();
+			ArrayList<Node> base_classes = new ArrayList<Node>();
 			ArrayList<Node> fields = new ArrayList<Node>();
 			ArrayList<Node> member_functions = new ArrayList<Node>();
 			
@@ -462,11 +457,11 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				if(is_struct) {
 					Structure type = (Structure) dest;
 					for(int i = 0; i < base_classes.size(); i++) {
-						BaseClass base_class = base_classes.get(i);
-						DataType base_type = replace_void_with_undefined1(base_class.type.create_type(importer));
-						boolean is_beyond_end = base_class.offset + base_type.getLength() > size_bits / 8;
-						if(!is_beyond_end && base_class.offset > -1) {
-							type.replaceAtOffset(base_class.offset, base_type, base_type.getLength(), "base_class_" + Integer.toString(i), "");
+						Node base_class = base_classes.get(i);
+						DataType base_type = replace_void_with_undefined1(base_class.create_type(importer));
+						boolean is_beyond_end = base_class.absolute_offset_bytes + base_type.getLength() > size_bits / 8;
+						if(!is_beyond_end && base_class.absolute_offset_bytes > -1) {
+							type.replaceAtOffset(base_class.absolute_offset_bytes, base_type, base_type.getLength(), "base_class_" + Integer.toString(i), "");
 						}
 					}
 					for(AST.Node node : fields) {
@@ -757,11 +752,7 @@ public class ImportStdumpSymbolsIntoGhidra extends GhidraScript {
 				struct_or_union.is_struct = descriptor.equals("struct");
 				if(struct_or_union.is_struct) {
 					for(JsonElement base_class : object.get("base_classes").getAsJsonArray()) {
-						AST.BaseClass dest = new AST.BaseClass();
-						JsonObject src = base_class.getAsJsonObject();
-						dest.offset = src.get("offset").getAsInt();
-						dest.type = context.deserialize(src.get("type"), AST.Node.class);
-						struct_or_union.base_classes.add(dest);
+						struct_or_union.base_classes.add(context.deserialize(base_class, AST.Node.class));
 					}
 				}
 				for(JsonElement field : object.get("fields").getAsJsonArray()) {

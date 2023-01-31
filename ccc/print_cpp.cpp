@@ -95,7 +95,7 @@ void print_cpp_ast_nodes(FILE* dest, const std::vector<std::unique_ptr<ast::Node
 		if(verbose && node->symbol != nullptr) {
 			fprintf(dest, "// symbol: %s\n", node->symbol->raw->string);
 		}
-		VariableName name{nullptr};
+		VariableName name;
 		s32 digits_for_offset = 0;
 		if(node->descriptor == ast::INLINE_STRUCT_OR_UNION && node->size_bits > 0) {
 			digits_for_offset = (s32) ceilf(log2(node->size_bits / 8.f) / 4.f);
@@ -133,9 +133,11 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 	if(node.is_const) {
 		fprintf(dest, "const ");
 	}
-	
 	if(node.is_volatile) {
-		fprintf(dest, "const ");
+		fprintf(dest, "volatile ");
+	}
+	if(node.is_base_class && node.access_specifier != ast::AS_PUBLIC) {
+		fprintf(dest, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) node.access_specifier));
 	}
 	
 	switch(node.descriptor) {
@@ -190,7 +192,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			}
 			if(!function.is_constructor) {
 				if(function.return_type.has_value()) {
-					VariableName dummy{nullptr};
+					VariableName dummy;
 					print_cpp_ast_node(dest, *function.return_type->get(), dummy, indentation_level, digits_for_offset);
 					fprintf(dest, " ");
 				}
@@ -199,7 +201,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			fprintf(dest, "(");
 			if(function.parameters.has_value()) {
 				for(size_t i = 0; i < function.parameters->size(); i++) {
-					VariableName dummy{nullptr};
+					VariableName dummy;
 					print_cpp_ast_node(dest, *(*function.parameters)[i].get(), dummy, indentation_level, digits_for_offset);
 					if(i != function.parameters->size() - 1) {
 						fprintf(dest, ", ");
@@ -251,12 +253,15 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			}
 			// Print base classes.
 			if(!struct_or_union.base_classes.empty()) {
-				fprintf(dest, " :");
-				for(const ast::BaseClass& base_class : struct_or_union.base_classes) {
-					if(base_class.offset > -1) {
-						fprintf(dest, " /* 0x%0*x */", digits_for_offset, base_class.offset);
+				fprintf(dest, " : ");
+				for(size_t i = 0; i < struct_or_union.base_classes.size(); i++) {
+					ast::Node& base_class = *struct_or_union.base_classes[i].get();
+					assert(base_class.descriptor == ast::TypeName::DESCRIPTOR);
+					VariableName dummy;
+					print_cpp_ast_node(dest, base_class, dummy, indentation_level + 1, digits_for_offset);
+					if(i != struct_or_union.base_classes.size() - 1) {
+						fprintf(dest, ", ");
 					}
-					fprintf(dest, " %s", base_class.type->as<ast::TypeName>().type_name.c_str());
 				}
 			}
 			fprintf(dest, " { // 0x%x\n", struct_or_union.size_bits / 8);

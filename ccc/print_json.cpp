@@ -199,13 +199,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			if(struct_or_union.is_struct) {
 				json.property("base_classes");
 				json.begin_array();
-				for(const ast::BaseClass& base_class : struct_or_union.base_classes) {
-					json.begin_object();
-					json.string_property("visibility", stabs_field_visibility_to_string(base_class.visibility));
-					json.number_property("offset", base_class.offset);
-					json.property("type");
-					print_json_ast_node(json, base_class.type.get());
-					json.end_object();
+				for(const std::unique_ptr<ast::Node>& base_class : struct_or_union.base_classes) {
+					print_json_ast_node(json, base_class.get());
 				}
 				json.end_array();
 			}
