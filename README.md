@@ -66,6 +66,7 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 | Version | Changes |
 | - | - |
+| 7 | Added 'acccess_specifier' property. |
 | 6 | Removed 'order' property. |
 | 5 | Added 'pointer_to_data_member' node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
 | 4 | Added optional is_const property to all nodes. Added 'anonymous_reference' type names, where the type name is not valid but the type number is. |

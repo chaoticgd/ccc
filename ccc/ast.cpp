@@ -198,6 +198,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 						}
 						function.vtable_index = stabs_func.vtable_index;
 					}
+					node->access_specifier = stabs_field_visibility_to_access_specifier(stabs_func.visibility);
 					struct_or_union->member_functions.emplace_back(std::move(node));
 				}
 			}
@@ -292,6 +293,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 		if(field.is_static) {
 			bitfield->storage_class = ast::SC_STATIC;
 		}
+		bitfield->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 		return bitfield;
 	}
 	
@@ -306,6 +308,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 	if(field.is_static) {
 		child->storage_class = ast::SC_STATIC;
 	}
+	child->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 	return child;
 }
 
@@ -684,6 +687,27 @@ const char* global_variable_location_to_string(GlobalVariableLocation location) 
 		case GlobalVariableLocation::SCOMMON: return "scommon";
 	}
 	return "";
+}
+
+const char* access_specifier_to_string(AccessSpecifier specifier) {
+	switch(specifier) {
+		case AS_PUBLIC: return "public";
+		case AS_PROTECTED: return "protected";
+		case AS_PRIVATE: return "private";
+	}
+	return "";
+}
+
+AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility) {
+	AccessSpecifier access_specifier = AS_PUBLIC;
+	switch(visibility) {
+		case ccc::StabsFieldVisibility::NONE: access_specifier = AS_PUBLIC; break;
+		case ccc::StabsFieldVisibility::PUBLIC: access_specifier = AS_PUBLIC; break;
+		case ccc::StabsFieldVisibility::PROTECTED: access_specifier = AS_PROTECTED; break;
+		case ccc::StabsFieldVisibility::PRIVATE: access_specifier = AS_PRIVATE; break;
+		case ccc::StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT: access_specifier = AS_PUBLIC; break;
+	}
+	return access_specifier;
 }
 
 }

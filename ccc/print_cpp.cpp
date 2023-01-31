@@ -239,6 +239,7 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 		}
 		case ast::INLINE_STRUCT_OR_UNION: {
 			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
+			s32 access_specifier = ast::AS_PUBLIC;
 			if(struct_or_union.is_struct) {
 				fprintf(dest, "struct");
 			} else {
@@ -262,6 +263,11 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 			// Print fields.
 			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
 				assert(field.get());
+				if(access_specifier != field->access_specifier) {
+					indent(dest, indentation_level);
+					fprintf(dest, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) field->access_specifier));
+					access_specifier = field->access_specifier;
+				}
 				indent(dest, indentation_level + 1);
 				print_cpp_offset(dest, *field.get(), digits_for_offset);
 				print_cpp_ast_node(dest, *field.get(), name, indentation_level + 1, digits_for_offset);
@@ -275,6 +281,11 @@ void print_cpp_ast_node(FILE* dest, const ast::Node& node, VariableName& parent_
 				}
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
 					ast::FunctionType& member_func = struct_or_union.member_functions[i]->as<ast::FunctionType>();
+					if(access_specifier != member_func.access_specifier) {
+						indent(dest, indentation_level);
+						fprintf(dest, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) member_func.access_specifier));
+						access_specifier = member_func.access_specifier;
+					}
 					indent(dest, indentation_level + 1);
 					print_cpp_ast_node(dest, *struct_or_union.member_functions[i].get(), name, indentation_level + 1, digits_for_offset);
 					fprintf(dest, ";\n");

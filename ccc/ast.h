@@ -40,14 +40,19 @@ struct AddressRange {
 	bool valid() const { return low >= 0; }
 };
 
+enum AccessSpecifier {
+	AS_PUBLIC = 0,
+	AS_PROTECTED = 1,
+	AS_PRIVATE = 2
+};
 
 struct Node {
-	u8 descriptor : 4;
-	u8 is_const : 1 = false;
-	u8 is_volatile : 1 = false;
-	u8 conflict : 1 = false; // Are there multiple differing types with the same name?
-	u8 unused : 1;
-	s32 storage_class : 4 = SC_NONE;
+	u16 descriptor : 4;
+	u16 is_const : 1 = false;
+	u16 is_volatile : 1 = false;
+	u16 conflict : 1 = false; // Are there multiple differing types with the same name?
+	u16 storage_class : 4 = SC_NONE;
+	u16 access_specifier : 2 = AS_PUBLIC;
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -317,6 +322,8 @@ const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
 const char* global_variable_location_to_string(GlobalVariableLocation location);
+const char* access_specifier_to_string(AccessSpecifier specifier);
+AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility);
 
 }
 

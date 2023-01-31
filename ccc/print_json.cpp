@@ -32,7 +32,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 6);
+	json.number_property("version", 7);
 	
 	json.property("files");
 	json.begin_array();
@@ -78,6 +78,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	}
 	if(node.is_volatile) {
 		json.boolean_property("is_volatile", node.is_volatile);
+	}
+	if(node.access_specifier != ast::AS_PUBLIC) {
+		json.string_property("access_specifier", access_specifier_to_string((ast::AccessSpecifier) node.access_specifier));
 	}
 	if(node.conflict) {
 		json.boolean_property("conflict", true);
