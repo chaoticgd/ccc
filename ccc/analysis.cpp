@@ -409,6 +409,9 @@ static void create_function(LocalSymbolTableAnalyser& analyser, const char* name
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
+	if(flags & STRIP_ACCESS_SPECIFIERS) {
+		ast_node.access_specifier = ast::AS_PUBLIC;
+	}
 	switch(ast_node.descriptor) {
 		case ast::NodeDescriptor::ARRAY:
 		case ast::NodeDescriptor::BITFIELD:
@@ -425,6 +428,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 				if(node->name.starts_with("$vf")) {
 					node->name = "__vtable";
 				}
+				filter_ast_by_flags(*node.get(), flags);
 			}
 			if(flags & STRIP_MEMBER_FUNCTIONS) {
 				struct_or_union.member_functions.clear();

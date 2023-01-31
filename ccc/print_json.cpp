@@ -32,7 +32,7 @@ void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_type
 	
 	json.begin_object();
 	
-	json.number_property("version", 6);
+	json.number_property("version", 7);
 	
 	json.property("files");
 	json.begin_array();
@@ -78,6 +78,9 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	}
 	if(node.is_volatile) {
 		json.boolean_property("is_volatile", node.is_volatile);
+	}
+	if(node.access_specifier != ast::AS_PUBLIC) {
+		json.string_property("access_specifier", access_specifier_to_string((ast::AccessSpecifier) node.access_specifier));
 	}
 	if(node.conflict) {
 		json.boolean_property("conflict", true);
@@ -196,13 +199,8 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 			if(struct_or_union.is_struct) {
 				json.property("base_classes");
 				json.begin_array();
-				for(const ast::BaseClass& base_class : struct_or_union.base_classes) {
-					json.begin_object();
-					json.string_property("visibility", stabs_field_visibility_to_string(base_class.visibility));
-					json.number_property("offset", base_class.offset);
-					json.property("type");
-					print_json_ast_node(json, base_class.type.get());
-					json.end_object();
+				for(const std::unique_ptr<ast::Node>& base_class : struct_or_union.base_classes) {
+					print_json_ast_node(json, base_class.get());
 				}
 				json.end_array();
 			}

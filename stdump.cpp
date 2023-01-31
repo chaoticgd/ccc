@@ -23,8 +23,9 @@ enum Flags {
 	NO_FLAGS = 0,
 	FLAG_PER_FILE = (1 << 0),
 	FLAG_VERBOSE = (1 << 1),
-	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 2),
-	FLAG_INCLUDE_GENERATED_FUNCTIONS = (1 << 3)
+	FLAG_OMIT_ACCESS_SPECIFIERS = (1 << 2),
+	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 3),
+	FLAG_INCLUDE_GENERATED_FUNCTIONS = (1 << 4)
 };
 
 struct Options {
@@ -229,6 +230,7 @@ static void print_symbol(const mdebug::Symbol& symbol, bool indent) {
 
 static u32 build_analysis_flags(u32 flags) {
 	u32 analysis_flags = NO_ANALYSIS_FLAGS;
+	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) analysis_flags |= STRIP_ACCESS_SPECIFIERS;
 	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) analysis_flags |= STRIP_MEMBER_FUNCTIONS;
 	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) analysis_flags |= STRIP_GENERATED_FUNCTIONS;
 	return analysis_flags;
@@ -298,6 +300,8 @@ static Options parse_args(int argc, char** argv) {
 			options.flags |= FLAG_PER_FILE;
 		} else if(strcmp(flag, "--verbose") == 0) {
 			options.flags |= FLAG_VERBOSE;
+		} else if(strcmp(flag, "--omit-access-specifiers") == 0) {
+			options.flags |= FLAG_OMIT_ACCESS_SPECIFIERS;
 		} else if(strcmp(flag, "--omit-member-functions") == 0) {
 			options.flags |= FLAG_OMIT_MEMBER_FUNCTIONS;
 		} else if(strcmp(flag, "--include-generated-functions") == 0) {
@@ -332,6 +336,7 @@ static void print_help() {
 	puts("    --per-file                    Do not deduplicate types from files.");
 	puts("    --verbose                     Print additional information such as the raw");
 	puts("                                  STABS symbol along with each type.");
+	puts("    --omit-access-specifiers      Do not print access specifiers.");
 	puts("    --omit-member-functions       Do not print member functions.");
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");

@@ -40,14 +40,20 @@ struct AddressRange {
 	bool valid() const { return low >= 0; }
 };
 
+enum AccessSpecifier {
+	AS_PUBLIC = 0,
+	AS_PROTECTED = 1,
+	AS_PRIVATE = 2
+};
 
 struct Node {
-	u8 descriptor : 4;
-	u8 is_const : 1 = false;
-	u8 is_volatile : 1 = false;
-	u8 conflict : 1 = false; // Are there multiple differing types with the same name?
-	u8 unused : 1;
-	s32 storage_class : 4 = SC_NONE;
+	u16 descriptor : 4;
+	u16 is_const : 1 = false;
+	u16 is_volatile : 1 = false;
+	u16 conflict : 1 = false; // Are there multiple differing types with the same name?
+	u16 is_base_class : 1 = false;
+	u16 storage_class : 4 = SC_NONE;
+	u16 access_specifier : 2 = AS_PUBLIC;
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -145,15 +151,9 @@ struct InlineEnum : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_ENUM;
 };
 
-struct BaseClass {
-	StabsFieldVisibility visibility;
-	s32 offset = -1;
-	std::unique_ptr<Node> type;
-};
-
 struct InlineStructOrUnion : Node {
 	bool is_struct = true;
-	std::vector<BaseClass> base_classes;
+	std::vector<std::unique_ptr<Node>> base_classes;
 	std::vector<std::unique_ptr<Node>> fields;
 	std::vector<std::unique_ptr<Node>> member_functions;
 	
@@ -292,20 +292,16 @@ enum class CompareFailReason {
 	CONSTNESS,
 	ARRAY_ELEMENT_COUNT,
 	BUILTIN_CLASS,
-	COMPOUND_STATEMENT_SIZE,
 	FUNCTION_RETURN_TYPE_HAS_VALUE,
-	FUNCTION_PARAMAETER_SIZE,
+	FUNCTION_PARAMAETER_COUNT,
 	FUNCTION_PARAMETERS_HAS_VALUE,
 	FUNCTION_MODIFIER,
 	FUNCTION_IS_CONSTRUCTOR,
 	ENUM_CONSTANTS,
-	BASE_CLASS_SIZE,
-	BASE_CLASS_VISIBILITY,
-	BASE_CLASS_OFFSET,
+	BASE_CLASS_COUNT,
 	FIELDS_SIZE,
-	MEMBER_FUNCTION_SIZE,
+	MEMBER_FUNCTION_COUNT,
 	VTABLE_GLOBAL,
-	SOURCE_FILE_SIZE,
 	TYPE_NAME,
 	VARIABLE_CLASS,
 	VARIABLE_TYPE,
@@ -317,6 +313,8 @@ const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
 const char* global_variable_location_to_string(GlobalVariableLocation location);
+const char* access_specifier_to_string(AccessSpecifier specifier);
+AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility);
 
 }
 

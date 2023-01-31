@@ -20,8 +20,9 @@ enum AnalysisFlags {
 	NO_ANALYSIS_FLAGS = 0,
 	SKIP_FUNCTION_ANALYSIS = (1 << 0),
 	DEDUPLICATE_TYPES = (1 << 1),
-	STRIP_MEMBER_FUNCTIONS = (1 << 2),
-	STRIP_GENERATED_FUNCTIONS = (1 << 3)
+	STRIP_ACCESS_SPECIFIERS = (1 << 2),
+	STRIP_MEMBER_FUNCTIONS = (1 << 3),
+	STRIP_GENERATED_FUNCTIONS = (1 << 4)
 };
 
 mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules);

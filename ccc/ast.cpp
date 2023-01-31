@@ -163,10 +163,11 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			struct_or_union->is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			struct_or_union->size_bits = (s32) stabs_struct_or_union->size * 8;
 			for(const StabsBaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
-				ast::BaseClass& ast_base_class = struct_or_union->base_classes.emplace_back();
-				ast_base_class.visibility = stabs_base_class.visibility;
-				ast_base_class.offset = stabs_base_class.offset;
-				ast_base_class.type = stabs_type_to_ast(*stabs_base_class.type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
+				std::unique_ptr<Node> base_class = stabs_type_to_ast(*stabs_base_class.type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
+				base_class->is_base_class = true;
+				base_class->absolute_offset_bytes = stabs_base_class.offset;
+				base_class->access_specifier = stabs_field_visibility_to_access_specifier(stabs_base_class.visibility);
+				struct_or_union->base_classes.emplace_back(std::move(base_class));
 			}
 			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
 			for(const StabsField& field : stabs_struct_or_union->fields) {
@@ -198,6 +199,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 						}
 						function.vtable_index = stabs_func.vtable_index;
 					}
+					node->access_specifier = stabs_field_visibility_to_access_specifier(stabs_func.visibility);
 					struct_or_union->member_functions.emplace_back(std::move(node));
 				}
 			}
@@ -292,6 +294,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 		if(field.is_static) {
 			bitfield->storage_class = ast::SC_STATIC;
 		}
+		bitfield->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 		return bitfield;
 	}
 	
@@ -306,10 +309,16 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 	if(field.is_static) {
 		child->storage_class = ast::SC_STATIC;
 	}
+	child->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 	return child;
 }
 
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
+	// Static fields can't be bitfields.
+	if(field.is_static) {
+		return false;
+	}
+	
 	// Resolve type references.
 	const StabsType* type = field.type.get();
 	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER || type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
@@ -511,7 +520,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 				if(return_compare.has_value()) return return_compare;
 			}
 			if(lhs.parameters.has_value() && rhs.parameters.has_value()) {
-				if(lhs.parameters->size() != rhs.parameters->size()) return CompareFailReason::FUNCTION_PARAMAETER_SIZE;
+				if(lhs.parameters->size() != rhs.parameters->size()) return CompareFailReason::FUNCTION_PARAMAETER_COUNT;
 				for(size_t i = 0; i < lhs.parameters->size(); i++) {
 					auto parameter_compare = compare_ast_nodes(*(*lhs.parameters)[i].get(), *(*rhs.parameters)[i].get());
 					if(parameter_compare.has_value()) return parameter_compare;
@@ -530,13 +539,9 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 		}
 		case INLINE_STRUCT_OR_UNION: {
 			const auto [lhs, rhs] = Node::as<InlineStructOrUnion>(node_lhs, node_rhs);
-			if(lhs.base_classes.size() != rhs.base_classes.size()) return CompareFailReason::BASE_CLASS_SIZE;
+			if(lhs.base_classes.size() != rhs.base_classes.size()) return CompareFailReason::BASE_CLASS_COUNT;
 			for(size_t i = 0; i < lhs.base_classes.size(); i++) {
-				const BaseClass& base_class_lhs = lhs.base_classes[i];
-				const BaseClass& base_class_rhs = rhs.base_classes[i];
-				if(base_class_lhs.visibility != base_class_rhs.visibility) return CompareFailReason::BASE_CLASS_VISIBILITY;
-				if(base_class_lhs.offset != base_class_rhs.offset) return CompareFailReason::BASE_CLASS_OFFSET;
-				auto base_class_compare = compare_ast_nodes(*base_class_lhs.type.get(), *base_class_rhs.type.get());
+				auto base_class_compare = compare_ast_nodes(*lhs.base_classes[i].get(), *rhs.base_classes[i].get());
 				if(base_class_compare.has_value()) return base_class_compare;
 			}
 			if(lhs.fields.size() != rhs.fields.size()) return CompareFailReason::FIELDS_SIZE;
@@ -544,7 +549,7 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 				auto field_compare = compare_ast_nodes(*lhs.fields[i].get(), *rhs.fields[i].get());
 				if(field_compare.has_value()) return field_compare;
 			}
-			if(lhs.member_functions.size() != rhs.member_functions.size()) return CompareFailReason::MEMBER_FUNCTION_SIZE;
+			if(lhs.member_functions.size() != rhs.member_functions.size()) return CompareFailReason::MEMBER_FUNCTION_COUNT;
 			for(size_t i = 0; i < lhs.member_functions.size(); i++) {
 				auto member_function_compare = compare_ast_nodes(*lhs.member_functions[i].get(), *rhs.member_functions[i].get());
 				if(member_function_compare.has_value()) return member_function_compare;
@@ -610,20 +615,16 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 		case CompareFailReason::CONSTNESS: return "constness";
 		case CompareFailReason::ARRAY_ELEMENT_COUNT: return "array element count";
 		case CompareFailReason::BUILTIN_CLASS: return "builtin class";
-		case CompareFailReason::COMPOUND_STATEMENT_SIZE: return "compound statement size";
 		case CompareFailReason::FUNCTION_RETURN_TYPE_HAS_VALUE: return "function return type has value";
-		case CompareFailReason::FUNCTION_PARAMAETER_SIZE: return "function paramaeter size";
+		case CompareFailReason::FUNCTION_PARAMAETER_COUNT: return "function paramaeter count";
 		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameter";
 		case CompareFailReason::FUNCTION_MODIFIER: return "function modifier";
 		case CompareFailReason::FUNCTION_IS_CONSTRUCTOR: return "function is constructor";
 		case CompareFailReason::ENUM_CONSTANTS: return "enum constant";
-		case CompareFailReason::BASE_CLASS_SIZE: return "base class size";
-		case CompareFailReason::BASE_CLASS_VISIBILITY: return "base class visibility value";
-		case CompareFailReason::BASE_CLASS_OFFSET: return "base class offset";
+		case CompareFailReason::BASE_CLASS_COUNT: return "base class count";
 		case CompareFailReason::FIELDS_SIZE: return "fields size";
-		case CompareFailReason::MEMBER_FUNCTION_SIZE: return "member function size";
+		case CompareFailReason::MEMBER_FUNCTION_COUNT: return "member function count";
 		case CompareFailReason::VTABLE_GLOBAL: return "vtable global";
-		case CompareFailReason::SOURCE_FILE_SIZE: return "source file size";
 		case CompareFailReason::TYPE_NAME: return "type name";
 		case CompareFailReason::VARIABLE_CLASS: return "variable class";
 		case CompareFailReason::VARIABLE_TYPE: return "variable type";
@@ -684,6 +685,27 @@ const char* global_variable_location_to_string(GlobalVariableLocation location) 
 		case GlobalVariableLocation::SCOMMON: return "scommon";
 	}
 	return "";
+}
+
+const char* access_specifier_to_string(AccessSpecifier specifier) {
+	switch(specifier) {
+		case AS_PUBLIC: return "public";
+		case AS_PROTECTED: return "protected";
+		case AS_PRIVATE: return "private";
+	}
+	return "";
+}
+
+AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility) {
+	AccessSpecifier access_specifier = AS_PUBLIC;
+	switch(visibility) {
+		case ccc::StabsFieldVisibility::NONE: access_specifier = AS_PUBLIC; break;
+		case ccc::StabsFieldVisibility::PUBLIC: access_specifier = AS_PUBLIC; break;
+		case ccc::StabsFieldVisibility::PROTECTED: access_specifier = AS_PROTECTED; break;
+		case ccc::StabsFieldVisibility::PRIVATE: access_specifier = AS_PRIVATE; break;
+		case ccc::StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT: access_specifier = AS_PUBLIC; break;
+	}
+	return access_specifier;
 }
 
 }

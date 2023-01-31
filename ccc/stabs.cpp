@@ -281,7 +281,7 @@ static std::vector<StabsField> parse_field_list(const char*& input) {
 		}
 		field.type = parse_stabs_type(input);
 		if(field.name.size() >= 1 && field.name[0] == '$') {
-			// Not sure.
+			// Virtual table pointers.
 			expect_char(input, ',', "field type");
 			field.offset_bits = eat_s64_literal(input);
 			expect_char(input, ';', "field offset");
