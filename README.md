@@ -8,7 +8,7 @@ A set of tools for reverse engineering PS2 games.
 
 Mdebug/STABS symbol table parser and dumper. It can extract the following information:
 
-- Data Types (structs, unions, enums, etc)
+- Data types (structs, unions, enums, etc)
 - Functions (name, return type, parameters and local variables)
 - Global variables
 
@@ -52,7 +52,10 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992)
 - [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html)
-- `dbxread.c` from gdb, `stabs.c` from binutils (reading), `dbxout.c` from gcc (writing) and `stab.def` from gcc (symbol codes).
+- `dbxread.c` from gdb (reading)
+- `stabs.c` from binutils (reading)
+- `dbxout.c` from gcc (writing)
+- `stab.def` from gcc (symbol codes)
 
 ## JSON Format
 
