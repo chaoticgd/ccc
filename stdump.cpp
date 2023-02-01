@@ -6,14 +6,14 @@
 using namespace ccc;
 
 enum class OutputMode {
-	PRINT_FUNCTIONS,
-	PRINT_GLOBALS,
-	PRINT_TYPES,
-	PRINT_JSON,
-	PRINT_MDEBUG,
-	PRINT_SYMBOLS,
-	PRINT_EXTERNAL_SYMBOLS,
-	LIST_FILES,
+	FUNCTIONS,
+	GLOBALS,
+	TYPES,
+	JSON,
+	MDEBUG,
+	SYMBOLS,
+	EXTERNALS,
+	FILES,
 	TEST,
 	HELP,
 	BAD_COMMAND
@@ -55,9 +55,7 @@ int main(int argc, char** argv) {
 	mdebug::SymbolTable symbol_table;
 	if(options.mode == OutputMode::TEST) {
 		test(options.input_file);
-	} else if(options.mode == OutputMode::HELP) {
-		print_help();
-	} else if(options.mode == OutputMode::BAD_COMMAND) {
+	} else if(options.mode == OutputMode::HELP || options.mode == OutputMode::BAD_COMMAND) {
 		print_help();
 	} else {
 		mod = loaders::read_elf_file(options.input_file);
@@ -66,15 +64,15 @@ int main(int argc, char** argv) {
 		symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
 	}
 	switch(options.mode) {
-		case OutputMode::PRINT_FUNCTIONS: {
+		case OutputMode::FUNCTIONS: {
 			print_functions(symbol_table);
 			return 0;
 		}
-		case OutputMode::PRINT_GLOBALS: {
+		case OutputMode::GLOBALS: {
 			print_globals(symbol_table);
 			return 0;
 		}
-		case OutputMode::PRINT_TYPES: {
+		case OutputMode::TYPES: {
 			if(!(options.flags & FLAG_PER_FILE)) {
 				print_types_deduplicated(symbol_table, options);
 			} else {
@@ -82,7 +80,7 @@ int main(int argc, char** argv) {
 			}
 			return 0;
 		}
-		case OutputMode::PRINT_JSON: {
+		case OutputMode::JSON: {
 			if(!(options.flags & FLAG_PER_FILE)) {
 				AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
 				print_json(stdout, results, false);
@@ -92,19 +90,19 @@ int main(int argc, char** argv) {
 			}
 			break;
 		}
-		case OutputMode::PRINT_MDEBUG: {
+		case OutputMode::MDEBUG: {
 			mdebug::print_headers(stdout, symbol_table);
 			break;
 		}
-		case OutputMode::PRINT_SYMBOLS: {
+		case OutputMode::SYMBOLS: {
 			print_local_symbols(symbol_table);
 			return 0;
 		}
-		case OutputMode::PRINT_EXTERNAL_SYMBOLS: {
+		case OutputMode::EXTERNALS: {
 			print_external_symbols(symbol_table);
 			return 0;
 		}
-		case OutputMode::LIST_FILES: {
+		case OutputMode::FILES: {
 			list_files(symbol_table);
 			return 0;
 		}
@@ -273,22 +271,22 @@ static Options parse_args(int argc, char** argv) {
 		return options;
 	}
 	const char* command = argv[1];
-	if(strcmp(command, "print_functions") == 0) {
-		options.mode = OutputMode::PRINT_FUNCTIONS;
-	} else if(strcmp(command, "print_globals") == 0) {
-		options.mode = OutputMode::PRINT_GLOBALS;
-	} else if(strcmp(command, "print_types") == 0) {
-		options.mode = OutputMode::PRINT_TYPES;
-	} else if(strcmp(command, "print_json") == 0) {
-		options.mode = OutputMode::PRINT_JSON;
-	} else if(strcmp(command, "print_mdebug") == 0) {
-		options.mode = OutputMode::PRINT_MDEBUG;
-	} else if(strcmp(command, "print_symbols") == 0) {
-		options.mode = OutputMode::PRINT_SYMBOLS;
-	} else if(strcmp(command, "print_external_symbols") == 0) {
-		options.mode = OutputMode::PRINT_EXTERNAL_SYMBOLS;
-	} else if(strcmp(command, "list_files") == 0) {
-		options.mode = OutputMode::LIST_FILES;
+	if(strcmp(command, "functions") == 0 || strcmp(command, "print_functions") == 0) {
+		options.mode = OutputMode::FUNCTIONS;
+	} else if(strcmp(command, "globals") == 0 || strcmp(command, "print_globals") == 0) {
+		options.mode = OutputMode::GLOBALS;
+	} else if(strcmp(command, "types") == 0 || strcmp(command, "print_types") == 0) {
+		options.mode = OutputMode::TYPES;
+	} else if(strcmp(command, "json") == 0 || strcmp(command, "print_json") == 0) {
+		options.mode = OutputMode::JSON;
+	} else if(strcmp(command, "mdebug") == 0 || strcmp(command, "print_mdebug") == 0) {
+		options.mode = OutputMode::MDEBUG;
+	} else if(strcmp(command, "symbols") == 0 || strcmp(command, "print_symbols") == 0) {
+		options.mode = OutputMode::SYMBOLS;
+	} else if(strcmp(command, "externals") == 0 || strcmp(command, "print_external_symbols") == 0) {
+		options.mode = OutputMode::EXTERNALS;
+	} else if(strcmp(command, "files") == 0 || strcmp(command, "list_files") == 0) {
+		options.mode = OutputMode::FILES;
 	} else if(strcmp(command, "test") == 0) {
 		options.mode = OutputMode::TEST;
 	} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
@@ -324,13 +322,13 @@ static void print_help() {
 	puts("  Mdebug/STABS symbol table parser and dumper.");
 	puts("");
 	puts("Commands:");
-	puts("  print_functions <input file>");
+	puts("  functions <input file>");
 	puts("    Print all the functions recovered from the STABS symbols as C++.");
 	puts("");
-	puts("  print_globals <input file>");
+	puts("  globals <input file>");
 	puts("    Print all the global variables recovered from the STABS symbols as C++.");
 	puts("");
-	puts("  print_types [options] <input file>");
+	puts("  types [options] <input file>");
 	puts("    Print all the types recovered from the STABS symbols as C++.");
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
@@ -341,21 +339,21 @@ static void print_help() {
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");
 	puts("");
-	puts("  print_json [options] <input file>");
+	puts("  json [options] <input file>");
 	puts("    Print all of the above as JSON.");
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
 	puts("");
-	puts("  print_mdebug <input file>");
+	puts("  mdebug <input file>");
 	puts("    Print mdebug header information.");
 	puts("");
-	puts("  print_symbols <input file>");
+	puts("  symbols <input file>");
 	puts("    List all of the local symbols for each file.");
 	puts("");
-	puts("  print_external_symbols <input file>");
+	puts("  externals <input file>");
 	puts("    List all of the external symbols for each file.");
 	puts("");
-	puts("  list_files <input file>");
+	puts("  files <input file>");
 	puts("    List the names of each of the source files.");
 	puts("");
 	puts("  test <input directory>");
