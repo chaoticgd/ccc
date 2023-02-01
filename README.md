@@ -8,21 +8,16 @@ A set of tools for reverse engineering PS2 games.
 
 Mdebug/STABS symbol table parser and dumper. It can extract the following information:
 
-- Functions including parameters and local variables
+- Data Types (structs, unions, enums, etc)
+- Functions (name, return type, parameters and local variables)
 - Global variables
-- Types (structs, unions, enums, etc)
 
 The following output formats are supported:
 
 - C++
 - JSON
 
-The JSON output can be fed into the included `ImportStdumpSymbolsIntoGhidra.java` script, which will import functions, global variables and data types into [Ghidra](https://github.com/NationalSecurityAgency/ghidra). **Ghidra 10.1 or later is required.** The script is intended to be used alongside the [ghidra-emotionengine](https://github.com/beardypig/ghidra-emotionengine) extension. The procedure for using this script on a fresh file is as follows:
-
-1. Run the script **before** running auto analysis.
-2. Run auto analysis, making sure to enable the "Use Deprecated Demangler" setting for the `Demangler GNU` analyser if the program you're analysing uses the old GNU mangling. We also recommend running the `MIPS-R5900 Constant Reference` analyzer included with ghidra-emotionengine, as well as `Variadic Function Signature Override`.
-
-Note that the Ghidra script currently has some trouble with certain games.
+This is intended to be used with [ghidra-emotionengine-reloaded](https://github.com/chaoticgd/ghidra-emotionengine-reloaded) (>= 2.1.0 or one of the unstable builds) to import all of this information into [Ghidra](https://ghidra-sre.org/). Note that despite the name the STABS analyzer should work for the R3000 (IOP) and possibly other MIPS processors as well.
 
 ### objdump
 
@@ -58,7 +53,7 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992)
 - [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html)
-- `stabs.c` from binutils (reading), `dbxout.c` from gcc (writing) and `stab.def` from gcc (symbol codes).
+- `dbxread.c` from gdb, `stabs.c` from binutils (reading), `dbxout.c` from gcc (writing) and `stab.def` from gcc (symbol codes).
 
 ## JSON Format
 
@@ -66,10 +61,10 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 | Version | Changes |
 | - | - |
-| 7 | Base classes are now no longer doubly nested inside two JSON objects. Added 'acccess_specifier' property. |
-| 6 | Removed 'order' property. |
-| 5 | Added 'pointer_to_data_member' node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
-| 4 | Added optional is_const property to all nodes. Added 'anonymous_reference' type names, where the type name is not valid but the type number is. |
+| 7 | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
+| 6 | Removed order property. |
+| 5 | Added pointer_to_data_member node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
+| 4 | Added optional is_const property to all nodes. Added anonymous_reference type names, where the type name is not valid but the type number is. |
 | 3 | Added optional relative_path property to function definition nodes. |
 | 2 | Added vtable_index property to function type nodes. |
 | 1 | First version. |
