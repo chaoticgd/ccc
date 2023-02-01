@@ -30,7 +30,6 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 ## Project Structure
 
-	ImportStdumpSymbolsIntoGhidra.java: See above.
 	stdump.cpp: See above.
 	objdump.cpp: See above.
 	ccc/analysis.cpp: Runs all the different analysis passes.
