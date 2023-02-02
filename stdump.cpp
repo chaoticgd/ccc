@@ -53,7 +53,7 @@ static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
-	FILE* out = (!options.output_file.empty()) ? fopen(options.output_file.string().c_str(), "w") : stdout;
+	FILE* out = (!options.output_file.empty()) ? open_file_w(options.output_file.c_str()) : stdout;
 	verify(out, "Failed to open output file.");
 	switch(options.mode) {
 		case OutputMode::FUNCTIONS: {

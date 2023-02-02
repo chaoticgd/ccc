@@ -105,8 +105,13 @@ bool guess_is_windows_path(const char* path);
 // On Windows long is only 4 bytes, so the regular libc standard IO functions
 // are crippled, hence we need to use these special versions instead.
 #ifdef _MSC_VER
+	#define open_file_rb(filename) _wfopen(filename, L"rb")
+	#define open_file_w(filename) _wfopen(filename, L"w")
 	#define fseek _fseeki64
 	#define ftell _ftelli64
+#else
+	#define open_file_rb(filename) fopen(filename, "rb")
+	#define open_file_w(filename) fopen(filename, "w")
 #endif
 
 }
