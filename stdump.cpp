@@ -53,8 +53,11 @@ static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
-	FILE* out = (!options.output_file.empty()) ? open_file_w(options.output_file.c_str()) : stdout;
-	verify(out, "Failed to open output file.");
+	FILE* out = stdout;
+	if(!options.output_file.empty()) {
+		out = open_file_w(options.output_file.c_str());
+		verify(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
+	}
 	switch(options.mode) {
 		case OutputMode::FUNCTIONS: {
 			Module mod;
@@ -323,7 +326,7 @@ static Options parse_args(int argc, char** argv) {
 		options.mode = OutputMode::HELP;
 		require_input_path = false;
 	} else {
-		fprintf(stderr, "Unknown command '%s'.\n\n", command);
+		verify_not_reached("Unknown command '%s'.", command);
 		options.mode = OutputMode::BAD_COMMAND;
 		return options;
 	}
@@ -344,16 +347,16 @@ static Options parse_args(int argc, char** argv) {
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];
 			} else {
-				fprintf(stderr, "No output path specified.\n");
+				verify_not_reached("No output path specified.");
 				options.mode = OutputMode::BAD_COMMAND;
 				return options;
 			}
 		} else if(strncmp(arg, "--", 2) == 0) {
-			fprintf(stderr, "Unknown option '%s'.\n\n", arg);
+			verify_not_reached("Unknown option '%s'.", arg);
 			options.mode = OutputMode::BAD_COMMAND;
 			return options;
 		} else if(input_path_provided) {
-			fprintf(stderr, "Multiple input paths specified.\n\n");
+			verify_not_reached("Multiple input paths specified.");
 			options.mode = OutputMode::BAD_COMMAND;
 			return options;
 		} else {
@@ -361,9 +364,7 @@ static Options parse_args(int argc, char** argv) {
 			input_path_provided = true;
 		}
 	}
-	if(require_input_path && options.input_file.empty()) {
-		fprintf(stderr, "No input path specified.\n");
-	}
+	verify(!require_input_path || !options.input_file.empty(), "No input path specified.");
 	return options;
 }
 
