@@ -76,7 +76,7 @@ jobs:
         zip -r ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip objdump stdump
 
     - name: Release
-      uses: ncipollo/release-action@v1
+      uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e
       with:
         draft: true
         allowUpdates: true
