@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       Version:
-        description: 'Version number e.g. 1.0'     
+        description: 'Version Number e.g. 1.23'
         required: true
-        default: '0.0.1'
+        default: '0.1'
       Title:
-        description: 'Title for the release'     
+        description: 'Release Title'
         required: true
-        default: 'CCC - Version 0.0.1'
+        default: 'The Unnamed Update'
 
 env:
   BUILD_TYPE: Release
@@ -23,8 +23,8 @@ jobs:
       matrix:
         sys: 
           - { os: windows-latest, shell: pwsh, name: windows }
-          - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}', name: linux  }
-          - { os: macos-latest,   shell: bash, name: macos  }
+          - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}', name: linux }
+          - { os: macos-latest,   shell: bash, name: mac }
     defaults:
       run:
         shell: ${{ matrix.sys.shell }}
@@ -36,7 +36,7 @@ jobs:
     
     - name: Setup latest Alpine Linux
       uses: jirutka/setup-alpine@39d2d96fa8e4b713be89c0239a5c3b9a0f49838d
-      if: ${{ matrix.sys.os == 'ubuntu-latest' }}        
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
       with:
         arch: x86_64
         packages: >
