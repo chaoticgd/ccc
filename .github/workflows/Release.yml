@@ -67,4 +67,4 @@ jobs:
         replacesArtifacts: false
         name: ${{ github.event.inputs.title }}
         tag: "v${{ github.event.inputs.version }}"
-        files: build/Release/ccc_${{ matrix.sys.os }}_v${{ github.event.inputs.version }}.zip
+        artifacts: build/Release/ccc_${{ matrix.sys.os }}_v${{ github.event.inputs.version }}.zip
