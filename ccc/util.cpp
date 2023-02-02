@@ -13,7 +13,7 @@
 namespace ccc {
 
 std::vector<u8> read_binary_file(const fs::path& path) {
-	FILE* file = fopen(path.string().c_str(), "rb");
+	FILE* file = open_file_rb(path.string().c_str());
 	verify(file, "Failed to open file '%s'.", path.string().c_str());
 	s64 size = file_size(file);
 	std::vector<u8> output(size);
