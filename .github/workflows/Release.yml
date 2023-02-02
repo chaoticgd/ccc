@@ -57,6 +57,7 @@ jobs:
     - name: Zip Windows & OSX App
       if: ${{ matrix.sys.os != 'ubuntu-latest' }}
       working-directory: build/Release
+      shell: pwsh
       run: |
         Compress-Archive * ../ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
 
