@@ -26,6 +26,7 @@ if(MSVC)
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-g")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+	add_link_options($<$<CONFIG:RELEASE>:-s>)
 endif()
 
 include(cmake/version_finder.cmake)
