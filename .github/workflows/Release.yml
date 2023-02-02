@@ -62,7 +62,6 @@ jobs:
 
     - name: Zip Alpine App
       if: ${{ matrix.sys.os == 'ubuntu-latest' }}
-      working-directory: build/Release
       run: |
         ls
         cd build/Release
