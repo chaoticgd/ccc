@@ -79,8 +79,8 @@ const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subjec
 	return *(const T*) &bytes[offset];
 }
 
-std::vector<u8> read_file_bin(fs::path const& filepath);
-std::string read_text_file(const fs::path& path);
+std::vector<u8> read_binary_file(const fs::path& path);
+s64 file_size(FILE* file);
 std::string get_string(const std::vector<u8>& bytes, u64 offset);
 const char* get_c_string(const std::vector<u8>& bytes, u64 offset);
 
@@ -101,6 +101,13 @@ std::string stringf(const char* format, ...);
 std::pair<std::string, bool> merge_paths(const std::string& base, const std::string& path);
 std::string normalise_path(const char* input, bool use_backslashes_as_path_separators);
 bool guess_is_windows_path(const char* path);
+
+// On Windows long is only 4 bytes, so the regular libc standard IO functions
+// are crippled, hence we need to use these special versions instead.
+#ifdef _MSC_VER
+	#define fseek _fseeki64
+	#define ftell _ftelli64
+#endif
 
 }
 
