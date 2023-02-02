@@ -418,7 +418,7 @@ static void print_help() {
 	puts("  help | --help | -h");
 	puts("    Print this help message.");
 	puts("");
-	puts("Common Flags:");
+	puts("Common Options:");
 	puts("");
 	puts("  --output <output file>        Write the output to the file specified instead");
 	puts("                                of to the standard output.");
