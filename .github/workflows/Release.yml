@@ -67,6 +67,7 @@ jobs:
       working-directory: build/
       shell: pwsh
       run: |
+        ls
         Compress-Archive -Path objdump stdump -DestinationPath ../ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
 
     - name: Zip Alpine App
