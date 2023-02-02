@@ -64,6 +64,7 @@ jobs:
       if: ${{ matrix.sys.os == 'ubuntu-latest' }}
       working-directory: build/Release
       run: |
+        ls
         cd build/Release
         zip -r ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip * 
 
