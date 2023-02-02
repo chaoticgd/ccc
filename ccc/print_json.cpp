@@ -3,7 +3,7 @@
 namespace ccc {
 
 struct JsonWriter {
-	FILE* dest;
+	FILE* out;
 	bool needs_comma = false;
 	
 	void begin_object();
@@ -26,9 +26,9 @@ struct JsonWriter {
 static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr);
 static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage);
 
-void print_json(FILE* dest, const AnalysisResults& src, bool print_per_file_types) {
+void print_json(FILE* out, const AnalysisResults& src, bool print_per_file_types) {
 	JsonWriter json;
-	json.dest = dest;
+	json.out = out;
 	
 	json.begin_object();
 	
@@ -340,61 +340,61 @@ static void print_json_variable_storage(JsonWriter& json, const ast::VariableSto
 
 void JsonWriter::begin_object() {
 	if(needs_comma) {
-		fprintf(dest, ",");
+		fprintf(out, ",");
 	}
 	needs_comma = false;
-	fprintf(dest, "{");
+	fprintf(out, "{");
 }
 
 void JsonWriter::end_object() {
 	needs_comma = true;
-	fprintf(dest, "}");
+	fprintf(out, "}");
 }
 
 void JsonWriter::property(const char* name) {
 	if(needs_comma) {
-		fprintf(dest, ",");
+		fprintf(out, ",");
 	}
 	needs_comma = false;
-	fprintf(dest, "\"%s\":", name);
+	fprintf(out, "\"%s\":", name);
 }
 
 void JsonWriter::string(const char* value) {
 	if(needs_comma) {
-		fprintf(dest, ",");
+		fprintf(out, ",");
 	}
 	needs_comma = true;
 	std::string encoded = encode_string(value);
-	fprintf(dest, "\"%s\"", encoded.c_str());
+	fprintf(out, "\"%s\"", encoded.c_str());
 }
 
 void JsonWriter::number(s64 value) {
 	if(needs_comma) {
-		fprintf(dest, ",");
+		fprintf(out, ",");
 	}
 	needs_comma = true;
-	fprintf(dest, "%" PRId64, value);
+	fprintf(out, "%" PRId64, value);
 }
 
 void JsonWriter::boolean(bool value) {
 	if(needs_comma) {
-		fprintf(dest, ",");
+		fprintf(out, ",");
 	}
 	needs_comma = true;
-	fprintf(dest, "%s", value ? "true" : "false");
+	fprintf(out, "%s", value ? "true" : "false");
 }
 
 void JsonWriter::begin_array() {
 	if(needs_comma) {
-		fprintf(dest, ",");
+		fprintf(out, ",");
 	}
 	needs_comma = false;
-	fprintf(dest, "[");
+	fprintf(out, "[");
 }
 
 void JsonWriter::end_array() {
 	needs_comma = true;
-	fprintf(dest, "]");
+	fprintf(out, "]");
 }
 
 void JsonWriter::string_property(const char* name, const char* value) {

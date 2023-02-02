@@ -12,35 +12,21 @@
 
 namespace ccc {
 
-std::vector<u8> read_file_bin(fs::path const& filepath) {
-	std::ifstream ifs(filepath, std::ios::binary | std::ios::ate);
-
-	if (!ifs)
-		throw std::runtime_error(filepath.string() + ": " + std::strerror(errno));
-
-	const auto end = ifs.tellg();
-	ifs.seekg(0, std::ios::beg);
-
-	const auto size = std::size_t(end - ifs.tellg());
-
-	if (size == 0)  // avoid undefined behavior
-		return {};
-
-	const std::vector<u8> buf(size);
-
-	if (!ifs.read((char*)buf.data(), buf.size()))
-		throw std::runtime_error(filepath.string() + ": " + std::strerror(errno));
-
-	return buf;
+std::vector<u8> read_binary_file(const fs::path& path) {
+	FILE* file = fopen(path.string().c_str(), "rb");
+	verify(file, "Failed to open file '%s'.", path.string().c_str());
+	s64 size = file_size(file);
+	std::vector<u8> output(size);
+	verify(fread(output.data(), size, 1, file) == 1, "Failed to read file '%s'.", path.string().c_str());
+	return output;
 }
 
-std::string read_text_file(const fs::path& path) {
-	std::ifstream file_stream;
-	file_stream.open(path.string());
-	verify(file_stream.is_open(), "Failed to open file.");
-	std::stringstream string_stream;
-	string_stream << file_stream.rdbuf();
-	return string_stream.str();
+s64 file_size(FILE* file) {
+	s64 pos = ftell(file);
+	fseek(file, 0, SEEK_END);
+	s64 size = ftell(file);
+	fseek(file, pos, SEEK_SET);
+	return size;
 }
 
 std::string get_string(const std::vector<u8>& bytes, u64 offset) {

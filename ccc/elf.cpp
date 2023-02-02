@@ -5,10 +5,8 @@ namespace ccc::loaders {
 static void parse_elf_file(Module& mod);
 
 Module read_elf_file(fs::path path) {
-	verify(fs::exists(path), "File doesn't exist.");
-
 	Module mod;
-	mod.image = read_file_bin(path);
+	mod.image = read_binary_file(path);
 	parse_elf_file(mod);
 	return mod;
 }
