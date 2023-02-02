@@ -24,7 +24,7 @@ jobs:
         sys: 
           - { os: windows-latest, shell: pwsh, name: windows }
           - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}', name: linux  }
-          - { os: macos-latest,   shell: bash, name: osx  }
+          - { os: macos-latest,   shell: bash, name: macos  }
     defaults:
       run:
         shell: ${{ matrix.sys.shell }}
