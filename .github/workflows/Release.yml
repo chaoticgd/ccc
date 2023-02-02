@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      Version:
+        description: 'Version number e.g. 1.0'     
+        required: true
+        default: '0.0.1'
+      Title:
+        description: 'Title for the release'     
+        required: true
+        default: 'CCC - Version 0.0.1'
+
+env:
+  BUILD_TYPE: Release
+  BUILD_STATIC: false
+
+jobs:
+  build:
+    runs-on: ${{ matrix.sys.os }} 
+    strategy:
+      matrix:
+        sys: 
+          - { os: windows-latest, shell: pwsh, name: windows }
+          - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}', name: linux  }
+          - { os: macos-latest,   shell: bash, name: macos  }
+    defaults:
+      run:
+        shell: ${{ matrix.sys.shell }}
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: 'recursive'
+    
+    - name: Setup latest Alpine Linux
+      uses: jirutka/setup-alpine@39d2d96fa8e4b713be89c0239a5c3b9a0f49838d
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}        
+      with:
+        arch: x86_64
+        packages: >
+          make
+          cmake
+          libstdc++
+          g++
+          musl-dev
+          zip
+      
+    - name: Configure CMake
+      env:
+        BUILD_STATIC: ${{ matrix.sys.os == 'ubuntu-latest' }}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=${{env.BUILD_STATIC}}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Zip Windows App
+      if: ${{ matrix.sys.os == 'windows-latest' }}
+      working-directory: build/Release
+      shell: pwsh
+      run: |
+        Compress-Archive * ../ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
+
+    - name: Zip OSX App
+      if: ${{ matrix.sys.os == 'macos-latest' }}
+      working-directory: build/
+      shell: pwsh
+      run: |
+        Get-ChildItem -Path objdump, stdump | Compress-Archive -DestinationPath ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
+
+    - name: Zip Alpine App
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
+      working-directory: build
+      run: |
+        zip -r ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip objdump stdump
+
+    - name: Release
+      uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e
+      with:
+        draft: true
+        allowUpdates: true
+        replacesArtifacts: false
+        name: ${{ github.event.inputs.title }}
+        tag: "v${{ github.event.inputs.version }}"
+        artifacts: build/ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
