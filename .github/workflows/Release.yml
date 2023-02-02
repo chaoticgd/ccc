@@ -36,9 +36,7 @@ jobs:
     
     - name: Setup latest Alpine Linux
       uses: jirutka/setup-alpine@39d2d96fa8e4b713be89c0239a5c3b9a0f49838d
-      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
-      env: 
-        BUILD_STATIC: true
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}        
       with:
         arch: x86_64
         packages: >
@@ -50,17 +48,26 @@ jobs:
           zip
       
     - name: Configure CMake
+      env:
+        BUILD_STATIC: ${{ matrix.sys.os == 'ubuntu-latest' }}
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=${{env.BUILD_STATIC}}
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    - name: Zip Windows & OSX App
-      if: ${{ matrix.sys.os != 'ubuntu-latest' }}
+    - name: Zip Windows App
+      if: ${{ matrix.sys.os == 'windows-latest' }}
       working-directory: build/Release
       shell: pwsh
       run: |
         Compress-Archive * ../ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
+
+    - name: Zip OSX App
+      if: ${{ matrix.sys.os == 'macos-latest' }}
+      working-directory: build/
+      shell: pwsh
+      run: |
+        Compress-Archive -Path objdump stdump -DestinationPath ../ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
 
     - name: Zip Alpine App
       if: ${{ matrix.sys.os == 'ubuntu-latest' }}
@@ -71,6 +78,7 @@ jobs:
     - name: Release
       uses: ncipollo/release-action@v1
       with:
+        draft: true
         allowUpdates: true
         replacesArtifacts: false
         name: ${{ github.event.inputs.title }}
