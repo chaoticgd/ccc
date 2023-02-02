@@ -54,11 +54,18 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    - name: Zip App
+    - name: Zip Windows & OSX App
+      if: ${{ matrix.sys.os != 'ubuntu-latest' }}
       working-directory: build/Release
-      shell: pwsh
       run: |
         Compress-Archive * ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
+
+    - name: Zip Alpine App
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
+      working-directory: build/Release
+      run: |
+        cd build/Release/ccc_$
+        zip -r ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip * 
 
     - name: Release
       uses: ncipollo/release-action@v1
