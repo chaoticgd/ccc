@@ -15,7 +15,6 @@ on:
 env:
   BUILD_TYPE: Release
   BUILD_STATIC: false
-  ZIP_RELEASE: true
 
 jobs:
   build:
@@ -51,7 +50,7 @@ jobs:
     - name: Configure CMake
       env:
         BUILD_STATIC: ${{ matrix.sys.os == 'ubuntu-latest' }}
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=${{env.BUILD_STATIC}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=${{env.BUILD_STATIC}} -DZIP_RELEASE=1
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
