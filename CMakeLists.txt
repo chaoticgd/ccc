@@ -53,3 +53,11 @@ add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
 add_executable(objdump objdump.cpp)
 target_link_libraries(objdump ccc versioninfo)
+
+# All the files to be included in a release.
+set(RELEASE_CONTENTS
+	$<TARGET_FILE:stdump>
+	$<TARGET_FILE:objdump>
+	"${CMAKE_SOURCE_DIR}/LICENSE"
+)
+include(cmake/zip_crafter.cmake)

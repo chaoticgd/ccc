@@ -15,6 +15,7 @@ on:
 env:
   BUILD_TYPE: Release
   BUILD_STATIC: false
+  ZIP_RELEASE: true
 
 jobs:
   build:
@@ -22,9 +23,9 @@ jobs:
     strategy:
       matrix:
         sys: 
-          - { os: windows-latest, shell: pwsh, name: windows }
-          - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}', name: linux }
-          - { os: macos-latest,   shell: bash, name: mac }
+          - { os: windows-latest, shell: pwsh }
+          - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}' }
+          - { os: macos-latest,   shell: bash }
     defaults:
       run:
         shell: ${{ matrix.sys.shell }}
@@ -55,32 +56,12 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    - name: Zip Windows App
-      if: ${{ matrix.sys.os == 'windows-latest' }}
-      working-directory: build/Release
-      shell: pwsh
-      run: |
-        Compress-Archive * ../ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
-
-    - name: Zip OSX App
-      if: ${{ matrix.sys.os == 'macos-latest' }}
-      working-directory: build/
-      shell: pwsh
-      run: |
-        Get-ChildItem -Path objdump, stdump | Compress-Archive -DestinationPath ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
-
-    - name: Zip Alpine App
-      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
-      working-directory: build
-      run: |
-        zip -r ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip objdump stdump
-
     - name: Release
       uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e
       with:
-        draft: true
-        allowUpdates: true
-        replacesArtifacts: false
         name: ${{ github.event.inputs.title }}
         tag: "v${{ github.event.inputs.version }}"
-        artifacts: build/ccc_${{ matrix.sys.name }}_v${{ github.event.inputs.version }}.zip
+        artifacts: build/ccc_*.zip
+        allowUpdates: true
+        draft: true
+        replacesArtifacts: false
