@@ -136,9 +136,6 @@ void print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_n
 	if(node.is_volatile) {
 		fprintf(out, "volatile ");
 	}
-	if(node.is_base_class && node.access_specifier != ast::AS_PUBLIC) {
-		fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) node.access_specifier));
-	}
 	
 	switch(node.descriptor) {
 		case ast::ARRAY: {
@@ -257,6 +254,10 @@ void print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_n
 				for(size_t i = 0; i < struct_or_union.base_classes.size(); i++) {
 					ast::Node& base_class = *struct_or_union.base_classes[i].get();
 					assert(base_class.descriptor == ast::TypeName::DESCRIPTOR);
+					print_cpp_offset(out, base_class, digits_for_offset);
+					if( base_class.access_specifier != ast::AS_PUBLIC) {
+						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
+					}
 					VariableName dummy;
 					print_cpp_ast_node(out, base_class, dummy, indentation_level + 1, digits_for_offset);
 					if(i != struct_or_union.base_classes.size() - 1) {
