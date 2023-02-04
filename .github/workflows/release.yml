@@ -1,16 +1,9 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      Version:
-        description: 'Version Number e.g. 1.23'
-        required: true
-        default: '0.1'
-      Title:
-        description: 'Release Title'
-        required: true
-        default: 'The Unnamed Update'
+  push:
+    tags:
+      - 'v*'
 
 env:
   BUILD_TYPE: Release
@@ -55,12 +48,15 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+
     - name: Release
-      uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e
+      uses: svenstaro/upload-release-action@cc92c9093e5f785e23a3d654fe2671640b851b5f
       with:
-        name: ${{ github.event.inputs.title }}
-        tag: "v${{ github.event.inputs.version }}"
-        artifacts: build/ccc_*.zip
-        allowUpdates: true
-        draft: true
-        replacesArtifacts: false
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: build/ccc_*.zip
+        tag: ${{ github.ref }}
+        overwrite: true
+        file_glob: true

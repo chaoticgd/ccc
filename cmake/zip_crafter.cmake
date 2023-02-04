@@ -22,8 +22,7 @@ if(ZIP_RELEASE)
 		COMMAND
 			${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/${RELEASE_NAME}" &&
 			${CMAKE_COMMAND} -E copy ${RELEASE_CONTENTS} "${CMAKE_BINARY_DIR}/${RELEASE_NAME}" &&
-			${CMAKE_COMMAND} -E tar "cfv" "${RELEASE_NAME}.zip" --format=zip
-			${CMAKE_BINARY_DIR}/"${RELEASE_NAME}"/*
+			${CMAKE_COMMAND} -E tar "cfv" "${RELEASE_NAME}.zip" --format=zip ${CMAKE_BINARY_DIR}/"${RELEASE_NAME}"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
 	)
 endif()
