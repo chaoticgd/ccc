@@ -62,7 +62,7 @@ std::string stringf(const char* format, ...) {
 	return string;
 }
 
-std::pair<std::string, bool> merge_paths(const std::string& base, const std::string& path) {
+std::string merge_paths(const std::string& base, const std::string& path) {
 	// Try to figure out if we're dealing with a Windows path of a UNIX path.
 	bool is_windows_path = false;
 	if(base.empty()) {
@@ -76,9 +76,9 @@ std::pair<std::string, bool> merge_paths(const std::string& base, const std::str
 	bool is_absolute_unix = (path.size() >= 1) && path[0] == '/' || path[0] == '\\';
 	bool is_absolute_windows = (path.size() >= 3) && path[1] == ':' && (path[2] == '/' || path[2] == '\\');
 	if(base.empty() || is_absolute_unix || is_absolute_windows) {
-		return {normalise_path(path.c_str(), is_windows_path), is_windows_path};
+		return normalise_path(path.c_str(), is_windows_path);
 	}
-	return {normalise_path((base + "/" + path).c_str(), is_windows_path), is_windows_path};
+	return normalise_path((base + "/" + path).c_str(), is_windows_path);
 }
 
 std::string normalise_path(const char* input, bool use_backslashes_as_path_separators) {

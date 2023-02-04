@@ -239,7 +239,7 @@ void LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 }
 
 void LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
-	output.relative_path = normalise_path(path, output.is_windows_path);
+	output.relative_path = path;
 	output.text_address = text_address;
 	if(next_relative_path.empty()) {
 		next_relative_path = output.relative_path;
@@ -270,7 +270,7 @@ void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_addres
 	if(state == IN_FUNCTION_BEGINNING) {
 		ast::SubSourceFile& sub = current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
-		sub.relative_path = normalise_path(path, output.is_windows_path);
+		sub.relative_path = path;
 	} else {
 		next_relative_path = path;
 	}
