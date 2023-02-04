@@ -38,7 +38,7 @@ jobs:
           libstdc++
           g++
           musl-dev
-          zip
+          git
       
     - name: Configure CMake
       env:
@@ -53,10 +53,11 @@ jobs:
       run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
 
     - name: Release
-      uses: svenstaro/upload-release-action@cc92c9093e5f785e23a3d654fe2671640b851b5f
+      uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e
       with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: build/ccc_*.zip
+        name: ${{ github.ref }}
         tag: ${{ github.ref }}
-        overwrite: true
-        file_glob: true
+        artifacts: build/ccc_*.zip
+        allowUpdates: true
+        draft: true
+        replacesArtifacts: false
