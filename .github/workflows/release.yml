@@ -39,7 +39,11 @@ jobs:
           g++
           musl-dev
           git
-      
+    
+    - name: Git Nonsense
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
+      run: git config --global --add safe.directory ${{github.workspace}}
+    
     - name: Configure CMake
       env:
         BUILD_STATIC: ${{ matrix.sys.os == 'ubuntu-latest' }}
