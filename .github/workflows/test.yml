@@ -39,6 +39,7 @@ jobs:
           libstdc++
           g++
           musl-dev
+          git
       
     - name: Git Nonsense
       if: ${{ matrix.sys.os == 'ubuntu-latest' }}
