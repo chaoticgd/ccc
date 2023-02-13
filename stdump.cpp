@@ -168,7 +168,7 @@ static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 		fprintf(out, "\n");
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			VariableName dummy{};
-			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
+			print_cpp_ast_node(out, *node.get(), dummy, 0, 3);
 			fprintf(out, ";\n");
 		}
 		if(!source_file.globals.empty() && i != (s32) symbol_table.files.size()) {
