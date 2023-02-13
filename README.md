@@ -4,6 +4,10 @@ A set of tools for reverse engineering PS2 games.
 
 ## Tools
 
+### objdump
+
+Half-working EE core MIPS disassembler. Probably not too interesting.
+
 ### stdump
 
 Mdebug/STABS symbol table parser and dumper. It can extract the following information:
@@ -19,9 +23,9 @@ The following output formats are supported:
 
 This is intended to be used with [ghidra-emotionengine-reloaded](https://github.com/chaoticgd/ghidra-emotionengine-reloaded) (>= 2.1.0 or one of the unstable builds) to import all of this information into [Ghidra](https://ghidra-sre.org/). Note that despite the name the STABS analyzer should work for the R3000 (IOP) and possibly other MIPS processors as well.
 
-### objdump
+### uncc
 
-Half-working EE core MIPS disassembler. Probably not too interesting.
+This is similar to stdump except it organizes its output into separate source files. A `SOURCES.txt` file must be provided in the output directory, which can be generated using the `stdump files` command (you should fixup the paths manually so that they're relative to the output directory). Additionally, non-empty files that do not start with `// STATUS: NOT STARTED` will not be overwritten.
 
 ## Building
 
@@ -30,8 +34,9 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 ## Project Structure
 
-	stdump.cpp: See above.
 	objdump.cpp: See above.
+	stdump.cpp: See above.
+	uncc.cpp: See above.
 	ccc/analysis.cpp: Runs all the different analysis passes.
 	ccc/ast.cpp: Converts parsed STABS types to a C++ AST structure.
 	ccc/elf.cpp: Parses ELF files.

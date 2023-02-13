@@ -21,6 +21,17 @@ std::vector<u8> read_binary_file(const fs::path& path) {
 	return output;
 }
 
+std::optional<std::string> read_text_file(const fs::path& path) {
+	std::ifstream file_stream;
+	file_stream.open(path.string());
+	if(!file_stream.is_open()) {
+		return std::nullopt;
+	}
+	std::stringstream string_stream;
+	string_stream << file_stream.rdbuf();
+	return string_stream.str();
+}
+
 s64 file_size(FILE* file) {
 	s64 pos = ftell(file);
 	fseek(file, 0, SEEK_END);

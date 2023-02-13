@@ -33,14 +33,19 @@ using s16 = int16_t;
 using s32 = int32_t;
 using s64 = int64_t;
 
+#define ANSI_COLOUR_OFF "\033[0m"
+#define ANSI_COLOUR_RED "\033[31m"
+#define ANSI_COLOUR_MAGENTA "\033[35m"
+#define ANSI_COLOUR_GRAY "\033[90m"
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-security"
 template <typename... Args>
 void verify_impl(const char* file, int line, bool condition, const char* format, Args... args) {
 	if(!condition) {
-		fprintf(stderr, "[%s:%d] \033[31merror:\033[0m ", file, line);
+		fprintf(stderr, "[%s:%d] " ANSI_COLOUR_RED "error:" ANSI_COLOUR_OFF " ", file, line);
 		fprintf(stderr, format, args...);
-	fprintf(stderr, "\n");
+		fprintf(stderr, "\n");
 		exit(1);
 	}
 }
@@ -48,7 +53,7 @@ void verify_impl(const char* file, int line, bool condition, const char* format,
 	ccc::verify_impl(__FILE__, __LINE__, condition, __VA_ARGS__)
 template <typename... Args>
 [[noreturn]] void verify_not_reached_impl(const char* file, int line, const char* format, Args... args) {
-	fprintf(stderr, "[%s:%d] \033[31merror:\033[0m ", file, line);
+	fprintf(stderr, "[%s:%d] " ANSI_COLOUR_RED "error:" ANSI_COLOUR_OFF " ", file, line);
 	fprintf(stderr, format, args...);
 	fprintf(stderr, "\n");
 	exit(1);
@@ -57,7 +62,7 @@ template <typename... Args>
 	ccc::verify_not_reached_impl(__FILE__, __LINE__, __VA_ARGS__)
 template <typename... Args>
 void warn_impl(const char* file, int line, const char* format, Args... args) {
-	fprintf(stderr, "[%s:%d] \033[35mwarning:\033[0m ", file, line);
+	fprintf(stderr, "[%s:%d] " ANSI_COLOUR_MAGENTA "warning:" ANSI_COLOUR_OFF " ", file, line);
 	fprintf(stderr, format, args...);
 	fprintf(stderr, "\n");
 }
@@ -80,6 +85,7 @@ const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subjec
 }
 
 std::vector<u8> read_binary_file(const fs::path& path);
+std::optional<std::string> read_text_file(const fs::path& path);
 s64 file_size(FILE* file);
 std::string get_string(const std::vector<u8>& bytes, u64 offset);
 const char* get_c_string(const std::vector<u8>& bytes, u64 offset);
