@@ -105,14 +105,18 @@ static void write_c_cpp_file(const fs::path& path, const std::vector<ast::Source
 	for(const ast::SourceFile* source : sources) {
 		for(const std::unique_ptr<ast::Node>& node : source->functions) {
 			VariableName dummy{};
-			print_cpp_ast_node(out, *node.get(), dummy, 0, 3);
+			PrintCppConfig config;
+			config.print_storage_information = false;
+			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
 			fprintf(out, "\n");
 		}
 	}
 	for(const ast::SourceFile* source : sources) {
 		for(const std::unique_ptr<ast::Node>& node : source->globals) {
 			VariableName dummy{};
-			print_cpp_ast_node(out, *node.get(), dummy, 0, 3);
+			PrintCppConfig config;
+			config.print_storage_information = false;
+			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
 			fprintf(out, ";\n");
 		}
 	}
@@ -123,5 +127,25 @@ static void write_h_file(const fs::path& path, const std::vector<ast::SourceFile
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n");
+	for(const ast::SourceFile* source : sources) {
+		for(const std::unique_ptr<ast::Node>& node : source->functions) {
+			VariableName dummy{};
+			PrintCppConfig config;
+			config.print_function_bodies = false;
+			config.print_storage_information = false;
+			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			fprintf(out, "\n");
+		}
+	}
+	for(const ast::SourceFile* source : sources) {
+		for(const std::unique_ptr<ast::Node>& node : source->globals) {
+			VariableName dummy{};
+			PrintCppConfig config;
+			config.force_extern = true;
+			config.print_storage_information = false;
+			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			fprintf(out, ";\n");
+		}
+	}
 	fclose(out);
 }
