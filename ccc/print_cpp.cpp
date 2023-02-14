@@ -103,9 +103,13 @@ void print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>
 	}
 }
 
-void print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_name, s32 indentation_level, const PrintCppConfig& config) {
+bool print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_name, s32 indentation_level, const PrintCppConfig& config) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
+	
+	if(config.skip_static_variables && node.descriptor == ast::VARIABLE && node.as<ast::Variable>().storage_class == ast::SC_STATIC) {
+		return false;
+	}
 	
 	if(node.descriptor == ast::FUNCTION_DEFINITION) {
 		const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
@@ -126,7 +130,7 @@ void print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_n
 	if(config.force_extern && storage_class != ast::SC_STATIC && node.descriptor == ast::VARIABLE) {
 		storage_class = ast::SC_EXTERN; // For printing out header files.
 	}
-	print_cpp_storage_class(out, (ast::StorageClass) node.storage_class);
+	print_cpp_storage_class(out, storage_class);
 	
 	if(node.is_const) {
 		fprintf(out, "const ");
@@ -359,6 +363,8 @@ void print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_n
 			break;
 		}
 	}
+	
+	return true;
 }
 
 static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class) {
