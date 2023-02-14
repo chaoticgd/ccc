@@ -7,7 +7,7 @@ static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
 static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources);
-static void write_h_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources);
+static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources);
 
 int main(int argc, char** argv) {
 	if(argc != 3) {
@@ -54,7 +54,8 @@ int main(int argc, char** argv) {
 			// Write .h file.
 			fs::path header_path = path.replace_extension(".h");
 			if(should_overwrite_file(header_path)) {
-				write_h_file(header_path, sources);
+				fs::path relative_header_path = fs::path(relative_path).replace_extension(".h");
+				write_h_file(header_path, relative_header_path.string(), sources);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
 			}
@@ -124,10 +125,20 @@ static void write_c_cpp_file(const fs::path& path, const std::vector<ast::Source
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources) {
+static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
+	
+	for(char& c : relative_path) {
+		c = toupper(c);
+		if(!isalnum(c)) {
+			c = '_';
+		}
+	}
+	fprintf(out, "#ifndef %s\n", relative_path.c_str());
+	fprintf(out, "#define %s\n\n", relative_path.c_str());
+	
 	bool has_global = false;
 	for(const ast::SourceFile* source : sources) {
 		for(const std::unique_ptr<ast::Node>& node : source->globals) {
@@ -155,5 +166,6 @@ static void write_h_file(const fs::path& path, const std::vector<ast::SourceFile
 			fprintf(out, "\n");
 		}
 	}
+	fprintf(out, "\n#endif // %s\n", relative_path.c_str());
 	fclose(out);
 }
