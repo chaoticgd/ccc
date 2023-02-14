@@ -107,7 +107,7 @@ bool print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_n
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
-	if(config.skip_static_variables && node.descriptor == ast::VARIABLE && node.as<ast::Variable>().storage_class == ast::SC_STATIC) {
+	if(config.skip_statics && node.storage_class) {
 		return false;
 	}
 	

@@ -145,7 +145,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 			VariableName dummy{};
 			PrintCppConfig config;
 			config.force_extern = true;
-			config.skip_static_variables = true;
+			config.skip_statics = true;
 			config.print_storage_information = false;
 			if(print_cpp_ast_node(out, *node.get(), dummy, 0, config)) {
 				fprintf(out, ";\n");
@@ -160,10 +160,12 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		for(const std::unique_ptr<ast::Node>& node : source->functions) {
 			VariableName dummy{};
 			PrintCppConfig config;
+			config.skip_statics = true;
 			config.print_function_bodies = false;
 			config.print_storage_information = false;
-			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
-			fprintf(out, "\n");
+			if(print_cpp_ast_node(out, *node.get(), dummy, 0, config)) {
+				fprintf(out, "\n");
+			}
 		}
 	}
 	fprintf(out, "\n#endif // %s\n", relative_path.c_str());

@@ -8,7 +8,7 @@ namespace ccc {
 struct PrintCppConfig {
 	bool verbose = false;
 	bool force_extern = false;
-	bool skip_static_variables = false;
+	bool skip_statics = false;
 	bool print_offsets = true;
 	bool print_function_bodies = true;
 	bool print_storage_information = true;
