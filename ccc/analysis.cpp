@@ -270,7 +270,7 @@ void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, co
 }
 
 void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_address) {
-	if(state == IN_FUNCTION_BEGINNING) {
+	if(current_function && state == IN_FUNCTION_BEGINNING) {
 		ast::SubSourceFile& sub = current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
 		sub.relative_path = path;
