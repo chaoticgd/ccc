@@ -1,4 +1,6 @@
 #include "ccc/ccc.h"
+#define HAVE_DECL_BASENAME 1
+#include "demangle/demangle.h"
 
 using namespace ccc;
 
@@ -6,6 +8,7 @@ static std::vector<std::string> parse_sources_list(const fs::path& path);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
+static void demangle_all(AnalysisResults& program);
 static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources);
 static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources);
 
@@ -34,6 +37,8 @@ int main(int argc, char** argv) {
 	mdebug::SymbolTable symbol_table = read_symbol_table({&elf});
 	AnalysisResults program = analyse(symbol_table, NO_ANALYSIS_FLAGS);
 	verify(program.source_files.size() == source_paths.size(), "Source file count mismatch!");
+	
+	demangle_all(program);
 	
 	// Group duplicate source file entries.
 	std::map<std::string, std::vector<ast::SourceFile*>> path_to_source_file;
@@ -96,6 +101,29 @@ static void skip_whitespace(std::string_view& input) {
 static bool should_overwrite_file(const fs::path& path) {
 	std::optional<std::string> file = read_text_file(path);
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
+}
+
+static void demangle_all(AnalysisResults& program) {
+	for(std::unique_ptr<ast::SourceFile>& source : program.source_files) {
+		for(std::unique_ptr<ast::Node>& function : source->functions) {
+			if(!function->name.empty()) {
+				const char* demangled = cplus_demangle(function->name.c_str(), 0);
+				if(demangled) {
+					function->name = std::string(demangled);
+					free((void*) demangled);
+				}
+			}
+		}
+		for(std::unique_ptr<ast::Node>& global : source->globals) {
+			if(!global->name.empty()) {
+				const char* demangled = cplus_demangle(global->name.c_str(), 0);
+				if(demangled) {
+					global->name = std::string(demangled);
+					free((void*) demangled);
+				}
+			}
+		}
+	}
 }
 
 static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources) {

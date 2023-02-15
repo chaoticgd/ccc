@@ -75,3 +75,7 @@ This is similar to stdump except it organizes its output into separate source fi
 | 3 | Added optional relative_path property to function definition nodes. |
 | 2 | Added vtable_index property to function type nodes. |
 | 1 | First version. |
+
+## License
+
+All the code is MIT licensed, with the exception of the code in the `demangle` directory, which is taken from the GNU libiberty library and is licensed under the LGPL.

@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <iostream>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <optional>
 #include <algorithm>
 #include <filesystem>

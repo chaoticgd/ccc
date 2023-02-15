@@ -31,6 +31,16 @@ endif()
 
 include(cmake/version_finder.cmake)
 
+add_executable(objdump objdump.cpp)
+target_link_libraries(objdump ccc versioninfo)
+
+add_executable(stdump stdump.cpp)
+target_link_libraries(stdump ccc versioninfo)
+add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
+
+add_executable(uncc uncc.cpp)
+target_link_libraries(uncc ccc demangle versioninfo)
+
 add_library(ccc STATIC
 	ccc/analysis.cpp
 	ccc/ast.cpp
@@ -47,15 +57,7 @@ add_library(ccc STATIC
 	ccc/util.cpp
 )
 
-add_executable(objdump objdump.cpp)
-target_link_libraries(objdump ccc versioninfo)
-
-add_executable(stdump stdump.cpp)
-target_link_libraries(stdump ccc versioninfo)
-add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
-
-add_executable(uncc uncc.cpp)
-target_link_libraries(uncc ccc versioninfo)
+add_subdirectory(demangle)
 
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
