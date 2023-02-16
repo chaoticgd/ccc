@@ -14,6 +14,7 @@ add_library(demanglegnu STATIC
 	xstrdup.c
 )
 include_directories(.)
+target_compile_definitions(demanglegnu PRIVATE -DHAVE_STRING_H=1)
 if(APPLE)
 	target_compile_options(demanglegnu PRIVATE -Wno-implicit-function-declaration)
 endif()
