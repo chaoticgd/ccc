@@ -1,5 +1,6 @@
 #include "ccc/ccc.h"
 #define HAVE_DECL_BASENAME 1
+#define HAVE_STRING_H 1
 #include "demanglegnu/demangle.h"
 
 using namespace ccc;
