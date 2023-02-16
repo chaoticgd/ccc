@@ -31,6 +31,7 @@ enum class ParsedSymbolType {
 	SUB_SOURCE_FILE,
 	LBRAC,
 	RBRAC,
+	FUNCTION_END,
 	NON_STABS
 };
 

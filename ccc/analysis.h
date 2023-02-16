@@ -77,6 +77,7 @@ struct LocalSymbolTableAnalyser {
 	void label(const char* label, s32 address, s32 line_number);
 	void text_end(const char* name, s32 function_size);
 	void function(const char* name, const StabsType& return_type, s32 function_address);
+	void function_end();
 	void parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
 	void local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
 	void lbrac(s32 number, s32 begin_offset);

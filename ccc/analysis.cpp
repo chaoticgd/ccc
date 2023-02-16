@@ -178,6 +178,9 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 				analyser.rbrac(symbol.lrbrac.number, symbol.raw->value);
 				break;
 			}
+			case ParsedSymbolType::FUNCTION_END: {
+				analyser.function_end();
+			}
 			case ParsedSymbolType::NON_STABS: {
 				if(symbol.raw->storage_class == mdebug::SymbolClass::TEXT) {
 					if(symbol.raw->storage_type == mdebug::SymbolType::PROC) {
@@ -267,7 +270,7 @@ void LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, co
 }
 
 void LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_address) {
-	if(state == IN_FUNCTION_BEGINNING) {
+	if(current_function && state == IN_FUNCTION_BEGINNING) {
 		ast::SubSourceFile& sub = current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
 		sub.relative_path = path;
@@ -315,6 +318,11 @@ void LocalSymbolTableAnalyser::function(const char* name, const StabsType& retur
 	}
 	
 	current_function_type->return_type = ast::stabs_type_to_ast_no_throw(return_type, stabs_to_ast_state, 0, 0, true, true);
+}
+
+void LocalSymbolTableAnalyser::function_end() {
+	current_function = nullptr;
+	current_function_type = nullptr;
 }
 
 void LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {

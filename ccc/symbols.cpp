@@ -21,7 +21,7 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 				case mdebug::N_LSYM: // Automatic variable or type definition
 				case mdebug::N_PSYM: { // Parameter variable
 					// Some STABS symbols are split between multiple strings.
-					if(symbol.string != nullptr && symbol.string[0] != '\0') {
+					if(symbol.string[0] != '\0') {
 						if(symbol.string[strlen(symbol.string) - 1] == '\\') {
 							prefix += std::string(symbol.string, symbol.string + strlen(symbol.string) - 1);
 						} else {
@@ -33,6 +33,11 @@ std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input
 						}
 					} else {
 						verify(prefix.empty(), "Invalid STABS continuation.");
+						if(symbol.code == mdebug::N_FUN) {
+							ParsedSymbol& func_end = output.emplace_back();
+							func_end.type = ParsedSymbolType::FUNCTION_END;
+							func_end.raw = &symbol;
+						}
 					}
 					break;
 				}

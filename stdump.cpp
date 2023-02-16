@@ -149,7 +149,8 @@ static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 		fprintf(out, "\n");
 		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
 			VariableName dummy{};
-			print_cpp_ast_node(out, *node.get(), dummy, 0, 3);
+			PrintCppConfig config;
+			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
 			fprintf(out, "\n");
 		}
 		if(!source_file.functions.empty() && i != (s32) symbol_table.files.size()) {
@@ -168,7 +169,8 @@ static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 		fprintf(out, "\n");
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			VariableName dummy{};
-			print_cpp_ast_node(stdout, *node.get(), dummy, 0, 3);
+			PrintCppConfig config;
+			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
 			fprintf(out, ";\n");
 		}
 		if(!source_file.globals.empty() && i != (s32) symbol_table.files.size()) {
@@ -185,7 +187,9 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	print_cpp_comment_block_compiler_version_info(out, symbol_table);
 	print_cpp_comment_block_builtin_types(out, results.deduplicated_types);
 	fprintf(out, "\n");
-	print_cpp_ast_nodes(out, results.deduplicated_types, options.flags & FLAG_VERBOSE);
+	PrintCppConfig config;
+	config.verbose = options.flags & FLAG_VERBOSE;
+	print_cpp_ast_nodes(out, results.deduplicated_types, config);
 }
 
 static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
@@ -202,7 +206,9 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 		print_cpp_comment_block_compiler_version_info(out, symbol_table);
 		print_cpp_comment_block_builtin_types(out, source_file.data_types);
 		fprintf(out, "\n");
-		print_cpp_ast_nodes(out, source_file.data_types, options.flags & FLAG_VERBOSE);
+		PrintCppConfig config;
+		config.verbose = options.flags & FLAG_VERBOSE;
+		print_cpp_ast_nodes(out, source_file.data_types, config);
 		fprintf(out, "\n");
 	}
 }

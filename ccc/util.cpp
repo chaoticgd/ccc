@@ -21,6 +21,17 @@ std::vector<u8> read_binary_file(const fs::path& path) {
 	return output;
 }
 
+std::optional<std::string> read_text_file(const fs::path& path) {
+	std::ifstream file_stream;
+	file_stream.open(path.string());
+	if(!file_stream.is_open()) {
+		return std::nullopt;
+	}
+	std::stringstream string_stream;
+	string_stream << file_stream.rdbuf();
+	return string_stream.str();
+}
+
 s64 file_size(FILE* file) {
 	s64 pos = ftell(file);
 	fseek(file, 0, SEEK_END);
@@ -147,6 +158,24 @@ bool guess_is_windows_path(const char* path) {
 		}
 	}
 	return false;
+}
+
+std::string extract_file_name(const std::string& path) {
+	std::string::size_type forward_pos = path.find_last_of('/');
+	std::string::size_type backward_pos = path.find_last_of('\\');
+	std::string::size_type pos;
+	if(forward_pos == std::string::npos) {
+		pos = backward_pos;
+	} else if(backward_pos == std::string::npos) {
+		pos = forward_pos;
+	} else {
+		pos = std::max(forward_pos, backward_pos);
+	}
+	if(pos + 1 != path.size() && pos != std::string::npos) {
+		return path.substr(pos + 1);
+	} else {
+		return path;
+	}
 }
 
 }
