@@ -14,3 +14,6 @@ add_library(demanglegnu STATIC
 	xstrdup.c
 )
 include_directories(.)
+if(APPLE)
+	target_compile_options(demanglegnu PRIVATE -wimplicit-function-declaration)
+endif()
