@@ -145,7 +145,7 @@ static void demangle_all(AnalysisResults& program) {
 
 static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = open_file_w(path.string().c_str());
+	FILE* out = open_file_w(path.c_str());
 	verify(out, "Failed to open '%s' for writing.");
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	for(const ast::SourceFile* source : sources) {
@@ -172,7 +172,7 @@ static void write_c_cpp_file(const fs::path& path, const std::vector<ast::Source
 
 static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = open_file_w(path.string().c_str());
+	FILE* out = open_file_w(path.c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
 	for(char& c : relative_path) {
