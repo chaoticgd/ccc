@@ -4,6 +4,10 @@ A set of tools for reverse engineering PS2 games.
 
 ## Tools
 
+### demangle
+
+Demangler for the old GNU ABI.
+
 ### objdump
 
 Half-working EE core MIPS disassembler. Probably not too interesting.
@@ -34,6 +38,7 @@ This is similar to stdump except it organizes its output into separate source fi
 
 ## Project Structure
 
+	demangle.cpp: See above.
 	objdump.cpp: See above.
 	stdump.cpp: See above.
 	uncc.cpp: See above.

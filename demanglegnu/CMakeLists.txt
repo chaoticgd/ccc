@@ -1,4 +1,4 @@
-add_library(demangle STATIC
+add_library(demanglegnu STATIC
 	alloca.c
 	cp-demangle.c
 	cplus-dem.c

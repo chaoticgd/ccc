@@ -31,6 +31,9 @@ endif()
 
 include(cmake/version_finder.cmake)
 
+add_executable(demangle demangle.cpp)
+target_link_libraries(demangle ccc demanglegnu versioninfo)
+
 add_executable(objdump objdump.cpp)
 target_link_libraries(objdump ccc versioninfo)
 
@@ -39,7 +42,7 @@ target_link_libraries(stdump ccc versioninfo)
 add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
 add_executable(uncc uncc.cpp)
-target_link_libraries(uncc ccc demangle versioninfo)
+target_link_libraries(uncc ccc demanglegnu versioninfo)
 
 add_library(ccc STATIC
 	ccc/analysis.cpp
@@ -57,10 +60,11 @@ add_library(ccc STATIC
 	ccc/util.cpp
 )
 
-add_subdirectory(demangle)
+add_subdirectory(demanglegnu)
 
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
+	$<TARGET_FILE:demangle>
 	$<TARGET_FILE:objdump>
 	$<TARGET_FILE:stdump>
 	$<TARGET_FILE:uncc>
