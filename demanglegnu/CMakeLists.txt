@@ -15,5 +15,5 @@ add_library(demanglegnu STATIC
 )
 include_directories(.)
 if(APPLE)
-	target_compile_options(demanglegnu PRIVATE -wimplicit-function-declaration)
+	target_compile_options(demanglegnu PRIVATE -Wno-implicit-function-declaration)
 endif()
