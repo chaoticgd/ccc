@@ -108,6 +108,7 @@ std::string stringf(const char* format, ...);
 std::string merge_paths(const std::string& base, const std::string& path);
 std::string normalise_path(const char* input, bool use_backslashes_as_path_separators);
 bool guess_is_windows_path(const char* path);
+std::string extract_file_name(const std::string& path);
 
 // On Windows long is only 4 bytes, so the regular libc standard IO functions
 // are crippled, hence we need to use these special versions instead.

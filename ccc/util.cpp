@@ -160,4 +160,22 @@ bool guess_is_windows_path(const char* path) {
 	return false;
 }
 
+std::string extract_file_name(const std::string& path) {
+	std::string::size_type forward_pos = path.find_last_of('/');
+	std::string::size_type backward_pos = path.find_last_of('\\');
+	std::string::size_type pos;
+	if(forward_pos == std::string::npos) {
+		pos = backward_pos;
+	} else if(backward_pos == std::string::npos) {
+		pos = forward_pos;
+	} else {
+		pos = std::max(forward_pos, backward_pos);
+	}
+	if(pos + 1 != path.size() && pos != std::string::npos) {
+		return path.substr(pos + 1);
+	} else {
+		return path;
+	}
+}
+
 }

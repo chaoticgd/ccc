@@ -37,14 +37,30 @@ int main(int argc, char** argv) {
 	Module elf = loaders::read_elf_file(elf_path);
 	mdebug::SymbolTable symbol_table = read_symbol_table({&elf});
 	AnalysisResults program = analyse(symbol_table, NO_ANALYSIS_FLAGS);
-	verify(program.source_files.size() == source_paths.size(), "Source file count mismatch!");
 	
 	demangle_all(program);
 	
-	// Group duplicate source file entries.
+	// Group duplicate source file entries, filter out files not referenced in
+	// the SOURCES.txt file.
 	std::map<std::string, std::vector<ast::SourceFile*>> path_to_source_file;
-	for(size_t i = 0; i < program.source_files.size(); i++) {
-		path_to_source_file[source_paths[i]].emplace_back(program.source_files[i].get());
+	size_t path_index = 0;
+	size_t source_index = 0;
+	for(size_t path_index = 0, source_index = 0; path_index < source_paths.size() && source_index < program.source_files.size(); path_index++, source_index++) {
+		// Find the next file referenced in the SOURCES.txt file.
+		std::string source_name = extract_file_name(source_paths[path_index]);
+		while(source_index < program.source_files.size()) {
+			std::string symbol_name = extract_file_name(program.source_files[source_index]->full_path);
+			if(symbol_name == source_name) {
+				break;
+			}
+			printf("Skipping %s (not referenced, expected %s next)\n", symbol_name.c_str(), source_name.c_str());
+			source_index++;
+		}
+		if(source_index >= program.source_files.size()) {
+			break;
+		}
+		// Add the file.
+		path_to_source_file[source_paths[path_index]].emplace_back(program.source_files[source_index].get());
 	}
 	
 	for(auto& [relative_path, sources] : path_to_source_file) {
