@@ -11,10 +11,11 @@ static bool should_overwrite_file(const fs::path& path);
 static void demangle_all(AnalysisResults& program);
 static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources);
 static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources);
+static void print_help(int argc, char** argv);
 
 int main(int argc, char** argv) {
 	if(argc != 3) {
-		fprintf(stderr, "usage: %s <input elf> <output directory>\n", (argc > 0) ? argv[0] : "uncc");
+		print_help(argc, argv);
 		return 1;
 	}
 	
@@ -198,4 +199,14 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	}
 	fprintf(out, "\n#endif // %s\n", relative_path.c_str());
 	fclose(out);
+}
+
+const char* git_tag();
+
+static void print_help(int argc, char** argv) {
+	const char* tag = git_tag();
+	printf("uncc %s -- https://github.com/chaoticgd/ccc\n",
+		(strlen(tag) > 0) ? tag : "development version");
+	printf("\n");
+	printf("usage: %s <input elf> <output directory>\n", (argc > 0) ? argv[0] : "uncc");
 }
