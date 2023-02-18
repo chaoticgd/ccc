@@ -36,7 +36,7 @@ struct AddressRange {
 	s32 low = -1;
 	s32 high = -1;
 	
-	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
+	bool operator==(const AddressRange& rhs) const { return low == rhs.low && high == rhs.high; }
 	bool valid() const { return low >= 0; }
 };
 
@@ -241,15 +241,39 @@ enum class GlobalVariableLocation {
 
 struct VariableStorage {
 	VariableStorageType type = VariableStorageType::GLOBAL;
+	// global
 	GlobalVariableLocation global_location = GlobalVariableLocation::NIL;
 	s32 global_address = -1;
+	// register
 	mips::RegisterClass register_class = mips::RegisterClass::GPR;
 	s32 dbx_register_number = -1;
 	s32 register_index_relative = -1;
 	bool is_by_reference = false;
+	// stack
 	s32 stack_pointer_offset = -1;
 	
-	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;
+	bool operator==(const VariableStorage& rhs) const {
+		if(type != rhs.type) return false;
+		switch(type) {
+			case VariableStorageType::GLOBAL: {
+				if(global_location != rhs.global_location) return false;
+				if(global_address != rhs.global_address) return false;
+				break;
+			}
+			case VariableStorageType::REGISTER: {
+				if(register_class != rhs.register_class) return false;
+				if(dbx_register_number != rhs.dbx_register_number) return false;
+				if(register_index_relative != rhs.register_index_relative) return false;
+				if(is_by_reference != rhs.is_by_reference) return false;
+				break;
+			}
+			case VariableStorageType::STACK: {
+				if(stack_pointer_offset != rhs.stack_pointer_offset) return false;
+				break;
+			}
+		}
+		return true;
+	}
 };
 
 struct Variable : Node {
