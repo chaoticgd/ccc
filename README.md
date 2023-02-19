@@ -71,15 +71,15 @@ This is similar to stdump except it organizes its output into separate source fi
 
 ### Version History
 
-| Version | Changes |
-| - | - |
-| 7 | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
-| 6 | Removed order property. |
-| 5 | Added pointer_to_data_member node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
-| 4 | Added optional is_const property to all nodes. Added anonymous_reference type names, where the type name is not valid but the type number is. |
-| 3 | Added optional relative_path property to function definition nodes. |
-| 2 | Added vtable_index property to function type nodes. |
-| 1 | First version. |
+| Format Version | Release | Changes |
+| - | - | - |
+| 7 | v1.1, v1.0 | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
+| 6 | | Removed order property. |
+| 5 | | Added pointer_to_data_member node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
+| 4 | | Added optional is_const property to all nodes. Added anonymous_reference type names, where the type name is not valid but the type number is. |
+| 3 | | Added optional relative_path property to function definition nodes. |
+| 2 | | Added vtable_index property to function type nodes. |
+| 1 | | First version. |
 
 ## License
 
