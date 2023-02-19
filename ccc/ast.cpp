@@ -6,7 +6,7 @@ namespace ccc::ast {
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
 
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state);
-static bool compare_nodes_and_merge(CompareResult& dest, const ast::Node& node_lhs, const ast::Node& node_rhs, const TypeLookupInfo& lookup);
+static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup);
 
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
@@ -23,7 +23,7 @@ std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const St
 	try {
 		return stabs_type_to_ast(type, state, absolute_parent_offset_bytes, depth, substitute_type_name, false);
 	} catch(std::runtime_error& e) {
-		auto error = std::make_unique<ast::TypeName>();
+		auto error = std::make_unique<TypeName>();
 		error->source = TypeNameSource::ERROR;
 		error->type_name = e.what();
 		return error;
@@ -54,7 +54,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		// avoid confusion.
 		bool is_va_list = type.name == "__builtin_va_list";
 		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
-			auto type_name = std::make_unique<ast::TypeName>();
+			auto type_name = std::make_unique<TypeName>();
 			type_name->source = TypeNameSource::REFERENCE;
 			type_name->type_name = *type.name;
 			type_name->referenced_file_index = state.file_index;
@@ -71,7 +71,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		if(type.descriptor == StabsTypeDescriptor::STRUCT) type_string = "__unnamed_struct";
 		if(type.descriptor == StabsTypeDescriptor::UNION) type_string = "__unnamed_union";
 		if(type_string) {
-			auto type_name = std::make_unique<ast::TypeName>();
+			auto type_name = std::make_unique<TypeName>();
 			type_name->source = TypeNameSource::REFERENCE;
 			type_name->type_name = type_string;
 			type_name->referenced_file_index = state.file_index;
@@ -85,7 +85,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		// look it up by its type number.
 		auto stabs_type = state.stabs_types->find(type.type_number);
 		if(type.anonymous || stabs_type == state.stabs_types->end()) {
-			auto type_name = std::make_unique<ast::TypeName>();
+			auto type_name = std::make_unique<TypeName>();
 			type_name->source = TypeNameSource::ERROR;
 			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d)", type.type_number);
 			return type_name;
@@ -103,7 +103,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			} else {
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
-				auto type_name = std::make_unique<ast::TypeName>();
+				auto type_name = std::make_unique<TypeName>();
 				type_name->source = TypeNameSource::REFERENCE;
 				type_name->type_name = "void";
 				result = std::move(type_name);
@@ -111,7 +111,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			break;
 		}
 		case StabsTypeDescriptor::ARRAY: {
-			auto array = std::make_unique<ast::Array>();
+			auto array = std::make_unique<Array>();
 			const auto& stabs_array = type.as<StabsArrayType>();
 			array->element_type = stabs_type_to_ast(*stabs_array.element_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
 			const auto& index = stabs_array.index_type->as<StabsRangeType>();
@@ -122,14 +122,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			break;
 		}
 		case StabsTypeDescriptor::ENUM: {
-			auto inline_enum = std::make_unique<ast::InlineEnum>();
+			auto inline_enum = std::make_unique<InlineEnum>();
 			const auto& stabs_enum = type.as<StabsEnumType>();
 			inline_enum->constants = stabs_enum.fields;
 			result = std::move(inline_enum);
 			break;
 		}
 		case StabsTypeDescriptor::FUNCTION: {
-			auto function = std::make_unique<ast::FunctionType>();
+			auto function = std::make_unique<FunctionType>();
 			function->return_type = stabs_type_to_ast(*type.as<StabsFunctionType>().return_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
 			result = std::move(function);
 			break;
@@ -147,7 +147,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			break;
 		}
 		case StabsTypeDescriptor::RANGE: {
-			auto builtin = std::make_unique<ast::BuiltIn>();
+			auto builtin = std::make_unique<BuiltIn>();
 			builtin->bclass = type.as<StabsRangeType>().range_class;
 			result = std::move(builtin);
 			break;
@@ -160,7 +160,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			} else {
 				stabs_struct_or_union = &type.as<StabsUnionType>();
 			}
-			auto struct_or_union = std::make_unique<ast::InlineStructOrUnion>();
+			auto struct_or_union = std::make_unique<InlineStructOrUnion>();
 			struct_or_union->is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			struct_or_union->size_bits = (s32) stabs_struct_or_union->size * 8;
 			for(const StabsBaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
@@ -209,7 +209,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			break;
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
-			auto type_name = std::make_unique<ast::TypeName>();
+			auto type_name = std::make_unique<TypeName>();
 			type_name->source = TypeNameSource::CROSS_REFERENCE;
 			type_name->type_name = type.as<StabsCrossReferenceType>().identifier;
 			result = std::move(type_name);
@@ -217,7 +217,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		}
 		case ccc::StabsTypeDescriptor::FLOATING_POINT_BUILTIN: {
 			const auto& fp_builtin = type.as<StabsFloatingPointBuiltInType>();
-			auto builtin = std::make_unique<ast::BuiltIn>();
+			auto builtin = std::make_unique<BuiltIn>();
 			switch(fp_builtin.bytes) {
 				case 1: builtin->bclass = BuiltInClass::UNSIGNED_8; break;
 				case 2: builtin->bclass = BuiltInClass::UNSIGNED_16; break;
@@ -231,7 +231,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		}
 		case StabsTypeDescriptor::METHOD: {
 			const auto& stabs_method = type.as<StabsMethodType>();
-			auto function = std::make_unique<ast::FunctionType>();
+			auto function = std::make_unique<FunctionType>();
 			function->return_type = stabs_type_to_ast(*stabs_method.return_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
 			function->parameters.emplace();
 			for(const std::unique_ptr<StabsType>& parameter_type : stabs_method.parameter_types) {
@@ -242,13 +242,13 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			break;
 		}
 		case StabsTypeDescriptor::POINTER: {
-			auto pointer = std::make_unique<ast::Pointer>();
+			auto pointer = std::make_unique<Pointer>();
 			pointer->value_type = stabs_type_to_ast(*type.as<StabsPointerType>().value_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
 			result = std::move(pointer);
 			break;
 		}
 		case StabsTypeDescriptor::REFERENCE: {
-			auto reference = std::make_unique<ast::Reference>();
+			auto reference = std::make_unique<Reference>();
 			reference->value_type = stabs_type_to_ast(*type.as<StabsReferenceType>().value_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
 			result = std::move(reference);
 			break;
@@ -261,7 +261,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		}
 		case StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER: {
 			const auto& stabs_member_pointer = type.as<StabsPointerToNonStaticDataMember>();
-			auto member_pointer = std::make_unique<ast::PointerToDataMember>();
+			auto member_pointer = std::make_unique<PointerToDataMember>();
 			member_pointer->class_type = stabs_type_to_ast(*stabs_member_pointer.class_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
 			member_pointer->member_type = stabs_type_to_ast(*stabs_member_pointer.member_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
 			result = std::move(member_pointer);
@@ -270,7 +270,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		case StabsTypeDescriptor::BUILTIN: {
 			verify(type.as<StabsBuiltInType>().type_id == 16,
 				"Unknown built-in type! Please file a bug report.");
-			auto builtin = std::make_unique<ast::BuiltIn>();
+			auto builtin = std::make_unique<BuiltIn>();
 			builtin->bclass = BuiltInClass::BOOL_8;
 			result = std::move(builtin);
 			break;
@@ -293,7 +293,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 		bitfield->underlying_type = stabs_type_to_ast(*field.type, state, bitfield->absolute_offset_bytes, depth + 1, true, false);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
 		if(field.is_static) {
-			bitfield->storage_class = ast::SC_STATIC;
+			bitfield->storage_class = SC_STATIC;
 		}
 		bitfield->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 		return bitfield;
@@ -308,7 +308,7 @@ std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToA
 	child->absolute_offset_bytes = absolute_offset_bytes;
 	child->size_bits = field.size_bits;
 	if(field.is_static) {
-		child->storage_class = ast::SC_STATIC;
+		child->storage_class = SC_STATIC;
 	}
 	child->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 	return child;
@@ -417,7 +417,7 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	}
 }
 
-void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index) {
+void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index) {
 	for(std::unique_ptr<Node>& node : file.data_types) {
 		auto existing_node_iterator = name_to_deduplicated_index.find(node->name);
 		if(existing_node_iterator == name_to_deduplicated_index.end()) {
@@ -496,7 +496,7 @@ std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
 	return std::move(flat_nodes);
 }
 
-CompareResult compare_nodes(const ast::Node& node_lhs, const ast::Node& node_rhs, const TypeLookupInfo& lookup) {
+CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup) {
 	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
@@ -608,7 +608,7 @@ CompareResult compare_nodes(const ast::Node& node_lhs, const ast::Node& node_rhs
 	return result;
 }
 
-static bool compare_nodes_and_merge(CompareResult& dest, const ast::Node& node_lhs, const ast::Node& node_rhs, const TypeLookupInfo& lookup) {
+static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup) {
 	CompareResult result = compare_nodes(node_lhs, node_rhs, lookup);
 	if(dest.type != result.type) {
 		if(dest.type == CompareResultType::DIFFERS || result.type == CompareResultType::DIFFERS) {

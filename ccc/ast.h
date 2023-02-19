@@ -125,7 +125,7 @@ struct FunctionDefinition : Node {
 	AddressRange address_range;
 	std::string relative_path;
 	std::unique_ptr<Node> type;
-	std::vector<std::unique_ptr<ast::Variable>> locals;
+	std::vector<std::unique_ptr<Variable>> locals;
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
 	
@@ -188,9 +188,9 @@ struct SourceFile : Node {
 	bool is_windows_path = false;
 	std::string relative_path = "";
 	u32 text_address = 0;
-	std::vector<std::unique_ptr<ast::Node>> data_types;
-	std::vector<std::unique_ptr<ast::Node>> functions;
-	std::vector<std::unique_ptr<ast::Node>> globals;
+	std::vector<std::unique_ptr<Node>> data_types;
+	std::vector<std::unique_ptr<Node>> functions;
+	std::vector<std::unique_ptr<Node>> globals;
 	std::vector<ParsedSymbol> symbols;
 	std::map<s64, s32> stabs_type_number_to_deduplicated_type_index;
 	
@@ -267,7 +267,7 @@ struct TypeDeduplicatorOMatic {
 	std::vector<std::vector<s32>> deduplicated_nodes_grouped_by_name;
 	std::map<std::string, size_t> name_to_deduplicated_index;
 	
-	void process_file(ast::SourceFile& file, s32 file_index);
+	void process_file(SourceFile& file, s32 file_index);
 	std::vector<std::unique_ptr<Node>> finish();
 };
 
@@ -326,7 +326,7 @@ struct TypeLookupInfo {
 	std::vector<std::unique_ptr<Node>>* nodes;
 	std::map<s64, s32>* stabs_to_index;
 };
-CompareResult compare_nodes(const ast::Node& lhs, const ast::Node& rhs, const TypeLookupInfo& lookup);
+CompareResult compare_nodes(const Node& lhs, const Node& rhs, const TypeLookupInfo& lookup);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
