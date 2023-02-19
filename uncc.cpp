@@ -227,5 +227,5 @@ static void print_help(int argc, char** argv) {
 	printf("usage: %s <input elf> <output directory>\n", (argc > 0) ? argv[0] : "uncc");
 	printf("\n");
 	printf("The demangler library used is licensed under the LGPL, the rest is MIT licensed.\n");
-	printf("See the LICENSE and DEMANGLERCOPYING.LIB files for more information.\n");
+	printf("See the LICENSE and DEMANGLERLICENSE files for more information.\n");
 }

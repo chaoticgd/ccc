@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
 		printf("usage: %s <mangled symbol>\n", (argc > 0) ? argv[0] : "demangle");
 		printf("\n");
 		printf("The demangler library used is licensed under the LGPL, the rest is MIT licensed.\n");
-		printf("See the LICENSE and DEMANGLERCOPYING.LIB files for more information.\n");
+		printf("See the LICENSE and DEMANGLERLICENSE files for more information.\n");
 		return 1;
 	}
 }
