@@ -83,4 +83,4 @@ This is similar to stdump except it organizes its output into separate source fi
 
 ## License
 
-All the code is MIT licensed, with the exception of the code in the `demangle` directory, which is taken from the GNU libiberty library and is licensed under the LGPL.
+All the code is MIT licensed, with the exception of the code in the `demanglegpl` directory, which is taken from the GNU libiberty library and is licensed under the LGPL. This license is included in the form of the `demanglegpl/DEMANGLERCOPYING.LIB` file.

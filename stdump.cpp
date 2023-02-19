@@ -121,10 +121,7 @@ int main(int argc, char** argv) {
 			test(out, options.input_file);
 			return 0;
 		}
-		case OutputMode::HELP: {
-			print_help();
-			return 0;
-		}
+		case OutputMode::HELP:
 		case OutputMode::BAD_COMMAND: {
 			print_help();
 			return 1;
