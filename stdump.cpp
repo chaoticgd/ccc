@@ -84,13 +84,12 @@ int main(int argc, char** argv) {
 		case OutputMode::JSON: {
 			Module mod;
 			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
+			u32 analysis_flags = STRIP_GENERATED_FUNCTIONS;
 			if(!(options.flags & FLAG_PER_FILE)) {
-				AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
-				print_json(out, results, false);
-			} else {
-				AnalysisResults results = analyse(symbol_table, NO_ANALYSIS_FLAGS);
-				print_json(out, results, true);
+				analysis_flags |= DEDUPLICATE_TYPES;
 			}
+			AnalysisResults results = analyse(symbol_table, analysis_flags);
+			print_json(out, results, options.flags & FLAG_PER_FILE);
 			break;
 		}
 		case OutputMode::MDEBUG: {
