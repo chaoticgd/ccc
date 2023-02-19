@@ -211,12 +211,12 @@ void analyse_file(AnalysisResults& results, ast::TypeDeduplicatorOMatic& dedupli
 	// calling code didn't ask for.
 	filter_ast_by_flags(*file, flags);
 	
+	results.source_files.emplace_back(std::move(file));
+	
 	// Deduplicate types.
 	if(flags & DEDUPLICATE_TYPES) {
-		deduplicator.process_file(*file.get(), file_index);
+		deduplicator.process_file(*results.source_files.back().get(), file_index, results.source_files);
 	}
-	
-	results.source_files.emplace_back(std::move(file));
 }
 
 ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {

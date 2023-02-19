@@ -267,7 +267,7 @@ struct TypeDeduplicatorOMatic {
 	std::vector<std::vector<s32>> deduplicated_nodes_grouped_by_name;
 	std::map<std::string, size_t> name_to_deduplicated_index;
 	
-	void process_file(SourceFile& file, s32 file_index);
+	void process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files);
 	std::vector<std::unique_ptr<Node>> finish();
 };
 
@@ -323,10 +323,10 @@ struct CompareResult {
 	CompareFailReason fail_reason;
 };
 struct TypeLookupInfo {
+	const std::vector<std::unique_ptr<SourceFile>>* files;
 	std::vector<std::unique_ptr<Node>>* nodes;
-	std::map<s64, s32>* stabs_to_index;
 };
-CompareResult compare_nodes(const Node& lhs, const Node& rhs, const TypeLookupInfo& lookup);
+CompareResult compare_nodes(const Node& lhs, const Node& rhs, const TypeLookupInfo& lookup, bool check_intrusive_fields);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);

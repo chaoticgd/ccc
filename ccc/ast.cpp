@@ -7,6 +7,7 @@ namespace ccc::ast {
 
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state);
 static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup);
+static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup);
 
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
@@ -417,7 +418,7 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	}
 }
 
-void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index) {
+void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files) {
 	for(std::unique_ptr<Node>& node : file.data_types) {
 		auto existing_node_iterator = name_to_deduplicated_index.find(node->name);
 		if(existing_node_iterator == name_to_deduplicated_index.end()) {
@@ -439,9 +440,9 @@ void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index) {
 				assert(existing_node.get());
 				assert(node.get());
 				TypeLookupInfo lookup;
+				lookup.files = &files;
 				lookup.nodes = &flat_nodes;
-				lookup.stabs_to_index = &file.stabs_type_number_to_deduplicated_type_index;
-				CompareResult compare_result = compare_nodes(*existing_node.get(), *node.get(), lookup);
+				CompareResult compare_result = compare_nodes(*existing_node.get(), *node.get(), lookup, true);
 				if(compare_result.type == CompareResultType::DIFFERS) {
 					// The new node doesn't match this existing node.
 					bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
@@ -496,15 +497,17 @@ std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
 	return std::move(flat_nodes);
 }
 
-CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup) {
+CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup, bool check_intrusive_fields) {
 	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
-	if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
-	if(node_lhs.name != node_rhs.name) return CompareFailReason::NAME;
-	if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
-	if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
-	if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;
-	if(node_lhs.is_const != node_rhs.is_const) return CompareFailReason::CONSTNESS;
+	if(check_intrusive_fields) {
+		if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
+		if(node_lhs.name != node_rhs.name) return CompareFailReason::NAME;
+		if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
+		if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
+		if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;
+		if(node_lhs.is_const != node_rhs.is_const) return CompareFailReason::CONSTNESS;
+	}
 	// We intentionally don't compare files, conflict symbol or compare_fail_reason here.
 	switch(node_lhs.descriptor) {
 		case ARRAY: {
@@ -609,7 +612,8 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 }
 
 static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup) {
-	CompareResult result = compare_nodes(node_lhs, node_rhs, lookup);
+	CompareResult result = compare_nodes(node_lhs, node_rhs, lookup, true);
+	try_to_match_wobbly_typedefs(result, node_lhs, node_rhs, lookup);
 	if(dest.type != result.type) {
 		if(dest.type == CompareResultType::DIFFERS || result.type == CompareResultType::DIFFERS) {
 			// If any of the inner types differ, the outer type does too.
@@ -638,6 +642,33 @@ static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, c
 		dest.fail_reason = result.fail_reason;
 	}
 	return dest.type == CompareResultType::DIFFERS;
+}
+
+static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup) {
+	// Detect if one side has a typedef when the other just has the plain type.
+	// This was previously a common reason why type deduplication would fail.
+	const Node* type_name_node = &node_lhs;
+	const Node* raw_node = &node_rhs;
+	for(s32 i = 0; result.type == CompareResultType::DIFFERS && i < 2; i++) {
+		if(type_name_node->descriptor == TYPE_NAME) {
+			const TypeName& type_name = type_name_node->as<TypeName>();
+			if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
+				const std::unique_ptr<SourceFile>& file = lookup.files->at(type_name.referenced_file_index);
+				auto index = file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
+				if(index != file->stabs_type_number_to_deduplicated_type_index.end()) {
+					const Node& referenced_type = *lookup.nodes->at(index->second);
+					// Don't compare 'intrusive' fields e.g. the offset.
+					CompareResult new_result = compare_nodes(referenced_type, *raw_node, lookup, false);
+					if(new_result.type != CompareResultType::DIFFERS) {
+						result.type = (i == 0)
+							? CompareResultType::MATCHES_FAVOUR_LHS
+							: CompareResultType::MATCHES_FAVOUR_RHS;
+					}
+				}
+			}
+		}
+		std::swap(type_name_node, raw_node);
+	}
 }
 
 const char* compare_fail_reason_to_string(CompareFailReason reason) {
