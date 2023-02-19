@@ -68,6 +68,8 @@ set(RELEASE_CONTENTS
 	$<TARGET_FILE:objdump>
 	$<TARGET_FILE:stdump>
 	$<TARGET_FILE:uncc>
+	"${CMAKE_SOURCE_DIR}/README.md"
 	"${CMAKE_SOURCE_DIR}/LICENSE"
+	"${CMAKE_SOURCE_DIR}/demamglegnu/DEMANGLERLICENSE"
 )
 include(cmake/zip_crafter.cmake)
