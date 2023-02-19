@@ -36,19 +36,12 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
 		assert(file_descriptor_index < symbol_table.files.size());
-		analyse_file(results, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
-		if(flags & DEDUPLICATE_TYPES) {
-			assert(!results.source_files.empty());
-			deduplicator.process_file(*results.source_files.back().get(), file_descriptor_index);
-		}
+		analyse_file(results, deduplicator, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
 	} else {
 		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
-			analyse_file(results, symbol_table, fd, globals, i, flags);
-			if(flags & DEDUPLICATE_TYPES) {
-				assert(!results.source_files.empty());
-				deduplicator.process_file(*results.source_files.back().get(), i);
-			}
+			analyse_file(results, deduplicator, symbol_table, fd, globals, i, flags);
+
 		}
 	}
 	
@@ -61,7 +54,7 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	return results;
 }
 
-void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
+void analyse_file(AnalysisResults& results, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	file->is_windows_path = fd.is_windows_path;
@@ -217,6 +210,11 @@ void analyse_file(AnalysisResults& results, const mdebug::SymbolTable& symbol_ta
 	// Filter the AST depending on the flags parsed, removing things the
 	// calling code didn't ask for.
 	filter_ast_by_flags(*file, flags);
+	
+	// Deduplicate types.
+	if(flags & DEDUPLICATE_TYPES) {
+		deduplicator.process_file(*file.get(), file_index);
+	}
 	
 	results.source_files.emplace_back(std::move(file));
 }

@@ -264,7 +264,7 @@ struct Variable : Node {
 
 struct TypeDeduplicatorOMatic {
 	std::vector<std::unique_ptr<Node>> flat_nodes;
-	std::vector<std::vector<s32>> deduplicated_nodes;
+	std::vector<std::vector<s32>> deduplicated_nodes_grouped_by_name;
 	std::map<std::string, size_t> name_to_deduplicated_index;
 	
 	void process_file(ast::SourceFile& file, s32 file_index);
@@ -281,7 +281,15 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
+enum class CompareResultType {
+	MATCHES_NO_SWAP,    // Both lhs and rhs are identical.
+	MATCHES_CONFUSED,   // Both lhs and rhs are almost identical, and we don't which is better.
+	MATCHES_FAVOUR_LHS, // Both lhs and rhs are almost identical, but lhs is better.
+	MATCHES_FAVOUR_RHS, // Both lhs and rhs are almost identical, but rhs is better.
+	DIFFERS,            // The two nodes differ substantially.
+};
 enum class CompareFailReason {
+	NONE,
 	DESCRIPTOR,
 	STORAGE_CLASS,
 	NAME,
@@ -308,7 +316,17 @@ enum class CompareFailReason {
 	VARIABLE_STORAGE,
 	VARIABLE_BLOCK
 };
-std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& lhs, const ast::Node& rhs);
+struct CompareResult {
+	CompareResult(CompareResultType type) : type(type), fail_reason(CompareFailReason::NONE) {}
+	CompareResult(CompareFailReason reason) : type(CompareResultType::DIFFERS), fail_reason(reason) {}
+	CompareResultType type;
+	CompareFailReason fail_reason;
+};
+struct TypeLookupInfo {
+	std::vector<std::unique_ptr<Node>>* nodes;
+	std::map<s64, s32>* stabs_to_index;
+};
+CompareResult compare_nodes(const ast::Node& lhs, const ast::Node& rhs, const TypeLookupInfo& lookup);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);

@@ -6,6 +6,7 @@ namespace ccc::ast {
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
 
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state);
+static bool compare_nodes_and_merge(CompareResult& dest, const ast::Node& node_lhs, const ast::Node& node_rhs, const TypeLookupInfo& lookup);
 
 std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
@@ -422,8 +423,8 @@ void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index)
 		if(existing_node_iterator == name_to_deduplicated_index.end()) {
 			// No types with this name have previously been processed.
 			node->files = {file_index};
-			name_to_deduplicated_index[node->name] = deduplicated_nodes.size();
-			deduplicated_nodes.emplace_back().emplace_back((s32) flat_nodes.size());
+			name_to_deduplicated_index[node->name] = deduplicated_nodes_grouped_by_name.size();
+			deduplicated_nodes_grouped_by_name.emplace_back().emplace_back((s32) flat_nodes.size());
 			if(node->stabs_type_number > -1) {
 				file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
 			}
@@ -431,33 +432,46 @@ void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index)
 		} else {
 			// Types with this name have previously been processed, we need
 			// to figure out if this one matches any of the previous ones.
-			std::vector<s32>& existing_nodes = deduplicated_nodes[existing_node_iterator->second];
+			std::vector<s32>& nodes_with_the_same_name = deduplicated_nodes_grouped_by_name[existing_node_iterator->second];
 			bool match = false;
-			for(s32 existing_node_index : existing_nodes) {
+			for(s32 existing_node_index : nodes_with_the_same_name) {
 				std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
-				auto compare_result = compare_ast_nodes(*existing_node.get(), *node.get());
-				if(compare_result.has_value()) {
+				assert(existing_node.get());
+				assert(node.get());
+				TypeLookupInfo lookup;
+				lookup.nodes = &flat_nodes;
+				lookup.stabs_to_index = &file.stabs_type_number_to_deduplicated_type_index;
+				CompareResult compare_result = compare_nodes(*existing_node.get(), *node.get(), lookup);
+				if(compare_result.type == CompareResultType::DIFFERS) {
+					// The new node doesn't match this existing node.
 					bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
 						&& existing_node->name.empty();
 					if(!is_anonymous_enum) {
-						existing_node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
-						node->compare_fail_reason = compare_fail_reason_to_string(*compare_result);
+						existing_node->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
+						node->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
 					}
 				} else {
-					// This type matches another that has already been
-					// processed, so we omit it from the output.
+					// The new node matches this existing node.
 					existing_node->files.emplace_back(file_index);
 					if(node->stabs_type_number > -1) {
 						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
 					}
+					if(compare_result.type == CompareResultType::MATCHES_FAVOUR_RHS) {
+						// The new node matches the old one, but the new one
+						// is slightly better, so we swap them.
+						existing_node.swap(node);
+						std::swap(node->files, existing_node->files);
+						std::swap(node->compare_fail_reason, existing_node->compare_fail_reason);
+					}
 					match = true;
+					break;
 				}
 			}
 			if(!match) {
 				// This type doesn't match the others with the same name
 				// that have already been processed.
 				node->files = {file_index};
-				existing_nodes.emplace_back((s32) flat_nodes.size());
+				nodes_with_the_same_name.emplace_back((s32) flat_nodes.size());
 				if(node->stabs_type_number > -1) {
 					file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
 				}
@@ -465,11 +479,13 @@ void TypeDeduplicatorOMatic::process_file(ast::SourceFile& file, s32 file_index)
 			}
 		}
 	}
+	
+	// Free all the nodes that are no longer needed.
 	file.data_types.clear();
 }
 
 std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
-	for(std::vector<s32>& node_group : deduplicated_nodes) {
+	for(std::vector<s32>& node_group : deduplicated_nodes_grouped_by_name) {
 		if(node_group.size() > 1) {
 			for(s32 index : node_group) {
 				flat_nodes[index]->conflict = true;
@@ -480,7 +496,8 @@ std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
 	return std::move(flat_nodes);
 }
 
-std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, const ast::Node& node_rhs) {
+CompareResult compare_nodes(const ast::Node& node_lhs, const ast::Node& node_rhs, const TypeLookupInfo& lookup) {
+	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
 	if(node_lhs.name != node_rhs.name) return CompareFailReason::NAME;
@@ -488,20 +505,18 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 	if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
 	if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;
 	if(node_lhs.is_const != node_rhs.is_const) return CompareFailReason::CONSTNESS;
-	// We intentionally don't compare order, files, conflict symbol or compare_fail_reason here.
+	// We intentionally don't compare files, conflict symbol or compare_fail_reason here.
 	switch(node_lhs.descriptor) {
 		case ARRAY: {
 			const auto [lhs, rhs] = Node::as<Array>(node_lhs, node_rhs);
-			auto element_compare = compare_ast_nodes(*lhs.element_type.get(), *rhs.element_type.get());
-			if(element_compare.has_value()) return element_compare;
+			if(compare_nodes_and_merge(result, *lhs.element_type.get(), *rhs.element_type.get(), lookup)) return result;
 			if(lhs.element_count != rhs.element_count) return CompareFailReason::ARRAY_ELEMENT_COUNT;
 			break;
 		}
 		case BITFIELD: {
 			const auto [lhs, rhs] = Node::as<BitField>(node_lhs, node_rhs);
 			if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
-			auto bitfield_compare = compare_ast_nodes(*lhs.underlying_type.get(), *rhs.underlying_type.get());
-			if(bitfield_compare.has_value()) return bitfield_compare;
+			if(compare_nodes_and_merge(result, *lhs.underlying_type.get(), *rhs.underlying_type.get(), lookup)) return result;
 			break;
 		}
 		case BUILTIN: {
@@ -516,14 +531,12 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 			const auto [lhs, rhs] = Node::as<FunctionType>(node_lhs, node_rhs);
 			if(lhs.return_type.has_value() != rhs.return_type.has_value()) return CompareFailReason::FUNCTION_RETURN_TYPE_HAS_VALUE;
 			if(lhs.return_type.has_value()) {
-				auto return_compare = compare_ast_nodes(*lhs.return_type->get(), *rhs.return_type->get());
-				if(return_compare.has_value()) return return_compare;
+				if(compare_nodes_and_merge(result, *lhs.return_type->get(), *rhs.return_type->get(), lookup)) return result;
 			}
 			if(lhs.parameters.has_value() && rhs.parameters.has_value()) {
 				if(lhs.parameters->size() != rhs.parameters->size()) return CompareFailReason::FUNCTION_PARAMAETER_COUNT;
 				for(size_t i = 0; i < lhs.parameters->size(); i++) {
-					auto parameter_compare = compare_ast_nodes(*(*lhs.parameters)[i].get(), *(*rhs.parameters)[i].get());
-					if(parameter_compare.has_value()) return parameter_compare;
+					if(compare_nodes_and_merge(result, *(*lhs.parameters)[i].get(), *(*rhs.parameters)[i].get(), lookup)) return result;
 				}
 			} else if(lhs.parameters.has_value() != rhs.parameters.has_value()) {
 				return CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE;
@@ -541,39 +554,32 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 			const auto [lhs, rhs] = Node::as<InlineStructOrUnion>(node_lhs, node_rhs);
 			if(lhs.base_classes.size() != rhs.base_classes.size()) return CompareFailReason::BASE_CLASS_COUNT;
 			for(size_t i = 0; i < lhs.base_classes.size(); i++) {
-				auto base_class_compare = compare_ast_nodes(*lhs.base_classes[i].get(), *rhs.base_classes[i].get());
-				if(base_class_compare.has_value()) return base_class_compare;
+				if(compare_nodes_and_merge(result, *lhs.base_classes[i].get(), *rhs.base_classes[i].get(), lookup)) return result;
 			}
 			if(lhs.fields.size() != rhs.fields.size()) return CompareFailReason::FIELDS_SIZE;
 			for(size_t i = 0; i < lhs.fields.size(); i++) {
-				auto field_compare = compare_ast_nodes(*lhs.fields[i].get(), *rhs.fields[i].get());
-				if(field_compare.has_value()) return field_compare;
+				if(compare_nodes_and_merge(result, *lhs.fields[i].get(), *rhs.fields[i].get(), lookup)) return result;
 			}
 			if(lhs.member_functions.size() != rhs.member_functions.size()) return CompareFailReason::MEMBER_FUNCTION_COUNT;
 			for(size_t i = 0; i < lhs.member_functions.size(); i++) {
-				auto member_function_compare = compare_ast_nodes(*lhs.member_functions[i].get(), *rhs.member_functions[i].get());
-				if(member_function_compare.has_value()) return member_function_compare;
+				if(compare_nodes_and_merge(result, *lhs.member_functions[i].get(), *rhs.member_functions[i].get(), lookup)) return result;
 			}
 			break;
 		}
 		case POINTER: {
 			const auto [lhs, rhs] = Node::as<Pointer>(node_lhs, node_rhs);
-			auto pointer_compare = compare_ast_nodes(*lhs.value_type.get(), *rhs.value_type.get());
-			if(pointer_compare.has_value()) return pointer_compare;
+			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), lookup)) return result;
 			break;
 		}
 		case POINTER_TO_DATA_MEMBER: {
 			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
-			auto class_compare = compare_ast_nodes(*lhs.class_type.get(), *rhs.class_type.get());
-			if(class_compare.has_value()) return class_compare;
-			auto member_compare = compare_ast_nodes(*lhs.member_type.get(), *rhs.member_type.get());
-			if(member_compare.has_value()) return member_compare;
+			if(compare_nodes_and_merge(result, *lhs.class_type.get(), *rhs.class_type.get(), lookup)) return result;
+			if(compare_nodes_and_merge(result, *lhs.member_type.get(), *rhs.member_type.get(), lookup)) return result;
 			break;
 		}
 		case REFERENCE: {
 			const auto [lhs, rhs] = Node::as<Reference>(node_lhs, node_rhs);
-			auto reference_compare = compare_ast_nodes(*lhs.value_type.get(), *rhs.value_type.get());
-			if(reference_compare.has_value()) return reference_compare;
+			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), lookup)) return result;
 			break;
 		}
 		case SOURCE_FILE: {
@@ -595,16 +601,48 @@ std::optional<CompareFailReason> compare_ast_nodes(const ast::Node& node_lhs, co
 			if(lhs.variable_class != rhs.variable_class) return CompareFailReason::VARIABLE_CLASS;
 			if(lhs.storage != rhs.storage) return CompareFailReason::VARIABLE_STORAGE;
 			if(lhs.block != rhs.block) return CompareFailReason::VARIABLE_BLOCK;
-			auto variable_compare = compare_ast_nodes(*lhs.type.get(), *rhs.type.get());
-			if(!variable_compare.has_value()) return variable_compare;
+			if(compare_nodes_and_merge(result, *lhs.type.get(), *rhs.type.get(), lookup)) return result;
 			break;
 		}
 	}
-	return std::nullopt;
+	return result;
+}
+
+static bool compare_nodes_and_merge(CompareResult& dest, const ast::Node& node_lhs, const ast::Node& node_rhs, const TypeLookupInfo& lookup) {
+	CompareResult result = compare_nodes(node_lhs, node_rhs, lookup);
+	if(dest.type != result.type) {
+		if(dest.type == CompareResultType::DIFFERS || result.type == CompareResultType::DIFFERS) {
+			// If any of the inner types differ, the outer type does too.
+			dest.type = CompareResultType::DIFFERS;
+		} else if(dest.type == CompareResultType::MATCHES_CONFUSED || result.type == CompareResultType::MATCHES_CONFUSED) {
+			// Propagate confusion.
+			dest.type = CompareResultType::MATCHES_CONFUSED; 
+		} else if(dest.type == CompareResultType::MATCHES_FAVOUR_LHS && result.type == CompareResultType::MATCHES_FAVOUR_RHS) {
+			// Propagate confusion.
+			dest.type = CompareResultType::MATCHES_CONFUSED; 
+		} else if(dest.type == CompareResultType::MATCHES_FAVOUR_RHS && result.type == CompareResultType::MATCHES_FAVOUR_LHS) {
+			// One of the results favours the LHS node and the other favours the
+			// RHS node so we are confused.
+			dest.type = CompareResultType::MATCHES_CONFUSED; 
+		} else if(dest.type == CompareResultType::MATCHES_FAVOUR_LHS || result.type == CompareResultType::MATCHES_FAVOUR_LHS) {
+			// One of the results favours the LHS node and the other is neutral
+			// so go with the LHS node.
+			dest.type = CompareResultType::MATCHES_FAVOUR_LHS;
+		} else if(dest.type == CompareResultType::MATCHES_FAVOUR_RHS || result.type == CompareResultType::MATCHES_FAVOUR_RHS) {
+			// One of the results favours the RHS node and the other is neutral
+			// so go with the RHS node.
+			dest.type = CompareResultType::MATCHES_FAVOUR_RHS;
+		}
+	}
+	if(dest.fail_reason == CompareFailReason::NONE) {
+		dest.fail_reason = result.fail_reason;
+	}
+	return dest.type == CompareResultType::DIFFERS;
 }
 
 const char* compare_fail_reason_to_string(CompareFailReason reason) {
 	switch(reason) {
+		case CompareFailReason::NONE: return "error";
 		case CompareFailReason::DESCRIPTOR: return "descriptor";
 		case CompareFailReason::STORAGE_CLASS: return "storage classe";
 		case CompareFailReason::NAME: return "name";
