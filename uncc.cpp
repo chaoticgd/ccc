@@ -146,7 +146,7 @@ static void demangle_all(AnalysisResults& program) {
 static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
-	verify(out, "Failed to open '%s' for writing.");
+	verify(out, "Failed to open '%s' for writing.", path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	for(const ast::SourceFile* source : sources) {
 		for(const std::unique_ptr<ast::Node>& node : source->globals) {
