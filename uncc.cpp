@@ -34,8 +34,8 @@ int main(int argc, char** argv) {
 	
 	std::vector<std::string> source_paths = parse_sources_list(sources_list_path);
 	
-	Module elf = loaders::read_elf_file(elf_path);
-	mdebug::SymbolTable symbol_table = read_symbol_table({&elf});
+	Module mod;
+	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
 	AnalysisResults program = analyse(symbol_table, NO_ANALYSIS_FLAGS);
 	
 	demangle_all(program);

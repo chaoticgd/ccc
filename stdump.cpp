@@ -35,7 +35,6 @@ struct Options {
 	u32 flags = NO_FLAGS;
 };
 
-static mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file);
 static void print_deduplicated(const mdebug::SymbolTable& symbol_table, Options options);
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const mdebug::SymbolTable& symbol_table);
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table);
@@ -126,13 +125,6 @@ int main(int argc, char** argv) {
 			return 1;
 		}
 	}
-}
-
-static mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file) {
-	mod = loaders::read_elf_file(input_file);
-	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
-	verify(mdebug_section, "No .mdebug section.");
-	return mdebug::parse_symbol_table(mod, *mdebug_section);
 }
 
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {

@@ -1,21 +1,17 @@
 #include "analysis.h"
 
+#include "elf.h"
+
 namespace ccc {
 
 static void create_function(LocalSymbolTableAnalyser& analyser, const char* name);
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 
-mdebug::SymbolTable read_symbol_table(const std::vector<Module*>& modules) {
-	std::optional<mdebug::SymbolTable> symbol_table;
-	for(Module* mod : modules) {
-		ModuleSection* mdebug_section = mod->lookup_section(".mdebug");
-		if(mdebug_section) {
-			symbol_table = mdebug::parse_symbol_table(*mod, *mdebug_section);
-			break;
-		}
-	}
-	verify(symbol_table.has_value(), "No .mdebug section!");
-	return *symbol_table;
+mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file) {
+	mod = loaders::read_elf_file(input_file);
+	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+	verify(mdebug_section, "No .mdebug section.");
+	return mdebug::parse_symbol_table(mod, *mdebug_section);
 }
 
 AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {

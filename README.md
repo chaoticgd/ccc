@@ -8,6 +8,10 @@ A set of tools for reverse engineering PS2 games.
 
 Demangler for the old GNU ABI.
 
+### depgraph
+
+Dependency graph and type-to-file mapping generator.
+
 ### objdump
 
 Half-working EE core MIPS disassembler. Probably not too interesting.
@@ -39,11 +43,13 @@ This is similar to stdump except it organizes its output into separate source fi
 ## Project Structure
 
 	demangle.cpp: See above.
+	depgraph.cpp: See above.
 	objdump.cpp: See above.
 	stdump.cpp: See above.
 	uncc.cpp: See above.
 	ccc/analysis.cpp: Runs all the different analysis passes.
 	ccc/ast.cpp: Converts parsed STABS types to a C++ AST structure.
+	ccc/dependency.cpp: Try to recover the include graph for a program and map types to individual files.
 	ccc/elf.cpp: Parses ELF files.
 	ccc/insn.cpp: Parses EE core MIPS instructions.
 	ccc/mdebug.cpp: Read the .mdebug symbol table section.
