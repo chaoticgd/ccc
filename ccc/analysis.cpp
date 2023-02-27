@@ -37,7 +37,6 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
 			analyse_file(results, deduplicator, symbol_table, fd, globals, i, flags);
-
 		}
 	}
 	
@@ -45,6 +44,14 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	// copies of types that actually differ.
 	if(flags & DEDUPLICATE_TYPES) {
 		results.deduplicated_types = deduplicator.finish();
+		
+		// The files field may be modified by further analysis passes, so we
+		// need to save this information here.
+		for(const std::unique_ptr<ast::Node>& node : results.deduplicated_types) {
+			if(node->files.size() == 1) {
+				node->was_type_probably_defined_in_cpp_file = true;
+			}
+		}
 	}
 	
 	return results;

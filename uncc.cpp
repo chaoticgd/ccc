@@ -9,8 +9,8 @@ static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
 static void demangle_all(AnalysisResults& program);
-static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources);
-static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources);
+static void write_c_cpp_file(const fs::path& path, const AnalysisResults& program, const std::vector<s32>& file_indices);
+static void write_h_file(const fs::path& path, std::string relative_path, const AnalysisResults& program, const std::vector<s32>& file_indices);
 static bool needs_lost_and_found_file(const AnalysisResults& program);
 static void write_lost_and_found_file(const fs::path& path, const AnalysisResults& program);
 static void print_help(int argc, char** argv);
@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
 	
 	// Group duplicate source file entries, filter out files not referenced in
 	// the SOURCES.txt file.
-	std::map<std::string, std::vector<ast::SourceFile*>> path_to_source_file;
+	std::map<std::string, std::vector<s32>> path_to_source_file;
 	size_t path_index = 0;
 	size_t source_index = 0;
 	for(size_t path_index = 0, source_index = 0; path_index < source_paths.size() && source_index < program.source_files.size(); path_index++, source_index++) {
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
 			break;
 		}
 		// Add the file.
-		path_to_source_file[source_paths[path_index]].emplace_back(program.source_files[source_index].get());
+		path_to_source_file[source_paths[path_index]].emplace_back((s32) source_index);
 	}
 	
 	// Write out all the source files.
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
-				write_c_cpp_file(path, sources);
+				write_c_cpp_file(path, program, sources);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
 			fs::path header_path = path.replace_extension(".h");
 			if(should_overwrite_file(header_path)) {
 				fs::path relative_header_path = fs::path(relative_path).replace_extension(".h");
-				write_h_file(header_path, relative_header_path.string(), sources);
+				write_h_file(header_path, relative_header_path.string(), program, sources);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
 			}
@@ -152,13 +152,22 @@ static void demangle_all(AnalysisResults& program) {
 	}
 }
 
-static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources) {
+static void write_c_cpp_file(const fs::path& path, const AnalysisResults& program, const std::vector<s32>& file_indices) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	verify(out, "Failed to open '%s' for writing.", path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
-	for(const ast::SourceFile* source : sources) {
-		for(const std::unique_ptr<ast::Node>& node : source->globals) {
+	for(s32 file_index : file_indices) {
+		const ast::SourceFile& file = *program.source_files[file_index].get();
+		PrintCppConfig config;
+		config.print_offsets_and_sizes = false;
+		config.filter_out_types_probably_defined_in_h_file = true;
+		config.only_print_out_types_from_this_file = file_index;
+		print_cpp_ast_nodes(out, program.deduplicated_types, config);
+	}
+	for(s32 file_index : file_indices) {
+		const ast::SourceFile& file = *program.source_files[file_index].get();
+		for(const std::unique_ptr<ast::Node>& node : file.globals) {
 			VariableName dummy{};
 			PrintCppConfig config;
 			config.print_storage_information = false;
@@ -166,8 +175,9 @@ static void write_c_cpp_file(const fs::path& path, const std::vector<ast::Source
 			fprintf(out, ";\n");
 		}
 	}
-	for(const ast::SourceFile* source : sources) {
-		for(const std::unique_ptr<ast::Node>& node : source->functions) {
+	for(s32 file_index : file_indices) {
+		const ast::SourceFile& file = *program.source_files[file_index].get();
+		for(const std::unique_ptr<ast::Node>& node : file.functions) {
 			fprintf(out, "\n");
 			VariableName dummy{};
 			PrintCppConfig config;
@@ -179,7 +189,7 @@ static void write_c_cpp_file(const fs::path& path, const std::vector<ast::Source
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources) {
+static void write_h_file(const fs::path& path, std::string relative_path, const AnalysisResults& program, const std::vector<s32>& file_indices) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
@@ -193,9 +203,19 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	fprintf(out, "#ifndef %s\n", relative_path.c_str());
 	fprintf(out, "#define %s\n\n", relative_path.c_str());
 	
+	for(s32 file_index : file_indices) {
+		const ast::SourceFile& file = *program.source_files[file_index].get();
+		PrintCppConfig config;
+		config.print_offsets_and_sizes = false;
+		config.filter_out_types_probably_defined_in_cpp_file = true;
+		config.only_print_out_types_from_this_file = file_index;
+		print_cpp_ast_nodes(out, program.deduplicated_types, config);
+	}
+	
 	bool has_global = false;
-	for(const ast::SourceFile* source : sources) {
-		for(const std::unique_ptr<ast::Node>& node : source->globals) {
+	for(s32 file_index : file_indices) {
+		const ast::SourceFile& file = *program.source_files[file_index].get();
+		for(const std::unique_ptr<ast::Node>& node : file.globals) {
 			VariableName dummy{};
 			PrintCppConfig config;
 			config.force_extern = true;
@@ -210,8 +230,9 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	if(has_global) {
 		fprintf(out, "\n");
 	}
-	for(const ast::SourceFile* source : sources) {
-		for(const std::unique_ptr<ast::Node>& node : source->functions) {
+	for(s32 file_index : file_indices) {
+		const ast::SourceFile& file = *program.source_files[file_index].get();
+		for(const std::unique_ptr<ast::Node>& node : file.functions) {
 			VariableName dummy{};
 			PrintCppConfig config;
 			config.skip_statics = true;

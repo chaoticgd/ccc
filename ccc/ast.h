@@ -58,6 +58,7 @@ struct Node {
 	u16 is_volatile : 1 = false;
 	u16 conflict : 1 = false; // Are there multiple differing types with the same name?
 	u16 is_base_class : 1 = false;
+	u16 was_type_probably_defined_in_cpp_file : 1 = 0; // Only set for deduplicated types.
 	u16 storage_class : 4 = SC_NONE;
 	u16 access_specifier : 2 = AS_PUBLIC;
 	

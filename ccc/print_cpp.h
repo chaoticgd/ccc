@@ -9,11 +9,12 @@ struct PrintCppConfig {
 	bool verbose : 1 = false;
 	bool force_extern : 1 = false;
 	bool skip_statics : 1 = false;
-	bool print_offsets : 1 = true;
+	bool print_offsets_and_sizes : 1 = true;
 	bool print_function_bodies : 1 = true;
 	bool print_storage_information : 1 = true;
 	bool filter_out_types_mapped_to_one_file : 1 = false;
-	bool filter_out_types_not_mapped_to_one_file : 1 = false;
+	bool filter_out_types_probably_defined_in_cpp_file : 1 = false;
+	bool filter_out_types_probably_defined_in_h_file : 1 = false;
 	s32 digits_for_offset = 3;
 	s32 only_print_out_types_from_this_file = -1;
 };
