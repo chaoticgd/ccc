@@ -82,10 +82,10 @@ void print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>
 					|| node->files[0] != config.only_print_out_types_from_this_file)) {
 			continue;
 		}
-		if(config.filter_out_types_probably_defined_in_cpp_file && node->was_type_probably_defined_in_cpp_file) {
+		if(config.filter_out_types_probably_defined_in_cpp_file && node->probably_defined_in_cpp_file) {
 			continue;
 		}
-		if(config.filter_out_types_probably_defined_in_h_file && !node->was_type_probably_defined_in_cpp_file) {
+		if(config.filter_out_types_probably_defined_in_h_file && !node->probably_defined_in_cpp_file) {
 			continue;
 		}
 		bool multiline =
