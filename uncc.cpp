@@ -8,11 +8,11 @@ static std::vector<std::string> parse_sources_list(const fs::path& path);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
-static void demangle_all(AnalysisResults& program);
-static void write_c_cpp_file(const fs::path& path, const AnalysisResults& program, const std::vector<s32>& file_indices);
-static void write_h_file(const fs::path& path, std::string relative_path, const AnalysisResults& program, const std::vector<s32>& file_indices);
-static bool needs_lost_and_found_file(const AnalysisResults& program);
-static void write_lost_and_found_file(const fs::path& path, const AnalysisResults& program);
+static void demangle_all(HighSymbolTable& program);
+static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
+static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
+static bool needs_lost_and_found_file(const HighSymbolTable& high);
+static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high);
 static void print_help(int argc, char** argv);
 
 int main(int argc, char** argv) {
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 	
 	Module mod;
 	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
-	AnalysisResults program = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
+	HighSymbolTable program = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
 	
 	demangle_all(program);
 	
@@ -129,7 +129,7 @@ static bool should_overwrite_file(const fs::path& path) {
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void demangle_all(AnalysisResults& program) {
+static void demangle_all(HighSymbolTable& program) {
 	for(std::unique_ptr<ast::SourceFile>& source : program.source_files) {
 		for(std::unique_ptr<ast::Node>& function : source->functions) {
 			if(!function->name.empty()) {
@@ -152,21 +152,21 @@ static void demangle_all(AnalysisResults& program) {
 	}
 }
 
-static void write_c_cpp_file(const fs::path& path, const AnalysisResults& program, const std::vector<s32>& file_indices) {
+static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, const std::vector<s32>& file_indices) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	verify(out, "Failed to open '%s' for writing.", path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *program.source_files[file_index].get();
+		const ast::SourceFile& file = *high.source_files[file_index].get();
 		PrintCppConfig config;
 		config.print_offsets_and_sizes = false;
 		config.filter_out_types_probably_defined_in_h_file = true;
 		config.only_print_out_types_from_this_file = file_index;
-		print_cpp_ast_nodes(out, program.deduplicated_types, config);
+		print_cpp_ast_nodes(out, high.deduplicated_types, config);
 	}
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *program.source_files[file_index].get();
+		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : file.globals) {
 			VariableName dummy{};
 			PrintCppConfig config;
@@ -176,7 +176,7 @@ static void write_c_cpp_file(const fs::path& path, const AnalysisResults& progra
 		}
 	}
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *program.source_files[file_index].get();
+		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : file.functions) {
 			fprintf(out, "\n");
 			VariableName dummy{};
@@ -189,7 +189,7 @@ static void write_c_cpp_file(const fs::path& path, const AnalysisResults& progra
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path, std::string relative_path, const AnalysisResults& program, const std::vector<s32>& file_indices) {
+static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
@@ -204,17 +204,17 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	fprintf(out, "#define %s\n\n", relative_path.c_str());
 	
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *program.source_files[file_index].get();
+		const ast::SourceFile& file = *high.source_files[file_index].get();
 		PrintCppConfig config;
 		config.print_offsets_and_sizes = false;
 		config.filter_out_types_probably_defined_in_cpp_file = true;
 		config.only_print_out_types_from_this_file = file_index;
-		print_cpp_ast_nodes(out, program.deduplicated_types, config);
+		print_cpp_ast_nodes(out, high.deduplicated_types, config);
 	}
 	
 	bool has_global = false;
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *program.source_files[file_index].get();
+		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : file.globals) {
 			VariableName dummy{};
 			PrintCppConfig config;
@@ -231,7 +231,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		fprintf(out, "\n");
 	}
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *program.source_files[file_index].get();
+		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : file.functions) {
 			VariableName dummy{};
 			PrintCppConfig config;
@@ -247,8 +247,8 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	fclose(out);
 }
 
-static bool needs_lost_and_found_file(const AnalysisResults& program) {
-	for(const std::unique_ptr<ast::Node>& node : program.deduplicated_types) {
+static bool needs_lost_and_found_file(const HighSymbolTable& high) {
+	for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
 		if(node->files.size() != 1) {
 			return true;
 		}
@@ -256,12 +256,12 @@ static bool needs_lost_and_found_file(const AnalysisResults& program) {
 	return false;
 }
 
-static void write_lost_and_found_file(const fs::path& path, const AnalysisResults& program) {
+static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	PrintCppConfig config;
 	config.filter_out_types_mapped_to_one_file = true;
-	print_cpp_ast_nodes(out, program.deduplicated_types, config);
+	print_cpp_ast_nodes(out, high.deduplicated_types, config);
 	fclose(out);
 }
 

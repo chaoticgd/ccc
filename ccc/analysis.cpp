@@ -14,8 +14,8 @@ mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file) {
 	return mdebug::parse_symbol_table(mod, *mdebug_section);
 }
 
-AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
-	AnalysisResults results;
+HighSymbolTable analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
+	HighSymbolTable high;
 	
 	// The addresses of the global variables aren't present in the local symbol
 	// table, so here we extract them from the external table.
@@ -32,32 +32,32 @@ AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
 		assert(file_descriptor_index < symbol_table.files.size());
-		analyse_file(results, deduplicator, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
+		analyse_file(high, deduplicator, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
 	} else {
 		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
-			analyse_file(results, deduplicator, symbol_table, fd, globals, i, flags);
+			analyse_file(high, deduplicator, symbol_table, fd, globals, i, flags);
 		}
 	}
 	
 	// Deduplicate types from different translation units, preserving multiple
 	// copies of types that actually differ.
 	if(flags & DEDUPLICATE_TYPES) {
-		results.deduplicated_types = deduplicator.finish();
+		high.deduplicated_types = deduplicator.finish();
 		
 		// The files field may be modified by further analysis passes, so we
 		// need to save this information here.
-		for(const std::unique_ptr<ast::Node>& node : results.deduplicated_types) {
+		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
 			if(node->files.size() == 1) {
 				node->probably_defined_in_cpp_file = true;
 			}
 		}
 	}
 	
-	return results;
+	return high;
 }
 
-void analyse_file(AnalysisResults& results, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
+void analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	file->is_windows_path = fd.is_windows_path;
@@ -214,11 +214,11 @@ void analyse_file(AnalysisResults& results, ast::TypeDeduplicatorOMatic& dedupli
 	// calling code didn't ask for.
 	filter_ast_by_flags(*file, flags);
 	
-	results.source_files.emplace_back(std::move(file));
+	high.source_files.emplace_back(std::move(file));
 	
 	// Deduplicate types.
 	if(flags & DEDUPLICATE_TYPES) {
-		deduplicator.process_file(*results.source_files.back().get(), file_index, results.source_files);
+		deduplicator.process_file(*high.source_files.back().get(), file_index, high.source_files);
 	}
 }
 

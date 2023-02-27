@@ -23,9 +23,9 @@ struct GraphPrinter {
 	void new_line();
 };
 
-TypeDependencyAdjacencyList build_type_dependency_graph(const AnalysisResults& program) {
+TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& high) {
 	TypeDependencyAdjacencyList graph;
-	for(const std::unique_ptr<ast::Node>& type : program.deduplicated_types) {
+	for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
 		std::set<TypeIndex>& dependencies = graph.emplace_back();
 		ast::for_each_node(*type.get(), [&](const ast::Node& node) {
 			if(node.descriptor == ast::TYPE_NAME) {
@@ -34,7 +34,7 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const AnalysisResults& p
 				if(type_name.source == ast::TypeNameSource::REFERENCE
 						&& type_name.referenced_file_index > -1
 						&& type_name.referenced_stabs_type_number > -1) {
-					const ast::SourceFile& source_file = *program.source_files[type_name.referenced_file_index].get();
+					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
 					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
 					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
 						dependencies.emplace(type_index->second);
@@ -47,20 +47,20 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const AnalysisResults& p
 	return graph;
 }
 
-void print_type_dependency_graph(FILE* out, const AnalysisResults& program, const TypeDependencyAdjacencyList& graph) {
+void print_type_dependency_graph(FILE* out, const HighSymbolTable& high, const TypeDependencyAdjacencyList& graph) {
 	GraphPrinter printer(out);
 	printer.begin_graph("D", DIRECTED);
-	for(size_t i = 0; i < program.deduplicated_types.size(); i++) {
-		const std::unique_ptr<ast::Node>& node = program.deduplicated_types[i];
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		const std::unique_ptr<ast::Node>& node = high.deduplicated_types[i];
 		if(!node->name.empty() && node->descriptor != ast::BUILTIN && node->name != "void") {
 			printer.node(node->name.c_str());
 		}
 	}
-	for(size_t i = 0; i < program.deduplicated_types.size(); i++) {
-		const std::unique_ptr<ast::Node>& out_node = program.deduplicated_types[i];
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		const std::unique_ptr<ast::Node>& out_node = high.deduplicated_types[i];
 		if(!out_node->name.empty() && out_node->descriptor != ast::BUILTIN && out_node->name != "void") {
 			for(TypeIndex in : graph.at(i)) {
-				const std::unique_ptr<ast::Node>& in_node = program.deduplicated_types[in.index];
+				const std::unique_ptr<ast::Node>& in_node = high.deduplicated_types[in.index];
 				if(!in_node->name.empty() && in_node->descriptor != ast::BUILTIN && in_node->name != "void") {
 					printer.edge(out_node->name.c_str(), in_node->name.c_str());
 				}

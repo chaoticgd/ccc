@@ -11,7 +11,7 @@
 
 namespace ccc {
 
-struct AnalysisResults {
+struct HighSymbolTable {
 	std::vector<std::unique_ptr<ast::SourceFile>> source_files;
 	std::vector<std::unique_ptr<ast::Node>> deduplicated_types;
 };
@@ -26,8 +26,8 @@ enum AnalysisFlags {
 };
 
 mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file);
-AnalysisResults analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
-void analyse_file(AnalysisResults& results, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
+HighSymbolTable analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
+void analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
 ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
 struct LocalSymbolTableAnalyser {

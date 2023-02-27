@@ -19,8 +19,8 @@ struct FileIndex {
 
 using TypeDependencyAdjacencyList = std::vector<std::set<TypeIndex>>;
 
-TypeDependencyAdjacencyList build_type_dependency_graph(const AnalysisResults& program);
-void print_type_dependency_graph(FILE* out, const AnalysisResults& program, const TypeDependencyAdjacencyList& graph);
+TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& high);
+void print_type_dependency_graph(FILE* out, const HighSymbolTable& high, const TypeDependencyAdjacencyList& graph);
 
 }
 

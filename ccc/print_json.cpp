@@ -26,7 +26,7 @@ struct JsonWriter {
 static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr);
 static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage);
 
-void print_json(FILE* out, const AnalysisResults& src, bool print_per_file_types) {
+void print_json(FILE* out, const HighSymbolTable& high, bool print_per_file_types) {
 	JsonWriter json;
 	json.out = out;
 	
@@ -36,7 +36,7 @@ void print_json(FILE* out, const AnalysisResults& src, bool print_per_file_types
 	
 	json.property("files");
 	json.begin_array();
-	for(const std::unique_ptr<ast::SourceFile>& file : src.source_files) {
+	for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
 		print_json_ast_node(json, file.get());
 	}
 	json.end_array();
@@ -44,7 +44,7 @@ void print_json(FILE* out, const AnalysisResults& src, bool print_per_file_types
 	if(!print_per_file_types) {
 		json.property("deduplicated_types");
 		json.begin_array();
-		for(const std::unique_ptr<ast::Node>& node : src.deduplicated_types) {
+		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
 			print_json_ast_node(json, node.get());
 		}
 		json.end_array();
