@@ -8,7 +8,7 @@ static std::vector<std::string> parse_sources_list(const fs::path& path);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
-static void demangle_all(HighSymbolTable& program);
+static void demangle_all(HighSymbolTable& high);
 static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
 static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
 static bool needs_lost_and_found_file(const HighSymbolTable& high);
@@ -38,27 +38,27 @@ int main(int argc, char** argv) {
 	
 	Module mod;
 	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
-	HighSymbolTable program = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
+	HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
 	
-	demangle_all(program);
+	demangle_all(high);
 	
 	// Group duplicate source file entries, filter out files not referenced in
 	// the SOURCES.txt file.
 	std::map<std::string, std::vector<s32>> path_to_source_file;
 	size_t path_index = 0;
 	size_t source_index = 0;
-	for(size_t path_index = 0, source_index = 0; path_index < source_paths.size() && source_index < program.source_files.size(); path_index++, source_index++) {
+	for(size_t path_index = 0, source_index = 0; path_index < source_paths.size() && source_index < high.source_files.size(); path_index++, source_index++) {
 		// Find the next file referenced in the SOURCES.txt file.
 		std::string source_name = extract_file_name(source_paths[path_index]);
-		while(source_index < program.source_files.size()) {
-			std::string symbol_name = extract_file_name(program.source_files[source_index]->full_path);
+		while(source_index < high.source_files.size()) {
+			std::string symbol_name = extract_file_name(high.source_files[source_index]->full_path);
 			if(symbol_name == source_name) {
 				break;
 			}
 			printf("Skipping %s (not referenced, expected %s next)\n", symbol_name.c_str(), source_name.c_str());
 			source_index++;
 		}
-		if(source_index >= program.source_files.size()) {
+		if(source_index >= high.source_files.size()) {
 			break;
 		}
 		// Add the file.
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
-				write_c_cpp_file(path, program, sources);
+				write_c_cpp_file(path, high, sources);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
 			fs::path header_path = path.replace_extension(".h");
 			if(should_overwrite_file(header_path)) {
 				fs::path relative_header_path = fs::path(relative_path).replace_extension(".h");
-				write_h_file(header_path, relative_header_path.string(), program, sources);
+				write_h_file(header_path, relative_header_path.string(), high, sources);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
 			}
@@ -91,8 +91,8 @@ int main(int argc, char** argv) {
 	
 	// Write out a lost+found file for types that can't be mapped to a specific
 	// source file if we need it.
-	if(needs_lost_and_found_file(program)) {
-		write_lost_and_found_file(output_path/"lost+found.h", program);
+	if(needs_lost_and_found_file(high)) {
+		write_lost_and_found_file(output_path/"lost+found.h", high);
 	}
 }
 
@@ -129,8 +129,8 @@ static bool should_overwrite_file(const fs::path& path) {
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void demangle_all(HighSymbolTable& program) {
-	for(std::unique_ptr<ast::SourceFile>& source : program.source_files) {
+static void demangle_all(HighSymbolTable& high) {
+	for(std::unique_ptr<ast::SourceFile>& source : high.source_files) {
 		for(std::unique_ptr<ast::Node>& function : source->functions) {
 			if(!function->name.empty()) {
 				const char* demangled = cplus_demangle(function->name.c_str(), 0);
