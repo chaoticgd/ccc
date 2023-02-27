@@ -11,6 +11,8 @@ static bool should_overwrite_file(const fs::path& path);
 static void demangle_all(AnalysisResults& program);
 static void write_c_cpp_file(const fs::path& path, const std::vector<ast::SourceFile*>& sources);
 static void write_h_file(const fs::path& path, std::string relative_path, const std::vector<ast::SourceFile*>& sources);
+static bool needs_lost_and_found_file(const AnalysisResults& program);
+static void write_lost_and_found_file(const fs::path& path, const AnalysisResults& program);
 static void print_help(int argc, char** argv);
 
 int main(int argc, char** argv) {
@@ -36,7 +38,7 @@ int main(int argc, char** argv) {
 	
 	Module mod;
 	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
-	AnalysisResults program = analyse(symbol_table, NO_ANALYSIS_FLAGS);
+	AnalysisResults program = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
 	
 	demangle_all(program);
 	
@@ -63,6 +65,7 @@ int main(int argc, char** argv) {
 		path_to_source_file[source_paths[path_index]].emplace_back(program.source_files[source_index].get());
 	}
 	
+	// Write out all the source files.
 	for(auto& [relative_path, sources] : path_to_source_file) {
 		fs::path path = output_path/fs::path(relative_path);
 		fs::create_directories(path.parent_path());
@@ -84,6 +87,12 @@ int main(int argc, char** argv) {
 		} else {
 			printf("Skipping assembly file %s\n", path.string().c_str());
 		}
+	}
+	
+	// Write out a lost+found file for types that can't be mapped to a specific
+	// source file if we need it.
+	if(needs_lost_and_found_file(program)) {
+		write_lost_and_found_file(output_path/"lost+found.h", program);
 	}
 }
 
@@ -214,6 +223,24 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		}
 	}
 	fprintf(out, "\n#endif // %s\n", relative_path.c_str());
+	fclose(out);
+}
+
+static bool needs_lost_and_found_file(const AnalysisResults& program) {
+	for(const std::unique_ptr<ast::Node>& node : program.deduplicated_types) {
+		if(node->files.size() != 1) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static void write_lost_and_found_file(const fs::path& path, const AnalysisResults& program) {
+	printf("Writing %s\n", path.string().c_str());
+	FILE* out = open_file_w(path.c_str());
+	PrintCppConfig config;
+	config.filter_out_types_mapped_to_one_file = true;
+	print_cpp_ast_nodes(out, program.deduplicated_types, config);
 	fclose(out);
 }
 

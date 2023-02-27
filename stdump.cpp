@@ -1,7 +1,6 @@
 #include "ccc/ccc.h"
 
 #include <algorithm>
-#include <set>
 
 using namespace ccc;
 

@@ -74,6 +74,17 @@ void print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>
 		if(node->descriptor == ast::BUILTIN) {
 			continue;
 		}
+		if(config.filter_out_types_mapped_to_one_file && node->files.size() == 1) {
+			continue;
+		}
+		if(config.filter_out_types_not_mapped_to_one_file && node->files.size() != 1) {
+			continue;
+		}
+		if(config.only_print_out_types_from_this_file != -1
+				&& (node->files.size() != 1
+					|| node->files[0] == config.only_print_out_types_from_this_file)) {
+			continue;
+		}
 		bool multiline =
 			node->descriptor == ast::INLINE_ENUM ||
 			node->descriptor == ast::INLINE_STRUCT_OR_UNION;

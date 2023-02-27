@@ -51,17 +51,17 @@ void print_type_dependency_graph(FILE* out, const AnalysisResults& program, cons
 	GraphPrinter printer(out);
 	printer.begin_graph("D", DIRECTED);
 	for(size_t i = 0; i < program.deduplicated_types.size(); i++) {
-		const std::unique_ptr<ast::Node>& type = program.deduplicated_types[i];
-		if(!type->name.empty()) {
-			printer.node(type->name.c_str());
+		const std::unique_ptr<ast::Node>& node = program.deduplicated_types[i];
+		if(!node->name.empty() && node->descriptor != ast::BUILTIN && node->name != "void") {
+			printer.node(node->name.c_str());
 		}
 	}
 	for(size_t i = 0; i < program.deduplicated_types.size(); i++) {
 		const std::unique_ptr<ast::Node>& out_node = program.deduplicated_types[i];
-		if(!out_node->name.empty()) {
+		if(!out_node->name.empty() && out_node->descriptor != ast::BUILTIN && out_node->name != "void") {
 			for(TypeIndex in : graph.at(i)) {
 				const std::unique_ptr<ast::Node>& in_node = program.deduplicated_types[in.index];
-				if(!in_node->name.empty()) {
+				if(!in_node->name.empty() && in_node->descriptor != ast::BUILTIN && in_node->name != "void") {
 					printer.edge(out_node->name.c_str(), in_node->name.c_str());
 				}
 			}
