@@ -66,7 +66,8 @@ void print_cpp_comment_block_builtin_types(FILE* out, const std::vector<std::uni
 	}
 }
 
-void print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>>& nodes, const PrintCppConfig& config) {
+s32 print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>>& nodes, const PrintCppConfig& config) {
+	s32 nodes_printed = 0;
 	bool last_was_multiline = true;
 	for(size_t i = 0; i < nodes.size(); i++) {
 		const std::unique_ptr<ast::Node>& node = nodes[i];
@@ -110,11 +111,13 @@ void print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>
 		}
 		print_cpp_ast_node(out, *node.get(), name, 0, config);
 		fprintf(out, ";\n");
+		nodes_printed++;
 		if(multiline && i != nodes.size() - 1) {
 			fprintf(out, "\n");
 		}
 		last_was_multiline = multiline;
 	}
+	return nodes_printed;
 }
 
 bool print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_name, s32 indentation_level, const PrintCppConfig& config) {

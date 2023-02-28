@@ -70,6 +70,41 @@ void print_type_dependency_graph(FILE* out, const HighSymbolTable& high, const T
 	printer.end_graph();
 }
 
+void map_types_to_files(HighSymbolTable& high) {
+	map_types_to_files_based_on_this_pointers(high);
+}
+
+void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
+	// Iterate over all functions in all files.
+	for(size_t i = 0; i < high.source_files.size(); i++) {
+		const std::unique_ptr<ast::SourceFile>& file = high.source_files[i];
+		for(const std::unique_ptr<ast::Node>& node : file->functions) {
+			const ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
+			const ast::FunctionType& type = function.type->as<ast::FunctionType>();
+			if(type.parameters.has_value() && !type.parameters->empty()) {
+				ast::Variable& parameter = (*type.parameters)[0]->as<ast::Variable>();
+				ast::Node& parameter_type = *parameter.type.get();
+				// Check if the first argument is a this pointer.
+				if(parameter.name == "this" && parameter_type.descriptor == ast::POINTER) {
+					ast::Node& class_node = *parameter_type.as<ast::Pointer>().value_type.get();
+					if(class_node.descriptor == ast::TYPE_NAME) {
+						ast::TypeName& class_type = class_node.as<ast::TypeName>();
+						if(class_type.referenced_stabs_type_number > -1) {
+							const ast::SourceFile& foreign_file = *high.source_files.at(class_type.referenced_file_index).get();
+							// Lookup the type pointed to by the this pointer.
+							auto type_index = foreign_file.stabs_type_number_to_deduplicated_type_index.find(class_type.referenced_stabs_type_number);
+							if(type_index != foreign_file.stabs_type_number_to_deduplicated_type_index.end()) {
+								// Assume the type belongs to the file the function is from.
+								high.deduplicated_types[type_index->second]->files = {(s32) i};
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 void GraphPrinter::begin_graph(const char* name, GraphType type) {
 	new_line();
 	fprintf(out, "%s %s {", type == DIRECTED ? "digraph" : "graph", name);

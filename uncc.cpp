@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
 	Module mod;
 	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
 	HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
-	
+	map_types_to_files(high);
 	demangle_all(high);
 	
 	// Group duplicate source file entries, filter out files not referenced in
@@ -261,7 +261,8 @@ static void write_lost_and_found_file(const fs::path& path, const HighSymbolTabl
 	FILE* out = open_file_w(path.c_str());
 	PrintCppConfig config;
 	config.filter_out_types_mapped_to_one_file = true;
-	print_cpp_ast_nodes(out, high.deduplicated_types, config);
+	s32 nodes_printed = print_cpp_ast_nodes(out, high.deduplicated_types, config);
+	printf("%d types printed to lost and found file\n", nodes_printed);
 	fclose(out);
 }
 
