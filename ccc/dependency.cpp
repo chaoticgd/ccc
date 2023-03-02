@@ -55,9 +55,27 @@ FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& h
 	std::sort(BEGIN_END(sorted_files), [&](FileIndex lhs, FileIndex rhs)
 		{ return type_indices_by_file[lhs] < type_indices_by_file[rhs]; });
 	
-	// Exclude files with no types.
+	static const std::set<std::string> standard_library_types = {
+		"__gnuc_va_list",
+		"tm",
+		"_glue",
+		"_Bigint",
+		"_atexit",
+		"__sbuf",
+		"_fpos_t",
+		"__sFILE",
+		"_reent"
+	};
+	
+	// Exclude files with no user-defined types.
 	sorted_files.erase(std::remove_if(BEGIN_END(sorted_files), [&](FileIndex file) {
-		return high.source_files[file]->stabs_type_number_to_deduplicated_type_index.empty();
+		for(auto [stabs_type_number, type_index] : high.source_files[file]->stabs_type_number_to_deduplicated_type_index) {
+			const ast::Node& type = *high.deduplicated_types[type_index].get();
+			if(type.descriptor != ast::BUILTIN && !standard_library_types.contains(type.name)) {
+				return false;
+			}
+		}
+		return true;
 	}));
 	
 	// Sort the files into a set of groups where each file within a given group
