@@ -14,6 +14,8 @@ struct GroupIndex {
 
 using GroupDependencyAdjacencyList = std::vector<std::set<GroupIndex>>;
 
+static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTable& high, bool do_types);
+
 TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& high) {
 	TypeDependencyAdjacencyList graph;
 	for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
@@ -233,7 +235,8 @@ void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
 							const ast::SourceFile& foreign_file = *high.source_files.at(class_type.referenced_file_index).get();
 							// Lookup the type pointed to by the this pointer.
 							auto type_index = foreign_file.stabs_type_number_to_deduplicated_type_index.find(class_type.referenced_stabs_type_number);
-							if(type_index != foreign_file.stabs_type_number_to_deduplicated_type_index.end()) {
+							if(type_index != foreign_file.stabs_type_number_to_deduplicated_type_index.end()
+									&& high.deduplicated_types[type_index->second]->files.size() != 1) {
 								// Assume the type belongs to the file the function is from.
 								high.deduplicated_types[type_index->second]->files = {(s32) i};
 							}
@@ -270,6 +273,62 @@ void map_types_to_files_based_on_the_file_graph(HighSymbolTable& high, const Fil
 					high.deduplicated_types[type]->files = {file};
 				}
 			}
+		}
+	}
+}
+
+
+void map_types_to_files_based_on_reference_count(HighSymbolTable& high) {
+	map_types_to_files_based_on_reference_count_single_pass(high, false);
+	map_types_to_files_based_on_reference_count_single_pass(high, true);
+}
+
+static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTable& high, bool do_types) {
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		std::unique_ptr<ast::Node>& type = high.deduplicated_types[i];
+		if(type->files.size() == 1) {
+			continue;
+		}
+		
+		FileIndex most_referenced_file = {-1};
+		s32 most_references = 0;
+		for(s32 file : type->files) {
+			s32 reference_count = 0;
+			auto count_references = [&](const ast::Node& node) {
+				if(node.descriptor == ast::TYPE_NAME) {
+					const ast::TypeName& type_name = node.as<ast::TypeName>();
+					if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
+						const std::unique_ptr<ast::SourceFile>& source_file = high.source_files.at(type_name.referenced_file_index);
+						auto type_index = source_file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
+						if(type_index != source_file->stabs_type_number_to_deduplicated_type_index.end()
+							&& type_index->second == i) {
+							reference_count++;
+						}
+					}
+				}
+				return ast::EXPLORE_CHILDREN;
+			};
+			if(do_types) {
+				for(std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
+					if(node->files.size() == 1 && node->files[0] == file) {
+						ast::for_each_node(*node.get(), count_references);
+					}
+				}
+			} else {
+				for(std::unique_ptr<ast::Node>& node : high.source_files[file]->functions) {
+					ast::for_each_node(*node.get(), count_references);
+				}
+				for(std::unique_ptr<ast::Node>& node : high.source_files[file]->globals) {
+					ast::for_each_node(*node.get(), count_references);
+				}
+			}
+			if(reference_count > most_references) {
+				most_referenced_file = file;
+				most_references = reference_count;
+			}
+		}
+		if(most_referenced_file.index > -1) {
+			type->files = {most_referenced_file};
 		}
 	}
 }

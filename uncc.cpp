@@ -10,7 +10,7 @@ static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
 static void demangle_all(HighSymbolTable& high);
 static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
-static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
+static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FileDependencyAdjacencyList& file_graph);
 static bool needs_lost_and_found_file(const HighSymbolTable& high);
 static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high);
 static void print_help(int argc, char** argv);
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 	HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
 	FileDependencyAdjacencyList file_graph = build_file_dependency_graph(high);
 	map_types_to_files_based_on_this_pointers(high);
-	map_types_to_files_based_on_the_file_graph(high, file_graph);
+	map_types_to_files_based_on_reference_count(high);
 	demangle_all(high);
 	
 	// Group duplicate source file entries, filter out files not referenced in
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
 			fs::path header_path = path.replace_extension(".h");
 			if(should_overwrite_file(header_path)) {
 				fs::path relative_header_path = fs::path(relative_path).replace_extension(".h");
-				write_h_file(header_path, relative_header_path.string(), high, sources);
+				write_h_file(header_path, relative_header_path.string(), high, sources, file_graph);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
 			}
@@ -191,7 +191,7 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices) {
+static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FileDependencyAdjacencyList& file_graph) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
@@ -204,6 +204,11 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	}
 	fprintf(out, "#ifndef %s\n", relative_path.c_str());
 	fprintf(out, "#define %s\n\n", relative_path.c_str());
+	
+	for(FileIndex index : file_graph[file_indices[0]]) {
+		ast::SourceFile& file = *high.source_files[index].get();
+		fprintf(out, "#include <%s>\n", file.relative_path.c_str());
+	}
 	
 	for(s32 file_index : file_indices) {
 		const ast::SourceFile& file = *high.source_files[file_index].get();

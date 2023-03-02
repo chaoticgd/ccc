@@ -35,6 +35,8 @@ This is intended to be used with [ghidra-emotionengine-reloaded](https://github.
 
 This is similar to stdump except it organizes its output into separate source files. A `SOURCES.txt` file must be provided in the output directory, which can be generated using the `stdump files` command (you should fixup the paths manually so that they're relative to the output directory). Additionally, non-empty files that do not start with `// STATUS: NOT STARTED` will not be overwritten.
 
+Data types will be sorted into their corresponding files. Since this information is not stored in the symbol table, uncc uses heuristics to map types to files. Types will be put in `.c` or `.cpp` files when there is only a single translation unit the type appears in, and `.h` files when there are multiple (and hence when heuristics must be used to determine where to put them).
+
 ## Building
 
 	cmake -B bin/
