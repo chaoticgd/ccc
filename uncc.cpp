@@ -39,9 +39,10 @@ int main(int argc, char** argv) {
 	Module mod;
 	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
 	HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
-	FileDependencyAdjacencyList file_graph = build_file_dependency_graph(high);
 	map_types_to_files_based_on_this_pointers(high);
 	map_types_to_files_based_on_reference_count(high);
+	TypeDependencyAdjacencyList type_graph = build_type_dependency_graph(high);
+	FileDependencyAdjacencyList file_graph = build_file_dependency_graph(high, type_graph);
 	demangle_all(high);
 	
 	// Group duplicate source file entries, filter out files not referenced in
@@ -205,9 +206,11 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	fprintf(out, "#ifndef %s\n", relative_path.c_str());
 	fprintf(out, "#define %s\n\n", relative_path.c_str());
 	
-	for(FileIndex index : file_graph[file_indices[0]]) {
-		ast::SourceFile& file = *high.source_files[index].get();
-		fprintf(out, "#include <%s>\n", file.relative_path.c_str());
+	if(!file_graph.empty()) {
+		for(FileIndex index : file_graph[file_indices[0]]) {
+			ast::SourceFile& file = *high.source_files[index].get();
+			fprintf(out, "#include <%s>\n", file.relative_path.c_str());
+		}
 	}
 	
 	for(s32 file_index : file_indices) {
@@ -267,6 +270,7 @@ static void write_lost_and_found_file(const fs::path& path, const HighSymbolTabl
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	PrintCppConfig config;
+	config.print_offsets_and_sizes = false;
 	config.filter_out_types_mapped_to_one_file = true;
 	s32 nodes_printed = print_cpp_ast_nodes(out, high.deduplicated_types, config);
 	printf("%d types printed to lost and found file\n", nodes_printed);
