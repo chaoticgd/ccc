@@ -20,16 +20,16 @@ enum ModeFlags {
 struct ModeInfo {
 	s32 mode = 0;
 	u32 mode_flags = 0;
-	const char* name_1 = nullptr;
-	const char* name_2 = nullptr;
-	const char* name_3 = nullptr;
+	const char* name_1 = "";
+	const char* name_2 = "";
+	const char* name_3 = "";
 };
 
 struct FlagInfo {
 	u32 flag = 0;
-	const char* name_1 = nullptr;
-	const char* name_2 = nullptr;
-	const char* name_3 = nullptr;
+	const char* name_1 = "";
+	const char* name_2 = "";
+	const char* name_3 = "";
 };
 
 struct OptionsInfo {
