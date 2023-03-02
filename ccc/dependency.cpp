@@ -2,6 +2,8 @@
 
 namespace ccc {
 
+extern const std::set<std::string> STANDARD_LIBRARY_TYPES;
+
 // A group is a set of files with identical type information.
 struct GroupIndex {
 	s32 index;
@@ -55,23 +57,11 @@ FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& h
 	std::sort(BEGIN_END(sorted_files), [&](FileIndex lhs, FileIndex rhs)
 		{ return type_indices_by_file[lhs] < type_indices_by_file[rhs]; });
 	
-	static const std::set<std::string> standard_library_types = {
-		"__gnuc_va_list",
-		"tm",
-		"_glue",
-		"_Bigint",
-		"_atexit",
-		"__sbuf",
-		"_fpos_t",
-		"__sFILE",
-		"_reent"
-	};
-	
 	// Exclude files with no user-defined types.
 	sorted_files.erase(std::remove_if(BEGIN_END(sorted_files), [&](FileIndex file) {
 		for(auto [stabs_type_number, type_index] : high.source_files[file]->stabs_type_number_to_deduplicated_type_index) {
 			const ast::Node& type = *high.deduplicated_types[type_index].get();
-			if(type.descriptor != ast::BUILTIN && !standard_library_types.contains(type.name)) {
+			if(type.descriptor != ast::BUILTIN && !STANDARD_LIBRARY_TYPES.contains(type.name)) {
 				return false;
 			}
 		}
@@ -258,5 +248,42 @@ void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
 		}
 	}
 }
+
+const std::set<std::string> STANDARD_LIBRARY_TYPES = {
+	"complex int",
+	"void",
+	"__int32_t",
+	"__uint32_t",
+	"size_t",
+	"ssize_t",
+	"clock_t",
+	"time_t",
+	"tm",
+	"ULong",
+	"__ULong",
+	"_glue",
+	"_Bigint",
+	"_atexit",
+	"__sbuf",
+	"_fpos_t",
+	"__sFILE",
+	"_reent",
+	"__dmath",
+	"exception",
+	"__fdlibm_version",
+	"ieee_double_shape_type",
+	"ieee_float_shape_type",
+	"fpos_t",
+	"ptrdiff_t",
+	"__gnuc_va_list",
+	"__builtin_va_list",
+	"__vtbl_ptr_type",
+	"va_list",
+	"wchar_t",
+	"caddr_t",
+	"div_t",
+	"cmp_type",
+	"FILE"
+};
 
 }
