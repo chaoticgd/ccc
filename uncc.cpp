@@ -39,7 +39,9 @@ int main(int argc, char** argv) {
 	Module mod;
 	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
 	HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
-	map_types_to_files(high);
+	FileDependencyAdjacencyList file_graph = build_file_dependency_graph(high);
+	map_types_to_files_based_on_this_pointers(high);
+	map_types_to_files_based_on_the_file_graph(high, file_graph);
 	demangle_all(high);
 	
 	// Group duplicate source file entries, filter out files not referenced in

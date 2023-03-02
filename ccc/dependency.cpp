@@ -214,10 +214,6 @@ FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& h
 	return graph;
 }
 
-void map_types_to_files(HighSymbolTable& high) {
-	map_types_to_files_based_on_this_pointers(high);
-}
-
 void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
 	// Iterate over all functions in all files.
 	for(size_t i = 0; i < high.source_files.size(); i++) {
@@ -243,6 +239,35 @@ void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
 							}
 						}
 					}
+				}
+			}
+		}
+	}
+}
+
+void map_types_to_files_based_on_the_file_graph(HighSymbolTable& high, const FileDependencyAdjacencyList& file_graph) {
+	// Build sets of type indices for each file.
+	std::vector<std::set<TypeIndex>> type_indices_by_file;
+	for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
+		std::set<TypeIndex>& type_indices = type_indices_by_file.emplace_back();
+		for(auto [stabs_type_number, type_index] : file->stabs_type_number_to_deduplicated_type_index) {
+			type_indices.emplace(type_index);
+		}
+	}
+	
+	for(FileIndex file = 0; file.index < (s32) high.source_files.size(); file.index++) {
+		const std::set<FileIndex>& dependencies = file_graph[file];
+		if(!dependencies.empty()) {
+			for(TypeIndex type : type_indices_by_file[file]) {
+				bool dependencies_contain_type = false;
+				for(FileIndex dependency : dependencies) {
+					if(type_indices_by_file[dependency].contains(type)) {
+						dependencies_contain_type = true;
+						break;
+					}
+				}
+				if( !dependencies_contain_type && high.deduplicated_types[type]->files.size() != 1) {
+					high.deduplicated_types[type]->files = {file};
 				}
 			}
 		}

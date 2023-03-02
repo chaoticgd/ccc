@@ -24,9 +24,9 @@ struct FileIndex {
 using FileDependencyAdjacencyList = std::vector<std::set<FileIndex>>;
 
 TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& high);
-FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& high); // Run before map_types_to_files!
-void map_types_to_files(HighSymbolTable& high);
+FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& high); // Run before mapping types to files!
 void map_types_to_files_based_on_this_pointers(HighSymbolTable& high);
+void map_types_to_files_based_on_the_file_graph(HighSymbolTable& high, const FileDependencyAdjacencyList& file_graph);
 
 }
 
