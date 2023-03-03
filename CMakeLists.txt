@@ -47,6 +47,7 @@ target_link_libraries(uncc ccc demanglegnu versioninfo)
 add_library(ccc STATIC
 	ccc/analysis.cpp
 	ccc/ast.cpp
+	ccc/dependency.cpp
 	ccc/elf.cpp
 	ccc/insn.cpp
 	ccc/mdebug.cpp
@@ -65,6 +66,7 @@ add_subdirectory(demanglegnu)
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
 	$<TARGET_FILE:demangle>
+	$<TARGET_FILE:depgraph>
 	$<TARGET_FILE:objdump>
 	$<TARGET_FILE:stdump>
 	$<TARGET_FILE:uncc>

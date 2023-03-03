@@ -31,6 +31,8 @@ This is intended to be used with [ghidra-emotionengine-reloaded](https://github.
 
 This is similar to stdump except it organizes its output into separate source files. A `SOURCES.txt` file must be provided in the output directory, which can be generated using the `stdump files` command (you should fixup the paths manually so that they're relative to the output directory). Additionally, non-empty files that do not start with `// STATUS: NOT STARTED` will not be overwritten.
 
+Data types will be sorted into their corresponding files. Since this information is not stored in the symbol table, uncc uses heuristics to map types to files. Types will be put in `.c` or `.cpp` files when there is only a single translation unit the type appears in, and `.h` files when there are multiple (and hence when heuristics must be used to determine where to put them).
+
 ## Building
 
 	cmake -B bin/
@@ -39,11 +41,13 @@ This is similar to stdump except it organizes its output into separate source fi
 ## Project Structure
 
 	demangle.cpp: See above.
+	depgraph.cpp: See above.
 	objdump.cpp: See above.
 	stdump.cpp: See above.
 	uncc.cpp: See above.
 	ccc/analysis.cpp: Runs all the different analysis passes.
 	ccc/ast.cpp: Converts parsed STABS types to a C++ AST structure.
+	ccc/dependency.cpp: Try to recover the include graph for a program and map types to individual files.
 	ccc/elf.cpp: Parses ELF files.
 	ccc/insn.cpp: Parses EE core MIPS instructions.
 	ccc/mdebug.cpp: Read the .mdebug symbol table section.

@@ -1,7 +1,6 @@
 #include "ccc/ccc.h"
 
 #include <algorithm>
-#include <set>
 
 using namespace ccc;
 
@@ -14,6 +13,7 @@ enum class OutputMode {
 	SYMBOLS,
 	EXTERNALS,
 	FILES,
+	TYPE_GRAPH,
 	TEST,
 	HELP,
 	BAD_COMMAND
@@ -35,7 +35,6 @@ struct Options {
 	u32 flags = NO_FLAGS;
 };
 
-static mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file);
 static void print_deduplicated(const mdebug::SymbolTable& symbol_table, Options options);
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const mdebug::SymbolTable& symbol_table);
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table);
@@ -88,8 +87,8 @@ int main(int argc, char** argv) {
 			if(!(options.flags & FLAG_PER_FILE)) {
 				analysis_flags |= DEDUPLICATE_TYPES;
 			}
-			AnalysisResults results = analyse(symbol_table, analysis_flags);
-			print_json(out, results, options.flags & FLAG_PER_FILE);
+			HighSymbolTable high = analyse(symbol_table, analysis_flags);
+			print_json(out, high, options.flags & FLAG_PER_FILE);
 			break;
 		}
 		case OutputMode::MDEBUG: {
@@ -116,6 +115,14 @@ int main(int argc, char** argv) {
 			list_files(out, symbol_table);
 			return 0;
 		}
+		case OutputMode::TYPE_GRAPH: {
+			Module mod;
+			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
+			HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
+			TypeDependencyAdjacencyList graph = build_type_dependency_graph(high);
+			print_type_dependency_graph(out, high, graph);
+			return 0;
+		}
 		case OutputMode::TEST: {
 			test(out, options.input_file);
 			return 0;
@@ -128,16 +135,9 @@ int main(int argc, char** argv) {
 	}
 }
 
-static mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file) {
-	mod = loaders::read_elf_file(input_file);
-	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
-	verify(mdebug_section, "No .mdebug section.");
-	return mdebug::parse_symbol_table(mod, *mdebug_section);
-}
-
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
 		fprintf(out, "// *****************************************************************************\n");
 		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
@@ -157,7 +157,7 @@ static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		AnalysisResults result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
 		fprintf(out, "// *****************************************************************************\n");
 		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
@@ -178,14 +178,14 @@ static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	analysis_flags |= DEDUPLICATE_TYPES;
-	AnalysisResults results = analyse(symbol_table, analysis_flags);
+	HighSymbolTable high = analyse(symbol_table, analysis_flags);
 	print_cpp_comment_block_beginning(out, options.input_file);
 	print_cpp_comment_block_compiler_version_info(out, symbol_table);
-	print_cpp_comment_block_builtin_types(out, results.deduplicated_types);
+	print_cpp_comment_block_builtin_types(out, high.deduplicated_types);
 	fprintf(out, "\n");
 	PrintCppConfig config;
 	config.verbose = options.flags & FLAG_VERBOSE;
-	print_cpp_ast_nodes(out, results.deduplicated_types, config);
+	print_cpp_ast_nodes(out, high.deduplicated_types, config);
 }
 
 static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
@@ -193,7 +193,7 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 	print_cpp_comment_block_beginning(out, options.input_file);
 	fprintf(out, "\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		AnalysisResults result = analyse(symbol_table, analysis_flags, i);
+		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
 		fprintf(out, "// *****************************************************************************\n");
 		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
@@ -277,7 +277,7 @@ static void test(FILE* out, const fs::path& directory) {
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 			if(mdebug_section) {
 				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
-				ccc::AnalysisResults results = analyse(symbol_table, DEDUPLICATE_TYPES);
+				ccc::HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES);
 				fprintf(out, "pass\n");
 				passed++;
 			} else {
@@ -320,6 +320,9 @@ static Options parse_args(int argc, char** argv) {
 		require_input_path = true;
 	} else if(strcmp(command, "files") == 0 || strcmp(command, "list_files") == 0) {
 		options.mode = OutputMode::FILES;
+		require_input_path = true;
+	} else if(strcmp(command, "type_graph") == 0) {
+		options.mode = OutputMode::TYPE_GRAPH;
 		require_input_path = true;
 	} else if(strcmp(command, "test") == 0) {
 		options.mode = OutputMode::TEST;

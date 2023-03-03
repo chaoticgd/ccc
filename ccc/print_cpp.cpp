@@ -66,12 +66,27 @@ void print_cpp_comment_block_builtin_types(FILE* out, const std::vector<std::uni
 	}
 }
 
-void print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>>& nodes, const PrintCppConfig& config) {
+s32 print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>>& nodes, const PrintCppConfig& config) {
+	s32 nodes_printed = 0;
 	bool last_was_multiline = true;
 	for(size_t i = 0; i < nodes.size(); i++) {
 		const std::unique_ptr<ast::Node>& node = nodes[i];
 		assert(node.get());
 		if(node->descriptor == ast::BUILTIN) {
+			continue;
+		}
+		if(config.filter_out_types_mapped_to_one_file && node->files.size() == 1) {
+			continue;
+		}
+		if(config.only_print_out_types_from_this_file != -1
+				&& (node->files.size() != 1
+					|| node->files[0] != config.only_print_out_types_from_this_file)) {
+			continue;
+		}
+		if(config.filter_out_types_probably_defined_in_cpp_file && node->probably_defined_in_cpp_file) {
+			continue;
+		}
+		if(config.filter_out_types_probably_defined_in_h_file && !node->probably_defined_in_cpp_file) {
 			continue;
 		}
 		bool multiline =
@@ -96,11 +111,13 @@ void print_cpp_ast_nodes(FILE* out, const std::vector<std::unique_ptr<ast::Node>
 		}
 		print_cpp_ast_node(out, *node.get(), name, 0, config);
 		fprintf(out, ";\n");
+		nodes_printed++;
 		if(multiline && i != nodes.size() - 1) {
 			fprintf(out, "\n");
 		}
 		last_was_multiline = multiline;
 	}
+	return nodes_printed;
 }
 
 bool print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_name, s32 indentation_level, const PrintCppConfig& config) {
@@ -261,7 +278,7 @@ bool print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_n
 					ast::Node& base_class = *struct_or_union.base_classes[i].get();
 					assert(base_class.descriptor == ast::TypeName::DESCRIPTOR);
 					print_cpp_offset(out, base_class, config);
-					if( base_class.access_specifier != ast::AS_PUBLIC) {
+					if(base_class.access_specifier != ast::AS_PUBLIC) {
 						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
 					}
 					VariableName dummy;
@@ -271,7 +288,13 @@ bool print_cpp_ast_node(FILE* out, const ast::Node& node, VariableName& parent_n
 					}
 				}
 			}
-			fprintf(out, " { // 0x%x\n", struct_or_union.size_bits / 8);
+			
+			fprintf(out, " {");
+			if(config.print_offsets_and_sizes) {
+				fprintf(out, " // 0x%x", struct_or_union.size_bits / 8);
+			}
+			fprintf(out, "\n");
+			
 			// Print fields.
 			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
 				assert(field.get());
@@ -405,7 +428,7 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags) {
 }
 
 static void print_cpp_offset(FILE* out, const ast::Node& node, const PrintCppConfig& config) {
-	if(config.print_offsets && node.storage_class != ast::SC_STATIC && node.absolute_offset_bytes > -1) {
+	if(config.print_offsets_and_sizes && node.storage_class != ast::SC_STATIC && node.absolute_offset_bytes > -1) {
 		assert(config.digits_for_offset > -1 && config.digits_for_offset < 100);
 		fprintf(out, "/* 0x%0*x", config.digits_for_offset, node.absolute_offset_bytes);
 		if(node.descriptor == ast::BITFIELD) {

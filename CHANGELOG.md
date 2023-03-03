@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2
+
+- uncc: Data types are now printed. It guesses which types belong to which files based on multiple heuristics.
+
 ## v1.1
 
 - Added demangle tool.

@@ -3,6 +3,7 @@
 
 #include "analysis.h"
 #include "ast.h"
+#include "dependency.h"
 #include "elf.h"
 #include "insn.h"
 #include "mdebug.h"

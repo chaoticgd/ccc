@@ -46,12 +46,19 @@ enum AccessSpecifier {
 	AS_PRIVATE = 2
 };
 
+// To add a new type of node:
+//  1. Create a struct for it.
+//  2. Add support for it in for_each_node.
+//  3. Add support for it in compare_nodes.
+//  4. Add support for it in print_cpp_ast_node.
+//  5. Add support for it in print_json_ast_node.
 struct Node {
 	u16 descriptor : 4;
 	u16 is_const : 1 = false;
 	u16 is_volatile : 1 = false;
 	u16 conflict : 1 = false; // Are there multiple differing types with the same name?
 	u16 is_base_class : 1 = false;
+	u16 probably_defined_in_cpp_file : 1 = 0; // Only set for deduplicated types.
 	u16 storage_class : 4 = SC_NONE;
 	u16 access_specifier : 2 = AS_PUBLIC;
 	
@@ -333,6 +340,106 @@ const char* storage_class_to_string(StorageClass storage_class);
 const char* global_variable_location_to_string(GlobalVariableLocation location);
 const char* access_specifier_to_string(AccessSpecifier specifier);
 AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility);
+
+enum ExplorationMode {
+	EXPLORE_CHILDREN,
+	DONT_EXPLORE_CHILDREN
+};
+
+template <typename ThisNode, typename Callback>
+void for_each_node(ThisNode& node, Callback callback) {
+	if(callback(node) == DONT_EXPLORE_CHILDREN) {
+		return;
+	}
+	switch(node.descriptor) {
+		case ARRAY: {
+			auto& array = node.template as<Array>();
+			for_each_node(*array.element_type.get(), callback);
+			break;
+		}
+		case BITFIELD: {
+			auto& bitfield = node.template as<BitField>();
+			for_each_node(*bitfield.underlying_type.get(), callback);
+			break;
+		}
+		case BUILTIN: {
+			break;
+		}
+		case FUNCTION_DEFINITION: {
+			auto& func = node.template as<FunctionDefinition>();
+			for_each_node(*func.type.get(), callback);
+			for(auto& child : func.locals) {
+				for_each_node(*child.get(), callback);
+			}
+			break;
+		}
+		case FUNCTION_TYPE: {
+			auto& func = node.template as<FunctionType>();
+			if(func.return_type.has_value()) {
+				for_each_node(*func.return_type->get(), callback);
+			}
+			if(func.parameters.has_value()) {
+				for(auto& child : *func.parameters) {
+					for_each_node(*child.get(), callback);
+				}
+			}
+			break;
+		}
+		case INLINE_ENUM: {
+			break;
+		}
+		case INLINE_STRUCT_OR_UNION: {
+			auto& struct_or_union = node.template as<InlineStructOrUnion>();
+			for(auto& child : struct_or_union.base_classes) {
+				for_each_node(*child.get(), callback);
+			}
+			for(auto& child : struct_or_union.fields) {
+				for_each_node(*child.get(), callback);
+			}
+			for(auto& child : struct_or_union.member_functions) {
+				for_each_node(*child.get(), callback);
+			}
+			break;
+		}
+		case POINTER: {
+			auto& pointer = node.template as<Pointer>();
+			for_each_node(*pointer.value_type.get(), callback);
+			break;
+		}
+		case POINTER_TO_DATA_MEMBER: {
+			auto& pointer = node.template as<PointerToDataMember>();
+			for_each_node(*pointer.class_type.get(), callback);
+			for_each_node(*pointer.member_type.get(), callback);
+			break;
+		}
+		case REFERENCE: {
+			auto& reference = node.template as<Reference>();
+			for_each_node(*reference.value_type.get(), callback);
+			break;
+		}
+		case SOURCE_FILE: {
+			auto& source_file = node.template as<SourceFile>();
+			for(auto& child : source_file.data_types) {
+				for_each_node(*child.get(), callback);
+			}
+			for(auto& child : source_file.functions) {
+				for_each_node(*child.get(), callback);
+			}
+			for(auto& child : source_file.globals) {
+				for_each_node(*child.get(), callback);
+			}
+			break;
+		}
+		case TYPE_NAME: {
+			break;
+		}
+		case VARIABLE: {
+			auto& variable = node.template as<Variable>();
+			for_each_node(*variable.type.get(), callback);
+			break;
+		}
+	}
+}
 
 }
 
