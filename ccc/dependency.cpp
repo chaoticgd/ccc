@@ -53,7 +53,9 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 		for(s32 file : type->files) {
 			s32 reference_count = 0;
 			auto count_references = [&](const ast::Node& node) {
-				if(node.descriptor == ast::TYPE_NAME) {
+				if(node.descriptor == ast::VARIABLE && node.as<ast::Variable>().variable_class == ast::VariableClass::LOCAL) {
+					return ast::DONT_EXPLORE_CHILDREN;
+				} else if(node.descriptor == ast::TYPE_NAME) {
 					const ast::TypeName& type_name = node.as<ast::TypeName>();
 					if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
 						const std::unique_ptr<ast::SourceFile>& source_file = high.source_files.at(type_name.referenced_file_index);
@@ -132,8 +134,8 @@ FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& h
 				// Only add a dependency if we think there is a good probability
 				// that we know what file it comes from, also exclude builtins
 				// since those tend to produce bad results.
-				if(high.deduplicated_types[in]->files.size() == 1
-						&& high.deduplicated_types[in]->descriptor != ast::BUILTIN) {
+				const ast::Node& in_type = *high.deduplicated_types[in].get();
+				if(in_type.files.size() == 1 && in_type.descriptor != ast::BUILTIN && in_type.name != "void") {
 					FileIndex in_file = high.deduplicated_types[in]->files[0];
 					if(in_file != out_file) {
 						dense[out_file].emplace(in_file);
