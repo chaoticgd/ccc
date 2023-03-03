@@ -135,7 +135,8 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 
 TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& high) {
 	TypeDependencyAdjacencyList graph;
-	for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		const std::unique_ptr<ast::Node>& type = high.deduplicated_types[i];
 		std::set<TypeIndex>& dependencies = graph.emplace_back();
 		ast::for_each_node(*type.get(), [&](const ast::Node& node) {
 			if(node.descriptor == ast::TYPE_NAME) {
@@ -146,7 +147,7 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& h
 						&& type_name.referenced_stabs_type_number > -1) {
 					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
 					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
+					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end() && type_index->second != i) {
 						dependencies.emplace(type_index->second);
 					}
 				}
