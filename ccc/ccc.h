@@ -3,7 +3,6 @@
 
 #include "analysis.h"
 #include "ast.h"
-#include "command_line.h"
 #include "dependency.h"
 #include "elf.h"
 #include "insn.h"

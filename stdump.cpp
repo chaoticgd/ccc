@@ -13,6 +13,7 @@ enum class OutputMode {
 	SYMBOLS,
 	EXTERNALS,
 	FILES,
+	TYPE_GRAPH,
 	TEST,
 	HELP,
 	BAD_COMMAND
@@ -112,6 +113,14 @@ int main(int argc, char** argv) {
 			Module mod;
 			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
 			list_files(out, symbol_table);
+			return 0;
+		}
+		case OutputMode::TYPE_GRAPH: {
+			Module mod;
+			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
+			HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
+			TypeDependencyAdjacencyList graph = build_type_dependency_graph(high);
+			print_type_dependency_graph(out, high, graph);
 			return 0;
 		}
 		case OutputMode::TEST: {
@@ -311,6 +320,9 @@ static Options parse_args(int argc, char** argv) {
 		require_input_path = true;
 	} else if(strcmp(command, "files") == 0 || strcmp(command, "list_files") == 0) {
 		options.mode = OutputMode::FILES;
+		require_input_path = true;
+	} else if(strcmp(command, "type_graph") == 0) {
+		options.mode = OutputMode::TYPE_GRAPH;
 		require_input_path = true;
 	} else if(strcmp(command, "test") == 0) {
 		options.mode = OutputMode::TEST;

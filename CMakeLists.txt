@@ -34,9 +34,6 @@ include(cmake/version_finder.cmake)
 add_executable(demangle demangle.cpp)
 target_link_libraries(demangle ccc demanglegnu versioninfo)
 
-add_executable(depgraph depgraph.cpp)
-target_link_libraries(depgraph ccc versioninfo)
-
 add_executable(objdump objdump.cpp)
 target_link_libraries(objdump ccc versioninfo)
 
@@ -50,7 +47,6 @@ target_link_libraries(uncc ccc demanglegnu versioninfo)
 add_library(ccc STATIC
 	ccc/analysis.cpp
 	ccc/ast.cpp
-	ccc/command_line.cpp
 	ccc/dependency.cpp
 	ccc/elf.cpp
 	ccc/insn.cpp

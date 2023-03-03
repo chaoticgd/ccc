@@ -8,10 +8,6 @@ A set of tools for reverse engineering PS2 games.
 
 Demangler for the old GNU ABI.
 
-### depgraph
-
-Dependency graph and type-to-file mapping generator.
-
 ### objdump
 
 Half-working EE core MIPS disassembler. Probably not too interesting.
