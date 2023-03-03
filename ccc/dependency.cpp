@@ -53,17 +53,32 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 		for(s32 file : type->files) {
 			s32 reference_count = 0;
 			auto count_references = [&](const ast::Node& node) {
-				if(node.descriptor == ast::VARIABLE && node.as<ast::Variable>().variable_class == ast::VariableClass::LOCAL) {
-					return ast::DONT_EXPLORE_CHILDREN;
-				} else if(node.descriptor == ast::TYPE_NAME) {
-					const ast::TypeName& type_name = node.as<ast::TypeName>();
-					if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
-						const std::unique_ptr<ast::SourceFile>& source_file = high.source_files.at(type_name.referenced_file_index);
-						auto type_index = source_file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-						if(type_index != source_file->stabs_type_number_to_deduplicated_type_index.end()
-							&& type_index->second == i) {
-							reference_count++;
+				switch(node.descriptor) {
+					case ast::FUNCTION_DEFINITION: {
+						const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
+						if(function.storage_class == ast::SC_STATIC) {
+							return ast::DONT_EXPLORE_CHILDREN;
 						}
+						break;
+					}
+					case ast::VARIABLE: {
+						const ast::Variable& variable = node.as<ast::Variable>();
+						if(variable.variable_class == ast::VariableClass::LOCAL) {
+							return ast::DONT_EXPLORE_CHILDREN;
+						}
+						break;
+					}
+					case ast::TYPE_NAME: {
+						const ast::TypeName& type_name = node.as<ast::TypeName>();
+						if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
+							const std::unique_ptr<ast::SourceFile>& source_file = high.source_files.at(type_name.referenced_file_index);
+							auto type_index = source_file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
+							if(type_index != source_file->stabs_type_number_to_deduplicated_type_index.end()
+								&& type_index->second == i) {
+								reference_count++;
+							}
+						}
+						break;
 					}
 				}
 				return ast::EXPLORE_CHILDREN;
