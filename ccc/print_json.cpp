@@ -2,7 +2,7 @@
 
 namespace ccc {
 
-struct JsonWriter {
+struct JsonPrinter {
 	FILE* out;
 	bool needs_comma = false;
 	
@@ -23,11 +23,11 @@ struct JsonWriter {
 	std::string encode_string(const char* string);
 };
 
-static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr);
-static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage);
+static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr);
+static void print_json_variable_storage(JsonPrinter& json, const ast::VariableStorage& storage);
 
 void print_json(FILE* out, const HighSymbolTable& high, bool print_per_file_types) {
-	JsonWriter json;
+	JsonPrinter json;
 	json.out = out;
 	
 	json.begin_object();
@@ -53,7 +53,7 @@ void print_json(FILE* out, const HighSymbolTable& high, bool print_per_file_type
 	json.end_object();
 }
 
-static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
+static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 	assert(ptr);
 	const ast::Node& node = *ptr;
 	json.begin_object();
@@ -310,7 +310,7 @@ static void print_json_ast_node(JsonWriter& json, const ast::Node* ptr) {
 	json.end_object();
 }
 
-static void print_json_variable_storage(JsonWriter& json, const ast::VariableStorage& storage) {
+static void print_json_variable_storage(JsonPrinter& json, const ast::VariableStorage& storage) {
 	json.property("storage");
 	json.begin_object();
 	switch(storage.type) {
@@ -338,7 +338,7 @@ static void print_json_variable_storage(JsonWriter& json, const ast::VariableSto
 	json.end_object();
 }
 
-void JsonWriter::begin_object() {
+void JsonPrinter::begin_object() {
 	if(needs_comma) {
 		fprintf(out, ",");
 	}
@@ -346,12 +346,12 @@ void JsonWriter::begin_object() {
 	fprintf(out, "{");
 }
 
-void JsonWriter::end_object() {
+void JsonPrinter::end_object() {
 	needs_comma = true;
 	fprintf(out, "}");
 }
 
-void JsonWriter::property(const char* name) {
+void JsonPrinter::property(const char* name) {
 	if(needs_comma) {
 		fprintf(out, ",");
 	}
@@ -359,7 +359,7 @@ void JsonWriter::property(const char* name) {
 	fprintf(out, "\"%s\":", name);
 }
 
-void JsonWriter::string(const char* value) {
+void JsonPrinter::string(const char* value) {
 	if(needs_comma) {
 		fprintf(out, ",");
 	}
@@ -368,7 +368,7 @@ void JsonWriter::string(const char* value) {
 	fprintf(out, "\"%s\"", encoded.c_str());
 }
 
-void JsonWriter::number(s64 value) {
+void JsonPrinter::number(s64 value) {
 	if(needs_comma) {
 		fprintf(out, ",");
 	}
@@ -376,7 +376,7 @@ void JsonWriter::number(s64 value) {
 	fprintf(out, "%" PRId64, value);
 }
 
-void JsonWriter::boolean(bool value) {
+void JsonPrinter::boolean(bool value) {
 	if(needs_comma) {
 		fprintf(out, ",");
 	}
@@ -384,7 +384,7 @@ void JsonWriter::boolean(bool value) {
 	fprintf(out, "%s", value ? "true" : "false");
 }
 
-void JsonWriter::begin_array() {
+void JsonPrinter::begin_array() {
 	if(needs_comma) {
 		fprintf(out, ",");
 	}
@@ -392,27 +392,27 @@ void JsonWriter::begin_array() {
 	fprintf(out, "[");
 }
 
-void JsonWriter::end_array() {
+void JsonPrinter::end_array() {
 	needs_comma = true;
 	fprintf(out, "]");
 }
 
-void JsonWriter::string_property(const char* name, const char* value) {
+void JsonPrinter::string_property(const char* name, const char* value) {
 	property(name);
 	string(value);
 }
 
-void JsonWriter::number_property(const char* name, s64 value) {
+void JsonPrinter::number_property(const char* name, s64 value) {
 	property(name);
 	number(value);
 }
 
-void JsonWriter::boolean_property(const char* name, bool value) {
+void JsonPrinter::boolean_property(const char* name, bool value) {
 	property(name);
 	boolean(value);
 }
 
-std::string JsonWriter::encode_string(const char* string) {
+std::string JsonPrinter::encode_string(const char* string) {
 	static const char* HEX_DIGITS = "0123456789abcdef";
 	
 	std::string encoded;
