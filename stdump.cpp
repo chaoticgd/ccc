@@ -145,8 +145,8 @@ static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 		fprintf(out, "\n");
 		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
 			VariableName dummy{};
-			PrintCppConfig config;
-			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			CppPrinter printer(out);
+			printer.print_cpp_ast_node(*node.get(), dummy, 0);
 			fprintf(out, "\n");
 		}
 		if(!source_file.functions.empty() && i != (s32) symbol_table.files.size()) {
@@ -165,8 +165,8 @@ static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 		fprintf(out, "\n");
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			VariableName dummy{};
-			PrintCppConfig config;
-			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			CppPrinter printer(out);
+			printer.print_cpp_ast_node(*node.get(), dummy, 0);
 			fprintf(out, ";\n");
 		}
 		if(!source_file.globals.empty() && i != (s32) symbol_table.files.size()) {
@@ -179,18 +179,20 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	analysis_flags |= DEDUPLICATE_TYPES;
 	HighSymbolTable high = analyse(symbol_table, analysis_flags);
-	print_cpp_comment_block_beginning(out, options.input_file);
-	print_cpp_comment_block_compiler_version_info(out, symbol_table);
-	print_cpp_comment_block_builtin_types(out, high.deduplicated_types);
+	CppPrinter printer(out);
+	printer.print_cpp_comment_block_beginning(options.input_file);
+	printer.print_cpp_comment_block_compiler_version_info(symbol_table);
+	printer.print_cpp_comment_block_builtin_types(high.deduplicated_types);
 	fprintf(out, "\n");
-	PrintCppConfig config;
-	config.verbose = options.flags & FLAG_VERBOSE;
-	print_cpp_ast_nodes(out, high.deduplicated_types, config);
+	printer.verbose = options.flags & FLAG_VERBOSE;
+	printer.print_cpp_ast_nodes(high.deduplicated_types);
 }
 
 static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
-	print_cpp_comment_block_beginning(out, options.input_file);
+	CppPrinter config(out);
+	config.verbose = options.flags & FLAG_VERBOSE;
+	config.print_cpp_comment_block_beginning(options.input_file);
 	fprintf(out, "\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
@@ -199,12 +201,11 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
 		fprintf(out, "// *****************************************************************************\n");
 		fprintf(out, "\n");
-		print_cpp_comment_block_compiler_version_info(out, symbol_table);
-		print_cpp_comment_block_builtin_types(out, source_file.data_types);
+		config.print_cpp_comment_block_compiler_version_info(symbol_table);
+		config.print_cpp_comment_block_builtin_types(source_file.data_types);
 		fprintf(out, "\n");
-		PrintCppConfig config;
 		config.verbose = options.flags & FLAG_VERBOSE;
-		print_cpp_ast_nodes(out, source_file.data_types, config);
+		config.print_cpp_ast_nodes(source_file.data_types);
 		fprintf(out, "\n");
 	}
 }
