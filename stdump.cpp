@@ -423,6 +423,9 @@ static void print_help() {
 	puts("  files <input file>");
 	puts("    List the names of each of the source files.");
 	puts("");
+	puts("  type_graph <input_file>");
+	puts("    Print out a dependency graph of all the types in graphviz DOT format.");
+	puts("");
 	puts("  test <input directory>");
 	puts("    Parse all the ELF files in a directory, but don't produce any output.");
 	puts("");
