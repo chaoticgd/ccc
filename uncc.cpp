@@ -176,7 +176,7 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 			VariableName dummy{};
 			CppPrinter printer(out);
 			printer.print_storage_information = false;
-			printer.print_cpp_ast_node(*node.get(), dummy, 0);
+			printer.ast_node(*node.get(), dummy, 0);
 			fprintf(out, ";\n");
 		}
 	}
@@ -187,7 +187,7 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 			VariableName dummy{};
 			CppPrinter printer(out);
 			printer.print_storage_information = false;
-			printer.print_cpp_ast_node(*node.get(), dummy, 0);
+			printer.ast_node(*node.get(), dummy, 0);
 			fprintf(out, "\n");
 		}
 	}
@@ -230,7 +230,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 			printer.force_extern = true;
 			printer.skip_statics = true;
 			printer.print_storage_information = false;
-			if(printer.print_cpp_ast_node(*node.get(), dummy, 0)) {
+			if(printer.ast_node(*node.get(), dummy, 0)) {
 				fprintf(out, ";\n");
 			}
 			has_global = true;
@@ -247,7 +247,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 			printer.skip_statics = true;
 			printer.print_function_bodies = false;
 			printer.print_storage_information = false;
-			if(printer.print_cpp_ast_node(*node.get(), dummy, 0)) {
+			if(printer.ast_node(*node.get(), dummy, 0)) {
 				fprintf(out, "\n");
 			}
 		}

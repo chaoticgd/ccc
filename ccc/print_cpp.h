@@ -29,7 +29,7 @@ struct CppPrinter {
 	void print_cpp_comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table);
 	void print_cpp_comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes);
 	bool top_level_type(const ast::Node& node, bool is_last);
-	bool print_cpp_ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
+	bool ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
 	void print_variable_storage_comment(const ast::VariableStorage& storage);
 };
 
