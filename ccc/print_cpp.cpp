@@ -86,7 +86,6 @@ bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
 		fprintf(out, "// symbol: %s\n", node.symbol->raw->string);
 	}
 	VariableName name;
-	s32 digits_for_offset = 0;
 	if(node.descriptor == ast::INLINE_STRUCT_OR_UNION && node.size_bits > 0) {
 		digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
 	}
