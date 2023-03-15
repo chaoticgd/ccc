@@ -162,10 +162,12 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 		const ast::SourceFile& file = *high.source_files[file_index].get();
 		CppPrinter printer(out);
 		printer.print_offsets_and_sizes = false;
-		printer.filter_out_types_probably_defined_in_h_file = true;
-		printer.only_print_out_types_from_this_file = file_index;
 		for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-			printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+			ast::Node* node = high.deduplicated_types[i].get();
+			assert(node);
+			if(node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
+				printer.top_level_type(*node, i == high.deduplicated_types.size() - 1);
+			}
 		}
 	}
 	for(s32 file_index : file_indices) {
@@ -210,10 +212,12 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		const ast::SourceFile& file = *high.source_files[file_index].get();
 		CppPrinter printer(out);
 		printer.print_offsets_and_sizes = false;
-		printer.filter_out_types_probably_defined_in_cpp_file = true;
-		printer.only_print_out_types_from_this_file = file_index;
 		for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-			printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+			ast::Node* node = high.deduplicated_types[i].get();
+			assert(node);
+			if(!node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
+				printer.top_level_type(*node, i == high.deduplicated_types.size() - 1);
+			}
 		}
 	}
 	
@@ -266,11 +270,15 @@ static void write_lost_and_found_file(const fs::path& path, const HighSymbolTabl
 	FILE* out = open_file_w(path.c_str());
 	CppPrinter printer(out);
 	printer.print_offsets_and_sizes = false;
-	printer.filter_out_types_mapped_to_one_file = true;
 	s32 nodes_printed = 0;
 	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-		printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
-		nodes_printed++;
+		ast::Node* node = high.deduplicated_types[i].get();
+		assert(node);
+		if(node->files.size() != 1) {
+			if(printer.top_level_type(*node, i == high.deduplicated_types.size() - 1)) {
+				nodes_printed++;
+			}
+		}
 	}
 	printf("%d types printed to lost and found file\n", nodes_printed);
 	fclose(out);

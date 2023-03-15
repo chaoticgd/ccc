@@ -66,23 +66,9 @@ void CppPrinter::print_cpp_comment_block_builtin_types(const std::vector<std::un
 	}
 }
 
-void CppPrinter::ast_node(const ast::Node& node, bool is_last) {
+bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
 	if(node.descriptor == ast::BUILTIN) {
-		return;
-	}
-	if(filter_out_types_mapped_to_one_file && node.files.size() == 1) {
-		return;
-	}
-	if(only_print_out_types_from_this_file != -1
-			&& (node.files.size() != 1
-				|| node.files[0] != only_print_out_types_from_this_file)) {
-		return;
-	}
-	if(filter_out_types_probably_defined_in_cpp_file && node.probably_defined_in_cpp_file) {
-		return;
-	}
-	if(filter_out_types_probably_defined_in_h_file && !node.probably_defined_in_cpp_file) {
-		return;
+		return false;
 	}
 	bool multiline =
 		node.descriptor == ast::INLINE_ENUM ||
@@ -111,6 +97,8 @@ void CppPrinter::ast_node(const ast::Node& node, bool is_last) {
 		fprintf(out, "\n");
 	}
 	last_was_multiline = multiline;
+	
+	return true;
 }
 
 bool CppPrinter::print_cpp_ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {

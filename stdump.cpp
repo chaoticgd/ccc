@@ -186,7 +186,7 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	fprintf(out, "\n");
 	printer.verbose = options.flags & FLAG_VERBOSE;
 	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-		printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+		printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
 	}
 }
 
@@ -208,7 +208,7 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 		fprintf(out, "\n");
 		printer.verbose = options.flags & FLAG_VERBOSE;
 		for(size_t i = 0; i < source_file.data_types.size(); i++) {
-			printer.ast_node(*source_file.data_types[i].get(), i == source_file.data_types.size() - 1);
+			printer.top_level_type(*source_file.data_types[i].get(), i == source_file.data_types.size() - 1);
 		}
 		fprintf(out, "\n");
 	}
