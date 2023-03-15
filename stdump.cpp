@@ -145,8 +145,8 @@ static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 		fprintf(out, "\n");
 		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
 			VariableName dummy{};
-			PrintCppConfig config;
-			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			CppPrinter printer(out);
+			printer.ast_node(*node.get(), dummy, 0);
 			fprintf(out, "\n");
 		}
 		if(!source_file.functions.empty() && i != (s32) symbol_table.files.size()) {
@@ -165,8 +165,8 @@ static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 		fprintf(out, "\n");
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			VariableName dummy{};
-			PrintCppConfig config;
-			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			CppPrinter printer(out);
+			printer.ast_node(*node.get(), dummy, 0);
 			fprintf(out, ";\n");
 		}
 		if(!source_file.globals.empty() && i != (s32) symbol_table.files.size()) {
@@ -179,18 +179,22 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	analysis_flags |= DEDUPLICATE_TYPES;
 	HighSymbolTable high = analyse(symbol_table, analysis_flags);
-	print_cpp_comment_block_beginning(out, options.input_file);
-	print_cpp_comment_block_compiler_version_info(out, symbol_table);
-	print_cpp_comment_block_builtin_types(out, high.deduplicated_types);
+	CppPrinter printer(out);
+	printer.print_cpp_comment_block_beginning(options.input_file);
+	printer.print_cpp_comment_block_compiler_version_info(symbol_table);
+	printer.print_cpp_comment_block_builtin_types(high.deduplicated_types);
 	fprintf(out, "\n");
-	PrintCppConfig config;
-	config.verbose = options.flags & FLAG_VERBOSE;
-	print_cpp_ast_nodes(out, high.deduplicated_types, config);
+	printer.verbose = options.flags & FLAG_VERBOSE;
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+	}
 }
 
 static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
-	print_cpp_comment_block_beginning(out, options.input_file);
+	CppPrinter printer(out);
+	printer.verbose = options.flags & FLAG_VERBOSE;
+	printer.print_cpp_comment_block_beginning(options.input_file);
 	fprintf(out, "\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
@@ -199,12 +203,13 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
 		fprintf(out, "// *****************************************************************************\n");
 		fprintf(out, "\n");
-		print_cpp_comment_block_compiler_version_info(out, symbol_table);
-		print_cpp_comment_block_builtin_types(out, source_file.data_types);
+		printer.print_cpp_comment_block_compiler_version_info(symbol_table);
+		printer.print_cpp_comment_block_builtin_types(source_file.data_types);
 		fprintf(out, "\n");
-		PrintCppConfig config;
-		config.verbose = options.flags & FLAG_VERBOSE;
-		print_cpp_ast_nodes(out, source_file.data_types, config);
+		printer.verbose = options.flags & FLAG_VERBOSE;
+		for(size_t i = 0; i < source_file.data_types.size(); i++) {
+			printer.top_level_type(*source_file.data_types[i].get(), i == source_file.data_types.size() - 1);
+		}
 		fprintf(out, "\n");
 	}
 }
@@ -272,22 +277,37 @@ static void test(FILE* out, const fs::path& directory) {
 	for(auto entry : fs::directory_iterator(directory)) {
 		fs::path filename = entry.path().filename();
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
-			fprintf(out, "%s ", entry.path().filename().string().c_str());
+			printf("%s ", entry.path().filename().string().c_str());
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 			if(mdebug_section) {
 				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
 				ccc::HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES);
-				fprintf(out, "pass\n");
+				CppPrinter printer(out);
+				for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+					printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+				}
+				for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
+					for(const std::unique_ptr<ast::Node>& node : file->functions) {
+						VariableName dummy{};
+						printer.ast_node(*node.get(), dummy, 0);
+					}
+					for(const std::unique_ptr<ast::Node>& node : file->globals) {
+						VariableName dummy{};
+						printer.ast_node(*node.get(), dummy, 0);
+					}
+				}
+				print_json(out, high, false);
+				printf("pass\n");
 				passed++;
 			} else {
-				fprintf(out, "no .mdebug section\n");
+				printf("no .mdebug section\n");
 				skipped++;
 			}
 		}
 	}
 	// If it gets to this point it means all of the tests succeded.
-	fprintf(out, "%d test cases passed, %d skipped, 0 failed\n", passed, skipped);
+	printf("%d test cases passed, %d skipped, 0 failed\n", passed, skipped);
 }
 
 static Options parse_args(int argc, char** argv) {
@@ -418,8 +438,12 @@ static void print_help() {
 	puts("  files <input file>");
 	puts("    List the names of each of the source files.");
 	puts("");
+	puts("  type_graph <input_file>");
+	puts("    Print out a dependency graph of all the types in graphviz DOT format.");
+	puts("");
 	puts("  test <input directory>");
-	puts("    Parse all the ELF files in a directory, but don't produce any output.");
+	puts("    Parse and print all the ELF files in a directory.");
+	puts("    Use '--output /dev/null' to reduce spam.");
 	puts("");
 	puts("  help | --help | -h");
 	puts("    Print this help message.");

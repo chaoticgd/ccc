@@ -160,19 +160,23 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	for(s32 file_index : file_indices) {
 		const ast::SourceFile& file = *high.source_files[file_index].get();
-		PrintCppConfig config;
-		config.print_offsets_and_sizes = false;
-		config.filter_out_types_probably_defined_in_h_file = true;
-		config.only_print_out_types_from_this_file = file_index;
-		print_cpp_ast_nodes(out, high.deduplicated_types, config);
+		CppPrinter printer(out);
+		printer.print_offsets_and_sizes = false;
+		for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+			ast::Node* node = high.deduplicated_types[i].get();
+			assert(node);
+			if(node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
+				printer.top_level_type(*node, i == high.deduplicated_types.size() - 1);
+			}
+		}
 	}
 	for(s32 file_index : file_indices) {
 		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : file.globals) {
 			VariableName dummy{};
-			PrintCppConfig config;
-			config.print_storage_information = false;
-			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			CppPrinter printer(out);
+			printer.print_storage_information = false;
+			printer.ast_node(*node.get(), dummy, 0);
 			fprintf(out, ";\n");
 		}
 	}
@@ -181,9 +185,9 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 		for(const std::unique_ptr<ast::Node>& node : file.functions) {
 			fprintf(out, "\n");
 			VariableName dummy{};
-			PrintCppConfig config;
-			config.print_storage_information = false;
-			print_cpp_ast_node(out, *node.get(), dummy, 0, config);
+			CppPrinter printer(out);
+			printer.print_storage_information = false;
+			printer.ast_node(*node.get(), dummy, 0);
 			fprintf(out, "\n");
 		}
 	}
@@ -206,11 +210,15 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	
 	for(s32 file_index : file_indices) {
 		const ast::SourceFile& file = *high.source_files[file_index].get();
-		PrintCppConfig config;
-		config.print_offsets_and_sizes = false;
-		config.filter_out_types_probably_defined_in_cpp_file = true;
-		config.only_print_out_types_from_this_file = file_index;
-		print_cpp_ast_nodes(out, high.deduplicated_types, config);
+		CppPrinter printer(out);
+		printer.print_offsets_and_sizes = false;
+		for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+			ast::Node* node = high.deduplicated_types[i].get();
+			assert(node);
+			if(!node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
+				printer.top_level_type(*node, i == high.deduplicated_types.size() - 1);
+			}
+		}
 	}
 	
 	bool has_global = false;
@@ -218,11 +226,11 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : file.globals) {
 			VariableName dummy{};
-			PrintCppConfig config;
-			config.force_extern = true;
-			config.skip_statics = true;
-			config.print_storage_information = false;
-			if(print_cpp_ast_node(out, *node.get(), dummy, 0, config)) {
+			CppPrinter printer(out);
+			printer.force_extern = true;
+			printer.skip_statics = true;
+			printer.print_storage_information = false;
+			if(printer.ast_node(*node.get(), dummy, 0)) {
 				fprintf(out, ";\n");
 			}
 			has_global = true;
@@ -235,11 +243,11 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : file.functions) {
 			VariableName dummy{};
-			PrintCppConfig config;
-			config.skip_statics = true;
-			config.print_function_bodies = false;
-			config.print_storage_information = false;
-			if(print_cpp_ast_node(out, *node.get(), dummy, 0, config)) {
+			CppPrinter printer(out);
+			printer.skip_statics = true;
+			printer.print_function_bodies = false;
+			printer.print_storage_information = false;
+			if(printer.ast_node(*node.get(), dummy, 0)) {
 				fprintf(out, "\n");
 			}
 		}
@@ -260,10 +268,18 @@ static bool needs_lost_and_found_file(const HighSymbolTable& high) {
 static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
-	PrintCppConfig config;
-	config.print_offsets_and_sizes = false;
-	config.filter_out_types_mapped_to_one_file = true;
-	s32 nodes_printed = print_cpp_ast_nodes(out, high.deduplicated_types, config);
+	CppPrinter printer(out);
+	printer.print_offsets_and_sizes = false;
+	s32 nodes_printed = 0;
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		ast::Node* node = high.deduplicated_types[i].get();
+		assert(node);
+		if(node->files.size() != 1) {
+			if(printer.top_level_type(*node, i == high.deduplicated_types.size() - 1)) {
+				nodes_printed++;
+			}
+		}
+	}
 	printf("%d types printed to lost and found file\n", nodes_printed);
 	fclose(out);
 }
