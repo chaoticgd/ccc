@@ -87,4 +87,4 @@ Data types will be sorted into their corresponding files. Since this information
 
 ## License
 
-All the code is MIT licensed, with the exception of the code in the `demanglegpl` directory, which is taken from the GNU libiberty library and is licensed under the LGPL. This license is included in the form of the `demanglegpl/DEMANGLERCOPYING.LIB` file.
+All the code is MIT licensed, with the exception of the code in the `demanglegnu` directory, which is taken from the GNU libiberty library and is licensed under the LGPL. This license is included in the form of the `DemanglerLicense.txt` file. A copy of the GNU GPL is also included in the form of the `DemanglerLicenseSupplementGPL.txt` file.

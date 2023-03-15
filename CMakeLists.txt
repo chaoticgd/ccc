@@ -71,7 +71,8 @@ set(RELEASE_CONTENTS
 	$<TARGET_FILE:stdump>
 	$<TARGET_FILE:uncc>
 	"${CMAKE_SOURCE_DIR}/README.md"
-	"${CMAKE_SOURCE_DIR}/LICENSE"
-	"${CMAKE_SOURCE_DIR}/demanglegnu/DEMANGLERLICENSE"
+	"${CMAKE_SOURCE_DIR}/License.txt"
+	"${CMAKE_SOURCE_DIR}/demanglegnu/DemanglerLicense.txt"
+	"${CMAKE_SOURCE_DIR}/demanglegnu/DemanglerLicenseSupplementGPL.txt"
 )
 include(cmake/zip_crafter.cmake)
