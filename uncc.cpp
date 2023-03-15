@@ -164,7 +164,9 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 		printer.print_offsets_and_sizes = false;
 		printer.filter_out_types_probably_defined_in_h_file = true;
 		printer.only_print_out_types_from_this_file = file_index;
-		printer.print_cpp_ast_nodes(high.deduplicated_types);
+		for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+			printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+		}
 	}
 	for(s32 file_index : file_indices) {
 		const ast::SourceFile& file = *high.source_files[file_index].get();
@@ -210,7 +212,9 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		printer.print_offsets_and_sizes = false;
 		printer.filter_out_types_probably_defined_in_cpp_file = true;
 		printer.only_print_out_types_from_this_file = file_index;
-		printer.print_cpp_ast_nodes(high.deduplicated_types);
+		for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+			printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+		}
 	}
 	
 	bool has_global = false;
@@ -263,7 +267,11 @@ static void write_lost_and_found_file(const fs::path& path, const HighSymbolTabl
 	CppPrinter printer(out);
 	printer.print_offsets_and_sizes = false;
 	printer.filter_out_types_mapped_to_one_file = true;
-	s32 nodes_printed = printer.print_cpp_ast_nodes(high.deduplicated_types);
+	s32 nodes_printed = 0;
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+		nodes_printed++;
+	}
 	printf("%d types printed to lost and found file\n", nodes_printed);
 	fclose(out);
 }

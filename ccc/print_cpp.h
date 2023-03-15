@@ -25,12 +25,14 @@ struct CppPrinter {
 	s32 digits_for_offset = 3;
 	s32 only_print_out_types_from_this_file = -1;
 	
+	bool last_was_multiline = true;
+	
 	CppPrinter(FILE* o) : out(o) {}
 	
 	void print_cpp_comment_block_beginning(const fs::path& input_file);
 	void print_cpp_comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table);
 	void print_cpp_comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes);
-	s32 print_cpp_ast_nodes(const std::vector<std::unique_ptr<ast::Node>>& nodes);
+	void ast_node(const ast::Node& node, bool is_last);
 	bool print_cpp_ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
 	void print_variable_storage_comment(const ast::VariableStorage& storage);
 };

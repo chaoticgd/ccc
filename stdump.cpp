@@ -185,14 +185,16 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	printer.print_cpp_comment_block_builtin_types(high.deduplicated_types);
 	fprintf(out, "\n");
 	printer.verbose = options.flags & FLAG_VERBOSE;
-	printer.print_cpp_ast_nodes(high.deduplicated_types);
+	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+		printer.ast_node(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+	}
 }
 
 static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
-	CppPrinter config(out);
-	config.verbose = options.flags & FLAG_VERBOSE;
-	config.print_cpp_comment_block_beginning(options.input_file);
+	CppPrinter printer(out);
+	printer.verbose = options.flags & FLAG_VERBOSE;
+	printer.print_cpp_comment_block_beginning(options.input_file);
 	fprintf(out, "\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
@@ -201,11 +203,13 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
 		fprintf(out, "// *****************************************************************************\n");
 		fprintf(out, "\n");
-		config.print_cpp_comment_block_compiler_version_info(symbol_table);
-		config.print_cpp_comment_block_builtin_types(source_file.data_types);
+		printer.print_cpp_comment_block_compiler_version_info(symbol_table);
+		printer.print_cpp_comment_block_builtin_types(source_file.data_types);
 		fprintf(out, "\n");
-		config.verbose = options.flags & FLAG_VERBOSE;
-		config.print_cpp_ast_nodes(source_file.data_types);
+		printer.verbose = options.flags & FLAG_VERBOSE;
+		for(size_t i = 0; i < source_file.data_types.size(); i++) {
+			printer.ast_node(*source_file.data_types[i].get(), i == source_file.data_types.size() - 1);
+		}
 		fprintf(out, "\n");
 	}
 }

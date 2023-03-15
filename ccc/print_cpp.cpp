@@ -66,65 +66,58 @@ void CppPrinter::print_cpp_comment_block_builtin_types(const std::vector<std::un
 	}
 }
 
-s32 CppPrinter::print_cpp_ast_nodes(const std::vector<std::unique_ptr<ast::Node>>& nodes) {
-	s32 nodes_printed = 0;
-	bool last_was_multiline = true;
-	for(size_t i = 0; i < nodes.size(); i++) {
-		const std::unique_ptr<ast::Node>& node = nodes[i];
-		assert(node.get());
-		if(node->descriptor == ast::BUILTIN) {
-			continue;
-		}
-		if(filter_out_types_mapped_to_one_file && node->files.size() == 1) {
-			continue;
-		}
-		if(only_print_out_types_from_this_file != -1
-				&& (node->files.size() != 1
-					|| node->files[0] != only_print_out_types_from_this_file)) {
-			continue;
-		}
-		if(filter_out_types_probably_defined_in_cpp_file && node->probably_defined_in_cpp_file) {
-			continue;
-		}
-		if(filter_out_types_probably_defined_in_h_file && !node->probably_defined_in_cpp_file) {
-			continue;
-		}
-		bool multiline =
-			node->descriptor == ast::INLINE_ENUM ||
-			node->descriptor == ast::INLINE_STRUCT_OR_UNION;
-		if(!last_was_multiline && multiline) {
-			fprintf(out, "\n");
-		}
-		if(node->conflict) {
-			fprintf(out, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node->files.at(0), node->compare_fail_reason);
-		}
-		if(node->descriptor == ast::NodeDescriptor::TYPE_NAME && node->as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
-			fprintf(out, "// warning: this type name was generated to handle an error\n");
-		}
-		if(verbose && node->symbol != nullptr) {
-			fprintf(out, "// symbol: %s\n", node->symbol->raw->string);
-		}
-		VariableName name;
-		s32 digits_for_offset = 0;
-		if(node->descriptor == ast::INLINE_STRUCT_OR_UNION && node->size_bits > 0) {
-			digits_for_offset = (s32) ceilf(log2(node->size_bits / 8.f) / 4.f);
-		}
-		print_cpp_ast_node(*node.get(), name, 0);
-		fprintf(out, ";\n");
-		nodes_printed++;
-		if(multiline && i != nodes.size() - 1) {
-			fprintf(out, "\n");
-		}
-		last_was_multiline = multiline;
+void CppPrinter::ast_node(const ast::Node& node, bool is_last) {
+	if(node.descriptor == ast::BUILTIN) {
+		return;
 	}
-	return nodes_printed;
+	if(filter_out_types_mapped_to_one_file && node.files.size() == 1) {
+		return;
+	}
+	if(only_print_out_types_from_this_file != -1
+			&& (node.files.size() != 1
+				|| node.files[0] != only_print_out_types_from_this_file)) {
+		return;
+	}
+	if(filter_out_types_probably_defined_in_cpp_file && node.probably_defined_in_cpp_file) {
+		return;
+	}
+	if(filter_out_types_probably_defined_in_h_file && !node.probably_defined_in_cpp_file) {
+		return;
+	}
+	bool multiline =
+		node.descriptor == ast::INLINE_ENUM ||
+		node.descriptor == ast::INLINE_STRUCT_OR_UNION;
+	if(!last_was_multiline && multiline) {
+		fprintf(out, "\n");
+	}
+	if(node.conflict) {
+		fprintf(out, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node.files.at(0), node.compare_fail_reason);
+	}
+	if(node.descriptor == ast::NodeDescriptor::TYPE_NAME && node.as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
+		fprintf(out, "// warning: this type name was generated to handle an error\n");
+	}
+	if(verbose && node.symbol != nullptr) {
+		fprintf(out, "// symbol: %s\n", node.symbol->raw->string);
+	}
+	VariableName name;
+	s32 digits_for_offset = 0;
+	if(node.descriptor == ast::INLINE_STRUCT_OR_UNION && node.size_bits > 0) {
+		digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
+	}
+	print_cpp_ast_node(node, name, 0);
+	fprintf(out, ";\n");
+	
+	if(multiline && !is_last) {
+		fprintf(out, "\n");
+	}
+	last_was_multiline = multiline;
 }
 
 bool CppPrinter::print_cpp_ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
-	if(skip_statics && node.storage_class) {
+	if(skip_statics && node.storage_class == ast::SC_STATIC) {
 		return false;
 	}
 	
