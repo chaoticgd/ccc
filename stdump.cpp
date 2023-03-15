@@ -277,22 +277,37 @@ static void test(FILE* out, const fs::path& directory) {
 	for(auto entry : fs::directory_iterator(directory)) {
 		fs::path filename = entry.path().filename();
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
-			fprintf(out, "%s ", entry.path().filename().string().c_str());
+			printf("%s ", entry.path().filename().string().c_str());
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 			if(mdebug_section) {
 				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
 				ccc::HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES);
-				fprintf(out, "pass\n");
+				CppPrinter printer(out);
+				for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
+					printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+				}
+				for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
+					for(const std::unique_ptr<ast::Node>& node : file->functions) {
+						VariableName dummy{};
+						printer.ast_node(*node.get(), dummy, 0);
+					}
+					for(const std::unique_ptr<ast::Node>& node : file->globals) {
+						VariableName dummy{};
+						printer.ast_node(*node.get(), dummy, 0);
+					}
+				}
+				print_json(out, high, false);
+				printf("pass\n");
 				passed++;
 			} else {
-				fprintf(out, "no .mdebug section\n");
+				printf("no .mdebug section\n");
 				skipped++;
 			}
 		}
 	}
 	// If it gets to this point it means all of the tests succeded.
-	fprintf(out, "%d test cases passed, %d skipped, 0 failed\n", passed, skipped);
+	printf("%d test cases passed, %d skipped, 0 failed\n", passed, skipped);
 }
 
 static Options parse_args(int argc, char** argv) {
@@ -427,7 +442,8 @@ static void print_help() {
 	puts("    Print out a dependency graph of all the types in graphviz DOT format.");
 	puts("");
 	puts("  test <input directory>");
-	puts("    Parse all the ELF files in a directory, but don't produce any output.");
+	puts("    Parse and print all the ELF files in a directory.");
+	puts("    Use '--output /dev/null' to reduce spam.");
 	puts("");
 	puts("  help | --help | -h");
 	puts("    Print this help message.");
