@@ -33,10 +33,6 @@ struct CppPrinter {
 	void print_variable_storage_comment(const ast::VariableStorage& storage);
 };
 
-
-
-
-
 }
 
 #endif
