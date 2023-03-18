@@ -7,12 +7,6 @@ using namespace ccc;
 struct FunctionsFile {
 	std::string contents;
 	std::map<s32, std::span<char>> functions;
-	
-	// Prevent copying.
-	FunctionsFile() {}
-	FunctionsFile(FunctionsFile&&) = default;
-	FunctionsFile(const FunctionsFile&) = delete;
-	FunctionsFile& operator=(const FunctionsFile&) = delete;
 };
 
 static std::vector<std::string> parse_sources_file(const fs::path& path);
@@ -42,7 +36,10 @@ int main(int argc, char** argv) {
 	fs::path functions_file_path = output_path/"FUNCTIONS.txt";
 	
 	std::vector<std::string> source_paths = parse_sources_file(sources_file_path);
-	FunctionsFile functions_file = parse_functions_file(functions_file_path);
+	FunctionsFile functions_file;
+	if(fs::exists(functions_file_path)) {
+		functions_file = parse_functions_file(functions_file_path);
+	}
 	
 	Module mod;
 	mdebug::SymbolTable symbol_table = read_symbol_table(mod, elf_path);
