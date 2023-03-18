@@ -133,7 +133,7 @@ static FunctionsFile parse_functions_file(const fs::path& path) {
 			function = &result.functions[address];
 			*function = input.subspan(1);
 		} else if(function) {
-			*function = std::span<char>(function->begin(), line.end());
+			*function = std::span<char>(function->data(), line.data() + line.size());
 		}
 	}
 	
