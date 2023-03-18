@@ -20,8 +20,9 @@ struct CppPrinter {
 	bool print_function_bodies : 1 = true;
 	bool print_storage_information : 1 = true;
 	s32 digits_for_offset = 3;
+	const std::map<s32, std::span<char>>* function_bodies = nullptr;
 	
-	bool last_was_multiline = true;
+	bool last_type_was_multiline = true;
 	
 	CppPrinter(FILE* o) : out(o) {}
 	

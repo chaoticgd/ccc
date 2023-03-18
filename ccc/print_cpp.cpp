@@ -73,7 +73,7 @@ bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
 	bool multiline =
 		node.descriptor == ast::INLINE_ENUM ||
 		node.descriptor == ast::INLINE_STRUCT_OR_UNION;
-	if(!last_was_multiline && multiline) {
+	if(!last_type_was_multiline && multiline) {
 		fprintf(out, "\n");
 	}
 	if(node.conflict) {
@@ -95,7 +95,7 @@ bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
 	if(multiline && !is_last) {
 		fprintf(out, "\n");
 	}
-	last_was_multiline = multiline;
+	last_type_was_multiline = multiline;
 	
 	return true;
 }
@@ -166,12 +166,27 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			ast_node(*func_def.type.get(), name, indentation_level);
 			if(print_function_bodies) {
 				fprintf(out, " ");
-				if(!func_def.locals.empty()) {
+				const std::span<char>* body = nullptr;
+				if(function_bodies) {
+					auto body_iter = function_bodies->find(func_def.address_range.low);
+					if(body_iter != function_bodies->end()) {
+						body = &body_iter->second;
+					}
+				}
+				if(!func_def.locals.empty() || body) {
 					fprintf(out, "{\n");
 					for(const std::unique_ptr<ast::Variable>& variable : func_def.locals) {
 						indent(out, indentation_level + 1);
 						ast_node(*variable.get(), name, indentation_level + 1);
 						fprintf(out, ";\n");
+					}
+					if(body) {
+						if(!func_def.locals.empty()) {
+							indent(out, indentation_level + 1);
+							fprintf(out, "\n");
+						}
+						printf("data %p\n", body->data());
+						fwrite(body->data(), body->size(), 1, out);
 					}
 					indent(out, indentation_level);
 					fprintf(out, "}");
