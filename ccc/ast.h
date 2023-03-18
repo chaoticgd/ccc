@@ -50,7 +50,7 @@ enum AccessSpecifier {
 //  1. Create a struct for it.
 //  2. Add support for it in for_each_node.
 //  3. Add support for it in compare_nodes.
-//  4. Add support for it in print_cpp_ast_node.
+//  4. Add support for it in CppPrinter::ast_node.
 //  5. Add support for it in print_json_ast_node.
 struct Node {
 	u16 descriptor : 4;

@@ -66,7 +66,6 @@ add_subdirectory(demanglegnu)
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
 	$<TARGET_FILE:demangle>
-	$<TARGET_FILE:depgraph>
 	$<TARGET_FILE:objdump>
 	$<TARGET_FILE:stdump>
 	$<TARGET_FILE:uncc>
