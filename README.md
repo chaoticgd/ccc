@@ -35,6 +35,8 @@ If a `FUNCTIONS.txt` file is provided in the output directory, as can be generat
 
 Data types will be sorted into their corresponding files. Since this information is not stored in the symbol table, uncc uses heuristics to map types to files. Types will be put in `.c` or `.cpp` files when there is only a single translation unit the type appears in, and `.h` files when there are multiple (and hence when heuristics must be used to determine where to put them).
 
+Use of a code formatter such as `clang-format` on the output is recommended.
+
 ## Building
 
 	cmake -B bin/
