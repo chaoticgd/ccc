@@ -153,21 +153,6 @@ static FunctionsFile parse_functions_file(const fs::path& path) {
 				break;
 			}
 		}
-		
-		// Spaces to tabs.
-		char* ptr = code.data();
-		bool new_line = true;
-		size_t i;
-		for(i = 0; i < code.size(); i++) {
-			if(i != code.size() - 1 && new_line && code[i] == ' ' && code[i + 1] == ' ') {
-				*(ptr++) = '\t';
-				i++;
-			} else {
-				*(ptr++) = code[i];
-				new_line = code[i] == '\n';
-			}
-		}
-		code = code.subspan(0, ptr - code.data());
 	}
 	
 	return result;
@@ -240,7 +225,6 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 	printer.print_offsets_and_sizes = false;
 	printer.print_storage_information = false;
 	printer.function_bodies = &functions_file.functions;
-	printf("contents at %p\n",functions_file.contents.data());
 	
 	// Print types.
 	for(s32 file_index : file_indices) {

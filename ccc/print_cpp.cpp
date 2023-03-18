@@ -185,7 +185,6 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 							indent(out, indentation_level + 1);
 							fprintf(out, "\n");
 						}
-						printf("data %p\n", body->data());
 						fwrite(body->data(), body->size(), 1, out);
 					}
 					indent(out, indentation_level);
