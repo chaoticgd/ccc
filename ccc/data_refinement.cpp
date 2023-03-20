@@ -12,6 +12,7 @@ static void refine_variable(ast::Variable& variable, const DataRefinementContext
 static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
 static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context);
 static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+static const char* generate_format_string(s32 size, bool is_signed);
 
 void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
 	// Build a map of where all functions and globals are in memory, so that we
@@ -187,8 +188,10 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		case BuiltInClass::UNSIGNED_64: {
 			data = std::make_unique<ast::Data>();
 			u64 value = 0;
-			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), context.modules);
-			data->string = stringf("%" PRIu64, value);
+			s32 size = builtin_class_size(bclass);
+			read_virtual((u8*) &value, virtual_address, size, context.modules);
+			const char* format = generate_format_string(size, false);
+			data->string = stringf(format, value);
 			break;
 		}
 		case BuiltInClass::SIGNED_8:
@@ -197,8 +200,10 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		case BuiltInClass::SIGNED_64: {
 			data = std::make_unique<ast::Data>();
 			s64 value = 0;
-			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), context.modules);
-			data->string = stringf("%" PRId64, value);
+			s32 size = builtin_class_size(bclass);
+			read_virtual((u8*) &value, virtual_address, size, context.modules);
+			const char* format = generate_format_string(size, true);
+			data->string = stringf(format, value);
 			break;
 		}
 		case BuiltInClass::BOOL_8: {
@@ -264,6 +269,15 @@ static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_addres
 		data->string = "NULL";
 	}
 	return data;
+}
+
+static const char* generate_format_string(s32 size, bool is_signed) {
+	switch(size) {
+		case 1: return is_signed ? "%hhd" : "%hhu";
+		case 2: return is_signed ? "%hd" : "%hu";
+		case 4: return is_signed ? "%d" : "%hu";
+	}
+	return is_signed ? ("%" PRId64) : ("%" PRIu64);
 }
 
 }
