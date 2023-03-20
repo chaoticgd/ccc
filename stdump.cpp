@@ -13,6 +13,7 @@ enum class OutputMode {
 	SYMBOLS,
 	EXTERNALS,
 	FILES,
+	SECTIONS,
 	TYPE_GRAPH,
 	TEST,
 	HELP,
@@ -45,7 +46,8 @@ static void print_local_symbols(FILE* out, const mdebug::SymbolTable& symbol_tab
 static void print_external_symbols(FILE* out, const mdebug::SymbolTable& symbol_table);
 static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
 static u32 build_analysis_flags(u32 flags);
-static void list_files(FILE* out, mdebug::SymbolTable& symbol_table);
+static void list_files(FILE* out, const mdebug::SymbolTable& symbol_table);
+static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, const Module& modules);
 static void test(FILE* out, const fs::path& directory);
 static Options parse_args(int argc, char** argv);
 static void print_help();
@@ -113,6 +115,12 @@ int main(int argc, char** argv) {
 			Module mod;
 			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
 			list_files(out, symbol_table);
+			return 0;
+		}
+		case OutputMode::SECTIONS: {
+			Module mod;
+			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
+			list_sections(out, symbol_table, mod);
 			return 0;
 		}
 		case OutputMode::TYPE_GRAPH: {
@@ -264,9 +272,35 @@ static u32 build_analysis_flags(u32 flags) {
 	return analysis_flags;
 }
 
-static void list_files(FILE* out, mdebug::SymbolTable& symbol_table) {
+static void list_files(FILE* out, const mdebug::SymbolTable& symbol_table) {
 	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		fprintf(out, "%s\n", fd.full_path.c_str());
+	}
+}
+
+static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, const Module& module) {
+	for(const ModuleSection& section : module.sections) {
+		if(section.virtual_address == 0) {
+			continue;
+		}
+		
+		s32 section_start = (s32) section.virtual_address;
+		s32 section_end = (s32) (section.virtual_address + section.size);
+		
+		fprintf(out, "%s:\n", section.name.c_str());
+		for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
+			// Find the text address without running the whole analysis process.
+			s32 text_address = -1;
+			for(const mdebug::Symbol& symbol : fd.symbols) {
+				if(symbol.is_stabs && symbol.code == ccc::mdebug::N_SO) {
+					text_address = symbol.value;
+					break;
+				}
+			}
+			if(text_address >= section_start && text_address < section_end) {
+				fprintf(out, "\t%s\n", fd.full_path.c_str());
+			}
+		}
 	}
 }
 
@@ -340,6 +374,9 @@ static Options parse_args(int argc, char** argv) {
 		require_input_path = true;
 	} else if(strcmp(command, "files") == 0 || strcmp(command, "list_files") == 0) {
 		options.mode = OutputMode::FILES;
+		require_input_path = true;
+	} else if(strcmp(command, "sections") == 0) {
+		options.mode = OutputMode::SECTIONS;
 		require_input_path = true;
 	} else if(strcmp(command, "type_graph") == 0) {
 		options.mode = OutputMode::TYPE_GRAPH;
@@ -437,6 +474,9 @@ static void print_help() {
 	puts("");
 	puts("  files <input file>");
 	puts("    List the names of each of the source files.");
+	puts("");
+	puts("  sections <input file>");
+	puts("    List the names of the source files associated with each ELF section.");
 	puts("");
 	puts("  type_graph <input_file>");
 	puts("    Print out a dependency graph of all the types in graphviz DOT format.");

@@ -29,11 +29,12 @@ enum class ElfSectionType : u32 {
 };
 
 struct ModuleSection {
-	u32 file_offset;
-	u32 size;
+	u32 file_offset = -1;
+	u32 size = -1;
 	ElfSectionType type;
-	u32 name_offset;
+	u32 name_offset = -1;
 	std::string name;
+	u32 virtual_address = -1;
 };
 
 struct ModuleSegment {
