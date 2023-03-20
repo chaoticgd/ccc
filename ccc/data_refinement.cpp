@@ -236,18 +236,21 @@ static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_addres
 	std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
 	s32 address = 0;
 	read_virtual((u8*) &address, virtual_address, 4, context.modules);
-	auto node = context.address_to_node.find(address);
-	if(node != context.address_to_node.end()) {
-		bool should_print_ampersand = true;
-		should_print_ampersand &= type.descriptor == ast::POINTER;
-		should_print_ampersand &= node->second->descriptor != ast::ARRAY
-			&& node->second->descriptor != ast::FUNCTION_DEFINITION;
-		if(should_print_ampersand) {
-			data->string += "&";
+	if(address != 0) {
+		auto node = context.address_to_node.find(address);
+		if(node != context.address_to_node.end()) {
+			if(node->second->descriptor == ast::VARIABLE) {
+				const ast::Variable& variable = node->second->as<ast::Variable>();
+				if(type.descriptor == ast::POINTER && variable.type->descriptor != ast::ARRAY) {
+					data->string += "&";
+				}
+			}
+			data->string += node->second->name;
+		} else {
+			data->string = stringf("0x%x", address);
 		}
-		data->string += node->second->name;
 	} else {
-		data->string = stringf("0x%x", address);
+		data->string = "NULL";
 	}
 	return data;
 }
