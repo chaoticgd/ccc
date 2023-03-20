@@ -2,38 +2,67 @@
 
 namespace ccc {
 
-static void refine_variable(ast::Variable& variable, const HighSymbolTable& high, const std::vector<Module*>& modules);
-static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const HighSymbolTable& high, const std::vector<Module*>& modules);
-static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const std::vector<Module*>& modules);
+struct DataRefinementContext {
+	const HighSymbolTable& high;
+	const std::vector<Module*>& modules;
+	const std::map<s32, const ast::Node*>& address_to_node;
+};
+
+static void refine_variable(ast::Variable& variable, const DataRefinementContext& context);
+static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context);
+static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
 
 void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
+	// Build a map of where all functions and globals are in memory, so that we
+	// can lookup where pointers point to.
+	std::map<s32, const ast::Node*> address_to_node;
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
+		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
+			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
+			if(function.address_range.low > -1) {
+				address_to_node[function.address_range.low] = node.get();
+			}
+		}
 		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
-			refine_variable(node->as<ast::Variable>(), high, modules);
+			ast::Variable& variable = node->as<ast::Variable>();
+			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address > -1) {
+				address_to_node[variable.storage.global_address] = node.get();
+			}
 		}
 	}
 	
+	DataRefinementContext context{high, modules, address_to_node};
+	
+	// Refine all global variables.
+	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
+		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
+			refine_variable(node->as<ast::Variable>(), context);
+		}
+	}
+	
+	// Refine all static local variables.
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
 		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
 			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
 			for(std::unique_ptr<ast::Variable>& local : function.locals) {
-				refine_variable(*local.get(), high, modules);
+				refine_variable(*local.get(), context);
 			}
 		}
 	}
 }
 
-static void refine_variable(ast::Variable& variable, const HighSymbolTable& high, const std::vector<Module*>& modules) {
+static void refine_variable(ast::Variable& variable, const DataRefinementContext& context) {
 	bool valid_type = variable.storage.type == ast::VariableStorageType::GLOBAL;
 	bool valid_address = variable.storage.global_address > -1;
 	bool valid_location = variable.storage.global_location != ast::GlobalVariableLocation::BSS
 		&& variable.storage.global_location != ast::GlobalVariableLocation::SBSS;
 	if(valid_type && valid_address && valid_location) {
-		variable.data = refine_node(variable.storage.global_address, *variable.type.get(), high, modules);
+		variable.data = refine_node(variable.storage.global_address, *variable.type.get(), context);
 	}
 }
 
-static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const HighSymbolTable& high, const std::vector<Module*>& modules) {
+static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
 	switch(type.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
@@ -44,7 +73,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 			for(s32 i = 0; i < array.element_count; i++) {
 				s32 offset = i * array.element_type->computed_size_bytes;
 				type.is_currently_processing = true;
-				std::unique_ptr<ast::Node> element = refine_node(virtual_address + offset, *array.element_type.get(), high, modules);
+				std::unique_ptr<ast::Node> element = refine_node(virtual_address + offset, *array.element_type.get(), context);
 				type.is_currently_processing = false;
 				if(element == nullptr) {
 					return nullptr;
@@ -56,11 +85,13 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 			return list;
 		}
 		case ast::BITFIELD: {
-			break;
+			std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
+			data->string = "BITFIELD";
+			return data;
 		}
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = type.as<ast::BuiltIn>();
-			return refine_builtin(virtual_address, builtin.bclass, modules);
+			return refine_builtin(virtual_address, builtin.bclass, context);
 		}
 		case ast::DATA: {
 			break;
@@ -75,14 +106,17 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 			break;
 		}
 		case ast::INLINE_ENUM: {
-			return refine_builtin(virtual_address, BuiltInClass::SIGNED_32, modules);
+			return refine_builtin(virtual_address, BuiltInClass::SIGNED_32, context);
 		}
 		case ast::INLINE_STRUCT_OR_UNION: {
 			const ast::InlineStructOrUnion& struct_or_union = type.as<ast::InlineStructOrUnion>();
 			std::unique_ptr<ast::InitializerList> list = std::make_unique<ast::InitializerList>();
 			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
+				if(field->storage_class == ast::SC_STATIC) {
+					continue;
+				}
 				type.is_currently_processing = true;
-				std::unique_ptr<ast::Node> child = refine_node(virtual_address + field->relative_offset_bytes, *field.get(), high, modules);
+				std::unique_ptr<ast::Node> child = refine_node(virtual_address + field->relative_offset_bytes, *field.get(), context);
 				type.is_currently_processing = false;
 				if(child == nullptr) {
 					return nullptr;
@@ -93,14 +127,12 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 			}
 			return list;
 		}
-		case ast::POINTER: {
-			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, modules);
+		case ast::POINTER:
+		case ast::REFERENCE: {
+			return refine_pointer_or_reference(virtual_address, type, context);
 		}
 		case ast::POINTER_TO_DATA_MEMBER: {
-			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, modules);
-		}
-		case ast::REFERENCE: {
-			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, modules);
+			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, context);
 		}
 		case ast::SOURCE_FILE: {
 			break;
@@ -108,13 +140,13 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
 			if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
-				const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
+				const ast::SourceFile& source_file = *context.high.source_files[type_name.referenced_file_index].get();
 				auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
 				if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
-					ast::Node& resolved_type = *high.deduplicated_types.at(type_index->second).get();
+					ast::Node& resolved_type = *context.high.deduplicated_types.at(type_index->second).get();
 					if(!resolved_type.is_currently_processing) {
 						type.is_currently_processing = true;
-						std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type, high, modules);;
+						std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type, context);
 						type.is_currently_processing = false;
 						return std::move(result);
 					}
@@ -126,11 +158,11 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 			break;
 		}
 	}
-	return nullptr;
+	
 	verify_not_reached("Failed to refine global variable (%s).", ast::node_type_to_string(type));
 }
 
-static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const std::vector<Module*>& modules) {
+static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context) {
 	std::unique_ptr<ast::Data> data = nullptr;
 	
 	switch(bclass) {
@@ -144,7 +176,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		case BuiltInClass::UNSIGNED_64: {
 			data = std::make_unique<ast::Data>();
 			u64 value = 0;
-			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), modules);
+			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), context.modules);
 			data->string = stringf("%" PRIu64, value);
 			break;
 		}
@@ -154,14 +186,14 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		case BuiltInClass::SIGNED_64: {
 			data = std::make_unique<ast::Data>();
 			s64 value = 0;
-			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), modules);
+			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), context.modules);
 			data->string = stringf("%" PRId64, value);
 			break;
 		}
 		case BuiltInClass::BOOL_8: {
 			data = std::make_unique<ast::Data>();
 			bool value = false;
-			read_virtual((u8*) &value, virtual_address, 1, modules);
+			read_virtual((u8*) &value, virtual_address, 1, context.modules);
 			data->string = value ? "true" : "false";
 			break;
 		}
@@ -169,7 +201,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			data = std::make_unique<ast::Data>();
 			float value = 0.f;
 			static_assert(sizeof(value) == 4);
-			read_virtual((u8*) &value, virtual_address, 4, modules);
+			read_virtual((u8*) &value, virtual_address, 4, context.modules);
 			data->string = stringf("%.9g", value);
 			break;
 		}
@@ -177,7 +209,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			data = std::make_unique<ast::Data>();
 			double value = 0.f;
 			static_assert(sizeof(value) == 8);
-			read_virtual((u8*) &value, virtual_address, 8, modules);
+			read_virtual((u8*) &value, virtual_address, 8, context.modules);
 			data->string = stringf("%.17g", value);
 			break;
 		}
@@ -187,7 +219,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		case BuiltInClass::FLOAT_128: {
 			data = std::make_unique<ast::Data>();
 			float value[4];
-			read_virtual((u8*) value, virtual_address, 16, modules);
+			read_virtual((u8*) value, virtual_address, 16, context.modules);
 			data->string = stringf("VECTOR(%.9g, %.9g, %.9g, %.9g)",
 				value[0], value[1], value[2], value[3]);
 			break;
@@ -197,6 +229,26 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		}
 	}
 	
+	return data;
+}
+
+static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
+	std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
+	s32 address = 0;
+	read_virtual((u8*) &address, virtual_address, 4, context.modules);
+	auto node = context.address_to_node.find(address);
+	if(node != context.address_to_node.end()) {
+		bool should_print_ampersand = true;
+		should_print_ampersand &= type.descriptor == ast::POINTER;
+		should_print_ampersand &= node->second->descriptor != ast::ARRAY
+			&& node->second->descriptor != ast::FUNCTION_DEFINITION;
+		if(should_print_ampersand) {
+			data->string += "&";
+		}
+		data->string += node->second->name;
+	} else {
+		data->string = stringf("0x%x", address);
+	}
 	return data;
 }
 
