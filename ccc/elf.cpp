@@ -107,6 +107,7 @@ void parse_elf_file(Module& mod) {
 		section.size = section_header.size;
 		section.type = section_header.type;
 		section.name_offset = section_header.name;
+		section.virtual_address = section_header.addr;
 	}
 	
 	if(header.shstrndx < mod.sections.size()) {
