@@ -163,6 +163,7 @@ struct FunctionType : Node {
 
 struct InitializerList : Node {
 	std::vector<std::unique_ptr<Node>> children;
+	std::string field_name;
 	
 	InitializerList() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = INITIALIZER_LIST;
@@ -206,6 +207,7 @@ struct Literal : Node {
 		const char* string;
 		float vector[4];
 	} value;
+	std::string field_name;
 	
 	Literal() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = LITERAL;

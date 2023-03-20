@@ -51,6 +51,8 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 				if(element == nullptr) {
 					return nullptr;
 				}
+				if(element->descriptor == ast::INITIALIZER_LIST) element->as<ast::InitializerList>().field_name = stringf("[%d]", i);
+				if(element->descriptor == ast::LITERAL) element->as<ast::Literal>().field_name = stringf("[%d]", i);
 				list->children.emplace_back(std::move(element));
 			}
 			return list;
@@ -84,6 +86,8 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 				if(child == nullptr) {
 					return nullptr;
 				}
+				if(child->descriptor == ast::INITIALIZER_LIST) child->as<ast::InitializerList>().field_name = stringf(".%s", field->name.c_str());
+				if(child->descriptor == ast::LITERAL) child->as<ast::Literal>().field_name = stringf(".%s", field->name.c_str());
 				list->children.emplace_back(std::move(child));
 			}
 			return list;
@@ -153,7 +157,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			literal = std::make_unique<ast::Literal>();
 			literal->literal_type = ast::LiteralType::INTEGER_SIGNED;
 			literal->value.integer = 0;
-			read_virtual((u8*) &literal->value.unsigned_integer, virtual_address, builtin_class_size(bclass), modules);
+			read_virtual((u8*) &literal->value.integer, virtual_address, builtin_class_size(bclass), modules);
 			break;
 		}
 		case BuiltInClass::BOOL_8: {

@@ -228,13 +228,16 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			break;
 		}
 		case ast::INITIALIZER_LIST: {
-			const ast::InitializerList& init_list = node.as<ast::InitializerList>();
+			const ast::InitializerList& list = node.as<ast::InitializerList>();
+			if(!list.field_name.empty()) {
+				fprintf(out, "/* %s = */ ", list.field_name.c_str());
+			}
 			fprintf(out, "{\n");
-			for(size_t i = 0; i < init_list.children.size(); i++) {
+			for(size_t i = 0; i < list.children.size(); i++) {
 				indent(out, indentation_level + 1);
 				VariableName dummy;
-				ast_node(*init_list.children[i].get(), dummy, indentation_level + 1);
-				if(i != init_list.children.size() - 1) {
+				ast_node(*list.children[i].get(), dummy, indentation_level + 1);
+				if(i != list.children.size() - 1) {
 					fprintf(out, ",");
 				}
 				fprintf(out, "\n");
@@ -345,6 +348,9 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		}
 		case ast::LITERAL: {
 			const ast::Literal& literal = node.as<ast::Literal>();
+			if(!literal.field_name.empty()) {
+				fprintf(out, "/* %s = */ ", literal.field_name.c_str());
+			}
 			switch(literal.literal_type) {
 				case ast::LiteralType::BOOLEAN: {
 					fprintf(out, "%s", literal.value.boolean ? "true" : "false");
