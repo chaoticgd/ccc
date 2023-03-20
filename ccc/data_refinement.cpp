@@ -106,7 +106,18 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 			break;
 		}
 		case ast::INLINE_ENUM: {
-			return refine_builtin(virtual_address, BuiltInClass::SIGNED_32, context);
+			const ast::InlineEnum& inline_enum = type.as<ast::InlineEnum>();
+			std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
+			s32 value = 0;
+			read_virtual((u8*) &value, virtual_address, 4, context.modules);
+			for(const auto& [number, name] : inline_enum.constants) {
+				if(number == value) {
+					data->string = name;
+					return data;
+				}
+			}
+			data->string = stringf("%d", value);
+			return data;
 		}
 		case ast::INLINE_STRUCT_OR_UNION: {
 			const ast::InlineStructOrUnion& struct_or_union = type.as<ast::InlineStructOrUnion>();
