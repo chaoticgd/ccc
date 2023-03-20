@@ -410,7 +410,7 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		case ast::VARIABLE: {
 			const ast::Variable& variable = node.as<ast::Variable>();
 			ast_node(*variable.type.get(), name, indentation_level);
-			if(variable.data.get()) {
+			if(print_variable_data && variable.data.get()) {
 				fprintf(out, " = ");
 				ast_node(*variable.data.get(), name, indentation_level);
 			}
