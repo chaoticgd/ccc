@@ -225,6 +225,7 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 	CppPrinter printer(out);
 	printer.print_offsets_and_sizes = false;
 	printer.print_storage_information = false;
+	printer.print_variable_data = true;
 	printer.omit_this_parameter = true;
 	printer.function_bodies = &functions_file.functions;
 	
