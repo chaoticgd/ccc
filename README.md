@@ -51,6 +51,7 @@ Use of a code formatter such as `clang-format` on the output is recommended.
 	uncc.cpp: See above.
 	ccc/analysis.cpp: Runs all the different analysis passes.
 	ccc/ast.cpp: Converts parsed STABS types to a C++ AST structure.
+	ccc/data_refinement.cpp: Convert global variable data into a structured AST.
 	ccc/dependency.cpp: Try to infer information about which types belong to which files.
 	ccc/elf.cpp: Parses ELF files.
 	ccc/insn.cpp: Parses EE core MIPS instructions.

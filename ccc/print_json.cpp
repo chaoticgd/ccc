@@ -97,26 +97,26 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 		json.end_array();
 	}
 	switch(node.descriptor) {
-		case ast::NodeDescriptor::ARRAY: {
+		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
 			json.property("element_type");
 			print_json_ast_node(json, array.element_type.get());
 			json.number_property("element_count", array.element_count);
 			break;
 		}
-		case ast::NodeDescriptor::BITFIELD: {
+		case ast::BITFIELD: {
 			const ast::BitField& bitfield = node.as<ast::BitField>();
 			json.number_property("bitfield_offset_bits", node.as<ast::BitField>().bitfield_offset_bits);
 			json.property("underlying_type");
 			print_json_ast_node(json, bitfield.underlying_type.get());
 			break;
 		}
-		case ast::NodeDescriptor::BUILTIN: {
+		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
 			json.string_property("class", builtin_class_to_string(builtin.bclass));
 			break;
 		}
-		case ast::NodeDescriptor::FUNCTION_DEFINITION: {
+		case ast::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
 			if(function.address_range.valid()) {
 				json.property("address_range");
@@ -156,7 +156,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.end_array();
 			break;
 		}
-		case ast::NodeDescriptor::FUNCTION_TYPE: {
+		case ast::FUNCTION_TYPE: {
 			const ast::FunctionType& function = node.as<ast::FunctionType>();
 			if(function.return_type.has_value()) {
 				json.property("return_type");
@@ -181,7 +181,11 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.boolean_property("is_constructor", function.is_constructor);
 			break;
 		}
-		case ast::NodeDescriptor::INLINE_ENUM: {
+		case ast::INITIALIZER_LIST: {
+			verify_not_reached("Tried to print an initializer list node as JSON (which is not yet implemented)!");
+			break;
+		}
+		case ast::INLINE_ENUM: {
 			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
 			json.property("constants");
 			json.begin_array();
@@ -194,7 +198,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.end_array();
 			break;
 		}
-		case ast::NodeDescriptor::INLINE_STRUCT_OR_UNION: {
+		case ast::INLINE_STRUCT_OR_UNION: {
 			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
 			if(struct_or_union.is_struct) {
 				json.property("base_classes");
@@ -218,13 +222,17 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.end_array();
 			break;
 		}
-		case ast::NodeDescriptor::POINTER: {
+		case ast::LITERAL: {
+			verify_not_reached("Tried to print a literal node as JSON (which is not yet implemented)!");
+			break;
+		}
+		case ast::POINTER: {
 			const ast::Pointer& pointer = node.as<ast::Pointer>();
 			json.property("value_type");
 			print_json_ast_node(json, pointer.value_type.get());
 			break;
 		}
-		case ast::NodeDescriptor::POINTER_TO_DATA_MEMBER: {
+		case ast::POINTER_TO_DATA_MEMBER: {
 			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
 			json.property("class_type");
 			print_json_ast_node(json, member_pointer.class_type.get());
@@ -232,13 +240,13 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			print_json_ast_node(json, member_pointer.member_type.get());
 			break;
 		}
-		case ast::NodeDescriptor::REFERENCE: {
+		case ast::REFERENCE: {
 			const ast::Reference& reference = node.as<ast::Reference>();
 			json.property("value_type");
 			print_json_ast_node(json, reference.value_type.get());
 			break;
 		}
-		case ast::NodeDescriptor::SOURCE_FILE: {
+		case ast::SOURCE_FILE: {
 			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
 			json.string_property("path", source_file.full_path.c_str());
 			json.string_property("relative_path", source_file.relative_path.c_str());
@@ -269,7 +277,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.end_object();
 			break;
 		}
-		case ast::NodeDescriptor::TYPE_NAME: {
+		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
 			const char* source = "";
 			switch(type_name.source) {
@@ -288,7 +296,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			}
 			break;
 		}
-		case ast::NodeDescriptor::VARIABLE: {
+		case ast::VARIABLE: {
 			const ast::Variable& variable = node.as<ast::Variable>();
 			const char* class_string = "";
 			switch(variable.variable_class) {

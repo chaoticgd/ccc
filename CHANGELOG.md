@@ -5,6 +5,7 @@
 - stdump: A type dependency graph can now be generated.
 - uncc: Data types are now printed. It guesses which types belong to which files based on multiple heuristics.
 - uncc: If a `FUNCTIONS.txt` file is provided, code from that file will be included in the output.
+- uncc: The initial values of global variables are now printed as initializer lists and literals.
 
 ## v1.1
 

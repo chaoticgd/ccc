@@ -107,18 +107,18 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 			if(do_types) {
 				for(std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
 					if(node->files.size() == 1 && node->files[0] == file) {
-						ast::for_each_node(*node.get(), count_references);
+						ast::for_each_node(*node.get(), ast::PREORDER_TRAVERSAL, count_references);
 					}
 				}
 			} else {
 				for(std::unique_ptr<ast::Node>& node : high.source_files[file]->functions) {
 					if(node->storage_class != ast::SC_STATIC) {
-						ast::for_each_node(*node.get(), count_references);
+						ast::for_each_node(*node.get(), ast::PREORDER_TRAVERSAL, count_references);
 					}
 				}
 				for(std::unique_ptr<ast::Node>& node : high.source_files[file]->globals) {
 					if(node->storage_class != ast::SC_STATIC) {
-						ast::for_each_node(*node.get(), count_references);
+						ast::for_each_node(*node.get(), ast::PREORDER_TRAVERSAL, count_references);
 					}
 				}
 			}
@@ -138,7 +138,7 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& h
 	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
 		const std::unique_ptr<ast::Node>& type = high.deduplicated_types[i];
 		std::set<TypeIndex>& dependencies = graph.emplace_back();
-		ast::for_each_node(*type.get(), [&](const ast::Node& node) {
+		ast::for_each_node(*type.get(), ast::PREORDER_TRAVERSAL, [&](const ast::Node& node) {
 			if(node.descriptor == ast::TYPE_NAME) {
 				const ast::TypeName& type_name = node.as<ast::TypeName>();
 				// Filter out forward declarations.
