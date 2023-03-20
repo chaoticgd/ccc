@@ -19,6 +19,7 @@ struct CppPrinter {
 	bool print_offsets_and_sizes : 1 = true;
 	bool print_function_bodies : 1 = true;
 	bool print_storage_information : 1 = true;
+	bool omit_this_parameter : 1 = false;
 	s32 digits_for_offset = 3;
 	const std::map<s32, std::span<char>>* function_bodies = nullptr;
 	
