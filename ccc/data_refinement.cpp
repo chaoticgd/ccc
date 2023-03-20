@@ -224,6 +224,10 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			static_assert(sizeof(value) == 4);
 			read_virtual((u8*) &value, virtual_address, 4, context.modules);
 			data->string = stringf("%.9g", value);
+			if(data->string.find(".") == std::string::npos) {
+				data->string += ".";
+			}
+			data->string += "f";
 			break;
 		}
 		case BuiltInClass::FLOAT_64: {
