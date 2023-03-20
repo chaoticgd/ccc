@@ -6,15 +6,13 @@ static void refine_variable(ast::Variable& variable, const HighSymbolTable& high
 static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const HighSymbolTable& high, const std::vector<Module*>& modules);
 static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const std::vector<Module*>& modules);
 
-void refine_global_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
+void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
 		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
 			refine_variable(node->as<ast::Variable>(), high, modules);
 		}
 	}
-}
-
-void refine_static_local_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
+	
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
 		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
 			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
@@ -51,8 +49,8 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 				if(element == nullptr) {
 					return nullptr;
 				}
+				if(element->descriptor == ast::DATA) element->as<ast::Data>().field_name = stringf("[%d]", i);
 				if(element->descriptor == ast::INITIALIZER_LIST) element->as<ast::InitializerList>().field_name = stringf("[%d]", i);
-				if(element->descriptor == ast::LITERAL) element->as<ast::Literal>().field_name = stringf("[%d]", i);
 				list->children.emplace_back(std::move(element));
 			}
 			return list;
@@ -63,6 +61,9 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = type.as<ast::BuiltIn>();
 			return refine_builtin(virtual_address, builtin.bclass, modules);
+		}
+		case ast::DATA: {
+			break;
 		}
 		case ast::FUNCTION_DEFINITION: {
 			break;
@@ -86,14 +87,11 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 				if(child == nullptr) {
 					return nullptr;
 				}
+				if(child->descriptor == ast::DATA) child->as<ast::Data>().field_name = stringf(".%s", field->name.c_str());
 				if(child->descriptor == ast::INITIALIZER_LIST) child->as<ast::InitializerList>().field_name = stringf(".%s", field->name.c_str());
-				if(child->descriptor == ast::LITERAL) child->as<ast::Literal>().field_name = stringf(".%s", field->name.c_str());
 				list->children.emplace_back(std::move(child));
 			}
 			return list;
-		}
-		case ast::LITERAL: {
-			break;
 		}
 		case ast::POINTER: {
 			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, modules);
@@ -133,7 +131,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 }
 
 static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const std::vector<Module*>& modules) {
-	std::unique_ptr<ast::Literal> literal = nullptr;
+	std::unique_ptr<ast::Data> data = nullptr;
 	
 	switch(bclass) {
 		case BuiltInClass::VOID: {
@@ -144,54 +142,54 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		case BuiltInClass::UNSIGNED_16:
 		case BuiltInClass::UNSIGNED_32:
 		case BuiltInClass::UNSIGNED_64: {
-			literal = std::make_unique<ast::Literal>();
-			literal->literal_type = ast::LiteralType::INTEGER_UNSIGNED;
-			literal->value.unsigned_integer = 0;
-			read_virtual((u8*) &literal->value.unsigned_integer, virtual_address, builtin_class_size(bclass), modules);
+			data = std::make_unique<ast::Data>();
+			u64 value = 0;
+			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), modules);
+			data->string = stringf("%" PRIu64, value);
 			break;
 		}
 		case BuiltInClass::SIGNED_8:
 		case BuiltInClass::SIGNED_16:
 		case BuiltInClass::SIGNED_32:
 		case BuiltInClass::SIGNED_64: {
-			literal = std::make_unique<ast::Literal>();
-			literal->literal_type = ast::LiteralType::INTEGER_SIGNED;
-			literal->value.integer = 0;
-			read_virtual((u8*) &literal->value.integer, virtual_address, builtin_class_size(bclass), modules);
+			data = std::make_unique<ast::Data>();
+			s64 value = 0;
+			read_virtual((u8*) &value, virtual_address, builtin_class_size(bclass), modules);
+			data->string = stringf("%" PRId64, value);
 			break;
 		}
 		case BuiltInClass::BOOL_8: {
-			literal = std::make_unique<ast::Literal>();
-			literal->literal_type = ast::LiteralType::BOOLEAN;
-			literal->value.boolean = false;
-			read_virtual((u8*) &literal->value.boolean, virtual_address, 1, modules);
+			data = std::make_unique<ast::Data>();
+			bool value = false;
+			read_virtual((u8*) &value, virtual_address, 1, modules);
+			data->string = value ? "true" : "false";
 			break;
 		}
 		case BuiltInClass::FLOAT_32: {
-			literal = std::make_unique<ast::Literal>();
-			literal->literal_type = ast::LiteralType::FLOAT_SINGLE;
-			literal->value.float_single = 0.f;
-			read_virtual((u8*) &literal->value.float_single, virtual_address, 4, modules);
+			data = std::make_unique<ast::Data>();
+			float value = 0.f;
+			static_assert(sizeof(value) == 4);
+			read_virtual((u8*) &value, virtual_address, 4, modules);
+			data->string = stringf("%.9g", value);
 			break;
 		}
 		case BuiltInClass::FLOAT_64: {
-			literal = std::make_unique<ast::Literal>();
-			literal->literal_type = ast::LiteralType::FLOAT_DOUBLE;
-			literal->value.float_double = 0.0;
-			read_virtual((u8*) &literal->value.float_double, virtual_address, 8, modules);
+			data = std::make_unique<ast::Data>();
+			double value = 0.f;
+			static_assert(sizeof(value) == 8);
+			read_virtual((u8*) &value, virtual_address, 8, modules);
+			data->string = stringf("%.17g", value);
 			break;
 		}
 		case BuiltInClass::UNSIGNED_128:
 		case BuiltInClass::SIGNED_128:
 		case BuiltInClass::UNQUALIFIED_128:
 		case BuiltInClass::FLOAT_128: {
-			literal = std::make_unique<ast::Literal>();
-			literal->literal_type = ast::LiteralType::VECTOR;
-			literal->value.vector[0] = 0.f;
-			literal->value.vector[1] = 0.f;
-			literal->value.vector[2] = 0.f;
-			literal->value.vector[3] = 0.f;
-			read_virtual((u8*) literal->value.vector, virtual_address, 16, modules);
+			data = std::make_unique<ast::Data>();
+			float value[4];
+			read_virtual((u8*) value, virtual_address, 16, modules);
+			data->string = stringf("VECTOR(%.9g, %.9g, %.9g, %.9g)",
+				value[0], value[1], value[2], value[3]);
 			break;
 		}
 		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: {
@@ -199,7 +197,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		}
 	}
 	
-	return literal;
+	return data;
 }
 
 }

@@ -527,6 +527,10 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			if(lhs.bclass != rhs.bclass) return CompareFailReason::BUILTIN_CLASS;
 			break;
 		}
+		case DATA: {
+			verify_not_reached("Tried to compare data AST nodes.");
+			break;
+		}
 		case FUNCTION_DEFINITION: {
 			verify_not_reached("Tried to compare function definition AST nodes.");
 		}
@@ -571,10 +575,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			for(size_t i = 0; i < lhs.member_functions.size(); i++) {
 				if(compare_nodes_and_merge(result, *lhs.member_functions[i].get(), *rhs.member_functions[i].get(), lookup)) return result;
 			}
-			break;
-		}
-		case LITERAL: {
-			verify_not_reached("Tried to compare literal AST nodes.");
 			break;
 		}
 		case POINTER: {
@@ -716,6 +716,7 @@ const char* node_type_to_string(const Node& node) {
 		case ARRAY: return "array";
 		case BITFIELD: return "bitfield";
 		case BUILTIN: return "builtin";
+		case DATA: return "data";
 		case FUNCTION_DEFINITION: return "function_definition";
 		case FUNCTION_TYPE: return "function_type";
 		case INITIALIZER_LIST: return "initializer_list";
@@ -728,7 +729,6 @@ const char* node_type_to_string(const Node& node) {
 				return "union";
 			}
 		}
-		case LITERAL: return "literal";
 		case POINTER: return "pointer";
 		case POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
 		case REFERENCE: return "reference";

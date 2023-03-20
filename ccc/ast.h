@@ -20,12 +20,12 @@ enum NodeDescriptor : u8 {
 	ARRAY,
 	BITFIELD,
 	BUILTIN,
+	DATA,
 	FUNCTION_DEFINITION,
 	FUNCTION_TYPE,
 	INITIALIZER_LIST,
 	INLINE_ENUM,
 	INLINE_STRUCT_OR_UNION,
-	LITERAL,
 	POINTER,
 	POINTER_TO_DATA_MEMBER,
 	REFERENCE,
@@ -126,6 +126,16 @@ struct BuiltIn : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
 };
 
+// Used for printing out the values of global variables. Not supported by the
+// JSON format!
+struct Data : Node {
+	std::string field_name;
+	std::string string;
+	
+	Data() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = DATA;
+};
+
 struct Variable;
 
 struct LineNumberPair {
@@ -161,6 +171,8 @@ struct FunctionType : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;
 };
 
+// Used for printing out the values of global variables. Not supported by the
+// JSON format!
 struct InitializerList : Node {
 	std::vector<std::unique_ptr<Node>> children;
 	std::string field_name;
@@ -184,33 +196,6 @@ struct InlineStructOrUnion : Node {
 	
 	InlineStructOrUnion() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT_OR_UNION;
-};
-
-enum class LiteralType {
-	BOOLEAN,
-	FLOAT_SINGLE,
-	FLOAT_DOUBLE,
-	INTEGER_SIGNED,
-	INTEGER_UNSIGNED,
-	STRING,
-	VECTOR
-};
-
-struct Literal : Node {
-	LiteralType literal_type;
-	union {
-		bool boolean;
-		float float_single;
-		double float_double;
-		s64 integer;
-		u64 unsigned_integer;
-		const char* string;
-		float vector[4];
-	} value;
-	std::string field_name;
-	
-	Literal() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = LITERAL;
 };
 
 struct Pointer : Node {
@@ -418,6 +403,9 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 		case BUILTIN: {
 			break;
 		}
+		case DATA: {
+			break;
+		}
 		case FUNCTION_DEFINITION: {
 			auto& func = node.template as<FunctionDefinition>();
 			for_each_node(*func.type.get(), order, callback);
@@ -459,9 +447,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 			for(auto& child : struct_or_union.member_functions) {
 				for_each_node(*child.get(), order, callback);
 			}
-			break;
-		}
-		case LITERAL: {
 			break;
 		}
 		case POINTER: {

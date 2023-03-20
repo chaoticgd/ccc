@@ -116,6 +116,10 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.string_property("class", builtin_class_to_string(builtin.bclass));
 			break;
 		}
+		case ast::DATA: {
+			verify_not_reached("Tried to print a data node as JSON (which is not supported)!");
+			break;
+		}
 		case ast::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
 			if(function.address_range.valid()) {
@@ -182,7 +186,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			break;
 		}
 		case ast::INITIALIZER_LIST: {
-			verify_not_reached("Tried to print an initializer list node as JSON (which is not yet implemented)!");
+			verify_not_reached("Tried to print an initializer list node as JSON (which is not supported)!");
 			break;
 		}
 		case ast::INLINE_ENUM: {
@@ -220,10 +224,6 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 				print_json_ast_node(json, node.get());
 			}
 			json.end_array();
-			break;
-		}
-		case ast::LITERAL: {
-			verify_not_reached("Tried to print a literal node as JSON (which is not yet implemented)!");
 			break;
 		}
 		case ast::POINTER: {

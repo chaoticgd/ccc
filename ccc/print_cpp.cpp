@@ -161,6 +161,14 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
+		case ast::DATA: {
+			const ast::Data& data = node.as<ast::Data>();
+			if(!data.field_name.empty()) {
+				fprintf(out, "/* %s = */ ", data.field_name.c_str());
+			}
+			fprintf(out, "%s", data.string.c_str());
+			break;
+		}
 		case ast::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
 			ast_node(*func_def.type.get(), name, indentation_level);
@@ -343,51 +351,6 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			fprintf(out, "}");
 			if(!name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
-			}
-			break;
-		}
-		case ast::LITERAL: {
-			const ast::Literal& literal = node.as<ast::Literal>();
-			if(!literal.field_name.empty()) {
-				fprintf(out, "/* %s = */ ", literal.field_name.c_str());
-			}
-			switch(literal.literal_type) {
-				case ast::LiteralType::BOOLEAN: {
-					fprintf(out, "%s", literal.value.boolean ? "true" : "false");
-					break;
-				}
-				case ast::LiteralType::FLOAT_SINGLE: {
-					fprintf(out, "%.9g", literal.value.float_single);
-					break;
-				}
-				case ast::LiteralType::FLOAT_DOUBLE: {
-					fprintf(out, "%.17g", literal.value.float_double);
-					break;
-				}
-				case ast::LiteralType::INTEGER_SIGNED: {
-					fprintf(out, "%" PRId64, literal.value.integer);
-					break;
-				}
-				case ast::LiteralType::INTEGER_UNSIGNED: {
-					fprintf(out, "%" PRIu64, literal.value.unsigned_integer);
-					break;
-				}
-				case ast::LiteralType::STRING: {
-					if(literal.value.string) {
-						fprintf(out, "\"%s\"", literal.value.string);
-					} else {
-						fprintf(out, "NULL");
-					}
-					break;
-				}
-				case ast::LiteralType::VECTOR: {
-					fprintf(out, "VECTOR(%.9gf, %.9gf, %.9gf, %.9gf)",
-						literal.value.vector[0],
-						literal.value.vector[1],
-						literal.value.vector[2],
-						literal.value.vector[3]);
-					break;
-				}
 			}
 			break;
 		}

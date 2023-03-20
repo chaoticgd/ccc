@@ -528,6 +528,9 @@ void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) 
 				built_in.computed_size_bytes = builtin_class_size(built_in.bclass);
 				break;
 			}
+			case ast::DATA: {
+				break;
+			}
 			case ast::FUNCTION_DEFINITION: {
 				break;
 			}
@@ -543,9 +546,6 @@ void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) 
 			}
 			case ast::INLINE_STRUCT_OR_UNION: {
 				node.computed_size_bytes = node.size_bits / 8;
-				break;
-			}
-			case ast::LITERAL: {
 				break;
 			}
 			case ast::POINTER: {
