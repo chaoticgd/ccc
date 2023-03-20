@@ -166,6 +166,7 @@ struct FunctionType : Node {
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
 	bool is_constructor = false;
+	FunctionDefinition* definition = nullptr; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 	FunctionType() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;
