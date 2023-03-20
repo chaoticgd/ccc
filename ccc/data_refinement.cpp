@@ -2,17 +2,36 @@
 
 namespace ccc {
 
+static void refine_variable(ast::Variable& variable, const HighSymbolTable& high, const std::vector<Module*>& modules);
 static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const HighSymbolTable& high, const std::vector<Module*>& modules);
 static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const std::vector<Module*>& modules);
 
 void refine_global_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
 		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
-			ast::Variable& global = node->as<ast::Variable>();
-			if(global.storage.type == ast::VariableStorageType::GLOBAL && global.storage.global_address > -1) {
-				global.data = refine_node(global.storage.global_address, *global.type.get(), high, modules);
+			refine_variable(node->as<ast::Variable>(), high, modules);
+		}
+	}
+}
+
+void refine_static_local_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
+	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
+		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
+			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
+			for(std::unique_ptr<ast::Variable>& local : function.locals) {
+				refine_variable(*local.get(), high, modules);
 			}
 		}
+	}
+}
+
+static void refine_variable(ast::Variable& variable, const HighSymbolTable& high, const std::vector<Module*>& modules) {
+	bool valid_type = variable.storage.type == ast::VariableStorageType::GLOBAL;
+	bool valid_address = variable.storage.global_address > -1;
+	bool valid_location = variable.storage.global_location != ast::GlobalVariableLocation::BSS
+		&& variable.storage.global_location != ast::GlobalVariableLocation::SBSS;
+	if(valid_type && valid_address && valid_location) {
+		variable.data = refine_node(variable.storage.global_address, *variable.type.get(), high, modules);
 	}
 }
 

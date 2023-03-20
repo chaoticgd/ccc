@@ -7,6 +7,7 @@
 namespace ccc {
 
 void refine_global_variables(HighSymbolTable& high, const std::vector<Module*>& modules);
+void refine_static_local_variables(HighSymbolTable& high, const std::vector<Module*>& modules);
 
 }
 
