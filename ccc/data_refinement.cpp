@@ -68,7 +68,9 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
 			if(array.element_type->computed_size_bytes < 0) {
-				return nullptr;
+				std::unique_ptr<ast::Data> error = std::make_unique<ast::Data>();
+				error->string = "CCC_CANNOT_COMPUTE_ELEMENT_SIZE";
+				return error;
 			}
 			std::unique_ptr<ast::InitializerList> list = std::make_unique<ast::InitializerList>();
 			for(s32 i = 0; i < array.element_count; i++) {
@@ -76,9 +78,6 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 				type.is_currently_processing = true;
 				std::unique_ptr<ast::Node> element = refine_node(virtual_address + offset, *array.element_type.get(), context);
 				type.is_currently_processing = false;
-				if(element == nullptr) {
-					return nullptr;
-				}
 				if(element->descriptor == ast::DATA) element->as<ast::Data>().field_name = stringf("[%d]", i);
 				if(element->descriptor == ast::INITIALIZER_LIST) element->as<ast::InitializerList>().field_name = stringf("[%d]", i);
 				list->children.emplace_back(std::move(element));
@@ -87,7 +86,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		}
 		case ast::BITFIELD: {
 			std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
-			data->string = "BITFIELD";
+			data->string = "CCC_BITFIELD";
 			return data;
 		}
 		case ast::BUILTIN: {
@@ -130,9 +129,6 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 				type.is_currently_processing = true;
 				std::unique_ptr<ast::Node> child = refine_node(virtual_address + field->relative_offset_bytes, *field.get(), context);
 				type.is_currently_processing = false;
-				if(child == nullptr) {
-					return nullptr;
-				}
 				if(child->descriptor == ast::DATA) child->as<ast::Data>().field_name = stringf(".%s", field->name.c_str());
 				if(child->descriptor == ast::INITIALIZER_LIST) child->as<ast::InitializerList>().field_name = stringf(".%s", field->name.c_str());
 				list->children.emplace_back(std::move(child));
@@ -164,7 +160,9 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 					}
 				}
 			}
-			return nullptr;
+			std::unique_ptr<ast::Data> error = std::make_unique<ast::Data>();
+			error->string = "CCC_TYPE_LOOKUP_FAILED";
+			return error;
 		}
 		case ast::VARIABLE: {
 			break;
