@@ -122,6 +122,13 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		case ast::INLINE_STRUCT_OR_UNION: {
 			const ast::InlineStructOrUnion& struct_or_union = type.as<ast::InlineStructOrUnion>();
 			std::unique_ptr<ast::InitializerList> list = std::make_unique<ast::InitializerList>();
+			for(s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
+				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
+				std::unique_ptr<ast::Node> child = refine_node(virtual_address + base_class->absolute_offset_bytes, *base_class.get(), context);
+				if(child->descriptor == ast::DATA) child->as<ast::Data>().field_name = stringf("base class %d", i);
+				if(child->descriptor == ast::INITIALIZER_LIST) child->as<ast::InitializerList>().field_name = stringf("base class %d", i);
+				list->children.emplace_back(std::move(child));
+			}
 			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
 				if(field->storage_class == ast::SC_STATIC) {
 					continue;
