@@ -225,6 +225,7 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 	CppPrinter printer(out);
 	printer.print_offsets_and_sizes = false;
 	printer.print_storage_information = false;
+	printer.omit_this_parameter = true;
 	printer.function_bodies = &functions_file.functions;
 	
 	// Print types.
@@ -282,6 +283,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		const ast::SourceFile& file = *high.source_files[file_index].get();
 		CppPrinter printer(out);
 		printer.print_offsets_and_sizes = false;
+		printer.omit_this_parameter = true;
 		for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
 			ast::Node* node = high.deduplicated_types[i].get();
 			assert(node);
@@ -320,6 +322,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 			printer.skip_statics = true;
 			printer.print_function_bodies = false;
 			printer.print_storage_information = false;
+			printer.omit_this_parameter = true;
 			if(printer.ast_node(*node.get(), dummy, 0)) {
 				fprintf(out, "\n");
 			}
@@ -344,6 +347,7 @@ static void write_lost_and_found_file(const fs::path& path, const HighSymbolTabl
 	FILE* out = open_file_w(path.c_str());
 	CppPrinter printer(out);
 	printer.print_offsets_and_sizes = false;
+	printer.omit_this_parameter = true;
 	s32 nodes_printed = 0;
 	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
 		ast::Node* node = high.deduplicated_types[i].get();

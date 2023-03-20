@@ -222,7 +222,13 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, BRACKETS_IF_POINTER);
 			fprintf(out, "(");
 			if(function.parameters.has_value()) {
-				for(size_t i = 0; i < function.parameters->size(); i++) {
+				size_t start;
+				if(omit_this_parameter && function.parameters->size() >= 1 && (*function.parameters)[0]->name == "this") {
+					start = 1;
+				} else {
+					start = 0;
+				}
+				for(size_t i = start; i < function.parameters->size(); i++) {
 					VariableName dummy;
 					ast_node(*(*function.parameters)[i].get(), dummy, indentation_level);
 					if(i != function.parameters->size() - 1) {
