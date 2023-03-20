@@ -592,4 +592,41 @@ void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) 
 	});
 }
 
+void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high) {
+	// Enumerate data types.
+	std::map<std::string, ast::InlineStructOrUnion*> type_name_to_node;
+	for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+		if(type->descriptor == ast::INLINE_STRUCT_OR_UNION && !type->name.empty()) {
+			type_name_to_node[type->name] = &type->as<ast::InlineStructOrUnion>();
+		}
+	}
+	
+	// Fill in pointers from member function declaration to corresponding definitions.
+	for(const std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
+		for(const std::unique_ptr<ast::Node>& node : source_file->functions) {
+			ast::FunctionDefinition& definition = node->as<ast::FunctionDefinition>();
+			std::string::size_type name_separator_pos = definition.name.find_last_of("::");
+			if(name_separator_pos != std::string::npos && name_separator_pos > 0) {
+				std::string function_name = definition.name.substr(name_separator_pos + 1);
+				// This won't work for some template types, and that's okay.
+				std::string::size_type type_separator_pos = definition.name.find_last_of("::", name_separator_pos - 2);
+				std::string type_name;
+				if(type_separator_pos != std::string::npos) {
+					type_name = definition.name.substr(type_separator_pos + 1, name_separator_pos - type_separator_pos - 2);
+				} else {
+					type_name = definition.name.substr(0, name_separator_pos - 1);
+				}
+				auto type = type_name_to_node.find(type_name);
+				if(type != type_name_to_node.end()) {
+					for(std::unique_ptr<ast::Node>& declaration : type->second->member_functions) {
+						if(declaration->name == function_name) {
+							declaration->as<ast::FunctionType>().definition = &definition;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 }

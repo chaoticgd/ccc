@@ -7,6 +7,7 @@
 - uncc: If a `FUNCTIONS.txt` file is provided, code from that file will be included in the output.
 - uncc: The initial values of global variables are now printed as initializer lists and literals.
 - uncc: The implicit this parameter of member functions will now be omitted from parameter lists.
+- uncc: The parameter lists of member function declarations will now not all be empty.
 
 ## v1.1
 

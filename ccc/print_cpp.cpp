@@ -222,16 +222,27 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, BRACKETS_IF_POINTER);
 			fprintf(out, "(");
 			if(function.parameters.has_value()) {
+				const std::vector<std::unique_ptr<ast::Node>>* parameters = &(*function.parameters);
+				
+				// The parameters provided in STABS member function declarations
+				// are wrong, so are swapped out for the correct ones here.
+				if(substitute_parameter_lists && function.definition) {
+					ast::FunctionType& definition_type = function.definition->type->as<ast::FunctionType>();
+					if(definition_type.parameters.has_value()) {
+						parameters = &(*definition_type.parameters);
+					}
+				}
+				
 				size_t start;
-				if(omit_this_parameter && function.parameters->size() >= 1 && (*function.parameters)[0]->name == "this") {
+				if(omit_this_parameter && parameters->size() >= 1 && (*parameters)[0]->name == "this") {
 					start = 1;
 				} else {
 					start = 0;
 				}
-				for(size_t i = start; i < function.parameters->size(); i++) {
+				for(size_t i = start; i < parameters->size(); i++) {
 					VariableName dummy;
-					ast_node(*(*function.parameters)[i].get(), dummy, indentation_level);
-					if(i != function.parameters->size() - 1) {
+					ast_node(*(*parameters)[i].get(), dummy, indentation_level);
+					if(i != parameters->size() - 1) {
 						fprintf(out, ", ");
 					}
 				}

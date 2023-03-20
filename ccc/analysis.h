@@ -87,6 +87,7 @@ struct LocalSymbolTableAnalyser {
 };
 
 void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high);
+void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high);
 
 };
 
