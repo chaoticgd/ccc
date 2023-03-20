@@ -52,6 +52,14 @@ HighSymbolTable analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 
 				node->probably_defined_in_cpp_file = true;
 			}
 		}
+		
+		// Compute size information for all nodes.
+		for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
+			compute_size_bytes_recursive(*source_file.get(), high);
+		}
+		for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+			compute_size_bytes_recursive(*type.get(), high);
+		}
 	}
 	
 	return high;
@@ -496,6 +504,92 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 			break;
 		}
 	}
+}
+
+void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) {
+	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
+		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
+			return ast::EXPLORE_CHILDREN;
+		}
+		node.cannot_compute_size = 1; // Can't compute size recursively.
+		switch(node.descriptor) {
+			case ast::ARRAY: {
+				ast::Array& array = node.as<ast::Array>();
+				if(array.element_type->computed_size_bytes > -1) {
+					array.computed_size_bytes = array.element_type->computed_size_bytes * array.element_count;
+				}
+				break;
+			}
+			case ast::BITFIELD: {
+				break;
+			}
+			case ast::BUILTIN: {
+				ast::BuiltIn& built_in = node.as<ast::BuiltIn>();
+				built_in.computed_size_bytes = builtin_class_size(built_in.bclass);
+				break;
+			}
+			case ast::DATA: {
+				break;
+			}
+			case ast::FUNCTION_DEFINITION: {
+				break;
+			}
+			case ast::FUNCTION_TYPE: {
+				break;
+			}
+			case ast::INITIALIZER_LIST: {
+				break;
+			}
+			case ast::INLINE_ENUM: {
+				node.computed_size_bytes = 4;
+				break;
+			}
+			case ast::INLINE_STRUCT_OR_UNION: {
+				node.computed_size_bytes = node.size_bits / 8;
+				break;
+			}
+			case ast::POINTER: {
+				node.computed_size_bytes = 4;
+				break;
+			}
+			case ast::POINTER_TO_DATA_MEMBER: {
+				break;
+			}
+			case ast::REFERENCE: {
+				node.computed_size_bytes = 4;
+				break;
+			}
+			case ast::SOURCE_FILE: {
+				break;
+			}
+			case ast::TYPE_NAME: {
+				ast::TypeName& type_name = node.as<ast::TypeName>();
+				if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
+					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
+					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
+					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
+						ast::Node& resolved_type = *high.deduplicated_types.at(type_index->second).get();
+						if(resolved_type.computed_size_bytes < 0 && !resolved_type.cannot_compute_size) {
+							compute_size_bytes_recursive(resolved_type, high);
+						}
+						type_name.computed_size_bytes = resolved_type.computed_size_bytes;
+					}
+				}
+				break;
+			}
+			case ast::VARIABLE: {
+				ast::Variable& variable = node.as<ast::Variable>();
+				if(variable.type->computed_size_bytes > -1) {
+					variable.computed_size_bytes = variable.type->computed_size_bytes;
+				}
+				break;
+			}
+		}
+		if(node.computed_size_bytes > -1) {
+			node.cannot_compute_size = 0;
+		}
+		return ast::EXPLORE_CHILDREN;
+	});
 }
 
 }

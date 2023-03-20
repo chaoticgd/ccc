@@ -16,7 +16,7 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* out, const ast::Node& node, const CppPrinter& printer);
 static void indent(FILE* out, s32 level);
 
-void CppPrinter::print_cpp_comment_block_beginning(const fs::path& input_file) {
+void CppPrinter::comment_block_beginning(const fs::path& input_file) {
 	fprintf(out, "// File written by stdump");
 	time_t cftime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	tm* t = std::localtime(&cftime);
@@ -28,7 +28,7 @@ void CppPrinter::print_cpp_comment_block_beginning(const fs::path& input_file) {
 	fprintf(out, "//   %s\n", input_file.filename().string().c_str());
 }
 
-void CppPrinter::print_cpp_comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table) {
+void CppPrinter::comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table) {
 	std::set<std::string> compiler_version_info;
 	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 		bool known = false;
@@ -49,7 +49,7 @@ void CppPrinter::print_cpp_comment_block_compiler_version_info(const mdebug::Sym
 	}
 }
 
-void CppPrinter::print_cpp_comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes) {
+void CppPrinter::comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes) {
 	std::set<std::pair<std::string, BuiltInClass>> builtins;
 	for(const std::unique_ptr<ast::Node>& node : ast_nodes) {
 		if(node->descriptor == ast::BUILTIN) {
@@ -161,6 +161,14 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
+		case ast::DATA: {
+			const ast::Data& data = node.as<ast::Data>();
+			if(!data.field_name.empty()) {
+				fprintf(out, "/* %s = */ ", data.field_name.c_str());
+			}
+			fprintf(out, "%s", data.string.c_str());
+			break;
+		}
 		case ast::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
 			ast_node(*func_def.type.get(), name, indentation_level);
@@ -225,6 +233,25 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				fprintf(out, "/* parameters unknown */");
 			}
 			fprintf(out, ")");
+			break;
+		}
+		case ast::INITIALIZER_LIST: {
+			const ast::InitializerList& list = node.as<ast::InitializerList>();
+			if(!list.field_name.empty()) {
+				fprintf(out, "/* %s = */ ", list.field_name.c_str());
+			}
+			fprintf(out, "{\n");
+			for(size_t i = 0; i < list.children.size(); i++) {
+				indent(out, indentation_level + 1);
+				VariableName dummy;
+				ast_node(*list.children[i].get(), dummy, indentation_level + 1);
+				if(i != list.children.size() - 1) {
+					fprintf(out, ",");
+				}
+				fprintf(out, "\n");
+			}
+			indent(out, indentation_level);
+			fprintf(out, "}");
 			break;
 		}
 		case ast::INLINE_ENUM: {
@@ -377,6 +404,10 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		case ast::VARIABLE: {
 			const ast::Variable& variable = node.as<ast::Variable>();
 			ast_node(*variable.type.get(), name, indentation_level);
+			if(variable.data.get()) {
+				fprintf(out, " = ");
+				ast_node(*variable.data.get(), name, indentation_level);
+			}
 			break;
 		}
 	}

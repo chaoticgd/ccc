@@ -16,20 +16,22 @@ enum StorageClass {
 	SC_REGISTER = 5
 };
 
-enum NodeDescriptor {
-	ARRAY = 0,
-	BITFIELD = 1,
-	BUILTIN = 2,
-	FUNCTION_DEFINITION = 3,
-	FUNCTION_TYPE = 4,
-	INLINE_ENUM = 5,
-	INLINE_STRUCT_OR_UNION = 6,
-	POINTER = 7,
-	POINTER_TO_DATA_MEMBER = 8,
-	REFERENCE = 9,
-	SOURCE_FILE = 10,
-	TYPE_NAME = 11,
-	VARIABLE = 12
+enum NodeDescriptor : u8 {
+	ARRAY,
+	BITFIELD,
+	BUILTIN,
+	DATA,
+	FUNCTION_DEFINITION,
+	FUNCTION_TYPE,
+	INITIALIZER_LIST,
+	INLINE_ENUM,
+	INLINE_STRUCT_OR_UNION,
+	POINTER,
+	POINTER_TO_DATA_MEMBER,
+	REFERENCE,
+	SOURCE_FILE,
+	TYPE_NAME,
+	VARIABLE
 };
 
 struct AddressRange {
@@ -47,20 +49,28 @@ enum AccessSpecifier {
 };
 
 // To add a new type of node:
-//  1. Create a struct for it.
-//  2. Add support for it in for_each_node.
-//  3. Add support for it in compare_nodes.
-//  4. Add support for it in CppPrinter::ast_node.
-//  5. Add support for it in print_json_ast_node.
+//  1. Add it to the NodeDescriptor enum.
+//  2. Create a struct for it.
+//  3. Add support for it in for_each_node.
+//  4. Add support for it in compute_size_bytes_recursive.
+//  5. Add support for it in compare_nodes.
+//  6. Add support for it in node_type_to_string.
+//  7. Add support for it in CppPrinter::ast_node.
+//  8. Add support for it in print_json_ast_node.
+//  9. Add support for it in refine_global_variable.
 struct Node {
-	u16 descriptor : 4;
-	u16 is_const : 1 = false;
-	u16 is_volatile : 1 = false;
-	u16 conflict : 1 = false; // Are there multiple differing types with the same name?
-	u16 is_base_class : 1 = false;
-	u16 probably_defined_in_cpp_file : 1 = 0; // Only set for deduplicated types.
-	u16 storage_class : 4 = SC_NONE;
-	u16 access_specifier : 2 = AS_PUBLIC;
+	NodeDescriptor descriptor;
+	u8 is_const : 1 = false;
+	u8 is_volatile : 1 = false;
+	u8 conflict : 1 = false; // Are there multiple differing types with the same name?
+	u8 is_base_class : 1 = false;
+	u8 probably_defined_in_cpp_file : 1 = false; // Only set for deduplicated types.
+	u8 cannot_compute_size : 1 = false;
+	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
+	u8 storage_class : 4 = SC_NONE;
+	u8 access_specifier : 2 = AS_PUBLIC;
+	
+	s32 computed_size_bytes = -1; // Calculated by compute_size_bytes_recursive.
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -74,7 +84,7 @@ struct Node {
 	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
-	s32 size_bits = -1;
+	s32 size_bits = -1; // Size stored in the symbol table.
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -116,6 +126,16 @@ struct BuiltIn : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
 };
 
+// Used for printing out the values of global variables. Not supported by the
+// JSON format!
+struct Data : Node {
+	std::string field_name;
+	std::string string;
+	
+	Data() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = DATA;
+};
+
 struct Variable;
 
 struct LineNumberPair {
@@ -149,6 +169,16 @@ struct FunctionType : Node {
 	
 	FunctionType() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;
+};
+
+// Used for printing out the values of global variables. Not supported by the
+// JSON format!
+struct InitializerList : Node {
+	std::vector<std::unique_ptr<Node>> children;
+	std::string field_name;
+	
+	InitializerList() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = INITIALIZER_LIST;
 };
 
 struct InlineEnum : Node {
@@ -264,6 +294,7 @@ struct Variable : Node {
 	VariableStorage storage;
 	AddressRange block;
 	std::unique_ptr<Node> type;
+	std::unique_ptr<Node> data;
 	
 	Variable() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
@@ -277,6 +308,8 @@ struct TypeDeduplicatorOMatic {
 	void process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files);
 	std::vector<std::unique_ptr<Node>> finish();
 };
+
+
 
 struct StabsToAstState {
 	s32 file_index;
@@ -341,47 +374,62 @@ const char* global_variable_location_to_string(GlobalVariableLocation location);
 const char* access_specifier_to_string(AccessSpecifier specifier);
 AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility);
 
+enum TraversalOrder {
+	PREORDER_TRAVERSAL,
+	POSTORDER_TRAVERSAL
+};
+
 enum ExplorationMode {
 	EXPLORE_CHILDREN,
 	DONT_EXPLORE_CHILDREN
 };
 
 template <typename ThisNode, typename Callback>
-void for_each_node(ThisNode& node, Callback callback) {
-	if(callback(node) == DONT_EXPLORE_CHILDREN) {
+void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
+	if(order == PREORDER_TRAVERSAL && callback(node) == DONT_EXPLORE_CHILDREN) {
 		return;
 	}
 	switch(node.descriptor) {
 		case ARRAY: {
 			auto& array = node.template as<Array>();
-			for_each_node(*array.element_type.get(), callback);
+			for_each_node(*array.element_type.get(), order, callback);
 			break;
 		}
 		case BITFIELD: {
 			auto& bitfield = node.template as<BitField>();
-			for_each_node(*bitfield.underlying_type.get(), callback);
+			for_each_node(*bitfield.underlying_type.get(), order, callback);
 			break;
 		}
 		case BUILTIN: {
 			break;
 		}
+		case DATA: {
+			break;
+		}
 		case FUNCTION_DEFINITION: {
 			auto& func = node.template as<FunctionDefinition>();
-			for_each_node(*func.type.get(), callback);
+			for_each_node(*func.type.get(), order, callback);
 			for(auto& child : func.locals) {
-				for_each_node(*child.get(), callback);
+				for_each_node(*child.get(), order, callback);
 			}
 			break;
 		}
 		case FUNCTION_TYPE: {
 			auto& func = node.template as<FunctionType>();
 			if(func.return_type.has_value()) {
-				for_each_node(*func.return_type->get(), callback);
+				for_each_node(*func.return_type->get(), order, callback);
 			}
 			if(func.parameters.has_value()) {
 				for(auto& child : *func.parameters) {
-					for_each_node(*child.get(), callback);
+					for_each_node(*child.get(), order, callback);
 				}
+			}
+			break;
+		}
+		case INITIALIZER_LIST: {
+			auto& init_list = node.template as<InitializerList>();
+			for(auto& child : init_list.children) {
+				for_each_node(*child.get(), order, callback);
 			}
 			break;
 		}
@@ -391,42 +439,42 @@ void for_each_node(ThisNode& node, Callback callback) {
 		case INLINE_STRUCT_OR_UNION: {
 			auto& struct_or_union = node.template as<InlineStructOrUnion>();
 			for(auto& child : struct_or_union.base_classes) {
-				for_each_node(*child.get(), callback);
+				for_each_node(*child.get(), order, callback);
 			}
 			for(auto& child : struct_or_union.fields) {
-				for_each_node(*child.get(), callback);
+				for_each_node(*child.get(), order, callback);
 			}
 			for(auto& child : struct_or_union.member_functions) {
-				for_each_node(*child.get(), callback);
+				for_each_node(*child.get(), order, callback);
 			}
 			break;
 		}
 		case POINTER: {
 			auto& pointer = node.template as<Pointer>();
-			for_each_node(*pointer.value_type.get(), callback);
+			for_each_node(*pointer.value_type.get(), order, callback);
 			break;
 		}
 		case POINTER_TO_DATA_MEMBER: {
 			auto& pointer = node.template as<PointerToDataMember>();
-			for_each_node(*pointer.class_type.get(), callback);
-			for_each_node(*pointer.member_type.get(), callback);
+			for_each_node(*pointer.class_type.get(), order, callback);
+			for_each_node(*pointer.member_type.get(), order, callback);
 			break;
 		}
 		case REFERENCE: {
 			auto& reference = node.template as<Reference>();
-			for_each_node(*reference.value_type.get(), callback);
+			for_each_node(*reference.value_type.get(), order, callback);
 			break;
 		}
 		case SOURCE_FILE: {
 			auto& source_file = node.template as<SourceFile>();
 			for(auto& child : source_file.data_types) {
-				for_each_node(*child.get(), callback);
+				for_each_node(*child.get(), order, callback);
 			}
 			for(auto& child : source_file.functions) {
-				for_each_node(*child.get(), callback);
+				for_each_node(*child.get(), order, callback);
 			}
 			for(auto& child : source_file.globals) {
-				for_each_node(*child.get(), callback);
+				for_each_node(*child.get(), order, callback);
 			}
 			break;
 		}
@@ -435,9 +483,15 @@ void for_each_node(ThisNode& node, Callback callback) {
 		}
 		case VARIABLE: {
 			auto& variable = node.template as<Variable>();
-			for_each_node(*variable.type.get(), callback);
+			for_each_node(*variable.type.get(), order, callback);
+			if(variable.data.get()) {
+				for_each_node(*variable.data.get(), order, callback);
+			}
 			break;
 		}
+	}
+	if(order == POSTORDER_TRAVERSAL) {
+		callback(node);
 	}
 }
 

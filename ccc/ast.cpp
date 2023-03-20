@@ -527,6 +527,10 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			if(lhs.bclass != rhs.bclass) return CompareFailReason::BUILTIN_CLASS;
 			break;
 		}
+		case DATA: {
+			verify_not_reached("Tried to compare data AST nodes.");
+			break;
+		}
 		case FUNCTION_DEFINITION: {
 			verify_not_reached("Tried to compare function definition AST nodes.");
 		}
@@ -546,6 +550,10 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			}
 			if(lhs.modifier != rhs.modifier) return CompareFailReason::FUNCTION_MODIFIER;
 			if(lhs.is_constructor != rhs.is_constructor) return CompareFailReason::FUNCTION_IS_CONSTRUCTOR;
+			break;
+		}
+		case INITIALIZER_LIST: {
+			verify_not_reached("Tried to compare initializer list AST nodes.");
 			break;
 		}
 		case INLINE_ENUM: {
@@ -705,13 +713,15 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 
 const char* node_type_to_string(const Node& node) {
 	switch(node.descriptor) {
-		case NodeDescriptor::ARRAY: return "array";
-		case NodeDescriptor::BITFIELD: return "bitfield";
-		case NodeDescriptor::BUILTIN: return "builtin";
-		case NodeDescriptor::FUNCTION_DEFINITION: return "function_definition";
-		case NodeDescriptor::FUNCTION_TYPE: return "function_type";
-		case NodeDescriptor::INLINE_ENUM: return "enum";
-		case NodeDescriptor::INLINE_STRUCT_OR_UNION: {
+		case ARRAY: return "array";
+		case BITFIELD: return "bitfield";
+		case BUILTIN: return "builtin";
+		case DATA: return "data";
+		case FUNCTION_DEFINITION: return "function_definition";
+		case FUNCTION_TYPE: return "function_type";
+		case INITIALIZER_LIST: return "initializer_list";
+		case INLINE_ENUM: return "enum";
+		case INLINE_STRUCT_OR_UNION: {
 			const InlineStructOrUnion& struct_or_union = node.as<InlineStructOrUnion>();
 			if(struct_or_union.is_struct) {
 				return "struct";
@@ -719,14 +729,14 @@ const char* node_type_to_string(const Node& node) {
 				return "union";
 			}
 		}
-		case NodeDescriptor::POINTER: return "pointer";
-		case NodeDescriptor::POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
-		case NodeDescriptor::REFERENCE: return "reference";
-		case NodeDescriptor::SOURCE_FILE: return "source_file";
-		case NodeDescriptor::TYPE_NAME: return "type_name";
-		case NodeDescriptor::VARIABLE: return "variable";
+		case POINTER: return "pointer";
+		case POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
+		case REFERENCE: return "reference";
+		case SOURCE_FILE: return "source_file";
+		case TYPE_NAME: return "type_name";
+		case VARIABLE: return "variable";
 	}
-	return "CCC_BADNODEDESC";
+	return "CCC_BAD_NODE_DESCRIPTOR";
 }
 
 const char* storage_class_to_string(StorageClass storage_class) {

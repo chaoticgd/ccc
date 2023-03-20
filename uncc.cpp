@@ -48,6 +48,10 @@ int main(int argc, char** argv) {
 	map_types_to_files_based_on_reference_count(high);
 	demangle_all(high);
 	
+	// Fish out the values of global variables (and static locals).
+	std::vector<Module*> modules{&mod};
+	refine_variables(high, modules);
+	
 	// Group duplicate source file entries, filter out files not referenced in
 	// the SOURCES.txt file.
 	std::map<std::string, std::vector<s32>> path_to_source_file;

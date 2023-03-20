@@ -3,6 +3,7 @@
 
 #include "analysis.h"
 #include "ast.h"
+#include "data_refinement.h"
 #include "dependency.h"
 #include "elf.h"
 #include "insn.h"

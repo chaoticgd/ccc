@@ -180,9 +180,9 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	analysis_flags |= DEDUPLICATE_TYPES;
 	HighSymbolTable high = analyse(symbol_table, analysis_flags);
 	CppPrinter printer(out);
-	printer.print_cpp_comment_block_beginning(options.input_file);
-	printer.print_cpp_comment_block_compiler_version_info(symbol_table);
-	printer.print_cpp_comment_block_builtin_types(high.deduplicated_types);
+	printer.comment_block_beginning(options.input_file);
+	printer.comment_block_compiler_version_info(symbol_table);
+	printer.comment_block_builtin_types(high.deduplicated_types);
 	fprintf(out, "\n");
 	printer.verbose = options.flags & FLAG_VERBOSE;
 	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
@@ -194,7 +194,7 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	CppPrinter printer(out);
 	printer.verbose = options.flags & FLAG_VERBOSE;
-	printer.print_cpp_comment_block_beginning(options.input_file);
+	printer.comment_block_beginning(options.input_file);
 	fprintf(out, "\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
@@ -203,8 +203,8 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
 		fprintf(out, "// *****************************************************************************\n");
 		fprintf(out, "\n");
-		printer.print_cpp_comment_block_compiler_version_info(symbol_table);
-		printer.print_cpp_comment_block_builtin_types(source_file.data_types);
+		printer.comment_block_compiler_version_info(symbol_table);
+		printer.comment_block_builtin_types(source_file.data_types);
 		fprintf(out, "\n");
 		printer.verbose = options.flags & FLAG_VERBOSE;
 		for(size_t i = 0; i < source_file.data_types.size(); i++) {

@@ -47,6 +47,7 @@ target_link_libraries(uncc ccc demanglegnu versioninfo)
 add_library(ccc STATIC
 	ccc/analysis.cpp
 	ccc/ast.cpp
+	ccc/data_refinement.cpp
 	ccc/dependency.cpp
 	ccc/elf.cpp
 	ccc/insn.cpp
