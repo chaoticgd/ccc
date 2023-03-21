@@ -12,7 +12,7 @@ import ghidra.program.model.listing.*;
 public class CCCDecompileAllFunctions extends GhidraScript {
 	public void run() throws Exception {
 		FlatDecompilerAPI decompiler = new FlatDecompilerAPI(this);
-		String outputPath = askString("Choose Output Path", "");
+		String outputPath = askString("Choose Output File Path", "");
 		try(FileWriter writer = new FileWriter(outputPath)) {
 			for(Function function : currentProgram.getFunctionManager().getFunctions(true)) {
 				writer.write("@function ");
