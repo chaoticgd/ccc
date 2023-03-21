@@ -16,7 +16,7 @@ static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
 static void demangle_all(HighSymbolTable& high);
-static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file);
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file);
 static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
 static bool needs_lost_and_found_file(const HighSymbolTable& high);
 static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high);
@@ -80,16 +80,17 @@ int main(int argc, char** argv) {
 		fs::path path = output_path/fs::path(relative_path);
 		fs::create_directories(path.parent_path());
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
+			fs::path relative_header_path = relative_path;
+			relative_header_path.replace_extension(".h");
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
-				write_c_cpp_file(path, high, sources, functions_file);
+				write_c_cpp_file(path, relative_header_path, high, sources, functions_file);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
 			// Write .h file.
 			fs::path header_path = path.replace_extension(".h");
 			if(should_overwrite_file(header_path)) {
-				fs::path relative_header_path = fs::path(relative_path).replace_extension(".h");
 				write_h_file(header_path, relative_header_path.string(), high, sources);
 			} else {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
@@ -217,7 +218,7 @@ static void demangle_all(HighSymbolTable& high) {
 	}
 }
 
-static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file) {
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = open_file_w(path.c_str());
 	verify(out, "Failed to open '%s' for writing.", path.string().c_str());
@@ -231,6 +232,8 @@ static void write_c_cpp_file(const fs::path& path, const HighSymbolTable& high, 
 	printer.omit_this_parameter = true;
 	printer.substitute_parameter_lists = true;
 	printer.function_bodies = &functions_file.functions;
+	
+	printer.include_directive(header_path.filename().string().c_str());
 	
 	// Print types.
 	for(s32 file_index : file_indices) {

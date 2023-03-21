@@ -32,6 +32,7 @@ struct CppPrinter {
 	void comment_block_beginning(const fs::path& input_file);
 	void comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table);
 	void comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes);
+	void include_directive(const char* path);
 	bool top_level_type(const ast::Node& node, bool is_last);
 	bool ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
 	void print_variable_storage_comment(const ast::VariableStorage& storage);

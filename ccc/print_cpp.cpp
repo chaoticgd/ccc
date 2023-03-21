@@ -66,6 +66,10 @@ void CppPrinter::comment_block_builtin_types(const std::vector<std::unique_ptr<a
 	}
 }
 
+void CppPrinter::include_directive(const char* path) {
+	fprintf(out, "#include \"%s\"\n", path);
+}
+
 bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
 	if(node.descriptor == ast::BUILTIN) {
 		return false;
