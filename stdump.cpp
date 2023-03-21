@@ -351,46 +351,42 @@ static Options parse_args(int argc, char** argv) {
 	}
 	const char* command = argv[1];
 	bool require_input_path = false;
-	if(strcmp(command, "functions") == 0 || strcmp(command, "print_functions") == 0) {
-		options.mode = OutputMode::FUNCTIONS;
-		require_input_path = true;
-	} else if(strcmp(command, "globals") == 0 || strcmp(command, "print_globals") == 0) {
-		options.mode = OutputMode::GLOBALS;
-		require_input_path = true;
-	} else if(strcmp(command, "types") == 0 || strcmp(command, "print_types") == 0) {
-		options.mode = OutputMode::TYPES;
-		require_input_path = true;
-	} else if(strcmp(command, "json") == 0 || strcmp(command, "print_json") == 0) {
-		options.mode = OutputMode::JSON;
-		require_input_path = true;
-	} else if(strcmp(command, "mdebug") == 0 || strcmp(command, "print_mdebug") == 0) {
-		options.mode = OutputMode::MDEBUG;
-		require_input_path = true;
-	} else if(strcmp(command, "symbols") == 0 || strcmp(command, "print_symbols") == 0) {
-		options.mode = OutputMode::SYMBOLS;
-		require_input_path = true;
-	} else if(strcmp(command, "externals") == 0 || strcmp(command, "print_external_symbols") == 0) {
-		options.mode = OutputMode::EXTERNALS;
-		require_input_path = true;
-	} else if(strcmp(command, "files") == 0 || strcmp(command, "list_files") == 0) {
-		options.mode = OutputMode::FILES;
-		require_input_path = true;
-	} else if(strcmp(command, "sections") == 0) {
-		options.mode = OutputMode::SECTIONS;
-		require_input_path = true;
-	} else if(strcmp(command, "type_graph") == 0) {
-		options.mode = OutputMode::TYPE_GRAPH;
-		require_input_path = true;
-	} else if(strcmp(command, "test") == 0) {
-		options.mode = OutputMode::TEST;
-		require_input_path = true;
-	} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
-		options.mode = OutputMode::HELP;
-		require_input_path = false;
-	} else {
-		verify_not_reached("Unknown command '%s'.", command);
-		options.mode = OutputMode::BAD_COMMAND;
-		return options;
+	static struct {
+		OutputMode mode;
+		const char* argument;
+		const char* legacy_argument = nullptr;
+	} commands[] = {
+		{OutputMode::FUNCTIONS, "functions", "print_functions"},
+		{OutputMode::GLOBALS, "globals", "print_globals"},
+		{OutputMode::TYPES, "types", "print_types"},
+		{OutputMode::JSON, "json", "print_json"},
+		{OutputMode::MDEBUG, "mdebug", "print_mdebug"},
+		{OutputMode::SYMBOLS, "symbols", "print_symbols"},
+		{OutputMode::EXTERNALS, "externals", "print_external_symbols"},
+		{OutputMode::FILES, "files", "list_files"},
+		{OutputMode::SECTIONS, "sections"},
+		{OutputMode::TYPE_GRAPH, "type_graph"},
+		{OutputMode::TEST, "test"}
+	};
+	for(auto& cmd : commands) {
+		if(strcmp(command, cmd.argument) == 0 || (cmd.legacy_argument && (strcmp(command, cmd.legacy_argument) == 0))) {
+			options.mode = cmd.mode;
+			require_input_path = true;
+			break;
+		}
+	}
+	if(options.mode == OutputMode::BAD_COMMAND) {
+		if(strcmp(command, "test") == 0) {
+			options.mode = OutputMode::TEST;
+			require_input_path = true;
+		} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
+			options.mode = OutputMode::HELP;
+			require_input_path = false;
+		} else {
+			verify_not_reached("Unknown command '%s'.", command);
+			options.mode = OutputMode::BAD_COMMAND;
+			return options;
+		}
 	}
 	bool input_path_provided = false;
 	for(s32 i = 2; i < argc; i++) {
