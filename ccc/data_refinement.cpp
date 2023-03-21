@@ -86,7 +86,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		}
 		case ast::BITFIELD: {
 			std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
-			data->string = "CCC_BITFIELD";
+			data->string = "BITFIELD";
 			return data;
 		}
 		case ast::BUILTIN: {
@@ -223,7 +223,10 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			float value = 0.f;
 			static_assert(sizeof(value) == 4);
 			read_virtual((u8*) &value, virtual_address, 4, context.modules);
-			data->string = stringf("%.9g", value);
+			data->string = stringf("%g", value);
+			if(strtof(data->string.c_str(), nullptr) != value) {
+				data->string = stringf("%.9g", value);
+			}
 			if(data->string.find(".") == std::string::npos) {
 				data->string += ".";
 			}
