@@ -621,6 +621,7 @@ void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high) {
 					for(std::unique_ptr<ast::Node>& declaration : type->second->member_functions) {
 						if(declaration->name == function_name) {
 							declaration->as<ast::FunctionType>().definition = &definition;
+							definition.is_member_function_ish = true;
 						}
 					}
 				}

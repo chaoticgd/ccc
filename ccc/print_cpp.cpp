@@ -186,6 +186,10 @@ void CppPrinter::function(const ast::FunctionDefinition& node) {
 		return;
 	}
 	
+	if(skip_member_functions_outside_types && node.is_member_function_ish) {
+		return;
+	}
+	
 	bool wants_spacing = print_function_bodies
 		&& (!node.locals.empty() || function_bodies);
 	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {

@@ -22,6 +22,7 @@ struct CppPrinter {
 	bool print_variable_data : 1 = false;
 	bool omit_this_parameter : 1 = false;
 	bool substitute_parameter_lists : 1 = false;
+	bool skip_member_functions_outside_types : 1 = false;
 	s32 digits_for_offset = 3;
 	const std::map<s32, std::span<char>>* function_bodies = nullptr;
 	

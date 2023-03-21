@@ -279,6 +279,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	printer.print_storage_information = false;
 	printer.omit_this_parameter = true;
 	printer.substitute_parameter_lists = true;
+	printer.skip_member_functions_outside_types = true;
 	
 	for(char& c : relative_path) {
 		c = toupper(c);
