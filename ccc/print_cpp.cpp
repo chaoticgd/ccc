@@ -99,7 +99,7 @@ void CppPrinter::begin_include_guard(const char* macro) {
 	}
 	
 	fprintf(out, "#ifndef %s\n", macro);
-	fprintf(out, "#define %s\n\n", macro);
+	fprintf(out, "#define %s\n", macro);
 	
 	last_wants_spacing = true;
 	has_anything_been_printed = true;
