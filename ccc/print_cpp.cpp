@@ -110,7 +110,7 @@ void CppPrinter::end_include_guard(const char* macro) {
 		fprintf(out, "\n");
 	}
 	
-	fprintf(out, "\n#endif // %s\n", macro);
+	fprintf(out, "#endif // %s\n", macro);
 	
 	last_wants_spacing = true;
 	has_anything_been_printed = true;
