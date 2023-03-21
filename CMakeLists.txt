@@ -70,6 +70,7 @@ set(RELEASE_CONTENTS
 	$<TARGET_FILE:objdump>
 	$<TARGET_FILE:stdump>
 	$<TARGET_FILE:uncc>
+	"${CMAKE_SOURCE_DIR}/ghidra_scripts/CCCDecompileAllFunctions.java"
 	"${CMAKE_SOURCE_DIR}/README.md"
 	"${CMAKE_SOURCE_DIR}/License.txt"
 	"${CMAKE_SOURCE_DIR}/demanglegnu/DemanglerLicense.txt"
