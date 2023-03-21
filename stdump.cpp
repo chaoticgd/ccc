@@ -144,41 +144,25 @@ int main(int argc, char** argv) {
 }
 
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
+	CppPrinter printer(out);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "\n");
+		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
-			VariableName dummy{};
-			CppPrinter printer(out);
-			printer.ast_node(*node.get(), dummy, 0);
-			fprintf(out, "\n");
-		}
-		if(!source_file.functions.empty() && i != (s32) symbol_table.files.size()) {
-			fprintf(out, "\n");
+			printer.function(node->as<ast::FunctionDefinition>());
 		}
 	}
 }
 
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
+	CppPrinter printer(out);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "\n");
+		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
-			VariableName dummy{};
-			CppPrinter printer(out);
-			printer.ast_node(*node.get(), dummy, 0);
-			fprintf(out, ";\n");
-		}
-		if(!source_file.globals.empty() && i != (s32) symbol_table.files.size()) {
-			fprintf(out, "\n");
+			printer.global_variable(node->as<ast::Variable>());
 		}
 	}
 }
@@ -191,10 +175,9 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	printer.comment_block_beginning(options.input_file);
 	printer.comment_block_compiler_version_info(symbol_table);
 	printer.comment_block_builtin_types(high.deduplicated_types);
-	fprintf(out, "\n");
 	printer.verbose = options.flags & FLAG_VERBOSE;
-	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-		printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+	for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+		printer.data_type(*type);
 	}
 }
 
@@ -203,22 +186,16 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 	CppPrinter printer(out);
 	printer.verbose = options.flags & FLAG_VERBOSE;
 	printer.comment_block_beginning(options.input_file);
-	fprintf(out, "\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "\n");
+		printer.comment_block_file(source_file.full_path.c_str());
 		printer.comment_block_compiler_version_info(symbol_table);
 		printer.comment_block_builtin_types(source_file.data_types);
-		fprintf(out, "\n");
 		printer.verbose = options.flags & FLAG_VERBOSE;
-		for(size_t i = 0; i < source_file.data_types.size(); i++) {
-			printer.top_level_type(*source_file.data_types[i].get(), i == source_file.data_types.size() - 1);
+		for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
+			printer.data_type(*type);
 		}
-		fprintf(out, "\n");
 	}
 }
 
@@ -318,17 +295,15 @@ static void test(FILE* out, const fs::path& directory) {
 				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
 				ccc::HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES);
 				CppPrinter printer(out);
-				for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-					printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+				for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+					printer.data_type(*type);
 				}
 				for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
 					for(const std::unique_ptr<ast::Node>& node : file->functions) {
-						VariableName dummy{};
-						printer.ast_node(*node.get(), dummy, 0);
+						printer.function(node->as<ast::FunctionDefinition>());
 					}
 					for(const std::unique_ptr<ast::Node>& node : file->globals) {
-						VariableName dummy{};
-						printer.ast_node(*node.get(), dummy, 0);
+						printer.global_variable(node->as<ast::Variable>());
 					}
 				}
 				print_json(out, high, false);

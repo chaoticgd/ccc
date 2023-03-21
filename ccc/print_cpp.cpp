@@ -17,6 +17,10 @@ static void print_cpp_offset(FILE* out, const ast::Node& node, const CppPrinter&
 static void indent(FILE* out, s32 level);
 
 void CppPrinter::comment_block_beginning(const fs::path& input_file) {
+	if(has_anything_been_printed) {
+		fprintf(out, "\n");
+	}
+	
 	fprintf(out, "// File written by stdump");
 	time_t cftime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	tm* t = std::localtime(&cftime);
@@ -26,6 +30,9 @@ void CppPrinter::comment_block_beginning(const fs::path& input_file) {
 	fprintf(out, "\n// \n");
 	fprintf(out, "// Input file:\n");
 	fprintf(out, "//   %s\n", input_file.filename().string().c_str());
+	
+	last_wants_spacing = true;
+	has_anything_been_printed = true;
 }
 
 void CppPrinter::comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table) {
@@ -47,6 +54,9 @@ void CppPrinter::comment_block_compiler_version_info(const mdebug::SymbolTable& 
 	for(const std::string& string : compiler_version_info) {
 		fprintf(out, "//   %s\n", string.c_str());
 	}
+	
+	last_wants_spacing = true;
+	has_anything_been_printed = true;
 }
 
 void CppPrinter::comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes) {
@@ -64,22 +74,71 @@ void CppPrinter::comment_block_builtin_types(const std::vector<std::unique_ptr<a
 			fprintf(out, "//   %-25s%s\n", type.c_str(), builtin_class_to_string(bclass));
 		}
 	}
+	
+	last_wants_spacing = true;
+	has_anything_been_printed = true;
+}
+
+void CppPrinter::comment_block_file(const char* path) {
+	if(has_anything_been_printed) {
+		fprintf(out, "\n");
+	}
+	
+	fprintf(out, "// *****************************************************************************\n");
+	fprintf(out, "// FILE -- %s\n", path);
+	fprintf(out, "// *****************************************************************************\n");
+	
+	last_wants_spacing = true;
+	has_anything_been_printed = true;
+}
+
+
+void CppPrinter::begin_include_guard(const char* macro) {
+	if(has_anything_been_printed) {
+		fprintf(out, "\n");
+	}
+	
+	fprintf(out, "#ifndef %s\n", macro);
+	fprintf(out, "#define %s\n\n", macro);
+	
+	last_wants_spacing = true;
+	has_anything_been_printed = true;
+}
+
+void CppPrinter::end_include_guard(const char* macro) {
+	if(has_anything_been_printed) {
+		fprintf(out, "\n");
+	}
+	
+	fprintf(out, "\n#endif // %s\n", macro);
+	
+	last_wants_spacing = true;
+	has_anything_been_printed = true;
 }
 
 void CppPrinter::include_directive(const char* path) {
+	if(has_anything_been_printed) {
+		fprintf(out, "\n");
+	}
+	
 	fprintf(out, "#include \"%s\"\n", path);
+	
+	last_wants_spacing = true;
+	has_anything_been_printed = true;
 }
 
-bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
+bool CppPrinter::data_type(const ast::Node& node) {
 	if(node.descriptor == ast::BUILTIN) {
 		return false;
 	}
-	bool multiline =
+	
+	bool wants_spacing =
 		node.descriptor == ast::INLINE_ENUM ||
 		node.descriptor == ast::INLINE_STRUCT_OR_UNION;
-	if(!last_type_was_multiline && multiline) {
+	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
+	
 	if(node.conflict) {
 		fprintf(out, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node.files.at(0), node.compare_fail_reason);
 	}
@@ -89,6 +148,7 @@ bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
 	if(verbose && node.symbol != nullptr) {
 		fprintf(out, "// symbol: %s\n", node.symbol->raw->string);
 	}
+	
 	VariableName name;
 	if(node.descriptor == ast::INLINE_STRUCT_OR_UNION && node.size_bits > 0) {
 		digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
@@ -96,12 +156,40 @@ bool CppPrinter::top_level_type(const ast::Node& node, bool is_last) {
 	ast_node(node, name, 0);
 	fprintf(out, ";\n");
 	
-	if(multiline && !is_last) {
-		fprintf(out, "\n");
-	}
-	last_type_was_multiline = multiline;
+	last_wants_spacing = wants_spacing;
+	has_anything_been_printed = true;
 	
 	return true;
+}
+
+void CppPrinter::global_variable(const ast::Variable& node) {
+	bool wants_spacing = print_variable_data
+		&& node.data != nullptr
+		&& node.data->descriptor == ast::INITIALIZER_LIST;
+	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
+		fprintf(out, "\n");
+	}
+	
+	VariableName dummy;
+	ast_node(node, dummy, 0);
+	fprintf(out, ";\n");
+	
+	last_wants_spacing = wants_spacing;
+}
+
+void CppPrinter::function(const ast::FunctionDefinition& node) {
+	bool wants_spacing = print_function_bodies
+		&& (!node.locals.empty() || function_bodies);
+	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
+		fprintf(out, "\n");
+	}
+	
+	VariableName dummy;
+	ast_node(node, dummy, 0);
+	fprintf(out, "\n");
+	
+	last_wants_spacing = wants_spacing ;
+	has_anything_been_printed = true;
 }
 
 bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {

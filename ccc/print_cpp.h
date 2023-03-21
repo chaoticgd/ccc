@@ -25,15 +25,22 @@ struct CppPrinter {
 	s32 digits_for_offset = 3;
 	const std::map<s32, std::span<char>>* function_bodies = nullptr;
 	
-	bool last_type_was_multiline = true;
+	bool last_wants_spacing = false;
+	bool has_anything_been_printed = false;
 	
 	CppPrinter(FILE* o) : out(o) {}
 	
 	void comment_block_beginning(const fs::path& input_file);
 	void comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table);
 	void comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes);
+	void comment_block_file(const char* path);
+	void begin_include_guard(const char* macro);
+	void end_include_guard(const char* macro);
 	void include_directive(const char* path);
-	bool top_level_type(const ast::Node& node, bool is_last);
+	bool data_type(const ast::Node& node);
+	void global_variable(const ast::Variable& node);
+	void function(const ast::FunctionDefinition& node);
+	
 	bool ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
 	void print_variable_storage_comment(const ast::VariableStorage& storage);
 };
