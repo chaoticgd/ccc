@@ -144,41 +144,25 @@ int main(int argc, char** argv) {
 }
 
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
+	CppPrinter printer(out);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "\n");
+		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
-			VariableName dummy{};
-			CppPrinter printer(out);
-			printer.ast_node(*node.get(), dummy, 0);
-			fprintf(out, "\n");
-		}
-		if(!source_file.functions.empty() && i != (s32) symbol_table.files.size()) {
-			fprintf(out, "\n");
+			printer.function(node->as<ast::FunctionDefinition>());
 		}
 	}
 }
 
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
+	CppPrinter printer(out);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "\n");
+		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
-			VariableName dummy{};
-			CppPrinter printer(out);
-			printer.ast_node(*node.get(), dummy, 0);
-			fprintf(out, ";\n");
-		}
-		if(!source_file.globals.empty() && i != (s32) symbol_table.files.size()) {
-			fprintf(out, "\n");
+			printer.global_variable(node->as<ast::Variable>());
 		}
 	}
 }
@@ -191,10 +175,9 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	printer.comment_block_beginning(options.input_file);
 	printer.comment_block_compiler_version_info(symbol_table);
 	printer.comment_block_builtin_types(high.deduplicated_types);
-	fprintf(out, "\n");
 	printer.verbose = options.flags & FLAG_VERBOSE;
-	for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-		printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+	for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+		printer.data_type(*type);
 	}
 }
 
@@ -203,22 +186,16 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 	CppPrinter printer(out);
 	printer.verbose = options.flags & FLAG_VERBOSE;
 	printer.comment_block_beginning(options.input_file);
-	fprintf(out, "\n");
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
 		ast::SourceFile& source_file = *result.source_files.at(0);
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "// FILE -- %s\n", source_file.full_path.c_str());
-		fprintf(out, "// *****************************************************************************\n");
-		fprintf(out, "\n");
+		printer.comment_block_file(source_file.full_path.c_str());
 		printer.comment_block_compiler_version_info(symbol_table);
 		printer.comment_block_builtin_types(source_file.data_types);
-		fprintf(out, "\n");
 		printer.verbose = options.flags & FLAG_VERBOSE;
-		for(size_t i = 0; i < source_file.data_types.size(); i++) {
-			printer.top_level_type(*source_file.data_types[i].get(), i == source_file.data_types.size() - 1);
+		for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
+			printer.data_type(*type);
 		}
-		fprintf(out, "\n");
 	}
 }
 
@@ -318,17 +295,15 @@ static void test(FILE* out, const fs::path& directory) {
 				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
 				ccc::HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES);
 				CppPrinter printer(out);
-				for(size_t i = 0; i < high.deduplicated_types.size(); i++) {
-					printer.top_level_type(*high.deduplicated_types[i].get(), i == high.deduplicated_types.size() - 1);
+				for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+					printer.data_type(*type);
 				}
 				for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
 					for(const std::unique_ptr<ast::Node>& node : file->functions) {
-						VariableName dummy{};
-						printer.ast_node(*node.get(), dummy, 0);
+						printer.function(node->as<ast::FunctionDefinition>());
 					}
 					for(const std::unique_ptr<ast::Node>& node : file->globals) {
-						VariableName dummy{};
-						printer.ast_node(*node.get(), dummy, 0);
+						printer.global_variable(node->as<ast::Variable>());
 					}
 				}
 				print_json(out, high, false);
@@ -351,46 +326,42 @@ static Options parse_args(int argc, char** argv) {
 	}
 	const char* command = argv[1];
 	bool require_input_path = false;
-	if(strcmp(command, "functions") == 0 || strcmp(command, "print_functions") == 0) {
-		options.mode = OutputMode::FUNCTIONS;
-		require_input_path = true;
-	} else if(strcmp(command, "globals") == 0 || strcmp(command, "print_globals") == 0) {
-		options.mode = OutputMode::GLOBALS;
-		require_input_path = true;
-	} else if(strcmp(command, "types") == 0 || strcmp(command, "print_types") == 0) {
-		options.mode = OutputMode::TYPES;
-		require_input_path = true;
-	} else if(strcmp(command, "json") == 0 || strcmp(command, "print_json") == 0) {
-		options.mode = OutputMode::JSON;
-		require_input_path = true;
-	} else if(strcmp(command, "mdebug") == 0 || strcmp(command, "print_mdebug") == 0) {
-		options.mode = OutputMode::MDEBUG;
-		require_input_path = true;
-	} else if(strcmp(command, "symbols") == 0 || strcmp(command, "print_symbols") == 0) {
-		options.mode = OutputMode::SYMBOLS;
-		require_input_path = true;
-	} else if(strcmp(command, "externals") == 0 || strcmp(command, "print_external_symbols") == 0) {
-		options.mode = OutputMode::EXTERNALS;
-		require_input_path = true;
-	} else if(strcmp(command, "files") == 0 || strcmp(command, "list_files") == 0) {
-		options.mode = OutputMode::FILES;
-		require_input_path = true;
-	} else if(strcmp(command, "sections") == 0) {
-		options.mode = OutputMode::SECTIONS;
-		require_input_path = true;
-	} else if(strcmp(command, "type_graph") == 0) {
-		options.mode = OutputMode::TYPE_GRAPH;
-		require_input_path = true;
-	} else if(strcmp(command, "test") == 0) {
-		options.mode = OutputMode::TEST;
-		require_input_path = true;
-	} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
-		options.mode = OutputMode::HELP;
-		require_input_path = false;
-	} else {
-		verify_not_reached("Unknown command '%s'.", command);
-		options.mode = OutputMode::BAD_COMMAND;
-		return options;
+	static struct {
+		OutputMode mode;
+		const char* argument;
+		const char* legacy_argument = nullptr;
+	} commands[] = {
+		{OutputMode::FUNCTIONS, "functions", "print_functions"},
+		{OutputMode::GLOBALS, "globals", "print_globals"},
+		{OutputMode::TYPES, "types", "print_types"},
+		{OutputMode::JSON, "json", "print_json"},
+		{OutputMode::MDEBUG, "mdebug", "print_mdebug"},
+		{OutputMode::SYMBOLS, "symbols", "print_symbols"},
+		{OutputMode::EXTERNALS, "externals", "print_external_symbols"},
+		{OutputMode::FILES, "files", "list_files"},
+		{OutputMode::SECTIONS, "sections"},
+		{OutputMode::TYPE_GRAPH, "type_graph"},
+		{OutputMode::TEST, "test"}
+	};
+	for(auto& cmd : commands) {
+		if(strcmp(command, cmd.argument) == 0 || (cmd.legacy_argument && (strcmp(command, cmd.legacy_argument) == 0))) {
+			options.mode = cmd.mode;
+			require_input_path = true;
+			break;
+		}
+	}
+	if(options.mode == OutputMode::BAD_COMMAND) {
+		if(strcmp(command, "test") == 0) {
+			options.mode = OutputMode::TEST;
+			require_input_path = true;
+		} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
+			options.mode = OutputMode::HELP;
+			require_input_path = false;
+		} else {
+			verify_not_reached("Unknown command '%s'.", command);
+			options.mode = OutputMode::BAD_COMMAND;
+			return options;
+		}
 	}
 	bool input_path_provided = false;
 	for(s32 i = 2; i < argc; i++) {

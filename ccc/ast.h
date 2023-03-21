@@ -66,6 +66,7 @@ struct Node {
 	u8 is_base_class : 1 = false;
 	u8 probably_defined_in_cpp_file : 1 = false; // Only set for deduplicated types.
 	u8 cannot_compute_size : 1 = false;
+	u8 is_member_function_ish : 1 = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	u8 storage_class : 4 = SC_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;

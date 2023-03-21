@@ -84,7 +84,7 @@ Use of a code formatter such as `clang-format` on the output is recommended.
 
 | Format Version | Release | Changes |
 | - | - | - |
-| 7 | v1.1, v1.0 | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
+| 7 | v1.{0,1,2} | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
 | 6 | | Removed order property. |
 | 5 | | Added pointer_to_data_member node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
 | 4 | | Added optional is_const property to all nodes. Added anonymous_reference type names, where the type name is not valid but the type number is. |
