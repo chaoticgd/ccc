@@ -272,7 +272,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	
 	// Configure printing.
 	CppPrinter printer(out);
-	printer.force_extern = true;
+	printer.make_globals_extern = true;
 	printer.skip_statics = true;
 	printer.print_offsets_and_sizes = false;
 	printer.print_function_bodies = false;

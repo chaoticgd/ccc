@@ -196,7 +196,7 @@ void CppPrinter::function(const ast::FunctionDefinition& node) {
 	ast_node(node, dummy, 0);
 	fprintf(out, "\n");
 	
-	last_wants_spacing = wants_spacing ;
+	last_wants_spacing = wants_spacing;
 	has_anything_been_printed = true;
 }
 
@@ -220,7 +220,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 	}
 	
 	ast::StorageClass storage_class = (ast::StorageClass) node.storage_class;
-	if(force_extern && storage_class != ast::SC_STATIC && node.descriptor == ast::VARIABLE) {
+	if(make_globals_extern && node.descriptor == ast::VARIABLE && node.as<ast::Variable>().variable_class == ast::VariableClass::GLOBAL) {
 		storage_class = ast::SC_EXTERN; // For printing out header files.
 	}
 	print_cpp_storage_class(out, storage_class);
