@@ -41,7 +41,7 @@ struct CppPrinter {
 	void global_variable(const ast::Variable& node);
 	void function(const ast::FunctionDefinition& node);
 	
-	bool ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
+	void ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
 	void print_variable_storage_comment(const ast::VariableStorage& storage);
 };
 

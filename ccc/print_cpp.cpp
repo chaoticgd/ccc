@@ -163,6 +163,10 @@ bool CppPrinter::data_type(const ast::Node& node) {
 }
 
 void CppPrinter::global_variable(const ast::Variable& node) {
+	if(skip_statics && node.storage_class == ast::SC_STATIC) {
+		return;
+	}
+	
 	bool wants_spacing = print_variable_data
 		&& node.data != nullptr
 		&& node.data->descriptor == ast::INITIALIZER_LIST;
@@ -178,6 +182,10 @@ void CppPrinter::global_variable(const ast::Variable& node) {
 }
 
 void CppPrinter::function(const ast::FunctionDefinition& node) {
+	if(skip_statics && node.storage_class == ast::SC_STATIC) {
+		return;
+	}
+	
 	bool wants_spacing = print_function_bodies
 		&& (!node.locals.empty() || function_bodies);
 	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
@@ -192,13 +200,9 @@ void CppPrinter::function(const ast::FunctionDefinition& node) {
 	has_anything_been_printed = true;
 }
 
-bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {
+void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
-	
-	if(skip_statics && node.storage_class == ast::SC_STATIC) {
-		return false;
-	}
 	
 	if(node.descriptor == ast::FUNCTION_DEFINITION) {
 		const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
@@ -520,8 +524,6 @@ bool CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			break;
 		}
 	}
-	
-	return true;
 }
 
 static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class) {
