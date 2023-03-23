@@ -184,6 +184,7 @@ void analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicat
 			}
 			case ParsedSymbolType::FUNCTION_END: {
 				analyser.function_end();
+				break;
 			}
 			case ParsedSymbolType::NON_STABS: {
 				if(symbol.raw->storage_class == mdebug::SymbolClass::TEXT) {
