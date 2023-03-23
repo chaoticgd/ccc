@@ -426,20 +426,12 @@ static void create_function(LocalSymbolTableAnalyser& analyser, const char* name
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
-	if(flags & STRIP_ACCESS_SPECIFIERS) {
-		ast_node.access_specifier = ast::AS_PUBLIC;
-	}
-	switch(ast_node.descriptor) {
-		case ast::NodeDescriptor::ARRAY:
-		case ast::NodeDescriptor::BITFIELD:
-		case ast::NodeDescriptor::BUILTIN:
-		case ast::NodeDescriptor::FUNCTION_DEFINITION:
-		case ast::NodeDescriptor::FUNCTION_TYPE:
-		case ast::NodeDescriptor::INLINE_ENUM: {
-			break;
+	for_each_node(ast_node, ast::PREORDER_TRAVERSAL, [&](ast::Node& node) {
+		if(flags & STRIP_ACCESS_SPECIFIERS) {
+			node.access_specifier = ast::AS_PUBLIC;
 		}
-		case ast::NodeDescriptor::INLINE_STRUCT_OR_UNION: {
-			auto& struct_or_union = ast_node.as<ast::InlineStructOrUnion>();
+		if(node.descriptor == ast::INLINE_STRUCT_OR_UNION) {
+			auto& struct_or_union = node.as<ast::InlineStructOrUnion>();
 			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
 				// This allows us to deduplicate types with vtables.
 				if(node->name.starts_with("$vf")) {
@@ -458,7 +450,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 				};
 				
 				std::string name_no_template_args =
-					ast_node.name.substr(0, ast_node.name.find("<"));
+					node.name.substr(0, node.name.find("<"));
 				bool only_special_functions = true;
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
 					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION_TYPE) {
@@ -480,30 +472,9 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 					}
 				}
 			}
-			break;
 		}
-		case ast::NodeDescriptor::POINTER: {
-			filter_ast_by_flags(*ast_node.as<ast::Pointer>().value_type.get(), flags);
-			break;
-		}
-		case ast::NodeDescriptor::POINTER_TO_DATA_MEMBER: {
-			break;
-		}
-		case ast::NodeDescriptor::REFERENCE: {
-			filter_ast_by_flags(*ast_node.as<ast::Reference>().value_type.get(), flags);
-			break;
-		}
-		case ast::NodeDescriptor::SOURCE_FILE: {
-			ast::SourceFile& source_file = ast_node.as<ast::SourceFile>();
-			for(std::unique_ptr<ast::Node>& child : source_file.data_types) {
-				filter_ast_by_flags(*child.get(), flags);
-			}
-		}
-		case ast::NodeDescriptor::TYPE_NAME:
-		case ast::NodeDescriptor::VARIABLE: {
-			break;
-		}
-	}
+		return ast::EXPLORE_CHILDREN;
+	});
 }
 
 void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) {
