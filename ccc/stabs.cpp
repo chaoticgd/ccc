@@ -20,6 +20,15 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 		// Certain compiler versions provide two numbers surrounded in brackets
 		// instead of a single number. This isn't too common, so here we use a
 		// hack to deal with this case.
+		static bool warned_rich_type_numbers = false;
+		if(!warned_rich_type_numbers) {
+			warn(
+				"This file has rich type numbers, which are not handled well by "
+				"ccc currently. If you are getting this message for a file you "
+				"care about, open an issue. The included test file will trigger "
+				"this warning as it was built using the old homebrew toolchain.");
+			warned_rich_type_numbers = true;
+		}
 		input++;
 		s64 file_number = eat_s64_literal(input);
 		expect_char(input, ',', "weird type number");
@@ -112,10 +121,8 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			expect_char(input, ';', "low range value");
 			std::string high = eat_dodgy_stabs_identifier(input);
 			expect_char(input, ';', "high range value");
-			try {
-				range->low_maybe_wrong = std::stoi(low);
-				range->high_maybe_wrong = std::stoi(high);
-			} catch(std::out_of_range&) { /* this case doesn't matter */ }
+			range->low_maybe_wrong = strtoll(low.c_str(), nullptr, 10);
+			range->high_maybe_wrong = strtoll(low.c_str(), nullptr, 10);
 			range->range_class = classify_range(low, high);
 			type = std::move(range);
 			break;
@@ -423,14 +430,13 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 	}
 	
 	// For smaller values we actually parse the bounds as integers.
-	s64 low_value = 0;
-	s64 high_value = 0;
-	try {
-		low_value = std::stoll(low, nullptr, low[0] == '0' ? 8 : 10);
-		high_value = std::stoll(high, nullptr, high[0] == '0' ? 8 : 10);
-	} catch(std::out_of_range&) {
-		return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
-	}
+	char* end = nullptr;
+	const char* low_str = low.c_str();
+	const char* high_str = high.c_str();
+	s64 low_value = strtoll(low_str, &end, low[0] == '0' ? 8 : 10);
+	if(end == low_str) return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
+	s64 high_value = strtoll(high_str, &end, high[0] == '0' ? 8 : 10);
+	if(end == high_str) return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 	
 	static const struct { s64 low; s64 high; BuiltInClass classification; } integers[] = {
 		{0, 255, BuiltInClass::UNSIGNED_8},

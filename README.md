@@ -1,6 +1,6 @@
 # Chaos Compiler Collection [![](https://github.com/chaoticgd/ccc/actions/workflows/cmake.yml/badge.svg?branch=main)](https://github.com/chaoticgd/ccc/actions/workflows/cmake.yml)
 
-A set of tools for reverse engineering PS2 games.
+A set of tools for reverse engineering PS2 games with .mdebug symbols.
 
 ## Tools
 
@@ -37,7 +37,7 @@ Global variable data will be printed in a structured way based on its data type.
 
 Data types will be sorted into their corresponding files. Since this information is not stored in the symbol table, uncc uses heuristics to map types to files. Types will be put in `.c` or `.cpp` files when there is only a single translation unit the type appears in, and `.h` files when there are multiple (and hence when heuristics must be used to determine where to put them).
 
-Use of a code formatter such as `clang-format` on the output is recommended.
+Use of a code formatter such as `clang-format` or `astyle` on the output is recommended.
 
 ## Building
 
@@ -47,7 +47,6 @@ Use of a code formatter such as `clang-format` on the output is recommended.
 ## Project Structure
 
 	demangle.cpp: See above.
-	depgraph.cpp: See above.
 	objdump.cpp: See above.
 	stdump.cpp: See above.
 	uncc.cpp: See above.

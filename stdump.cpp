@@ -261,20 +261,27 @@ static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, co
 			continue;
 		}
 		
-		s32 section_start = (s32) section.virtual_address;
-		s32 section_end = (s32) (section.virtual_address + section.size);
+		u32 section_start = section.virtual_address;
+		u32 section_end = section.virtual_address + section.size;
 		
 		fprintf(out, "%s:\n", section.name.c_str());
 		for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
 			// Find the text address without running the whole analysis process.
-			s32 text_address = -1;
+			u32 text_address = UINT32_MAX;
 			for(const mdebug::Symbol& symbol : fd.symbols) {
-				if(symbol.is_stabs && symbol.code == ccc::mdebug::N_SO) {
+				if(symbol.is_stabs && symbol.code == mdebug::N_SO) {
 					text_address = symbol.value;
 					break;
 				}
 			}
-			if(text_address >= section_start && text_address < section_end) {
+			if(text_address == UINT32_MAX) {
+				for(const mdebug::Symbol& symbol : fd.symbols) {
+					if(symbol.storage_type == mdebug::SymbolType::PROC && symbol.storage_class == mdebug::SymbolClass::TEXT && symbol.value != -1) {
+						text_address = std::min(text_address, (u32) symbol.value);
+					}
+				}
+			}
+			if(text_address != UINT32_MAX && text_address >= section_start && text_address < section_end) {
 				fprintf(out, "\t%s\n", fd.full_path.c_str());
 			}
 		}

@@ -13,6 +13,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context);
 static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
 static const char* generate_format_string(s32 size, bool is_signed);
+static std::string single_precision_float_to_string(float value);
 
 void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
 	// Build a map of where all functions and globals are in memory, so that we
@@ -21,13 +22,13 @@ void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
 		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
 			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
-			if(function.address_range.low > -1) {
+			if(function.address_range.low != -1) {
 				address_to_node[function.address_range.low] = node.get();
 			}
 		}
 		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
 			ast::Variable& variable = node->as<ast::Variable>();
-			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address > -1) {
+			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address != -1) {
 				address_to_node[variable.storage.global_address] = node.get();
 			}
 		}
@@ -55,7 +56,7 @@ void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules
 
 static void refine_variable(ast::Variable& variable, const DataRefinementContext& context) {
 	bool valid_type = variable.storage.type == ast::VariableStorageType::GLOBAL;
-	bool valid_address = variable.storage.global_address > -1;
+	bool valid_address = variable.storage.global_address != -1;
 	bool valid_location = variable.storage.global_location != ast::GlobalVariableLocation::BSS
 		&& variable.storage.global_location != ast::GlobalVariableLocation::SBSS;
 	if(valid_type && valid_address && valid_location) {
@@ -223,14 +224,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			float value = 0.f;
 			static_assert(sizeof(value) == 4);
 			read_virtual((u8*) &value, virtual_address, 4, context.modules);
-			data->string = stringf("%g", value);
-			if(strtof(data->string.c_str(), nullptr) != value) {
-				data->string = stringf("%.9g", value);
-			}
-			if(data->string.find(".") == std::string::npos) {
-				data->string += ".";
-			}
-			data->string += "f";
+			data->string = single_precision_float_to_string(value);
 			break;
 		}
 		case BuiltInClass::FLOAT_64: {
@@ -238,7 +232,10 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			double value = 0.f;
 			static_assert(sizeof(value) == 8);
 			read_virtual((u8*) &value, virtual_address, 8, context.modules);
-			data->string = stringf("%.17g", value);
+			data->string = stringf("%g", value);
+			if(strtof(data->string.c_str(), nullptr) != value) {
+				data->string = stringf("%.17g", value);
+			}
 			break;
 		}
 		case BuiltInClass::UNSIGNED_128:
@@ -248,8 +245,11 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 			data = std::make_unique<ast::Data>();
 			float value[4];
 			read_virtual((u8*) value, virtual_address, 16, context.modules);
-			data->string = stringf("VECTOR(%.9g, %.9g, %.9g, %.9g)",
-				value[0], value[1], value[2], value[3]);
+			data->string = stringf("VECTOR(%s, %s, %s, %s)",
+				single_precision_float_to_string(value[0]).c_str(),
+				single_precision_float_to_string(value[1]).c_str(),
+				single_precision_float_to_string(value[2]).c_str(),
+				single_precision_float_to_string(value[3]).c_str());
 			break;
 		}
 		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: {
@@ -257,6 +257,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		}
 	}
 	
+	verify(data != nullptr, "Failed to refine builtin.");
 	return data;
 }
 
@@ -290,6 +291,18 @@ static const char* generate_format_string(s32 size, bool is_signed) {
 		case 4: return is_signed ? "%d" : "%hu";
 	}
 	return is_signed ? ("%" PRId64) : ("%" PRIu64);
+}
+
+static std::string single_precision_float_to_string(float value) {
+	std::string result = stringf("%g", value);
+	if(strtof(result.c_str(), nullptr) != value) {
+		result = stringf("%.9g", value);
+	}
+	if(result.find(".") == std::string::npos) {
+		result += ".";
+	}
+	result += "f";
+	return result;
 }
 
 }

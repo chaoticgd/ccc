@@ -77,11 +77,14 @@ int main(int argc, char** argv) {
 	
 	// Write out all the source files.
 	for(auto& [relative_path, sources] : path_to_source_file) {
+		fs::path relative_header_path = relative_path;
+		relative_header_path.replace_extension(".h");
+		
 		fs::path path = output_path/fs::path(relative_path);
+		fs::path header_path = output_path/relative_header_path;
+		
 		fs::create_directories(path.parent_path());
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
-			fs::path relative_header_path = relative_path;
-			relative_header_path.replace_extension(".h");
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
 				write_c_cpp_file(path, relative_header_path, high, sources, functions_file);
@@ -89,7 +92,6 @@ int main(int argc, char** argv) {
 				printf(ANSI_COLOUR_GRAY "Skipping " ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
 			// Write .h file.
-			fs::path header_path = path.replace_extension(".h");
 			if(should_overwrite_file(header_path)) {
 				write_h_file(header_path, relative_header_path.string(), high, sources);
 			} else {
