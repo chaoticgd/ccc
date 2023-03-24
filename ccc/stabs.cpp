@@ -112,10 +112,8 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			expect_char(input, ';', "low range value");
 			std::string high = eat_dodgy_stabs_identifier(input);
 			expect_char(input, ';', "high range value");
-			try {
-				range->low_maybe_wrong = std::stoi(low);
-				range->high_maybe_wrong = std::stoi(high);
-			} catch(std::out_of_range&) { /* this case doesn't matter */ }
+			range->low_maybe_wrong = strtoll(low.c_str(), nullptr, 10);
+			range->high_maybe_wrong = strtoll(low.c_str(), nullptr, 10);
 			range->range_class = classify_range(low, high);
 			type = std::move(range);
 			break;
@@ -423,14 +421,13 @@ static BuiltInClass classify_range(const std::string& low, const std::string& hi
 	}
 	
 	// For smaller values we actually parse the bounds as integers.
-	s64 low_value = 0;
-	s64 high_value = 0;
-	try {
-		low_value = std::stoll(low, nullptr, low[0] == '0' ? 8 : 10);
-		high_value = std::stoll(high, nullptr, high[0] == '0' ? 8 : 10);
-	} catch(std::out_of_range&) {
-		return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
-	}
+	char* end = nullptr;
+	const char* low_str = low.c_str();
+	const char* high_str = high.c_str();
+	s64 low_value = strtoll(low_str, &end, low[0] == '0' ? 8 : 10);
+	if(end == low_str) return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
+	s64 high_value = strtoll(high_str, &end, high[0] == '0' ? 8 : 10);
+	if(end == high_str) return BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 	
 	static const struct { s64 low; s64 high; BuiltInClass classification; } integers[] = {
 		{0, 255, BuiltInClass::UNSIGNED_8},
