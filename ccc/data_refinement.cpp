@@ -22,13 +22,13 @@ void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
 		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
 			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
-			if(function.address_range.low > -1) {
+			if(function.address_range.low != -1) {
 				address_to_node[function.address_range.low] = node.get();
 			}
 		}
 		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
 			ast::Variable& variable = node->as<ast::Variable>();
-			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address > -1) {
+			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address != -1) {
 				address_to_node[variable.storage.global_address] = node.get();
 			}
 		}
@@ -56,7 +56,7 @@ void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules
 
 static void refine_variable(ast::Variable& variable, const DataRefinementContext& context) {
 	bool valid_type = variable.storage.type == ast::VariableStorageType::GLOBAL;
-	bool valid_address = variable.storage.global_address > -1;
+	bool valid_address = variable.storage.global_address != -1;
 	bool valid_location = variable.storage.global_location != ast::GlobalVariableLocation::BSS
 		&& variable.storage.global_location != ast::GlobalVariableLocation::SBSS;
 	if(valid_type && valid_address && valid_location) {
@@ -257,6 +257,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		}
 	}
 	
+	verify(data != nullptr, "Failed to refine builtin.");
 	return data;
 }
 
