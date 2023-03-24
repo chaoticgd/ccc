@@ -20,6 +20,15 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 		// Certain compiler versions provide two numbers surrounded in brackets
 		// instead of a single number. This isn't too common, so here we use a
 		// hack to deal with this case.
+		static bool warned_rich_type_numbers = false;
+		if(!warned_rich_type_numbers) {
+			warn(
+				"This file has rich type numbers, which are not handled well by "
+				"ccc currently. If you are getting this message for a file you "
+				"care about, open an issue. The included test file will trigger "
+				"this warning as it was built using the old homebrew toolchain.");
+			warned_rich_type_numbers = true;
+		}
 		input++;
 		s64 file_number = eat_s64_literal(input);
 		expect_char(input, ',', "weird type number");
