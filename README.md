@@ -69,7 +69,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ## Resources
 
-- [Third Eye Software and the MIPS symbol table](http://datahedron.com/mips.html)
+- [Third Eye Software and the MIPS symbol table (Peter Rowell)](http://datahedron.com/mips.html)
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992)
 - [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html)
