@@ -122,7 +122,7 @@ std::unique_ptr<StabsType> parse_stabs_type(const char*& input) {
 			std::string high = eat_dodgy_stabs_identifier(input);
 			expect_char(input, ';', "high range value");
 			range->low_maybe_wrong = strtoll(low.c_str(), nullptr, 10);
-			range->high_maybe_wrong = strtoll(low.c_str(), nullptr, 10);
+			range->high_maybe_wrong = strtoll(high.c_str(), nullptr, 10);
 			range->range_class = classify_range(low, high);
 			type = std::move(range);
 			break;
