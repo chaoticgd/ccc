@@ -323,10 +323,7 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 	
 	// Resolve type references.
 	const StabsType* type = field.type.get();
-	while(!type->has_body
-			|| type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE
-			|| type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER
-			|| type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
+	for(s32 i = 0; i < 50; i++) {
 		if(!type->has_body) {
 			if(type->anonymous) {
 				return false;
@@ -340,8 +337,15 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 			type = type->as<StabsTypeReferenceType>().type.get();
 		} else if(type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
 			type = type->as<StabsConstQualifierType>().type.get();
-		} else {
+		} else if(type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
 			type = type->as<StabsVolatileQualifierType>().type.get();
+		} else {
+			break;
+		}
+		
+		// Prevent an infinite loop if there's a cycle (fatal frame).
+		if(i == 49) {
+			return false;
 		}
 	}
 	
