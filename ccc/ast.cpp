@@ -323,7 +323,10 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 	
 	// Resolve type references.
 	const StabsType* type = field.type.get();
-	while(!type->has_body || type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER || type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
+	while(!type->has_body
+			|| type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE
+			|| type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER
+			|| type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
 		if(!type->has_body) {
 			if(type->anonymous) {
 				return false;
@@ -333,6 +336,8 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 				return false;
 			}
 			type = next_type->second;
+		} else if(type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
+			type = type->as<StabsTypeReferenceType>().type.get();
 		} else if(type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
 			type = type->as<StabsConstQualifierType>().type.get();
 		} else {
@@ -349,7 +354,7 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 		}
 		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {
 			if(type->as<StabsCrossReferenceType>().type == StabsCrossReferenceType::ENUM) {
-				underlying_type_size_bits = 4;
+				underlying_type_size_bits = 32;
 			} else {
 				return false;
 			}
@@ -367,6 +372,7 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 			return false;
 		}
 	}
+	
 	return field.size_bits != underlying_type_size_bits;
 }
 

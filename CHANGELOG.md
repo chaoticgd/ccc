@@ -1,5 +1,10 @@
 # Changelog
 
+# v1.3
+
+- Improve bitfield detection algorithm.
+- Improve how floating point literals are printed for global data.
+
 ## v1.2
 
 - stdump: A type dependency graph can now be generated.
