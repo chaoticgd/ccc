@@ -476,11 +476,7 @@ s64 eat_s64_literal(const char*& input) {
 		number += *input;
 	}
 	verify(number.size() > 0, "Unexpected '%c' (%02hhx).", *input, *input);
-	try {
-		return std::stoll(number);
-	} catch(std::out_of_range&) {
-		return 0;
-	}
+	return strtoll(number.c_str(), nullptr, 10);
 }
 
 std::string eat_stabs_identifier(const char*& input) {
