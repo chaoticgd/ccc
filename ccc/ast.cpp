@@ -354,7 +354,7 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 		}
 		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {
 			if(type->as<StabsCrossReferenceType>().type == StabsCrossReferenceType::ENUM) {
-				underlying_type_size_bits = 4;
+				underlying_type_size_bits = 32;
 			} else {
 				return false;
 			}
@@ -372,6 +372,7 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 			return false;
 		}
 	}
+	
 	return field.size_bits != underlying_type_size_bits;
 }
 
