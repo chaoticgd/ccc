@@ -377,6 +377,10 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 		}
 	}
 	
+	if(underlying_type_size_bits == 0) {
+		return false;
+	}
+	
 	return field.size_bits != underlying_type_size_bits;
 }
 

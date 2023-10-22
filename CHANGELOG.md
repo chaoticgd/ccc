@@ -3,6 +3,7 @@
 ## v1.2.1
 
 - Fixed detection of bitfields where the underlying type is a typedef.
+- Fixed a rare bug where unsigned 32-bit integer types were incorrectly classified as 64-bit types.
 - Improved how floating point literals are printed for global data.
 
 ## v1.2
