@@ -1,9 +1,9 @@
 # Changelog
 
-# v1.3
+## v1.2.1
 
-- Improve bitfield detection algorithm.
-- Improve how floating point literals are printed for global data.
+- Fixed detection of bitfields where the underlying type is a typedef.
+- Improved how floating point literals are printed for global data.
 
 ## v1.2
 
