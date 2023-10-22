@@ -1,0 +1,129 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Third Eye Software and the MIPS symbol table</title>
+<link rel="stylesheet" type="text/css" href="Third%20Eye%20Software%20and%20the%20MIPS%20symbol%20table_files/dh.css" media="">
+<style>
+a:hover {
+    text-decoration: underline;
+}
+</style>
+</head>
+<body>
+<table align="center" width="600px" style="margin: auto"><tbody><tr><td>
+<h1>Third Eye Software and<br>the MIPS symbol table</h1>
+<h2>A Cautionary Tale of Good Code Led Astray</h2>
+I am writing this as an act of self defense.  Every so often I am
+contacted by someone who has found a Third Eye Software copyright
+buried in the MIPS symbol table code.  After they have done battle
+with it for days (or months), they finally decide to Hunt Me Down.
+<p>
+I would like to start by saying, "It wasn't my fault!"
+</p><p>
+Let me tell you a story...
+</p><p>
+</p><p>
+Starting in 1983, Third Eye Software (not third-eye) developed and
+marketed a source level debugger named CDB.  It was quite popular
+in certain circles and I was porting it to anything that had a
+*NIX in its name.  One of the major difficulties in porting the
+debugger to different *NIX platforms was that <i>everyone</i>
+seemed to have their own idea of what a symbol table should
+look like.  Although many of them started out with the same
+symbol table (think: System 3), they then turned around and
+broke/mangled/hacked it into "something different".  Others took the
+bold step of creating something totally new, wonderful, and broken.  Blech!
+Personally, I think that you should be required to have a government license,
+or something, before you are allowed to design a symbol table!
+</p><p>
+After having been ported to some 40+ systems (<i>all</i> different),
+CDB's source code was a swamp of <code>#ifdefs</code> — some dealing with
+architecture issues, but many, many, many of them dealing with
+symbol table issues.  During the major rewrite for version 4.0,
+I decided that the debugger itself would deal with only one
+symbol table: its own. I could then write translators from all
+other symbol tables to the Third Eye symbol table.  In general,
+this worked out quite well and it helped isolate all manner of
+severe symbol table problems. (I think that <a href="http://en.wikipedia.org/wiki/Elxsi" target="_blank">ELXSI</a> won the prize
+for the most screwed up format, but there were a <i>lot</i> of
+Honorable Mentions out there.) It also allowed me to reorganize
+information that was all over the place into sections that were
+designed from the ground up to support the debugger as it was
+walking around the process stack, printing out structured dumps
+of complex data types, and other sundry things.  All in all,
+I was quite happy with the results.  I.e. it did exactly what it
+needed to do for the task it was designed for.
+</p><p>
+A contractor, Mark Himelstein, who had done some work for Third
+Eye, went to work for MIPS.  He was in their compiler group, if
+I recall correctly.  Since he was very familiar with my symbol
+table, he thought it would be neat to use it for MIPS' own format.
+MIPS asked if they could use it and I said, "Sure!  Just leave the
+copyright in there." (God! I wish I hadn't said that!)  Of course,
+they needed to add stuff for relocation (which I had never dealt
+with since I was always dealing with a fully linked executable),
+AND they had all sorts of weird optimization notations, AND
+etc. etc.  Needless to say, by the time they were done with it,
+it bore very little resemblance to what I had originally created.
+Somewhat like starting with a perfectly good hammer and twisting
+it into some kind of weird chainsaw.  HOWEVER, the include file
+still had that Third Eye copyright message in it....
+</p><p>
+As the GNU people started working with MIPS stuff, first with
+gcc and later with gdb, they encountered the MIPS/"Third Eye"
+symbol table.  Many people were less than impressed with its
+technical quality.  As gcc/gdb became more widely distributed,
+more and more people were "exposed" (and I use the term advisedly)
+to the "Third Eye" symbol table.  In addition to being twisted
+in the extreme, it was also largely undocumented.  People would
+get little or no help from MIPS (or, as various companies bought and 
+sold other companies, DEC, or SGI, or Compaq, or HP) and then become
+desperate to find <i>someone</i> who understood the damn thing.
+</p><p>
+The most persistent found their way to me.  Unfortunately, the
+portions of the symbol table that are always (yes, always) giving
+them the most difficulty are the MIPS extensions, of which I have
+no knowledge at all.  Once, while trying to help some poor soul,
+I looked at the docs (such as they were/are) and my reaction was
+"WTF?" — pretty much like everyone else's reaction.
+</p><p>
+So there are some number of people in the world who have hacked
+either gcc or gdb or some MIPS/DEC/SGI/Compaq/HP artifact and have gained a
+very low opinion of Third Eye's (read: "my") technical abilities.
+I would dearly love to have Third Eye's name
+removed from any and all programs having anything to do with the
+MIPS abomination, but it's probably waaay too late to do that.
+</p><p>
+</p><p>
+So there you have it.  Did I invent the symbol table format?
+I guess I did; at least the original one.  Did it do what it
+was <i>intended</i> to do?  Absolutely!  Was it ever intended to do
+anything remotely like what MIPS did with it?  No way, no how!
+</p><p>
+Should you have been thinking Bad Thoughts about the technical
+ignoramus who begat that foul smelling pit of twisted code and
+evil data structures, please think about someone other than myself.
+Should you know anyone else harboring similar ill feelings,
+please point them to this page so that they might reorient their
+voodoo doll towards someone else!  I might recommend either Mark
+Himelstein or his boss, Larry Weber.  I don't know that they were
+actually responsible, but they were definitely in the building
+when the crimes were committed!
+</p><p>
+    Peter Rowell<br>
+    Datahedron Software<br>
+    www.datahedron.com
+</p></td></tr>
+<tr><td>
+<br>
+Ps. <a href="http://h30097.www3.hp.com/docs/base_doc/DOCUMENTATION/HTML/AA-PS31D-TET1_html/asm9.html"><font color="red" style="--darkreader-inline-color: #ff1a1a;" data-darkreader-inline-color="">Here is a (now broken) link</font></a>
+ to some documentation that lives
+at HP (who bought Compaq, who bought DEC, who did various things with 
+Mips, which was acquired by SGI, who then spun-off MIPS, who .... ah, 
+the hell with it).
+If you want to know whether it is correct and/or complete,
+then you obviously have not been paying attention. I don't know because
+I didn't create the thing being described there, only it's grandfather.
+</td></tr></tbody></table>
+
+
+</body></html>
