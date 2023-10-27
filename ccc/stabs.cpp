@@ -654,7 +654,7 @@ std::optional<char> eat_char(const char*& input) {
 std::optional<s32> eat_s32_literal(const char*& input) {
 	char* end;
 	s64 value = strtoll(input, &end, 10);
-	if(input == end) {
+	if(end == input) {
 		return std::nullopt;
 	}
 	input = end;
@@ -664,7 +664,7 @@ std::optional<s32> eat_s32_literal(const char*& input) {
 std::optional<s64> eat_s64_literal(const char*& input) {
 	char* end;
 	s64 value = strtoll(input, &end, 10);
-	if(input == end) {
+	if(end == input) {
 		return std::nullopt;
 	}
 	input = end;
