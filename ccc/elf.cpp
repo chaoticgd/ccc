@@ -1,15 +1,6 @@
 #include "elf.h"
 
-namespace ccc::loaders {
-
-static void parse_elf_file(Module& mod);
-
-Module read_elf_file(fs::path path) {
-	Module mod;
-	mod.image = read_binary_file(path);
-	parse_elf_file(mod);
-	return mod;
-}
+namespace ccc {
 
 enum class ElfIdentClass : u8 {
 	B32 = 0x1,
@@ -82,20 +73,21 @@ packed_struct(ElfSectionHeader32,
 	/* 0x24 */ u32 entsize;
 )
 
-void parse_elf_file(Module& mod) {
+Result<void> parse_elf_file(Module& mod) {
 	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(mod.image, 0);
-	CCC_CHECK_FATAL(ident, "ELF ident out of range.");
-	CCC_CHECK_FATAL(memcmp(ident->magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
-	CCC_CHECK_FATAL(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
+	CCC_CHECK(ident, "ELF ident out of range.");
+	CCC_CHECK(memcmp(ident->magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
+	CCC_CHECK(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
 	const ElfFileHeader32* header = get_packed<ElfFileHeader32>(mod.image, sizeof(ElfIdentHeader));
-	CCC_CHECK_FATAL(ident, "ELF file header out of range.");
-	CCC_CHECK_FATAL(header->machine == ElfMachine::MIPS, "Wrong architecture.");
+	CCC_CHECK(ident, "ELF file header out of range.");
+	CCC_CHECK(header->machine == ElfMachine::MIPS, "Wrong architecture.");
 	
 	for(u32 i = 0; i < header->phnum; i++) {
 		u64 header_offset = header->phoff + i * sizeof(ElfProgramHeader32);
 		const ElfProgramHeader32* program_header = get_packed<ElfProgramHeader32>(mod.image, header_offset);
-		CCC_CHECK_FATAL(program_header, "ELF program header out of range.");
+		CCC_CHECK(program_header, "ELF program header out of range.");
+		
 		ModuleSegment& segment = mod.segments.emplace_back();
 		segment.file_offset = program_header->offset;
 		segment.size = program_header->filesz;
@@ -105,7 +97,8 @@ void parse_elf_file(Module& mod) {
 	for(u32 i = 0; i < header->shnum; i++) {
 		u64 header_offset = header->shoff + i * sizeof(ElfSectionHeader32);
 		const auto& section_header = get_packed<ElfSectionHeader32>(mod.image, header_offset);
-		CCC_CHECK_FATAL(section_header, "ELF section header out of range.");
+		CCC_CHECK(section_header, "ELF section header out of range.");
+		
 		ModuleSection& section = mod.sections.emplace_back();
 		section.file_offset = section_header->offset;
 		section.size = section_header->size;
@@ -117,10 +110,12 @@ void parse_elf_file(Module& mod) {
 	if(header->shstrndx < mod.sections.size()) {
 		for(ModuleSection& section : mod.sections) {
 			Result<const char*> name = get_string(mod.image, mod.sections[header->shstrndx].file_offset + section.name_offset);
-			CCC_CHECK_FATAL(name.success(), "Section name out of bounds.");
+			CCC_CHECK(name.success(), "Section name out of bounds.");
 			section.name = *name;
 		}
 	}
+	
+	return Result<void>();
 }
 
 }

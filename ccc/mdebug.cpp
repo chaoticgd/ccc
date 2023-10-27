@@ -134,7 +134,7 @@ Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_o
 		for(s64 j = 0; j < fd_header->symbol_count; j++) {
 			u64 sym_offset = hdrr->local_symbols_offset + (fd_header->isym_base + j) * sizeof(SymbolHeader);
 			const SymbolHeader* symbol_header = get_packed<SymbolHeader>(elf, sym_offset + fudge_offset);
-			CCC_CHECK(symbol_header != nullptr, "symbol header out of bounds");
+			CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
 			
 			s32 strings_offset = hdrr->local_strings_offset + fd_header->strings_offset + fudge_offset;
 			Result<Symbol> sym = parse_symbol(*symbol_header, elf, strings_offset);
@@ -157,7 +157,7 @@ Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_o
 	for(s64 i = 0; i < hdrr->external_symbols_count; i++) {
 		u64 sym_offset = hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
 		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(elf, sym_offset + fudge_offset);
-		CCC_CHECK(external_header != nullptr, "external header out of bounds");
+		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
 		Result<Symbol> sym = parse_symbol(external_header->symbol, elf, hdrr->external_strings_offset + fudge_offset);
 		CCC_RETURN_IF_ERROR(sym);
 		symbol_table.externals.emplace_back(std::move(*sym));
@@ -215,7 +215,7 @@ static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector
 	if((symbol.index & 0xfff00) == 0x8f300) {
 		symbol.is_stabs = true;
 		symbol.code = (StabsCode) (symbol.index - 0x8f300);
-		CCC_CHECK(stabs_code(symbol.code) != nullptr, "bad stabs symbol code '%x'", symbol.code);
+		CCC_CHECK(stabs_code(symbol.code) != nullptr, "Bad stabs symbol code '%x'.", symbol.code);
 	} else {
 		symbol.is_stabs = false;
 	}

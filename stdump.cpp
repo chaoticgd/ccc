@@ -325,7 +325,12 @@ static void test(FILE* out, const fs::path& directory) {
 		fs::path filename = entry.path().filename();
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
 			printf("%s ", entry.path().filename().string().c_str());
-			Module mod = loaders::read_elf_file(entry.path());
+			
+			Module mod;
+			mod.image = read_binary_file(entry.path());
+			Result<void> result = parse_elf_file(mod);
+			CCC_EXIT_IF_ERROR(result);
+			
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 			if(mdebug_section) {
 				Result<mdebug::SymbolTable> symbol_table = mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);

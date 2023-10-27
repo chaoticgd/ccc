@@ -5,7 +5,10 @@ using namespace ccc;
 int main(int argc, char** argv) {
 	CCC_CHECK_FATAL(argc == 2, "Incorrect number of arguments.");
 	
-	Module mod = loaders::read_elf_file(fs::path(argv[1]));
+	Module mod;
+	mod.image = read_binary_file(fs::path(argv[1]));
+	Result<void> result = parse_elf_file(mod);
+	CCC_EXIT_IF_ERROR(result);
 	std::vector<Module*> modules{&mod};
 	
 	ModuleSection* text = mod.lookup_section(".text");
