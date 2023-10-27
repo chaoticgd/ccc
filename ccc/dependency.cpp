@@ -101,6 +101,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 						}
 						break;
 					}
+					default: {}
 				}
 				return ast::EXPLORE_CHILDREN;
 			};

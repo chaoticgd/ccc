@@ -1,6 +1,7 @@
 #include "file.h"
 
 #include <fstream>
+#include <sstream>
 
 namespace platform {
 
