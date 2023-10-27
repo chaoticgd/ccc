@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
 	FILE* out = stdout;
 	if(!options.output_file.empty()) {
-		out = fopen(options.output_file.c_str(), "w");
+		out = fopen(options.output_file.string().c_str(), "w");
 		CCC_CHECK_FATAL(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
 	}
 	switch(options.mode) {

@@ -236,7 +236,7 @@ static void demangle_all(HighSymbolTable& high) {
 
 static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = fopen(path.c_str(), "w");
+	FILE* out = fopen(path.string().c_str(), "w");
 	CCC_CHECK_FATAL(out, "Failed to open '%s' for writing.", path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
@@ -283,7 +283,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 
 static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = fopen(path.c_str(), "w");
+	FILE* out = fopen(path.string().c_str(), "w");
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
 	// Configure printing.
@@ -352,7 +352,7 @@ static bool needs_lost_and_found_file(const HighSymbolTable& high) {
 
 static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = fopen(path.c_str(), "w");
+	FILE* out = fopen(path.string().c_str(), "w");
 	CppPrinter printer(out);
 	printer.print_offsets_and_sizes = false;
 	printer.omit_this_parameter = true;
