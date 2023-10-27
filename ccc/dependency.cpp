@@ -40,7 +40,7 @@ void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
 					ast::Node& class_node = *parameter_type.as<ast::Pointer>().value_type.get();
 					if(class_node.descriptor == ast::TYPE_NAME) {
 						ast::TypeName& class_type = class_node.as<ast::TypeName>();
-						if(class_type.referenced_stabs_type_number > -1) {
+						if(class_type.referenced_stabs_type_number.type > -1) {
 							const ast::SourceFile& foreign_file = *high.source_files.at(class_type.referenced_file_index).get();
 							// Lookup the type pointed to by the this pointer.
 							auto type_index = foreign_file.stabs_type_number_to_deduplicated_type_index.find(class_type.referenced_stabs_type_number);
@@ -91,7 +91,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 					}
 					case ast::TYPE_NAME: {
 						const ast::TypeName& type_name = node.as<ast::TypeName>();
-						if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
+						if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
 							const std::unique_ptr<ast::SourceFile>& source_file = high.source_files.at(type_name.referenced_file_index);
 							auto type_index = source_file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
 							if(type_index != source_file->stabs_type_number_to_deduplicated_type_index.end()
@@ -144,7 +144,7 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& h
 				// Filter out forward declarations.
 				if(type_name.source == ast::TypeNameSource::REFERENCE
 						&& type_name.referenced_file_index > -1
-						&& type_name.referenced_stabs_type_number > -1) {
+						&& type_name.referenced_stabs_type_number.type > -1) {
 					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
 					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
 					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end() && type_index->second != i) {

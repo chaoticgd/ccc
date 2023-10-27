@@ -133,7 +133,7 @@ Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& de
 	
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
-	std::map<s64, const StabsType*> stabs_types;
+	std::map<StabsTypeNumber, const StabsType*> stabs_types;
 	for(const ParsedSymbol& symbol : file->symbols) {
 		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);
@@ -644,7 +644,7 @@ void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) 
 			}
 			case ast::TYPE_NAME: {
 				ast::TypeName& type_name = node.as<ast::TypeName>();
-				if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
+				if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
 					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
 					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
 					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {

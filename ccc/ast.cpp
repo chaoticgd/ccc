@@ -61,7 +61,7 @@ void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, cons
 			node->files = {file_index};
 			name_to_deduplicated_index[node->name] = deduplicated_nodes_grouped_by_name.size();
 			deduplicated_nodes_grouped_by_name.emplace_back().emplace_back((s32) flat_nodes.size());
-			if(node->stabs_type_number > -1) {
+			if(node->stabs_type_number.type > -1) {
 				file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
 			}
 			flat_nodes.emplace_back(std::move(node));
@@ -89,7 +89,7 @@ void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, cons
 				} else {
 					// The new node matches this existing node.
 					existing_node->files.emplace_back(file_index);
-					if(node->stabs_type_number > -1) {
+					if(node->stabs_type_number.type > -1) {
 						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
 					}
 					if(compare_result.type == CompareResultType::MATCHES_FAVOUR_RHS) {
@@ -108,7 +108,7 @@ void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, cons
 				// that have already been processed.
 				node->files = {file_index};
 				nodes_with_the_same_name.emplace_back((s32) flat_nodes.size());
-				if(node->stabs_type_number > -1) {
+				if(node->stabs_type_number.type > -1) {
 					file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
 				}
 				flat_nodes.emplace_back(std::move(node));
@@ -296,7 +296,7 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 	for(s32 i = 0; result.type == CompareResultType::DIFFERS && i < 2; i++) {
 		if(type_name_node->descriptor == TYPE_NAME) {
 			const TypeName& type_name = type_name_node->as<TypeName>();
-			if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number > -1) {
+			if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
 				const std::unique_ptr<SourceFile>& file = lookup.files->at(type_name.referenced_file_index);
 				auto index = file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
 				if(index != file->stabs_type_number_to_deduplicated_type_index.end()) {

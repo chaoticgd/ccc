@@ -81,7 +81,7 @@ struct Node {
 	std::vector<s32> files; // List of files for which a given top-level type is present.
 	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = "";
-	s64 stabs_type_number = -1;
+	StabsTypeNumber stabs_type_number;
 	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
@@ -237,7 +237,7 @@ struct SourceFile : Node {
 	std::vector<std::unique_ptr<Node>> functions;
 	std::vector<std::unique_ptr<Node>> globals;
 	std::vector<ParsedSymbol> symbols;
-	std::map<s64, s32> stabs_type_number_to_deduplicated_type_index;
+	std::map<StabsTypeNumber, s32> stabs_type_number_to_deduplicated_type_index;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
@@ -254,7 +254,7 @@ struct TypeName : Node {
 	TypeNameSource source = TypeNameSource::ERROR;
 	std::string type_name;
 	s32 referenced_file_index = -1;
-	s64 referenced_stabs_type_number = -1;
+	StabsTypeNumber referenced_stabs_type_number;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;

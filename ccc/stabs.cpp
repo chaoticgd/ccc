@@ -17,18 +17,9 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 	StabsTypeInfo info;
 	CCC_CHECK(*input != '\0', "Unexpected end of input.");
 	if(*input == '(') {
-		// Certain compiler versions provide two numbers surrounded in brackets
-		// instead of a single number. This isn't too common, so here we use a
-		// hack to deal with this case.
-		static bool warned_rich_type_numbers = false;
-		if(!warned_rich_type_numbers) {
-			CCC_WARN(
-				"This file has rich type numbers, which are not handled well by "
-				"ccc currently. If you are getting this message for a file you "
-				"care about, open an issue. The included test file will trigger "
-				"this warning as it was built using the old homebrew toolchain.");
-			warned_rich_type_numbers = true;
-		}
+		// This file has type numbers made up of two pieces: an include file
+		// index and a type number.
+		
 		input++;
 		
 		std::optional<s64> file_number = eat_s64_literal(input);
@@ -42,18 +33,22 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		CCC_EXPECT_CHAR(input, ')', "Weird type number.");
 		
 		info.anonymous = false;
-		info.type_number = *type_number | (*file_number << 32);
+		info.type_number.file = *file_number;
+		info.type_number.type = *type_number;
 		if(*input != '=') {
 			info.has_body = false;
 			return std::make_unique<StabsType>(info);
 		}
 		input++;
 	} else if(*input >= '0' && *input <= '9') {
+		// This file has type numbers which are just a single number. This is
+		// the more common case for games.
+		
 		info.anonymous = false;
 		
 		std::optional<s64> type_number = eat_s64_literal(input);
 		CCC_CHECK(type_number.has_value(), "Cannot parse type number.");
-		info.type_number = *type_number;
+		info.type_number.type = *type_number;
 		
 		if(*input != '=') {
 			info.has_body = false;

@@ -8,7 +8,7 @@ namespace ccc {
 	
 struct StabsToAstState {
 	s32 file_index;
-	std::map<s64, const StabsType*>* stabs_types;
+	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
 };
 std::unique_ptr<ast::Node> stabs_type_to_ast_and_handle_errors(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
 Result<std::unique_ptr<ast::Node>> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state);
