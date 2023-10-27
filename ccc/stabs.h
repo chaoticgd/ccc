@@ -358,6 +358,7 @@ struct StabsBuiltInType : StabsType {
 
 Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
 std::optional<char> eat_char(const char*& input);
+std::optional<s32> eat_s32_literal(const char*& input);
 std::optional<s64> eat_s64_literal(const char*& input);
 std::optional<std::string> eat_stabs_identifier(const char*& input);
 std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input);

@@ -6,7 +6,7 @@
 namespace platform {
 
 std::optional<std::vector<unsigned char>> read_binary_file(const fs::path& path) {
-	FILE* file = fopen(path.c_str(), "rb");
+	FILE* file = fopen(path.string().c_str(), "rb");
 	if(file == nullptr) {
 		return std::nullopt;
 	}

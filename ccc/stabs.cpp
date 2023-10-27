@@ -19,12 +19,12 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		
 		input++;
 		
-		std::optional<s64> file_number = eat_s64_literal(input);
+		std::optional<s32> file_number = eat_s32_literal(input);
 		CCC_CHECK(file_number.has_value(), "Cannot parse file number.");
 		
 		CCC_EXPECT_CHAR(input, ',', "Weird type number.");
 		
-		std::optional<s64> type_number = eat_s64_literal(input);
+		std::optional<s32> type_number = eat_s32_literal(input);
 		CCC_CHECK(type_number.has_value(), "Cannot parse type number.");
 		
 		CCC_EXPECT_CHAR(input, ')', "Weird type number.");
@@ -43,7 +43,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		
 		info.anonymous = false;
 		
-		std::optional<s64> type_number = eat_s64_literal(input);
+		std::optional<s32> type_number = eat_s32_literal(input);
 		CCC_CHECK(type_number.has_value(), "Cannot parse type number.");
 		info.type_number.type = *type_number;
 		
@@ -104,7 +104,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 				
 				CCC_EXPECT_CHAR(input, ':', "enum");
 				
-				std::optional<s64> value = eat_s64_literal(input);
+				std::optional<s32> value = eat_s32_literal(input);
 				CCC_CHECK(value.has_value(), "Cannot parse enum value.");
 				
 				enum_type->fields.emplace_back(*value, std::move(*name));
@@ -179,7 +179,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			
 			if(*input == '!') {
 				input++;
-				std::optional<s64> base_class_count = eat_s64_literal(input);
+				std::optional<s32> base_class_count = eat_s32_literal(input);
 				CCC_CHECK(base_class_count.has_value(), "Cannot parse base class count.");
 				CCC_EXPECT_CHAR(input, ',', "base class section");
 				for(s64 i = 0; i < *base_class_count; i++) {
@@ -190,9 +190,9 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 					CCC_CHECK(visibility.has_value(), "Cannot parse base class visibility.");
 					base_class.visibility = (StabsFieldVisibility) *visibility;
 					
-					std::optional<s64> offset = eat_s64_literal(input);
+					std::optional<s32> offset = eat_s32_literal(input);
 					CCC_CHECK(offset.has_value(), "Cannot parse base class offset.");
-					base_class.offset = *offset;
+					base_class.offset = (s32) *offset;
 					
 					CCC_EXPECT_CHAR(input, ',', "base class section");
 					
@@ -264,15 +264,15 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		case StabsTypeDescriptor::FLOATING_POINT_BUILTIN: {
 			auto fp_builtin = std::make_unique<StabsFloatingPointBuiltInType>(info);
 			
-			std::optional<s64> fpclass = eat_s64_literal(input);
+			std::optional<s32> fpclass = eat_s32_literal(input);
 			CCC_CHECK(fpclass.has_value(), "Cannot parse floating point built-in class.");
 			fp_builtin->fpclass = *fpclass;
 			
 			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
 			
-			std::optional<s64> bytes = eat_s64_literal(input);
+			std::optional<s32> bytes = eat_s32_literal(input);
 			CCC_CHECK(bytes.has_value(), "Cannot parse floating point built-in.");
-			fp_builtin->bytes = (s32) *bytes;
+			fp_builtin->bytes = *bytes;
 			
 			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
 			out_type = std::move(fp_builtin);
@@ -434,7 +434,7 @@ static Result<std::vector<StabsField>> parse_field_list(const char*& input) {
 			// Virtual table pointers.
 			CCC_EXPECT_CHAR(input, ',', "field type");
 			
-			std::optional<s64> offset_bits = eat_s64_literal(input);
+			std::optional<s32> offset_bits = eat_s32_literal(input);
 			CCC_CHECK(offset_bits.has_value(), "Cannot parse field offset.");
 			field.offset_bits = *offset_bits;
 			
@@ -451,13 +451,13 @@ static Result<std::vector<StabsField>> parse_field_list(const char*& input) {
 		} else if(*input == ',') {
 			input++;
 			
-			std::optional<s64> offset_bits = eat_s64_literal(input);
+			std::optional<s32> offset_bits = eat_s32_literal(input);
 			CCC_CHECK(offset_bits.has_value(), "Cannot parse field offset.");
 			field.offset_bits = *offset_bits;
 			
 			CCC_EXPECT_CHAR(input, ',', "field offset");
 			
-			std::optional<s64> size_bits = eat_s64_literal(input);
+			std::optional<s32> size_bits = eat_s32_literal(input);
 			CCC_CHECK(size_bits.has_value(), "Cannot parse field size.");
 			field.size_bits = *size_bits;
 			
@@ -565,7 +565,7 @@ static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const 
 					break;
 				}
 				case '*': { // virtual member function
-					std::optional<s64> vtable_index = eat_s64_literal(input);
+					std::optional<s32> vtable_index = eat_s32_literal(input);
 					CCC_CHECK(vtable_index.has_value(), "Cannot parse vtable index.");
 					function.vtable_index = *vtable_index;
 					
@@ -651,22 +651,24 @@ std::optional<char> eat_char(const char*& input) {
 	return *(input++);
 }
 
-std::optional<s64> eat_s64_literal(const char*& input) {
-	std::string number;
-	if(*input == '-') {
-		number = "-";
-		input++;
-	}
-	for(; *input != '\0'; input++) {
-		if(*input < '0' || *input > '9') {
-			break;
-		}
-		number += *input;
-	}
-	if(number.size() == 0) {
+std::optional<s32> eat_s32_literal(const char*& input) {
+	char* end;
+	s64 value = strtoll(input, &end, 10);
+	if(input == end) {
 		return std::nullopt;
 	}
-	return strtoll(number.c_str(), nullptr, 10);
+	input = end;
+	return (s32) value;
+}
+
+std::optional<s64> eat_s64_literal(const char*& input) {
+	char* end;
+	s64 value = strtoll(input, &end, 10);
+	if(input == end) {
+		return std::nullopt;
+	}
+	input = end;
+	return value;
 }
 
 std::optional<std::string> eat_stabs_identifier(const char*& input) {
