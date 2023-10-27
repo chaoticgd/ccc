@@ -48,8 +48,8 @@ struct ParsedSymbol {
 	} lrbrac;
 };
 
-std::vector<ParsedSymbol> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);
-ParsedSymbol parse_stabs_type_symbol(const char* input);
+Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);
+Result<ParsedSymbol> parse_stabs_type_symbol(const char* input);
 
 }
 

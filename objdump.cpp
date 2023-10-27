@@ -1,23 +1,35 @@
 #include "ccc/ccc.h"
+#include "platform/file.h"
 
 using namespace ccc;
 
 int main(int argc, char** argv) {
-	verify(argc == 2, "Incorrect number of arguments.");
+	CCC_CHECK_FATAL(argc == 2, "Incorrect number of arguments.");
 	
-	Module mod = loaders::read_elf_file(fs::path(argv[1]));
+	Module mod;
+	
+	fs::path input_path(argv[1]);
+	std::optional<std::vector<u8>> binary = platform::read_binary_file(input_path);
+	CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", input_path.string().c_str());
+	mod.image = std::move(*binary);
+	
+	Result<void> result = parse_elf_file(mod);
+	CCC_EXIT_IF_ERROR(result);
+	
 	std::vector<Module*> modules{&mod};
 	
 	ModuleSection* text = mod.lookup_section(".text");
-	verify(text, "ELF contains no .text section!");
+	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
 	
-	u32 text_address = mod.file_offset_to_virtual_address(text->file_offset);
-	std::vector<mips::Insn> insns = read_virtual_vector<mips::Insn>(text_address, text->size / 4, modules);
+	std::optional<u32> text_address = mod.file_offset_to_virtual_address(text->file_offset);
+	CCC_CHECK_FATAL(text_address.has_value(), "Failed to translate file offset to virtual address.");
+	
+	std::vector<mips::Insn> insns = read_virtual_vector<mips::Insn>(*text_address, text->size / 4, modules);
 	
 	for(u64 i = 0; i < text->size / 4; i++) {
 		mips::Insn insn = insns[i];
 		const mips::InsnInfo& info = insn.info();
-		u32 insn_address = text_address + i;
+		u32 insn_address = *text_address + i;
 		
 		printf("%08x:\t\t%08x %s ", insn_address, insn.value, info.mnemonic);
 		for(s32 i = 0; i < 16 - strlen(info.mnemonic); i++) {
@@ -58,7 +70,7 @@ int main(int argc, char** argv) {
 						break;
 					}
 					case mips::FlowType::FIXED_REG: {
-						assert(0);
+						CCC_ASSERT(0);
 					}
 				}
 				if(!first_operand && is_mem_access) {

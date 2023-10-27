@@ -2,7 +2,7 @@
 
 namespace ccc::mdebug {
 
-packed_struct(SymbolicHeader,
+CCC_PACKED_STRUCT(SymbolicHeader,
 	/* 0x00 */ s16 magic;
 	/* 0x02 */ s16 version_stamp;
 	/* 0x04 */ s32 line_number_count;
@@ -30,7 +30,7 @@ packed_struct(SymbolicHeader,
 	/* 0x5c */ s32 external_symbols_offset;
 )
 
-packed_struct(FileDescriptor,
+CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x00 */ u32 address;
 	/* 0x04 */ s32 file_path_string_offset;
 	/* 0x08 */ s32 strings_offset;
@@ -57,7 +57,7 @@ packed_struct(FileDescriptor,
 )
 static_assert(sizeof(FileDescriptor) == 0x48);
 
-packed_struct(ProcedureDescriptor,
+CCC_PACKED_STRUCT(ProcedureDescriptor,
 	/* 0x00 */ u32 address;
 	/* 0x04 */ s32 isym;
 	/* 0x08 */ s32 iline;
@@ -74,7 +74,7 @@ packed_struct(ProcedureDescriptor,
 	/* 0x30 */ s32 cb_line_offset;
 )
 
-packed_struct(SymbolHeader,
+CCC_PACKED_STRUCT(SymbolHeader,
 	/* 0x0 */ u32 iss;
 	/* 0x4 */ s32 value;
 	/* 0x8:00 */ u32 st : 6;
@@ -84,33 +84,40 @@ packed_struct(SymbolHeader,
 )
 static_assert(sizeof(SymbolHeader) == 0xc);
 
-packed_struct(ExternalSymbolHeader,
+CCC_PACKED_STRUCT(ExternalSymbolHeader,
 	/* 0x0 */ u16 flags;
 	/* 0x2 */ s16 ifd;
 	/* 0x4 */ SymbolHeader symbol;
 )
 
-static s32 get_corruption_fixing_fudge_offset(const Module& mod, const ModuleSection& section, const SymbolicHeader& hdrr);
-static Symbol parse_symbol(const SymbolHeader& header, const std::vector<u8>& image, s32 strings_offset);
+static s32 get_corruption_fixing_fudge_offset(u32 section_offset, const SymbolicHeader& hdrr);
+static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector<u8>& elf, s32 strings_offset);
 
-SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) {
+Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_offset) {
 	SymbolTable symbol_table;
 	
-	const auto& hdrr = get_packed<SymbolicHeader>(mod.image, section.file_offset, "MIPS debug section");
-	verify(hdrr.magic == 0x7009, "Invalid symbolic header.");
-	symbol_table.header = &hdrr;
+	const SymbolicHeader* hdrr = get_packed<SymbolicHeader>(elf, section_offset);
+	CCC_CHECK(hdrr != nullptr, "MIPS_DEBUG section header out of bounds.");
+	CCC_CHECK(hdrr->magic == 0x7009, "Invalid symbolic header.");
 	
-	s32 fudge_offset = get_corruption_fixing_fudge_offset(mod, section, hdrr);
+	symbol_table.header = hdrr;
+	
+	s32 fudge_offset = get_corruption_fixing_fudge_offset(section_offset, *hdrr);
 	
 	// Iterate over file descriptors.
-	for(s64 i = 0; i < hdrr.file_descriptor_count; i++) {
-		u64 fd_offset = hdrr.file_descriptors_offset + i * sizeof(FileDescriptor);
-		const auto& fd_header = get_packed<FileDescriptor>(mod.image, fd_offset + fudge_offset, "file descriptor");
-		verify(fd_header.f_big_endian == 0, "Not little endian or bad file descriptor table.");
+	for(s64 i = 0; i < hdrr->file_descriptor_count; i++) {
+		u64 fd_offset = hdrr->file_descriptors_offset + i * sizeof(FileDescriptor);
+		const FileDescriptor* fd_header = get_packed<FileDescriptor>(elf, fd_offset + fudge_offset);
+		CCC_CHECK(fd_header != nullptr, "MIPS_DEBUG file descriptor out of bounds.");
+		CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
 		
-		SymFileDescriptor fd;
-		fd.header = &fd_header;
-		fd.raw_path = get_string(mod.image, hdrr.local_strings_offset + fd_header.strings_offset + fd_header.file_path_string_offset + fudge_offset);
+		SymFileDescriptor& fd = symbol_table.files.emplace_back();
+		fd.header = fd_header;
+		
+		s32 raw_path_offset = hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + fudge_offset;
+		Result<const char*> raw_path = get_string(elf, raw_path_offset);
+		CCC_RETURN_IF_ERROR(raw_path);
+		fd.raw_path = *raw_path;
 		
 		// Try to detect the source language.
 		std::string lower_name = fd.raw_path;
@@ -124,49 +131,42 @@ SymbolTable parse_symbol_table(const Module& mod, const ModuleSection& section) 
 		}
 		
 		// Parse local symbols.
-		for(s64 j = 0; j < fd_header.symbol_count; j++) {
-			u64 sym_offset = hdrr.local_symbols_offset + (fd_header.isym_base + j) * sizeof(SymbolHeader);
-			const auto& symbol_header = get_packed<SymbolHeader>(mod.image, sym_offset + fudge_offset, "local symbol");
-			Symbol& sym = fd.symbols.emplace_back(parse_symbol(symbol_header, mod.image, hdrr.local_strings_offset + fd_header.strings_offset + fudge_offset));
+		for(s64 j = 0; j < fd_header->symbol_count; j++) {
+			u64 sym_offset = hdrr->local_symbols_offset + (fd_header->isym_base + j) * sizeof(SymbolHeader);
+			const SymbolHeader* symbol_header = get_packed<SymbolHeader>(elf, sym_offset + fudge_offset);
+			CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
 			
-			if(fd.base_path.empty() && symbol_header.iss == fd_header.file_path_string_offset && sym.is_stabs && sym.code == N_SO && fd.symbols.size() > 2) {
-				const Symbol& base_path = fd.symbols[fd.symbols.size() - 2];
+			s32 strings_offset = hdrr->local_strings_offset + fd_header->strings_offset + fudge_offset;
+			Result<Symbol> sym = parse_symbol(*symbol_header, elf, strings_offset);
+			CCC_RETURN_IF_ERROR(sym);
+			
+			if(fd.base_path.empty() && symbol_header->iss == fd_header->file_path_string_offset && sym->is_stabs && sym->code == N_SO && fd.symbols.size() > 2) {
+				const Symbol& base_path = fd.symbols.back();
 				if(base_path.is_stabs && base_path.code == N_SO) {
 					fd.base_path = base_path.string;
 				}
 			}
+			
+			fd.symbols.emplace_back(std::move(*sym));
 		}
 		
 		fd.full_path = merge_paths(fd.base_path, fd.raw_path);
-		
-		// Parse procedure descriptors.
-		// This is buggy.
-		//for(s64 j = 0; j < fd_header.cpd; j++) {
-		//	u64 pd_offset = hdrr.cb_pd_offset + (fd_header.ipd_first + j) * sizeof(ProcedureDescriptor);
-		//	auto pd_entry = get_packed<ProcedureDescriptor>(mod.image, pd_offset + fudge_offset, "procedure descriptor");
-		//	
-		//	u64 sym_offset = hdrr.cb_sym_offset + (fd_header.isym_base + pd_entry.isym) * sizeof(SymbolHeader);
-		//	const auto& external_header = get_packed<SymbolHeader>(mod.image, sym_offset + fudge_offset, "local symbol");
-		//	
-		//	SymProcedureDescriptor& pd = fd.procedures.emplace_back();
-		//	pd.name = get_string(mod.image, hdrr.strings_base_offset + fd_header.strings_offset + external_header.iss + fudge_offset);
-		//	pd.address = pd_entry.address;
-		//}
-		
-		symbol_table.files.emplace_back(fd);
 	}
 	
 	// Parse external symbols.
-	for(s64 i = 0; i < hdrr.external_symbols_count; i++) {
-		u64 sym_offset = hdrr.external_symbols_offset + i * sizeof(ExternalSymbolHeader);
-		const auto& external_header = get_packed<ExternalSymbolHeader>(mod.image, sym_offset + fudge_offset, "local symbol");
-		symbol_table.externals.emplace_back(parse_symbol(external_header.symbol, mod.image, hdrr.external_strings_offset + fudge_offset));
+	for(s64 i = 0; i < hdrr->external_symbols_count; i++) {
+		u64 sym_offset = hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
+		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(elf, sym_offset + fudge_offset);
+		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
+		Result<Symbol> sym = parse_symbol(external_header->symbol, elf, hdrr->external_strings_offset + fudge_offset);
+		CCC_RETURN_IF_ERROR(sym);
+		symbol_table.externals.emplace_back(std::move(*sym));
 	}
 	
 	return symbol_table;
 }
 
-static s32 get_corruption_fixing_fudge_offset(const Module& mod, const ModuleSection& section, const SymbolicHeader& hdrr) {
+static s32 get_corruption_fixing_fudge_offset(u32 section_offset, const SymbolicHeader& hdrr) {
 	// If the .mdebug section was moved without updating its contents all the
 	// absolute file offsets stored within will be incorrect by a fixed amount.
 	
@@ -184,7 +184,7 @@ static s32 get_corruption_fixing_fudge_offset(const Module& mod, const ModuleSec
 	if(hdrr.relative_file_descriptors_offset > 0) right_after_header = std::min(hdrr.relative_file_descriptors_offset, right_after_header);
 	if(hdrr.external_symbols_offset > 0) right_after_header = std::min(hdrr.external_symbols_offset, right_after_header);
 	
-	if(right_after_header == section.file_offset + sizeof(SymbolicHeader)) {
+	if(right_after_header == section_offset + sizeof(SymbolicHeader)) {
 		return 0; // It's probably fine.
 	}
 	
@@ -194,16 +194,20 @@ static s32 get_corruption_fixing_fudge_offset(const Module& mod, const ModuleSec
 	}
 	
 	// Try to fix it.
-	s32 fudge_offset = section.file_offset - (right_after_header - sizeof(SymbolicHeader));
+	s32 fudge_offset = section_offset - (right_after_header - sizeof(SymbolicHeader));
 	if(fudge_offset != 0) {
-		warn("The .mdebug section is probably corrupted, but I can try to fix it for you (fudge offset %d).", fudge_offset);
+		CCC_WARN("The .mdebug section is probably corrupted, but I can try to fix it for you (fudge offset %d).", fudge_offset);
 	}
 	return fudge_offset;
 }
 
-static Symbol parse_symbol(const SymbolHeader& header, const std::vector<u8>& image, s32 strings_offset) {
+static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector<u8>& elf, s32 strings_offset) {
 	Symbol symbol;
-	symbol.string = get_c_string(image, strings_offset + header.iss);
+	
+	Result<const char*> string = get_string(elf, strings_offset + header.iss);
+	CCC_RETURN_IF_ERROR(string);
+	symbol.string = *string;
+	
 	symbol.value = header.value;
 	symbol.storage_type = (SymbolType) header.st;
 	symbol.storage_class = (SymbolClass) header.sc;
@@ -211,7 +215,7 @@ static Symbol parse_symbol(const SymbolHeader& header, const std::vector<u8>& im
 	if((symbol.index & 0xfff00) == 0x8f300) {
 		symbol.is_stabs = true;
 		symbol.code = (StabsCode) (symbol.index - 0x8f300);
-		verify(stabs_code(symbol.code) != nullptr, "Bad STABS symbol code '%x'. Please file a bug report!", symbol.code);
+		CCC_CHECK(stabs_code(symbol.code) != nullptr, "Bad stabs symbol code '%x'.", symbol.code);
 	} else {
 		symbol.is_stabs = false;
 	}

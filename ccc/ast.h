@@ -81,7 +81,7 @@ struct Node {
 	std::vector<s32> files; // List of files for which a given top-level type is present.
 	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = "";
-	s64 stabs_type_number = -1;
+	StabsTypeNumber stabs_type_number;
 	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
@@ -92,14 +92,20 @@ struct Node {
 	virtual ~Node() {}
 	
 	template <typename SubType>
-	SubType& as() { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<SubType*>(this); }
+	SubType& as() {
+		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
+		return *static_cast<SubType*>(this);
+	}
 	
 	template <typename SubType>
-	const SubType& as() const { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<const SubType*>(this); }
+	const SubType& as() const {
+		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
+		return *static_cast<const SubType*>(this);
+	}
 	
 	template <typename SubType>
 	static std::pair<const SubType&, const SubType&> as(const Node& lhs, const Node& rhs) {
-		assert(lhs.descriptor == SubType::DESCRIPTOR && rhs.descriptor == SubType::DESCRIPTOR);
+		CCC_ASSERT(lhs.descriptor == SubType::DESCRIPTOR && rhs.descriptor == SubType::DESCRIPTOR);
 		return std::pair<const SubType&, const SubType&>(static_cast<const SubType&>(lhs), static_cast<const SubType&>(rhs));
 	}
 };
@@ -231,7 +237,7 @@ struct SourceFile : Node {
 	std::vector<std::unique_ptr<Node>> functions;
 	std::vector<std::unique_ptr<Node>> globals;
 	std::vector<ParsedSymbol> symbols;
-	std::map<s64, s32> stabs_type_number_to_deduplicated_type_index;
+	std::map<StabsTypeNumber, s32> stabs_type_number_to_deduplicated_type_index;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
@@ -248,7 +254,7 @@ struct TypeName : Node {
 	TypeNameSource source = TypeNameSource::ERROR;
 	std::string type_name;
 	s32 referenced_file_index = -1;
-	s64 referenced_stabs_type_number = -1;
+	StabsTypeNumber referenced_stabs_type_number;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
@@ -302,25 +308,17 @@ struct Variable : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
 };
 
-struct TypeDeduplicatorOMatic {
+class TypeDeduplicatorOMatic {
+private:
 	std::vector<std::unique_ptr<Node>> flat_nodes;
 	std::vector<std::vector<s32>> deduplicated_nodes_grouped_by_name;
 	std::map<std::string, size_t> name_to_deduplicated_index;
 	
+public:
 	void process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files);
 	std::vector<std::unique_ptr<Node>> finish();
 };
 
-
-
-struct StabsToAstState {
-	s32 file_index;
-	std::map<s64, const StabsType*>* stabs_types;
-};
-std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
-std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state);
-std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
-std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
 enum class CompareResultType {
@@ -374,7 +372,6 @@ const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
 const char* global_variable_location_to_string(GlobalVariableLocation location);
 const char* access_specifier_to_string(AccessSpecifier specifier);
-AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility);
 
 enum TraversalOrder {
 	PREORDER_TRAVERSAL,

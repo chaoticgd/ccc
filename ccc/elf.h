@@ -4,9 +4,9 @@
 #include "util.h"
 #include "module.h"
 
-namespace ccc::loaders {
+namespace ccc {
 
-Module read_elf_file(fs::path path);
+Result<void> parse_elf_file(Module& mod);
 
 }
 

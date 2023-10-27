@@ -2,7 +2,6 @@
 #define _CCC_MDEBUG_H
 
 #include "util.h"
-#include "module.h"
 
 namespace ccc::mdebug {
 
@@ -141,7 +140,7 @@ struct SymbolTable {
 	std::vector<Symbol> externals;
 };
 
-SymbolTable parse_symbol_table(const Module& module, const ModuleSection& section);
+Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_offset);
 void print_headers(FILE* dest, const SymbolTable& symbol_table);
 const char* symbol_type(SymbolType type);
 const char* symbol_class(SymbolClass symbol_class);

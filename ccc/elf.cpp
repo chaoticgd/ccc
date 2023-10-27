@@ -1,15 +1,6 @@
 #include "elf.h"
 
-namespace ccc::loaders {
-
-static void parse_elf_file(Module& mod);
-
-Module read_elf_file(fs::path path) {
-	Module mod;
-	mod.image = read_binary_file(path);
-	parse_elf_file(mod);
-	return mod;
-}
+namespace ccc {
 
 enum class ElfIdentClass : u8 {
 	B32 = 0x1,
@@ -32,7 +23,7 @@ enum class ElfMachine : u16 {
 	MIPS  = 0x08
 };
 
-packed_struct(ElfIdentHeader,
+CCC_PACKED_STRUCT(ElfIdentHeader,
 	/* 0x0 */ u8 magic[4]; // 7f 45 4c 46
 	/* 0x4 */ ElfIdentClass e_class;
 	/* 0x5 */ u8 endianess;
@@ -42,7 +33,7 @@ packed_struct(ElfIdentHeader,
 	/* 0x9 */ u8 pad[7];
 )
 
-packed_struct(ElfFileHeader32,
+CCC_PACKED_STRUCT(ElfFileHeader32,
 	/* 0x10 */ ElfFileType type;
 	/* 0x12 */ ElfMachine machine;
 	/* 0x14 */ u32 version;
@@ -58,7 +49,7 @@ packed_struct(ElfFileHeader32,
 	/* 0x32 */ u16 shstrndx;
 )
 
-packed_struct(ElfProgramHeader32,
+CCC_PACKED_STRUCT(ElfProgramHeader32,
 	/* 0x00 */ u32 type;
 	/* 0x04 */ u32 offset;
 	/* 0x08 */ u32 vaddr;
@@ -69,7 +60,7 @@ packed_struct(ElfProgramHeader32,
 	/* 0x1c */ u32 align;
 )
 
-packed_struct(ElfSectionHeader32,
+CCC_PACKED_STRUCT(ElfSectionHeader32,
 	/* 0x00 */ u32 name;
 	/* 0x04 */ ElfSectionType type;
 	/* 0x08 */ u32 flags;
@@ -82,39 +73,49 @@ packed_struct(ElfSectionHeader32,
 	/* 0x24 */ u32 entsize;
 )
 
-void parse_elf_file(Module& mod) {
-	const auto& ident = get_packed<ElfIdentHeader>(mod.image, 0, "ELF ident bytes");
-	verify(memcmp(ident.magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
-	verify(ident.e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
+Result<void> parse_elf_file(Module& mod) {
+	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(mod.image, 0);
+	CCC_CHECK(ident, "ELF ident out of range.");
+	CCC_CHECK(memcmp(ident->magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
+	CCC_CHECK(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
-	const auto& header = get_packed<ElfFileHeader32>(mod.image, sizeof(ElfIdentHeader), "ELF file header");
-	verify(header.machine == ElfMachine::MIPS, "Wrong architecture.");
+	const ElfFileHeader32* header = get_packed<ElfFileHeader32>(mod.image, sizeof(ElfIdentHeader));
+	CCC_CHECK(ident, "ELF file header out of range.");
+	CCC_CHECK(header->machine == ElfMachine::MIPS, "Wrong architecture.");
 	
-	for(u32 i = 0; i < header.phnum; i++) {
-		u64 header_offset = header.phoff + i * sizeof(ElfProgramHeader32);
-		const auto& program_header = get_packed<ElfProgramHeader32>(mod.image, header_offset, "ELF program header");
+	for(u32 i = 0; i < header->phnum; i++) {
+		u64 header_offset = header->phoff + i * sizeof(ElfProgramHeader32);
+		const ElfProgramHeader32* program_header = get_packed<ElfProgramHeader32>(mod.image, header_offset);
+		CCC_CHECK(program_header, "ELF program header out of range.");
+		
 		ModuleSegment& segment = mod.segments.emplace_back();
-		segment.file_offset = program_header.offset;
-		segment.size = program_header.filesz;
-		segment.virtual_address = program_header.vaddr;
+		segment.file_offset = program_header->offset;
+		segment.size = program_header->filesz;
+		segment.virtual_address = program_header->vaddr;
 	}
 	
-	for(u32 i = 0; i < header.shnum; i++) {
-		u64 header_offset = header.shoff + i * sizeof(ElfSectionHeader32);
-		const auto& section_header = get_packed<ElfSectionHeader32>(mod.image, header_offset, "ELF section header");
+	for(u32 i = 0; i < header->shnum; i++) {
+		u64 header_offset = header->shoff + i * sizeof(ElfSectionHeader32);
+		const auto& section_header = get_packed<ElfSectionHeader32>(mod.image, header_offset);
+		CCC_CHECK(section_header, "ELF section header out of range.");
+		
 		ModuleSection& section = mod.sections.emplace_back();
-		section.file_offset = section_header.offset;
-		section.size = section_header.size;
-		section.type = section_header.type;
-		section.name_offset = section_header.name;
-		section.virtual_address = section_header.addr;
+		section.file_offset = section_header->offset;
+		section.size = section_header->size;
+		section.type = section_header->type;
+		section.name_offset = section_header->name;
+		section.virtual_address = section_header->addr;
 	}
 	
-	if(header.shstrndx < mod.sections.size()) {
+	if(header->shstrndx < mod.sections.size()) {
 		for(ModuleSection& section : mod.sections) {
-			section.name = get_string(mod.image, mod.sections[header.shstrndx].file_offset + section.name_offset);
+			Result<const char*> name = get_string(mod.image, mod.sections[header->shstrndx].file_offset + section.name_offset);
+			CCC_CHECK(name.success(), "Section name out of bounds.");
+			section.name = *name;
 		}
 	}
+	
+	return Result<void>();
 }
 
 }

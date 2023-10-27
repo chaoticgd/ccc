@@ -25,6 +25,7 @@ struct JsonPrinter {
 
 static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr);
 static void print_json_variable_storage(JsonPrinter& json, const ast::VariableStorage& storage);
+static s64 merge_stabs_type_number_parts(const StabsTypeNumber& number);
 
 void print_json(FILE* out, const HighSymbolTable& high, bool print_per_file_types) {
 	JsonPrinter json;
@@ -54,7 +55,7 @@ void print_json(FILE* out, const HighSymbolTable& high, bool print_per_file_type
 }
 
 static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
-	assert(ptr);
+	CCC_ASSERT(ptr);
 	const ast::Node& node = *ptr;
 	json.begin_object();
 	json.string_property("descriptor", ast::node_type_to_string(node));
@@ -85,8 +86,8 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 	if(node.conflict) {
 		json.boolean_property("conflict", true);
 	}
-	if(node.stabs_type_number != -1) {
-		json.number_property("stabs_type_number", node.stabs_type_number);
+	if(node.stabs_type_number.type != -1) {
+		json.number_property("stabs_type_number", merge_stabs_type_number_parts(node.stabs_type_number));
 	}
 	if(!node.files.empty()) {
 		json.property("files");
@@ -117,7 +118,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			break;
 		}
 		case ast::DATA: {
-			verify_not_reached("Tried to print a data node as JSON (which is not supported)!");
+			CCC_FATAL("Tried to print a data node as JSON (which is not supported)!");
 			break;
 		}
 		case ast::FUNCTION_DEFINITION: {
@@ -186,7 +187,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			break;
 		}
 		case ast::INITIALIZER_LIST: {
-			verify_not_reached("Tried to print an initializer list node as JSON (which is not supported)!");
+			CCC_FATAL("Tried to print an initializer list node as JSON (which is not supported)!");
 			break;
 		}
 		case ast::INLINE_ENUM: {
@@ -272,7 +273,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.property("stabs_type_number_to_deduplicated_type_index");
 			json.begin_object();
 			for(const auto [stabs_type_number, deduplicated_type_index] : source_file.stabs_type_number_to_deduplicated_type_index) {
-				json.number_property(stringf("%d", stabs_type_number).c_str(), deduplicated_type_index);
+				json.number_property(stringf("%lld", merge_stabs_type_number_parts(stabs_type_number)).c_str(), deduplicated_type_index);
 			}
 			json.end_object();
 			break;
@@ -291,8 +292,8 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			if(type_name.referenced_file_index > -1) {
 				json.number_property("referenced_file_index", type_name.referenced_file_index);
 			}
-			if(type_name.referenced_stabs_type_number > -1) {
-				json.number_property("referenced_stabs_type_number", type_name.referenced_stabs_type_number);
+			if(type_name.referenced_stabs_type_number.type > -1) {
+				json.number_property("referenced_stabs_type_number", merge_stabs_type_number_parts(type_name.referenced_stabs_type_number));
 			}
 			break;
 		}
@@ -344,6 +345,14 @@ static void print_json_variable_storage(JsonPrinter& json, const ast::VariableSt
 		}
 	}
 	json.end_object();
+}
+
+static s64 merge_stabs_type_number_parts(const StabsTypeNumber& number) {
+	if(number.file > -1) {
+		return number.type | (s64) number.file << 32;
+	} else {
+		return number.type;
+	}
 }
 
 void JsonPrinter::begin_object() {
