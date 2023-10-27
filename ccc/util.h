@@ -66,60 +66,60 @@ class Result {
 	template <typename OtherValue>
 	friend class Result;
 protected:
-	Value _value;
-	Error* _error;
+	Value m_value;
+	Error* m_error;
 	
 	Result() {}
 	
 public:
-	Result(Value value) : _value(std::move(value)), _error(nullptr) {}
+	Result(Value value) : m_value(std::move(value)), m_error(nullptr) {}
 	
 	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
 	Result(const Result<OtherValue>& rhs) {
-		CCC_ASSERT(rhs._error != nullptr);
-		_error = rhs._error;
+		CCC_ASSERT(rhs.m_error != nullptr);
+		m_error = rhs.m_error;
 	}
 	
 	static Result<Value> success(Value value) {
 		Result<Value> result;
-		result._value = std::move(value);
+		result.m_value = std::move(value);
 		return result;
 	}
 	
 	static Result<Value> failure(Error* error) {
 		Result<Value> result;
-		result._error = error;
+		result.m_error = error;
 		return result;
 	}
 	
 	bool success() const {
-		return _error == nullptr;
+		return m_error == nullptr;
 	}
 	
 	const Error& error() const {
-		CCC_ASSERT(_error != nullptr);
-		return *_error;
+		CCC_ASSERT(m_error != nullptr);
+		return *m_error;
 	}
 	
 	Value& operator*() {
-		CCC_ASSERT(_error == nullptr);
-		return _value;
+		CCC_ASSERT(m_error == nullptr);
+		return m_value;
 	}
 	
 	const Value& operator*() const {
-		CCC_ASSERT(_error == nullptr);
-		return _value;
+		CCC_ASSERT(m_error == nullptr);
+		return m_value;
 	}
 	
 	Value* operator->() {
-		CCC_ASSERT(_error == nullptr);
-		return &_value;
+		CCC_ASSERT(m_error == nullptr);
+		return &m_value;
 	}
 	
 	const Value* operator->() const {
-		CCC_ASSERT(_error == nullptr);
-		return &_value;
+		CCC_ASSERT(m_error == nullptr);
+		return &m_value;
 	}
 };
 
@@ -130,8 +130,8 @@ public:
 	
 	template <typename Dummy>
 	Result(const Result<Dummy>& rhs) {
-		CCC_ASSERT(rhs._error != nullptr);
-		_error = rhs._error;
+		CCC_ASSERT(rhs.m_error != nullptr);
+		m_error = rhs.m_error;
 	}
 };
 
