@@ -1,4 +1,5 @@
 #include "ccc/ccc.h"
+#include "platform/file.h"
 #define HAVE_DECL_BASENAME 1
 #include "demanglegnu/demangle.h"
 
@@ -42,8 +43,19 @@ int main(int argc, char** argv) {
 	}
 	
 	Module mod;
-	Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, elf_path);
+	std::optional<std::vector<u8>> binary = platform::read_binary_file(elf_path);
+	CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", elf_path.string().c_str());
+	mod.image = std::move(*binary);
+	
+	Result<void> result = parse_elf_file(mod);
+	CCC_EXIT_IF_ERROR(result);
+	
+	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+	CCC_CHECK_FATAL(mdebug_section != nullptr, "No .mdebug section.");
+	
+	Result<mdebug::SymbolTable> symbol_table = mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);
 	CCC_EXIT_IF_ERROR(symbol_table);
+	
 	Result<HighSymbolTable> high = analyse(*symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
 	CCC_EXIT_IF_ERROR(high);
 	map_types_to_files_based_on_this_pointers(*high);
@@ -112,7 +124,7 @@ int main(int argc, char** argv) {
 }
 
 static std::vector<std::string> parse_sources_file(const fs::path& path) {
-	std::optional<std::string> file = read_text_file(path);
+	std::optional<std::string> file = platform::read_text_file(path);
 	CCC_CHECK_FATAL(file.has_value(), "Failed to open file '%s'", path.string().c_str());
 	std::string_view input(*file);
 	std::vector<std::string> sources;
@@ -125,7 +137,7 @@ static std::vector<std::string> parse_sources_file(const fs::path& path) {
 static FunctionsFile parse_functions_file(const fs::path& path) {
 	FunctionsFile result;
 	
-	std::optional<std::string> file = read_text_file(path);
+	std::optional<std::string> file = platform::read_text_file(path);
 	CCC_CHECK_FATAL(file.has_value(), "Failed to open file '%s'", path.string().c_str());
 	result.contents = std::move(*file);
 	
@@ -195,7 +207,7 @@ static void skip_whitespace(std::string_view& input) {
 }
 
 static bool should_overwrite_file(const fs::path& path) {
-	std::optional<std::string> file = read_text_file(path);
+	std::optional<std::string> file = platform::read_text_file(path);
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
@@ -224,7 +236,7 @@ static void demangle_all(HighSymbolTable& high) {
 
 static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = open_file_w(path.c_str());
+	FILE* out = fopen(path.c_str(), "w");
 	CCC_CHECK_FATAL(out, "Failed to open '%s' for writing.", path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
@@ -271,7 +283,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 
 static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = open_file_w(path.c_str());
+	FILE* out = fopen(path.c_str(), "w");
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
 	// Configure printing.
@@ -340,7 +352,7 @@ static bool needs_lost_and_found_file(const HighSymbolTable& high) {
 
 static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high) {
 	printf("Writing %s\n", path.string().c_str());
-	FILE* out = open_file_w(path.c_str());
+	FILE* out = fopen(path.c_str(), "w");
 	CppPrinter printer(out);
 	printer.print_offsets_and_sizes = false;
 	printer.omit_this_parameter = true;

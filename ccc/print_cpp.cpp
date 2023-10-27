@@ -16,7 +16,7 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags);
 static void print_cpp_offset(FILE* out, const ast::Node& node, const CppPrinter& printer);
 static void indent(FILE* out, s32 level);
 
-void CppPrinter::comment_block_beginning(const fs::path& input_file) {
+void CppPrinter::comment_block_beginning(const char* input_file) {
 	if(has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
@@ -29,7 +29,7 @@ void CppPrinter::comment_block_beginning(const fs::path& input_file) {
 	}
 	fprintf(out, "\n// \n");
 	fprintf(out, "// Input file:\n");
-	fprintf(out, "//   %s\n", input_file.filename().string().c_str());
+	fprintf(out, "//   %s\n", input_file);
 	
 	last_wants_spacing = true;
 	has_anything_been_printed = true;

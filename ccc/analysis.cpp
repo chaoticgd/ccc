@@ -7,17 +7,6 @@ namespace ccc {
 static void create_function(LocalSymbolTableAnalyser& analyser, const char* name);
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 
-Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file) {
-	mod.image = read_binary_file(input_file);
-	Result<void> result = parse_elf_file(mod);
-	CCC_RETURN_IF_ERROR(result);
-	
-	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
-	CCC_CHECK(mdebug_section != nullptr, "No .mdebug section.");
-	
-	return mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);
-}
-
 Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
 	HighSymbolTable high;
 	

@@ -25,7 +25,6 @@ enum AnalysisFlags {
 	STRIP_GENERATED_FUNCTIONS = (1 << 4)
 };
 
-Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file);
 Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
 Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
 std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);

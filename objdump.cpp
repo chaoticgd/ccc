@@ -1,4 +1,5 @@
 #include "ccc/ccc.h"
+#include "platform/file.h"
 
 using namespace ccc;
 
@@ -6,9 +7,15 @@ int main(int argc, char** argv) {
 	CCC_CHECK_FATAL(argc == 2, "Incorrect number of arguments.");
 	
 	Module mod;
-	mod.image = read_binary_file(fs::path(argv[1]));
+	
+	fs::path input_path(argv[1]);
+	std::optional<std::vector<u8>> binary = platform::read_binary_file(input_path);
+	CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", input_path.string().c_str());
+	mod.image = std::move(*binary);
+	
 	Result<void> result = parse_elf_file(mod);
 	CCC_EXIT_IF_ERROR(result);
+	
 	std::vector<Module*> modules{&mod};
 	
 	ModuleSection* text = mod.lookup_section(".text");

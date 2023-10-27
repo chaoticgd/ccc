@@ -1,4 +1,5 @@
 #include "ccc/ccc.h"
+#include "platform/file.h"
 
 #include <algorithm>
 
@@ -36,6 +37,7 @@ struct Options {
 	u32 flags = NO_FLAGS;
 };
 
+static Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file);
 static void print_deduplicated(const mdebug::SymbolTable& symbol_table, Options options);
 static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const mdebug::SymbolTable& symbol_table);
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table);
@@ -56,7 +58,7 @@ int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
 	FILE* out = stdout;
 	if(!options.output_file.empty()) {
-		out = open_file_w(options.output_file.c_str());
+		out = fopen(options.output_file.c_str(), "w");
 		CCC_CHECK_FATAL(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
 	}
 	switch(options.mode) {
@@ -168,6 +170,19 @@ int main(int argc, char** argv) {
 	}
 }
 
+static Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file) {
+	std::optional<std::vector<u8>> binary = platform::read_binary_file(input_file);
+	CCC_CHECK(binary.has_value(), "Failed to open file '%s'.", input_file.string().c_str());
+	mod.image = std::move(*binary);
+	Result<void> result = parse_elf_file(mod);
+	CCC_RETURN_IF_ERROR(result);
+	
+	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+	CCC_CHECK(mdebug_section != nullptr, "No .mdebug section.");
+	
+	return mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);
+}
+
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 	CppPrinter printer(out);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
@@ -200,7 +215,7 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	Result<HighSymbolTable> high = analyse(symbol_table, analysis_flags);
 	CCC_EXIT_IF_ERROR(high);
 	CppPrinter printer(out);
-	printer.comment_block_beginning(options.input_file);
+	printer.comment_block_beginning(options.input_file.filename().string().c_str());
 	printer.comment_block_compiler_version_info(symbol_table);
 	printer.comment_block_builtin_types((*high).deduplicated_types);
 	printer.verbose = options.flags & FLAG_VERBOSE;
@@ -213,7 +228,7 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	CppPrinter printer(out);
 	printer.verbose = options.flags & FLAG_VERBOSE;
-	printer.comment_block_beginning(options.input_file);
+	printer.comment_block_beginning(options.input_file.filename().string().c_str());
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		Result<HighSymbolTable> result = analyse(symbol_table, analysis_flags, i);
 		CCC_EXIT_IF_ERROR(result);
@@ -326,8 +341,11 @@ static void test(FILE* out, const fs::path& directory) {
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
 			printf("%s ", entry.path().filename().string().c_str());
 			
+			std::optional<std::vector<u8>> binary = platform::read_binary_file(entry.path());
+			CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", entry.path().string().c_str());
+			
 			Module mod;
-			mod.image = read_binary_file(entry.path());
+			mod.image = std::move(*binary);
 			Result<void> result = parse_elf_file(mod);
 			CCC_EXIT_IF_ERROR(result);
 			

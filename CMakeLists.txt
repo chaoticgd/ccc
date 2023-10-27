@@ -31,36 +31,63 @@ endif()
 
 include(cmake/version_finder.cmake)
 
+add_library(ccc STATIC
+	ccc/analysis.cpp
+	ccc/analysis.h
+	ccc/ast.cpp
+	ccc/ast.h
+	ccc/data_refinement.cpp
+	ccc/data_refinement.h
+	ccc/dependency.cpp
+	ccc/dependency.h
+	ccc/elf.cpp
+	ccc/elf.h
+	ccc/insn.cpp
+	ccc/insn.h
+	ccc/mdebug.cpp
+	ccc/mdebug.h
+	ccc/module.cpp
+	ccc/module.h
+	ccc/print_cpp.cpp
+	ccc/print_cpp.h
+	ccc/print_json.cpp
+	ccc/print_json.h
+	ccc/registers.cpp
+	ccc/registers.h
+	ccc/stabs.cpp
+	ccc/stabs.h
+	ccc/symbols.cpp
+	ccc/symbols.h
+	ccc/tables.cpp
+	ccc/tables.h
+	ccc/util.cpp
+	ccc/util.h
+)
+
+add_library(ccc_platform STATIC
+	platform/file.cpp
+	platform/file.h
+)
+
 add_executable(demangle demangle.cpp)
 target_link_libraries(demangle ccc demanglegnu versioninfo)
 
 add_executable(objdump objdump.cpp)
-target_link_libraries(objdump ccc versioninfo)
+target_link_libraries(objdump ccc ccc_platform versioninfo)
 
 add_executable(stdump stdump.cpp)
-target_link_libraries(stdump ccc versioninfo)
+target_link_libraries(stdump ccc ccc_platform versioninfo)
 add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
 add_executable(uncc uncc.cpp)
-target_link_libraries(uncc ccc demanglegnu versioninfo)
+target_link_libraries(uncc ccc ccc_platform demanglegnu versioninfo)
 
-add_library(ccc STATIC
-	ccc/analysis.cpp
-	ccc/ast.cpp
-	ccc/data_refinement.cpp
-	ccc/dependency.cpp
-	ccc/elf.cpp
-	ccc/insn.cpp
-	ccc/mdebug.cpp
-	ccc/module.cpp
-	ccc/print_cpp.cpp
-	ccc/print_json.cpp
-	ccc/registers.cpp
-	ccc/stabs.cpp
-	ccc/symbols.cpp
-	ccc/tables.cpp
-	ccc/util.cpp
-)
+if(WIN32)
+	target_sources(demangle ccc.manifest)
+	target_sources(objdump ccc.manifest)
+	target_sources(stdump ccc.manifest)
+	target_sources(uncc ccc.manifest)
+endif()
 
 add_subdirectory(demanglegnu)
 

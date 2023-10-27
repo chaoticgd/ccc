@@ -17,12 +17,9 @@
 #include <stdlib.h>
 #include <optional>
 #include <algorithm>
-#include <filesystem>
 #include <inttypes.h>
 
 namespace ccc {
-
-namespace fs = std::filesystem;
 
 using u8 = unsigned char;
 using u16 = uint16_t;
@@ -179,9 +176,6 @@ const T* get_packed(const std::vector<u8>& bytes, u64 offset) {
 	return reinterpret_cast<const T*>(&bytes[offset]);
 }
 
-std::vector<u8> read_binary_file(const fs::path& path);
-std::optional<std::string> read_text_file(const fs::path& path);
-s64 file_size(FILE* file);
 Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset);
 
 struct Range {
@@ -202,18 +196,6 @@ std::string merge_paths(const std::string& base, const std::string& path);
 std::string normalise_path(const char* input, bool use_backslashes_as_path_separators);
 bool guess_is_windows_path(const char* path);
 std::string extract_file_name(const std::string& path);
-
-// On Windows long is only 4 bytes, so the regular libc standard IO functions
-// are crippled, hence we need to use these special versions instead.
-#ifdef _MSC_VER
-	#define open_file_rb(filename) _wfopen(filename, L"rb")
-	#define open_file_w(filename) _wfopen(filename, L"w")
-	#define fseek _fseeki64
-	#define ftell _ftelli64
-#else
-	#define open_file_rb(filename) fopen(filename, "rb")
-	#define open_file_w(filename) fopen(filename, "w")
-#endif
 
 }
 

@@ -46,34 +46,6 @@ void print_warning(FILE* out, const Error* warning) {
 		warning->source_file, warning->source_line, warning->message);
 }
 
-std::vector<u8> read_binary_file(const fs::path& path) {
-	FILE* file = open_file_rb(path.c_str());
-	CCC_CHECK_FATAL(file, "Failed to open file '%s'.", path.string().c_str());
-	s64 size = file_size(file);
-	std::vector<u8> output(size);
-	CCC_CHECK_FATAL(fread(output.data(), size, 1, file) == 1, "Failed to read file '%s'.", path.string().c_str());
-	return output;
-}
-
-std::optional<std::string> read_text_file(const fs::path& path) {
-	std::ifstream file_stream;
-	file_stream.open(path.string());
-	if(!file_stream.is_open()) {
-		return std::nullopt;
-	}
-	std::stringstream string_stream;
-	string_stream << file_stream.rdbuf();
-	return string_stream.str();
-}
-
-s64 file_size(FILE* file) {
-	s64 pos = ftell(file);
-	fseek(file, 0, SEEK_END);
-	s64 size = ftell(file);
-	fseek(file, pos, SEEK_SET);
-	return size;
-}
-
 Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset) {
 	for(const unsigned char* c = bytes.data() + offset; c < bytes.data() + bytes.size(); c++) {
 		if(*c == '\0') {
