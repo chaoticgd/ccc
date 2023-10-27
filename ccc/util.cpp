@@ -1,7 +1,6 @@
 #include "ccc.h"
 
 #include <vector>
-#include <string>
 #include <cstdint>
 #include <cstring>
 #include <fstream>

@@ -1,8 +1,5 @@
 #include "stabs.h"
 
-#include <algorithm>
-#include <string>
-
 namespace ccc {
 
 #define STABS_DEBUG(...) //__VA_ARGS__
