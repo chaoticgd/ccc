@@ -92,14 +92,20 @@ struct Node {
 	virtual ~Node() {}
 	
 	template <typename SubType>
-	SubType& as() { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<SubType*>(this); }
+	SubType& as() {
+		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
+		return *static_cast<SubType*>(this);
+	}
 	
 	template <typename SubType>
-	const SubType& as() const { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<const SubType*>(this); }
+	const SubType& as() const {
+		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
+		return *static_cast<const SubType*>(this);
+	}
 	
 	template <typename SubType>
 	static std::pair<const SubType&, const SubType&> as(const Node& lhs, const Node& rhs) {
-		assert(lhs.descriptor == SubType::DESCRIPTOR && rhs.descriptor == SubType::DESCRIPTOR);
+		CCC_ASSERT(lhs.descriptor == SubType::DESCRIPTOR && rhs.descriptor == SubType::DESCRIPTOR);
 		return std::pair<const SubType&, const SubType&>(static_cast<const SubType&>(lhs), static_cast<const SubType&>(rhs));
 	}
 };

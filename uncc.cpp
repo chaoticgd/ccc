@@ -255,7 +255,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	for(s32 file_index : file_indices) {
 		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-			assert(node);
+			CCC_ASSERT(node);
 			if(node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
 				printer.data_type(*node);
 			}

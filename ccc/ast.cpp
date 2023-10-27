@@ -321,7 +321,7 @@ Result<std::unique_ptr<Node>> stabs_type_to_ast(const StabsType& type, const Sta
 			break;
 		}
 	}
-	assert(result);
+	CCC_ASSERT(result);
 	return result;
 }
 
@@ -500,8 +500,8 @@ void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, cons
 			bool match = false;
 			for(s32 existing_node_index : nodes_with_the_same_name) {
 				std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
-				assert(existing_node.get());
-				assert(node.get());
+				CCC_ASSERT(existing_node.get());
+				CCC_ASSERT(node.get());
 				TypeLookupInfo lookup;
 				lookup.files = &files;
 				lookup.nodes = &flat_nodes;

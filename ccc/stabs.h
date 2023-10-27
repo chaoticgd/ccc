@@ -64,10 +64,16 @@ struct StabsType : StabsTypeInfo {
 	virtual ~StabsType() {}
 	
 	template <typename SubType>
-	SubType& as() { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<SubType*>(this); }
+	SubType& as() {
+		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
+		return *static_cast<SubType*>(this);
+	}
 	
 	template <typename SubType>
-	const SubType& as() const { assert(descriptor == SubType::DESCRIPTOR); return *static_cast<const SubType*>(this); }
+	const SubType& as() const {
+		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
+		return *static_cast<const SubType*>(this);
+	}
 	
 	virtual void enumerate_numbered_types(std::map<s64, const StabsType*>& output) const {
 		if(!anonymous && has_body) {

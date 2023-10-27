@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
 						break;
 					}
 					case mips::FlowType::FIXED_REG: {
-						assert(0);
+						CCC_ASSERT(0);
 					}
 				}
 				if(!first_operand && is_mem_access) {

@@ -334,7 +334,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, s32 address, 
 
 Result<void> LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
 	if(address > -1 && current_function && label[0] == '$') {
-		assert(address < 256 * 1024 * 1024);
+		CCC_ASSERT(address < 256 * 1024 * 1024);
 		ast::LineNumberPair& pair = current_function->line_numbers.emplace_back();
 		pair.address = address;
 		pair.line_number = line_number;
@@ -346,7 +346,7 @@ Result<void> LocalSymbolTableAnalyser::label(const char* label, s32 address, s32
 Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
 	if(state == IN_FUNCTION_BEGINNING) {
 		if(current_function->address_range.low >= 0) {
-			assert(current_function);
+			CCC_ASSERT(current_function);
 			current_function->address_range.high = current_function->address_range.low + function_size;
 		}
 		state = IN_FUNCTION_END;
@@ -373,7 +373,7 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 }
 
 Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
-	assert(current_function_type);
+	CCC_ASSERT(current_function_type);
 	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
 	parameter->name = name;
 	parameter->variable_class = ast::VariableClass::PARAMETER;

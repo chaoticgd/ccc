@@ -4,19 +4,14 @@
 #include <map>
 #include <set>
 #include <span>
-#include <vector>
 #include <cstdio>
+#include <vector>
 #include <memory>
 #include <cstdint>
+#include <cstdarg>
 #include <cstdlib>
 #include <cstring>
-#include <variant>
-#include <assert.h>
-#include <iostream>
-#include <stdarg.h>
-#include <stdlib.h>
 #include <optional>
-#include <algorithm>
 #include <inttypes.h>
 
 namespace ccc {
@@ -60,6 +55,9 @@ void print_warning(FILE* out, const Error* warning);
 		exit(1); \
 	}
 
+#define CCC_ASSERT(condition) \
+	CCC_CHECK_FATAL(condition, #condition)
+
 template <typename Value>
 class Result {
 	template <typename OtherValue>
@@ -75,7 +73,7 @@ public:
 	
 	template <typename OtherValue>
 	Result(const Result<OtherValue>& rhs) {
-		CCC_CHECK_FATAL(rhs._error != nullptr, "Result(const Result<>& rhs) called with Result<> object not storing an error.");
+		CCC_CHECK_FATAL(rhs._error != nullptr, "Result(const Result<>& rhs) called with ccc::Result<> object not storing an error.");
 		_error = rhs._error;
 	}
 	
@@ -96,27 +94,27 @@ public:
 	}
 	
 	const Error& error() const {
-		CCC_CHECK_FATAL(_error != nullptr, "error() called on Result<> object not storing an error.");
+		CCC_CHECK_FATAL(_error != nullptr, "error() called on ccc::Result<> object not storing an error.");
 		return *_error;
 	}
 	
 	Value& operator*() {
-		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on Result<> object storing an error.");
+		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on ccc::Result<> object storing an error.");
 		return _value;
 	}
 	
 	const Value& operator*() const {
-		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on const Result<> object storing an error.");
+		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on const ccc::Result<> object storing an error.");
 		return _value;
 	}
 	
 	Value* operator->() {
-		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on Result<> object storing an error.");
+		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on ccc::Result<> object storing an error.");
 		return &_value;
 	}
 	
 	const Value* operator->() const {
-		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on Result<> object storing an error.");
+		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on ccc::Result<> object storing an error.");
 		return &_value;
 	}
 };
@@ -128,7 +126,7 @@ public:
 	
 	template <typename Dummy>
 	Result(const Result<Dummy>& rhs) {
-		CCC_CHECK_FATAL(rhs._error != nullptr, "Result(const Result<>& rhs) called with Result<> object not storing an error.");
+		CCC_CHECK_FATAL(rhs._error != nullptr, "ccc::Result(const Result<>&) called with Result<> object not storing an error.");
 		_error = rhs._error;
 	}
 };

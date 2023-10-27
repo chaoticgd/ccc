@@ -54,7 +54,7 @@ void print_json(FILE* out, const HighSymbolTable& high, bool print_per_file_type
 }
 
 static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
-	assert(ptr);
+	CCC_ASSERT(ptr);
 	const ast::Node& node = *ptr;
 	json.begin_object();
 	json.string_property("descriptor", ast::node_type_to_string(node));

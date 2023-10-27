@@ -239,14 +239,14 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 	switch(node.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
-			assert(array.element_type.get());
+			CCC_ASSERT(array.element_type.get());
 			name.array_indices.emplace_back(array.element_count);
 			ast_node(*array.element_type.get(), name, indentation_level);
 			break;
 		}
 		case ast::BITFIELD: {
 			const ast::BitField& bit_field = node.as<ast::BitField>();
-			assert(bit_field.underlying_type.get());
+			CCC_ASSERT(bit_field.underlying_type.get());
 			ast_node(*bit_field.underlying_type.get(), name, indentation_level);
 			fprintf(out, " : %d", bit_field.size_bits);
 			break;
@@ -414,7 +414,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				fprintf(out, " : ");
 				for(size_t i = 0; i < struct_or_union.base_classes.size(); i++) {
 					ast::Node& base_class = *struct_or_union.base_classes[i].get();
-					assert(base_class.descriptor == ast::TypeName::DESCRIPTOR);
+					CCC_ASSERT(base_class.descriptor == ast::TypeName::DESCRIPTOR);
 					print_cpp_offset(out, base_class, *this);
 					if(base_class.access_specifier != ast::AS_PUBLIC) {
 						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
@@ -435,7 +435,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			
 			// Print fields.
 			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
-				assert(field.get());
+				CCC_ASSERT(field.get());
 				if(access_specifier != field->access_specifier) {
 					indent(out, indentation_level);
 					fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) field->access_specifier));
@@ -473,7 +473,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		}
 		case ast::POINTER: {
 			const ast::Pointer& pointer = node.as<ast::Pointer>();
-			assert(pointer.value_type.get());
+			CCC_ASSERT(pointer.value_type.get());
 			name.pointer_chars.emplace_back('*');
 			ast_node(*pointer.value_type.get(), name, indentation_level);
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
@@ -493,7 +493,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		}
 		case ast::REFERENCE: {
 			const ast::Reference& reference = node.as<ast::Reference>();
-			assert(reference.value_type.get());
+			CCC_ASSERT(reference.value_type.get());
 			name.pointer_chars.emplace_back('&');
 			ast_node(*reference.value_type.get(), name, indentation_level);
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
@@ -569,7 +569,7 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags) {
 
 static void print_cpp_offset(FILE* out, const ast::Node& node, const CppPrinter& printer) {
 	if(printer.print_offsets_and_sizes && node.storage_class != ast::SC_STATIC && node.absolute_offset_bytes > -1) {
-		assert(printer.digits_for_offset > -1 && printer.digits_for_offset < 100);
+		CCC_ASSERT(printer.digits_for_offset > -1 && printer.digits_for_offset < 100);
 		fprintf(out, "/* 0x%0*x", printer.digits_for_offset, node.absolute_offset_bytes);
 		if(node.descriptor == ast::BITFIELD) {
 			fprintf(out, ":%d", node.as<ast::BitField>().bitfield_offset_bits);
@@ -588,7 +588,7 @@ void CppPrinter::print_variable_storage_comment(const ast::VariableStorage& stor
 			}
 		} else if(storage.type == ast::VariableStorageType::REGISTER) {
 			const char** name_table = mips::REGISTER_STRING_TABLES[(s32) storage.register_class];
-			assert(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
+			CCC_ASSERT(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
 			const char* register_name = name_table[storage.register_index_relative];
 			fprintf(out, "%s %d", register_name, storage.dbx_register_number);
 		} else {
