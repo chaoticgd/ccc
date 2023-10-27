@@ -23,7 +23,7 @@ enum class ElfMachine : u16 {
 	MIPS  = 0x08
 };
 
-packed_struct(ElfIdentHeader,
+CCC_PACKED_STRUCT(ElfIdentHeader,
 	/* 0x0 */ u8 magic[4]; // 7f 45 4c 46
 	/* 0x4 */ ElfIdentClass e_class;
 	/* 0x5 */ u8 endianess;
@@ -33,7 +33,7 @@ packed_struct(ElfIdentHeader,
 	/* 0x9 */ u8 pad[7];
 )
 
-packed_struct(ElfFileHeader32,
+CCC_PACKED_STRUCT(ElfFileHeader32,
 	/* 0x10 */ ElfFileType type;
 	/* 0x12 */ ElfMachine machine;
 	/* 0x14 */ u32 version;
@@ -49,7 +49,7 @@ packed_struct(ElfFileHeader32,
 	/* 0x32 */ u16 shstrndx;
 )
 
-packed_struct(ElfProgramHeader32,
+CCC_PACKED_STRUCT(ElfProgramHeader32,
 	/* 0x00 */ u32 type;
 	/* 0x04 */ u32 offset;
 	/* 0x08 */ u32 vaddr;
@@ -60,7 +60,7 @@ packed_struct(ElfProgramHeader32,
 	/* 0x1c */ u32 align;
 )
 
-packed_struct(ElfSectionHeader32,
+CCC_PACKED_STRUCT(ElfSectionHeader32,
 	/* 0x00 */ u32 name;
 	/* 0x04 */ ElfSectionType type;
 	/* 0x08 */ u32 flags;

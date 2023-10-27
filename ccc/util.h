@@ -159,10 +159,10 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 	ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
 
 #ifdef _MSC_VER
-	#define packed_struct(name, ...) \
+	#define CCC_PACKED_STRUCT(name, ...) \
 		__pragma(pack(push, 1)) struct name { __VA_ARGS__ } __pragma(pack(pop));
 #else
-	#define packed_struct(name, ...) \
+	#define CCC_PACKED_STRUCT(name, ...) \
 		struct __attribute__((__packed__)) name { __VA_ARGS__ };
 #endif
 
@@ -181,8 +181,8 @@ struct Range {
 	s32 high;
 };
 
-#define BEGIN_END(x) (x).begin(), (x).end()
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define CCC_BEGIN_END(x) (x).begin(), (x).end()
+#define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 std::string string_format(const char* format, va_list args);
 std::string stringf(const char* format, ...);

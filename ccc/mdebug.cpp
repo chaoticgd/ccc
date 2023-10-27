@@ -2,7 +2,7 @@
 
 namespace ccc::mdebug {
 
-packed_struct(SymbolicHeader,
+CCC_PACKED_STRUCT(SymbolicHeader,
 	/* 0x00 */ s16 magic;
 	/* 0x02 */ s16 version_stamp;
 	/* 0x04 */ s32 line_number_count;
@@ -30,7 +30,7 @@ packed_struct(SymbolicHeader,
 	/* 0x5c */ s32 external_symbols_offset;
 )
 
-packed_struct(FileDescriptor,
+CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x00 */ u32 address;
 	/* 0x04 */ s32 file_path_string_offset;
 	/* 0x08 */ s32 strings_offset;
@@ -57,7 +57,7 @@ packed_struct(FileDescriptor,
 )
 static_assert(sizeof(FileDescriptor) == 0x48);
 
-packed_struct(ProcedureDescriptor,
+CCC_PACKED_STRUCT(ProcedureDescriptor,
 	/* 0x00 */ u32 address;
 	/* 0x04 */ s32 isym;
 	/* 0x08 */ s32 iline;
@@ -74,7 +74,7 @@ packed_struct(ProcedureDescriptor,
 	/* 0x30 */ s32 cb_line_offset;
 )
 
-packed_struct(SymbolHeader,
+CCC_PACKED_STRUCT(SymbolHeader,
 	/* 0x0 */ u32 iss;
 	/* 0x4 */ s32 value;
 	/* 0x8:00 */ u32 st : 6;
@@ -84,7 +84,7 @@ packed_struct(SymbolHeader,
 )
 static_assert(sizeof(SymbolHeader) == 0xc);
 
-packed_struct(ExternalSymbolHeader,
+CCC_PACKED_STRUCT(ExternalSymbolHeader,
 	/* 0x0 */ u16 flags;
 	/* 0x2 */ s16 ifd;
 	/* 0x4 */ SymbolHeader symbol;
