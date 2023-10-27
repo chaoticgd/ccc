@@ -180,11 +180,6 @@ const T* get_packed(const std::vector<u8>& bytes, u64 offset) {
 
 Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset);
 
-struct Range {
-	s32 low;
-	s32 high;
-};
-
 #define CCC_BEGIN_END(x) (x).begin(), (x).end()
 #define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
