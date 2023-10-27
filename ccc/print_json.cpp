@@ -117,7 +117,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			break;
 		}
 		case ast::DATA: {
-			verify_not_reached("Tried to print a data node as JSON (which is not supported)!");
+			CCC_FATAL("Tried to print a data node as JSON (which is not supported)!");
 			break;
 		}
 		case ast::FUNCTION_DEFINITION: {
@@ -186,7 +186,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			break;
 		}
 		case ast::INITIALIZER_LIST: {
-			verify_not_reached("Tried to print an initializer list node as JSON (which is not supported)!");
+			CCC_FATAL("Tried to print an initializer list node as JSON (which is not supported)!");
 			break;
 		}
 		case ast::INLINE_ENUM: {

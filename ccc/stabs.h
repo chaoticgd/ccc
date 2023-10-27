@@ -6,9 +6,6 @@
 
 namespace ccc {
 
-static const char* ERR_END_OF_SYMBOL =
-	"Unexpected end of input while parsing symbol.";
-
 enum class StabsTypeDescriptor : u8 {
 	TYPE_REFERENCE = 0xef, // '0'..'9','('
 	ARRAY = 'a',
@@ -340,12 +337,11 @@ struct StabsBuiltInType : StabsType {
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILTIN;
 };
 
-std::unique_ptr<StabsType> parse_stabs_type(const char*& input);
-char eat_char(const char*& input);
-s64 eat_s64_literal(const char*& input);
-std::string eat_stabs_identifier(const char*& input);
-std::string eat_dodgy_stabs_identifier(const char*& input);
-void expect_char(const char*& input, char expected, const char* subject);
+Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
+std::optional<char> eat_char(const char*& input);
+std::optional<s64> eat_s64_literal(const char*& input);
+std::optional<std::string> eat_stabs_identifier(const char*& input);
+std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input);
 const char* builtin_class_to_string(BuiltInClass bclass);
 s32 builtin_class_size(BuiltInClass bclass);
 const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);

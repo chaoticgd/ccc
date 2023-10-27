@@ -177,7 +177,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		}
 	}
 	
-	verify_not_reached("Failed to refine global variable (%s).", ast::node_type_to_string(type));
+	CCC_FATAL("Failed to refine global variable (%s).", ast::node_type_to_string(type));
 }
 
 static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context) {
@@ -257,7 +257,7 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 		}
 	}
 	
-	verify(data != nullptr, "Failed to refine builtin.");
+	CCC_CHECK_FATAL(data != nullptr, "Failed to refine builtin.");
 	return data;
 }
 

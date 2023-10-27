@@ -9,9 +9,9 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup);
 static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const TypeLookupInfo& lookup);
 
-std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
+Result<std::unique_ptr<Node>> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
-	auto node = stabs_type_to_ast_no_throw(*symbol.name_colon_type.type.get(), state, 0, 0, false, false);
+	auto node = stabs_type_to_ast_and_handle_errors(*symbol.name_colon_type.type.get(), state, 0, 0, false, false);
 	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
 	node->symbol = &symbol;
 	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
@@ -20,18 +20,18 @@ std::unique_ptr<Node> stabs_symbol_to_ast(const ParsedSymbol& symbol, const Stab
 	return node;
 }
 
-std::unique_ptr<Node> stabs_type_to_ast_no_throw(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
-	try {
-		return stabs_type_to_ast(type, state, absolute_parent_offset_bytes, depth, substitute_type_name, false);
-	} catch(std::runtime_error& e) {
+std::unique_ptr<Node> stabs_type_to_ast_and_handle_errors(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
+	Result<std::unique_ptr<Node>> node = stabs_type_to_ast(type, state, abs_parent_offset_bytes, depth, substitute_type_name, false);
+	if(!node.success()) {
 		auto error = std::make_unique<TypeName>();
 		error->source = TypeNameSource::ERROR;
-		error->type_name = e.what();
-		return error;
+		error->type_name = std::string("/* ERROR: ") + node.error().message + " */";
+		return std::unique_ptr<Node>(std::move(error));
 	}
+	return std::move(*node);
 }
 
-std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
+Result<std::unique_ptr<Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
 	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=%d name=%s\n",
 		depth * 4, "",
 		(u8) type.descriptor,
@@ -39,9 +39,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		type.type_number,
 		type.name.has_value() ? type.name->c_str() : "");
 	
-	if(depth > 200) {
-		throw std::runtime_error("CCC_BADRECURSION");
-	}
+	CCC_CHECK(depth <= 200, "Call depth greater than 200 in stabs_type_to_ast, probably infinite recursion.")
 	
 	// This makes sure that types are replaced with their type name in cases
 	// where that would be more appropriate.
@@ -60,7 +58,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			type_name->type_name = *type.name;
 			type_name->referenced_file_index = state.file_index;
 			type_name->referenced_stabs_type_number = type.type_number;
-			return type_name;
+			return std::unique_ptr<Node>(std::move(type_name));
 		}
 	}
 	
@@ -77,7 +75,7 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			type_name->type_name = type_string;
 			type_name->referenced_file_index = state.file_index;
 			type_name->referenced_stabs_type_number = type.type_number;
-			return type_name;
+			return std::unique_ptr<Node>(std::move(type_name));
 		}
 	}
 	
@@ -89,9 +87,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			auto type_name = std::make_unique<TypeName>();
 			type_name->source = TypeNameSource::ERROR;
 			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d)", type.type_number);
-			return type_name;
+			return std::unique_ptr<Node>(std::move(type_name));
 		}
-		return stabs_type_to_ast(*stabs_type->second, state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+		return stabs_type_to_ast(*stabs_type->second, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
 	}
 	
 	std::unique_ptr<Node> result;
@@ -100,7 +98,9 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			const auto& stabs_type_ref = type.as<StabsTypeReferenceType>();
 			if(type.anonymous | stabs_type_ref.type->anonymous || stabs_type_ref.type->type_number != type.type_number) {
-				result = stabs_type_to_ast(*stabs_type_ref.type, state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+				auto node = stabs_type_to_ast(*stabs_type_ref.type, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+				CCC_RETURN_IF_ERROR(node);
+				result = std::move(*node);
 			} else {
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
@@ -114,10 +114,14 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		case StabsTypeDescriptor::ARRAY: {
 			auto array = std::make_unique<Array>();
 			const auto& stabs_array = type.as<StabsArrayType>();
-			array->element_type = stabs_type_to_ast(*stabs_array.element_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
+			
+			auto element_node = stabs_type_to_ast(*stabs_array.element_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);;
+			CCC_RETURN_IF_ERROR(element_node);
+			array->element_type = std::move(*element_node);
+			
 			const auto& index = stabs_array.index_type->as<StabsRangeType>();
 			// The low and high values are not wrong in this case.
-			verify(index.low_maybe_wrong == 0, "Invalid index type for array.");
+			CCC_CHECK(index.low_maybe_wrong == 0, "Invalid index type for array.");
 			array->element_count = index.high_maybe_wrong + 1;
 			result = std::move(array);
 			break;
@@ -131,19 +135,30 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		}
 		case StabsTypeDescriptor::FUNCTION: {
 			auto function = std::make_unique<FunctionType>();
-			function->return_type = stabs_type_to_ast(*type.as<StabsFunctionType>().return_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
+			
+			auto node = stabs_type_to_ast(*type.as<StabsFunctionType>().return_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
+			CCC_RETURN_IF_ERROR(node);
+			function->return_type = std::move(*node);
+			
 			result = std::move(function);
 			break;
 		}
 		case StabsTypeDescriptor::VOLATILE_QUALIFIER: {
 			const auto& volatile_qualifier = type.as<StabsVolatileQualifierType>();
-			result = stabs_type_to_ast(*volatile_qualifier.type.get(), state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			
+			auto node = stabs_type_to_ast(*volatile_qualifier.type.get(), state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			CCC_RETURN_IF_ERROR(node);
+			result = std::move(*node);
+			
 			result->is_volatile = true;
 			break;
 		}
 		case StabsTypeDescriptor::CONST_QUALIFIER: {
 			const auto& const_qualifier = type.as<StabsConstQualifierType>();
-			result = stabs_type_to_ast(*const_qualifier.type.get(), state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			
+			auto node = stabs_type_to_ast(*const_qualifier.type.get(), state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			result = std::move(*node);
+			
 			result->is_const = true;
 			break;
 		}
@@ -165,16 +180,20 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			struct_or_union->is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			struct_or_union->size_bits = (s32) stabs_struct_or_union->size * 8;
 			for(const StabsBaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
-				std::unique_ptr<Node> base_class = stabs_type_to_ast(*stabs_base_class.type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
-				base_class->is_base_class = true;
-				base_class->absolute_offset_bytes = stabs_base_class.offset;
-				base_class->access_specifier = stabs_field_visibility_to_access_specifier(stabs_base_class.visibility);
-				struct_or_union->base_classes.emplace_back(std::move(base_class));
+				auto base_class = stabs_type_to_ast(*stabs_base_class.type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
+				CCC_RETURN_IF_ERROR(base_class);
+				
+				(*base_class)->is_base_class = true;
+				(*base_class)->absolute_offset_bytes = stabs_base_class.offset;
+				(*base_class)->access_specifier = stabs_field_visibility_to_access_specifier(stabs_base_class.visibility);
+				
+				struct_or_union->base_classes.emplace_back(std::move(*base_class));
 			}
 			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
 			for(const StabsField& field : stabs_struct_or_union->fields) {
-				auto node = stabs_field_to_ast(field, state, absolute_parent_offset_bytes, depth);
-				struct_or_union->fields.emplace_back(std::move(node));
+				auto node = stabs_field_to_ast(field, state, abs_parent_offset_bytes, depth);
+				CCC_RETURN_IF_ERROR(node);
+				struct_or_union->fields.emplace_back(std::move(*node));
 			}
 			AST_DEBUG_PRINTF("%-*s endfields\n", depth * 4, "");
 			AST_DEBUG_PRINTF("%-*s beginmemberfuncs\n", depth * 4, "");
@@ -185,14 +204,15 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 			}
 			for(const StabsMemberFunctionSet& function_set : stabs_struct_or_union->member_functions) {
 				for(const StabsMemberFunction& stabs_func : function_set.overloads) {
-					auto node = stabs_type_to_ast(*stabs_func.type, state, absolute_parent_offset_bytes, depth + 1, true, true);
+					auto node = stabs_type_to_ast(*stabs_func.type, state, abs_parent_offset_bytes, depth + 1, true, true);
+					CCC_RETURN_IF_ERROR(node);
 					if(function_set.name == "__as") {
-						node->name = "operator=";
+						(*node)->name = "operator=";
 					} else {
-						node->name = function_set.name;
+						(*node)->name = function_set.name;
 					}
-					if(node->descriptor == FUNCTION_TYPE) {
-						FunctionType& function = node->as<FunctionType>();
+					if((*node)->descriptor == FUNCTION_TYPE) {
+						FunctionType& function = (*node)->as<FunctionType>();
 						function.modifier = stabs_func.modifier;
 						function.is_constructor = false;
 						if(type.name.has_value()) {
@@ -201,8 +221,8 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 						}
 						function.vtable_index = stabs_func.vtable_index;
 					}
-					node->access_specifier = stabs_field_visibility_to_access_specifier(stabs_func.visibility);
-					struct_or_union->member_functions.emplace_back(std::move(node));
+					(*node)->access_specifier = stabs_field_visibility_to_access_specifier(stabs_func.visibility);
+					struct_or_union->member_functions.emplace_back(std::move(*node));
 				}
 			}
 			AST_DEBUG_PRINTF("%-*s endmemberfuncs\n", depth * 4, "");
@@ -233,43 +253,67 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 		case StabsTypeDescriptor::METHOD: {
 			const auto& stabs_method = type.as<StabsMethodType>();
 			auto function = std::make_unique<FunctionType>();
-			function->return_type = stabs_type_to_ast(*stabs_method.return_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			
+			auto return_node = stabs_type_to_ast(*stabs_method.return_type.get(), state, abs_parent_offset_bytes, depth + 1, true, true);
+			CCC_RETURN_IF_ERROR(return_node);
+			function->return_type = std::move(*return_node);
+			
 			function->parameters.emplace();
 			for(const std::unique_ptr<StabsType>& parameter_type : stabs_method.parameter_types) {
-				auto node = stabs_type_to_ast(*parameter_type, state, absolute_parent_offset_bytes, depth + 1, true, true);
-				function->parameters->emplace_back(std::move(node));
+				auto parameter_node = stabs_type_to_ast(*parameter_type, state, abs_parent_offset_bytes, depth + 1, true, true);
+				CCC_RETURN_IF_ERROR(parameter_node);
+				function->parameters->emplace_back(std::move(*parameter_node));
 			}
 			result = std::move(function);
 			break;
 		}
 		case StabsTypeDescriptor::POINTER: {
 			auto pointer = std::make_unique<Pointer>();
-			pointer->value_type = stabs_type_to_ast(*type.as<StabsPointerType>().value_type, state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
+			
+			auto value_node = stabs_type_to_ast(*type.as<StabsPointerType>().value_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
+			CCC_RETURN_IF_ERROR(value_node);
+			pointer->value_type = std::move(*value_node);
+			
 			result = std::move(pointer);
 			break;
 		}
 		case StabsTypeDescriptor::REFERENCE: {
 			auto reference = std::make_unique<Reference>();
-			reference->value_type = stabs_type_to_ast(*type.as<StabsReferenceType>().value_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, force_substitute);
+			
+			auto value_node = stabs_type_to_ast(*type.as<StabsReferenceType>().value_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
+			CCC_RETURN_IF_ERROR(value_node);
+			reference->value_type = std::move(*value_node);
+			
 			result = std::move(reference);
 			break;
 		}
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: {
 			const auto& stabs_type_attribute = type.as<StabsSizeTypeAttributeType>();
-			result = stabs_type_to_ast(*stabs_type_attribute.type, state, absolute_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			
+			auto node = stabs_type_to_ast(*stabs_type_attribute.type, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+			CCC_RETURN_IF_ERROR(node);
+			result = std::move(*node);
+			
 			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
 		case StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER: {
 			const auto& stabs_member_pointer = type.as<StabsPointerToNonStaticDataMember>();
 			auto member_pointer = std::make_unique<PointerToDataMember>();
-			member_pointer->class_type = stabs_type_to_ast(*stabs_member_pointer.class_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
-			member_pointer->member_type = stabs_type_to_ast(*stabs_member_pointer.member_type.get(), state, absolute_parent_offset_bytes, depth + 1, true, true);
+			
+			auto class_node = stabs_type_to_ast(*stabs_member_pointer.class_type.get(), state, abs_parent_offset_bytes, depth + 1, true, true);
+			CCC_RETURN_IF_ERROR(class_node);
+			member_pointer->class_type = std::move(*class_node);
+			
+			auto member_node = stabs_type_to_ast(*stabs_member_pointer.member_type.get(), state, abs_parent_offset_bytes, depth + 1, true, true);
+			CCC_RETURN_IF_ERROR(member_node);
+			member_pointer->member_type = std::move(*member_node);
+			
 			result = std::move(member_pointer);
 			break;
 		}
 		case StabsTypeDescriptor::BUILTIN: {
-			verify(type.as<StabsBuiltInType>().type_id == 16,
+			CCC_CHECK(type.as<StabsBuiltInType>().type_id == 16,
 				"Unknown built-in type! Please file a bug report.");
 			auto builtin = std::make_unique<BuiltIn>();
 			builtin->bclass = BuiltInClass::BOOL_8;
@@ -281,38 +325,43 @@ std::unique_ptr<Node> stabs_type_to_ast(const StabsType& type, const StabsToAstS
 	return result;
 }
 
-std::unique_ptr<Node> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 absolute_parent_offset_bytes, s32 depth) {
+Result<std::unique_ptr<Node>> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
 	if(detect_bitfield(field, state)) {
 		// Process bitfields.
+		s32 relative_offset_bytes = field.offset_bits / 8;
+		s32 absolute_offset_bytes = abs_parent_offset_bytes + relative_offset_bytes;
+		auto bitfield_node = stabs_type_to_ast(*field.type, state, absolute_offset_bytes, depth + 1, true, false);
+		
 		std::unique_ptr<BitField> bitfield = std::make_unique<BitField>();
 		bitfield->name = (field.name == " ") ? "" : field.name;
-		bitfield->relative_offset_bytes = field.offset_bits / 8;
-		bitfield->absolute_offset_bytes = absolute_parent_offset_bytes + bitfield->relative_offset_bytes;
+		bitfield->relative_offset_bytes = relative_offset_bytes;
+		bitfield->absolute_offset_bytes = absolute_offset_bytes;
 		bitfield->size_bits = field.size_bits;
-		bitfield->underlying_type = stabs_type_to_ast(*field.type, state, bitfield->absolute_offset_bytes, depth + 1, true, false);
+		bitfield->underlying_type = std::move(*bitfield_node);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
 		if(field.is_static) {
 			bitfield->storage_class = SC_STATIC;
 		}
 		bitfield->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
-		return bitfield;
+		return std::unique_ptr<Node>(std::move(bitfield));
 	}
 	
 	// Process a normal field.
 	s32 relative_offset_bytes = field.offset_bits / 8;
-	s32 absolute_offset_bytes = absolute_parent_offset_bytes + relative_offset_bytes;
-	std::unique_ptr<Node> child = stabs_type_to_ast(*field.type, state, absolute_offset_bytes, depth + 1, true, false);
-	child->name = (field.name == " ") ? "" : field.name;
-	child->relative_offset_bytes = relative_offset_bytes;
-	child->absolute_offset_bytes = absolute_offset_bytes;
-	child->size_bits = field.size_bits;
+	s32 absolute_offset_bytes = abs_parent_offset_bytes + relative_offset_bytes;
+	Result<std::unique_ptr<Node>> node = stabs_type_to_ast(*field.type, state, absolute_offset_bytes, depth + 1, true, false);
+	CCC_RETURN_IF_ERROR(node);
+	(*node)->name = (field.name == " ") ? "" : field.name;
+	(*node)->relative_offset_bytes = relative_offset_bytes;
+	(*node)->absolute_offset_bytes = absolute_offset_bytes;
+	(*node)->size_bits = field.size_bits;
 	if(field.is_static) {
-		child->storage_class = SC_STATIC;
+		(*node)->storage_class = SC_STATIC;
 	}
-	child->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
-	return child;
+	(*node)->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
+	return node;
 }
 
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
@@ -542,11 +591,11 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			break;
 		}
 		case DATA: {
-			verify_not_reached("Tried to compare data AST nodes.");
+			CCC_FATAL("Tried to compare data AST nodes.");
 			break;
 		}
 		case FUNCTION_DEFINITION: {
-			verify_not_reached("Tried to compare function definition AST nodes.");
+			CCC_FATAL("Tried to compare function definition AST nodes.");
 		}
 		case FUNCTION_TYPE: {
 			const auto [lhs, rhs] = Node::as<FunctionType>(node_lhs, node_rhs);
@@ -567,7 +616,7 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			break;
 		}
 		case INITIALIZER_LIST: {
-			verify_not_reached("Tried to compare initializer list AST nodes.");
+			CCC_FATAL("Tried to compare initializer list AST nodes.");
 			break;
 		}
 		case INLINE_ENUM: {
@@ -608,7 +657,7 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			break;
 		}
 		case SOURCE_FILE: {
-			verify_not_reached("Tried to compare source file AST nodes.");
+			CCC_FATAL("Tried to compare source file AST nodes.");
 		}
 		case TYPE_NAME: {
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
@@ -644,7 +693,8 @@ static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, c
 			// Propagate confusion.
 			dest.type = CompareResultType::MATCHES_CONFUSED; 
 		} else if(dest.type == CompareResultType::MATCHES_FAVOUR_LHS && result.type == CompareResultType::MATCHES_FAVOUR_RHS) {
-			// Propagate confusion.
+			// One of the results favours the LHS node and the other favours the
+			// RHS node so we are confused.
 			dest.type = CompareResultType::MATCHES_CONFUSED; 
 		} else if(dest.type == CompareResultType::MATCHES_FAVOUR_RHS && result.type == CompareResultType::MATCHES_FAVOUR_LHS) {
 			// One of the results favours the LHS node and the other favours the

@@ -57,78 +57,103 @@ int main(int argc, char** argv) {
 	FILE* out = stdout;
 	if(!options.output_file.empty()) {
 		out = open_file_w(options.output_file.c_str());
-		verify(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
+		CCC_CHECK_FATAL(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
 	}
 	switch(options.mode) {
 		case OutputMode::FUNCTIONS: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			print_functions(out, symbol_table);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			print_functions(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::GLOBALS: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			print_globals(out, symbol_table);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			print_globals(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::TYPES: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
 			if(!(options.flags & FLAG_PER_FILE)) {
-				print_types_deduplicated(out, symbol_table, options);
+				print_types_deduplicated(out, *symbol_table, options);
 			} else {
-				print_types_per_file(out, symbol_table, options);
+				print_types_per_file(out, *symbol_table, options);
 			}
 			return 0;
 		}
 		case OutputMode::JSON: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
 			u32 analysis_flags = STRIP_GENERATED_FUNCTIONS;
 			if(!(options.flags & FLAG_PER_FILE)) {
 				analysis_flags |= DEDUPLICATE_TYPES;
 			}
-			HighSymbolTable high = analyse(symbol_table, analysis_flags);
-			print_json(out, high, options.flags & FLAG_PER_FILE);
+			Result<HighSymbolTable> high = analyse(*symbol_table, analysis_flags);
+			CCC_EXIT_IF_ERROR(high);
+			
+			print_json(out, *high, options.flags & FLAG_PER_FILE);
+			
 			break;
 		}
 		case OutputMode::MDEBUG: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			mdebug::print_headers(out, symbol_table);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			mdebug::print_headers(out, *symbol_table);
 			break;
 		}
 		case OutputMode::SYMBOLS: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			print_local_symbols(out, symbol_table);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			print_local_symbols(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::EXTERNALS: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			print_external_symbols(out, symbol_table);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			print_external_symbols(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::FILES: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			list_files(out, symbol_table);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			list_files(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::SECTIONS: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			list_sections(out, symbol_table, mod);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			list_sections(out, *symbol_table, mod);
 			return 0;
 		}
 		case OutputMode::TYPE_GRAPH: {
 			Module mod;
-			mdebug::SymbolTable symbol_table = read_symbol_table(mod, options.input_file);
-			HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
-			TypeDependencyAdjacencyList graph = build_type_dependency_graph(high);
-			print_type_dependency_graph(out, high, graph);
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			CCC_EXIT_IF_ERROR(symbol_table);
+			
+			Result<HighSymbolTable> high = analyse(*symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
+			CCC_EXIT_IF_ERROR(high);
+			
+			TypeDependencyAdjacencyList graph = build_type_dependency_graph(*high);
+			print_type_dependency_graph(out, *high, graph);
 			return 0;
 		}
 		case OutputMode::TEST: {
@@ -146,8 +171,9 @@ int main(int argc, char** argv) {
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 	CppPrinter printer(out);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		ast::SourceFile& source_file = *result.source_files.at(0);
+		Result<HighSymbolTable> result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		CCC_EXIT_IF_ERROR(result);
+		ast::SourceFile& source_file = *result->source_files.at(0);
 		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
 			printer.function(node->as<ast::FunctionDefinition>());
@@ -158,8 +184,9 @@ static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 	CppPrinter printer(out);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		HighSymbolTable result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		ast::SourceFile& source_file = *result.source_files.at(0);
+		Result<HighSymbolTable> result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		CCC_EXIT_IF_ERROR(result);
+		ast::SourceFile& source_file = *result->source_files.at(0);
 		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			printer.global_variable(node->as<ast::Variable>());
@@ -170,13 +197,14 @@ static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	analysis_flags |= DEDUPLICATE_TYPES;
-	HighSymbolTable high = analyse(symbol_table, analysis_flags);
+	Result<HighSymbolTable> high = analyse(symbol_table, analysis_flags);
+	CCC_EXIT_IF_ERROR(high);
 	CppPrinter printer(out);
 	printer.comment_block_beginning(options.input_file);
 	printer.comment_block_compiler_version_info(symbol_table);
-	printer.comment_block_builtin_types(high.deduplicated_types);
+	printer.comment_block_builtin_types((*high).deduplicated_types);
 	printer.verbose = options.flags & FLAG_VERBOSE;
-	for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+	for(const std::unique_ptr<ast::Node>& type : high->deduplicated_types) {
 		printer.data_type(*type);
 	}
 }
@@ -187,8 +215,9 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 	printer.verbose = options.flags & FLAG_VERBOSE;
 	printer.comment_block_beginning(options.input_file);
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		HighSymbolTable result = analyse(symbol_table, analysis_flags, i);
-		ast::SourceFile& source_file = *result.source_files.at(0);
+		Result<HighSymbolTable> result = analyse(symbol_table, analysis_flags, i);
+		CCC_EXIT_IF_ERROR(result);
+		ast::SourceFile& source_file = *result->source_files.at(0);
 		printer.comment_block_file(source_file.full_path.c_str());
 		printer.comment_block_compiler_version_info(symbol_table);
 		printer.comment_block_builtin_types(source_file.data_types);
@@ -289,7 +318,7 @@ static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, co
 }
 
 static void test(FILE* out, const fs::path& directory) {
-	verify(fs::is_directory(directory), "Input path is not a directory.");
+	CCC_CHECK_FATAL(fs::is_directory(directory), "Input path is not a directory.");
 	s32 passed = 0;
 	s32 skipped = 0;
 	for(auto entry : fs::directory_iterator(directory)) {
@@ -299,13 +328,17 @@ static void test(FILE* out, const fs::path& directory) {
 			Module mod = loaders::read_elf_file(entry.path());
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 			if(mdebug_section) {
-				mdebug::SymbolTable symbol_table = mdebug::parse_symbol_table(mod, *mdebug_section);
-				ccc::HighSymbolTable high = analyse(symbol_table, DEDUPLICATE_TYPES);
+				Result<mdebug::SymbolTable> symbol_table = mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);
+				CCC_EXIT_IF_ERROR(symbol_table);
+				
+				Result<ccc::HighSymbolTable> high = analyse(*symbol_table, DEDUPLICATE_TYPES);
+				CCC_EXIT_IF_ERROR(high);
+				
 				CppPrinter printer(out);
-				for(const std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+				for(const std::unique_ptr<ast::Node>& type : high->deduplicated_types) {
 					printer.data_type(*type);
 				}
-				for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
+				for(const std::unique_ptr<ast::SourceFile>& file : high->source_files) {
 					for(const std::unique_ptr<ast::Node>& node : file->functions) {
 						printer.function(node->as<ast::FunctionDefinition>());
 					}
@@ -313,7 +346,7 @@ static void test(FILE* out, const fs::path& directory) {
 						printer.global_variable(node->as<ast::Variable>());
 					}
 				}
-				print_json(out, high, false);
+				print_json(out, *high, false);
 				printf("pass\n");
 				passed++;
 			} else {
@@ -365,7 +398,7 @@ static Options parse_args(int argc, char** argv) {
 			options.mode = OutputMode::HELP;
 			require_input_path = false;
 		} else {
-			verify_not_reached("Unknown command '%s'.", command);
+			CCC_CHECK_FATAL("Unknown command '%s'.", command);
 			options.mode = OutputMode::BAD_COMMAND;
 			return options;
 		}
@@ -387,24 +420,20 @@ static Options parse_args(int argc, char** argv) {
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];
 			} else {
-				verify_not_reached("No output path specified.");
+				CCC_FATAL("No output path specified.");
 				options.mode = OutputMode::BAD_COMMAND;
 				return options;
 			}
 		} else if(strncmp(arg, "--", 2) == 0) {
-			verify_not_reached("Unknown option '%s'.", arg);
-			options.mode = OutputMode::BAD_COMMAND;
-			return options;
+			CCC_FATAL("Unknown option '%s'.", arg);
 		} else if(input_path_provided) {
-			verify_not_reached("Multiple input paths specified.");
-			options.mode = OutputMode::BAD_COMMAND;
-			return options;
+			CCC_FATAL("Multiple input paths specified.");
 		} else {
 			options.input_file = argv[i];
 			input_path_provided = true;
 		}
 	}
-	verify(!require_input_path || !options.input_file.empty(), "No input path specified.");
+	CCC_CHECK_FATAL(!require_input_path || !options.input_file.empty(), "No input path specified.");
 	return options;
 }
 

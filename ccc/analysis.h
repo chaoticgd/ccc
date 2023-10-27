@@ -25,10 +25,10 @@ enum AnalysisFlags {
 	STRIP_GENERATED_FUNCTIONS = (1 << 4)
 };
 
-mdebug::SymbolTable read_symbol_table(Module& mod, const fs::path& input_file);
-HighSymbolTable analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
-void analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
-ast::GlobalVariableLocation symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
+Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file);
+Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
+Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
+std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
 struct LocalSymbolTableAnalyser {
 	ast::SourceFile& output;
@@ -68,22 +68,22 @@ struct LocalSymbolTableAnalyser {
 	//   ... line numbers ...
 	//   end
 	//   ... blocks ...
-	void stab_magic(const char* magic);
-	void source_file(const char* path, s32 text_address);
-	void data_type(const ParsedSymbol& symbol);
-	void global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location);
-	void sub_source_file(const char* name, s32 text_address);
-	void procedure(const char* name, s32 address, bool is_static);
-	void label(const char* label, s32 address, s32 line_number);
-	void text_end(const char* name, s32 function_size);
-	void function(const char* name, const StabsType& return_type, s32 function_address);
-	void function_end();
-	void parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
-	void local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
-	void lbrac(s32 number, s32 begin_offset);
-	void rbrac(s32 number, s32 end_offset);
+	Result<void> stab_magic(const char* magic);
+	Result<void> source_file(const char* path, s32 text_address);
+	Result<void> data_type(const ParsedSymbol& symbol);
+	Result<void> global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location);
+	Result<void> sub_source_file(const char* name, s32 text_address);
+	Result<void> procedure(const char* name, s32 address, bool is_static);
+	Result<void> label(const char* label, s32 address, s32 line_number);
+	Result<void> text_end(const char* name, s32 function_size);
+	Result<void> function(const char* name, const StabsType& return_type, s32 function_address);
+	Result<void> function_end();
+	Result<void> parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
+	Result<void> local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
+	Result<void> lbrac(s32 number, s32 begin_offset);
+	Result<void> rbrac(s32 number, s32 end_offset);
 	
-	void finish();
+	Result<void> finish();
 };
 
 void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high);

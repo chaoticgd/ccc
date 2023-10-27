@@ -34,42 +34,134 @@ using s16 = int16_t;
 using s32 = int32_t;
 using s64 = int64_t;
 
-#define ANSI_COLOUR_OFF "\033[0m"
-#define ANSI_COLOUR_RED "\033[31m"
-#define ANSI_COLOUR_MAGENTA "\033[35m"
-#define ANSI_COLOUR_GRAY "\033[90m"
+#define CCC_ANSI_COLOUR_OFF "\033[0m"
+#define CCC_ANSI_COLOUR_RED "\033[31m"
+#define CCC_ANSI_COLOUR_MAGENTA "\033[35m"
+#define CCC_ANSI_COLOUR_GRAY "\033[90m"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-security"
-template <typename... Args>
-void verify_impl(const char* file, int line, bool condition, const char* format, Args... args) {
-	if(!condition) {
-		fprintf(stderr, "[%s:%d] " ANSI_COLOUR_RED "error:" ANSI_COLOUR_OFF " ", file, line);
-		fprintf(stderr, format, args...);
-		fprintf(stderr, "\n");
-		exit(1);
+struct Error {
+	const char* message;
+	const char* source_file;
+	s32 source_line;
+};
+
+Error* format_error(const char* source_file, int source_line, const char* format, ...);
+void print_error(FILE* out, const Error* error);
+void print_warning(FILE* out, const Error* warning);
+
+#define CCC_FATAL(...) \
+	{ \
+		Error* error = format_error(__FILE__, __LINE__, __VA_ARGS__); \
+		print_error(stderr, error); \
+		exit(1); \
 	}
-}
-#define verify(condition, ...) \
-	ccc::verify_impl(__FILE__, __LINE__, condition, __VA_ARGS__)
+	
+#define CCC_CHECK_FATAL(condition, ...) \
+	if(!(condition)) { \
+		Error* error = format_error(__FILE__, __LINE__, __VA_ARGS__); \
+		print_error(stderr, error); \
+		exit(1); \
+	}
+
+template <typename Value>
+class Result {
+	template <typename OtherValue>
+	friend class Result;
+protected:
+	Value _value;
+	Error* _error;
+	
+	Result() {}
+	
+public:
+	Result(Value value) : _value(std::move(value)), _error(nullptr) {}
+	
+	template <typename OtherValue>
+	Result(const Result<OtherValue>& rhs) {
+		CCC_CHECK_FATAL(rhs._error != nullptr, "Result(const Result<>& rhs) called with Result<> object not storing an error.");
+		_error = rhs._error;
+	}
+	
+	static Result<Value> success(Value value) {
+		Result<Value> result;
+		result._value = std::move(value);
+		return result;
+	}
+	
+	static Result<Value> failure(Error* error) {
+		Result<Value> result;
+		result._error = error;
+		return result;
+	}
+	
+	bool success() const {
+		return _error == nullptr;
+	}
+	
+	const Error& error() const {
+		CCC_CHECK_FATAL(_error != nullptr, "error() called on Result<> object not storing an error.");
+		return *_error;
+	}
+	
+	Value& operator*() {
+		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on Result<> object storing an error.");
+		return _value;
+	}
+	
+	const Value& operator*() const {
+		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on const Result<> object storing an error.");
+		return _value;
+	}
+	
+	Value* operator->() {
+		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on Result<> object storing an error.");
+		return &_value;
+	}
+	
+	const Value* operator->() const {
+		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on Result<> object storing an error.");
+		return &_value;
+	}
+};
+
+template <>
+class Result<void> : public Result<int> {
+public:
+	Result() : Result<int>(0) {}
+	
+	template <typename Dummy>
+	Result(const Result<Dummy>& rhs) {
+		CCC_CHECK_FATAL(rhs._error != nullptr, "Result(const Result<>& rhs) called with Result<> object not storing an error.");
+		_error = rhs._error;
+	}
+};
+
+struct ResultDummyValue {};
+#define CCC_FAILURE(...) Result<ResultDummyValue>::failure(format_error(__FILE__, __LINE__, __VA_ARGS__))
+#define CCC_RETURN_IF_ERROR(result) if(!(result).success()) return (result);
+#define CCC_EXIT_IF_ERROR(result) \
+	if(!(result).success()) { \
+		ccc::print_error(stderr, &(result).error()); \
+		exit(1); \
+	}
+
+#define CCC_CHECK(condition, ...) \
+	if(!(condition)) { \
+		return CCC_FAILURE(__VA_ARGS__); \
+	}
+
+#define CCC_EXPECT_CHAR(input, c, context) \
+	CCC_CHECK(*(input++) == c, \
+		"Expected '%c' in %s, got '%c' (%02hhx)", \
+		c, context, *(input - 1), *(input - 1))
+
 template <typename... Args>
-[[noreturn]] void verify_not_reached_impl(const char* file, int line, const char* format, Args... args) {
-	fprintf(stderr, "[%s:%d] " ANSI_COLOUR_RED "error:" ANSI_COLOUR_OFF " ", file, line);
-	fprintf(stderr, format, args...);
-	fprintf(stderr, "\n");
-	exit(1);
+void warn_impl(const char* source_file, int source_line, const char* format, Args... args) {
+	Error* warning = format_error(source_file, source_line, format, args...);
+	print_warning(stderr, warning);
 }
-#define verify_not_reached(...) \
-	ccc::verify_not_reached_impl(__FILE__, __LINE__, __VA_ARGS__)
-template <typename... Args>
-void warn_impl(const char* file, int line, const char* format, Args... args) {
-	fprintf(stderr, "[%s:%d] " ANSI_COLOUR_MAGENTA "warning:" ANSI_COLOUR_OFF " ", file, line);
-	fprintf(stderr, format, args...);
-	fprintf(stderr, "\n");
-}
-#define warn(...) \
+#define CCC_WARN(...) \
 	ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
-#pragma GCC diagnostic pop
 
 #ifdef _MSC_VER
 	#define packed_struct(name, ...) \
@@ -80,16 +172,17 @@ void warn_impl(const char* file, int line, const char* format, Args... args) {
 #endif
 
 template <typename T>
-const T& get_packed(const std::vector<u8>& bytes, u64 offset, const char* subject) {
-	verify(bytes.size() >= offset + sizeof(T), "Failed to read %s.", subject);
-	return *(const T*) &bytes[offset];
+const T* get_packed(const std::vector<u8>& bytes, u64 offset) {
+	if(bytes.size() < offset + sizeof(T)) {
+		return nullptr;
+	}
+	return reinterpret_cast<const T*>(&bytes[offset]);
 }
 
 std::vector<u8> read_binary_file(const fs::path& path);
 std::optional<std::string> read_text_file(const fs::path& path);
 s64 file_size(FILE* file);
-std::string get_string(const std::vector<u8>& bytes, u64 offset);
-const char* get_c_string(const std::vector<u8>& bytes, u64 offset);
+Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset);
 
 struct Range {
 	s32 low;
