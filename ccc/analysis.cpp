@@ -1,12 +1,13 @@
 #include "analysis.h"
 
 #include "elf.h"
+#include "stabs_to_ast.h"
 
 namespace ccc {
 
 class LocalSymbolTableAnalyser {
 public:
-	LocalSymbolTableAnalyser(ast::SourceFile& output, ast::StabsToAstState& stabs_to_ast_state)
+	LocalSymbolTableAnalyser(ast::SourceFile& output, StabsToAstState& stabs_to_ast_state)
 		: m_output(output), m_stabs_to_ast_state(stabs_to_ast_state) {}
 	
 	// Functions for processing individual symbols.
@@ -54,7 +55,7 @@ protected:
 	};
 	
 	ast::SourceFile& m_output;
-	ast::StabsToAstState& m_stabs_to_ast_state;
+	StabsToAstState& m_stabs_to_ast_state;
 	
 	AnalysisState m_state = NOT_IN_FUNCTION;
 	ast::FunctionDefinition* m_current_function = nullptr;
@@ -139,7 +140,7 @@ Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& de
 		}
 	}
 	
-	ast::StabsToAstState stabs_to_ast_state;
+	StabsToAstState stabs_to_ast_state;
 	stabs_to_ast_state.file_index = file_index;
 	stabs_to_ast_state.stabs_types = &stabs_types;
 	
@@ -339,7 +340,7 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, s32 text_ad
 }
 
 Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
-	Result<std::unique_ptr<ast::Node>> node = ast::stabs_symbol_to_ast(symbol, m_stabs_to_ast_state);
+	Result<std::unique_ptr<ast::Node>> node = stabs_symbol_to_ast(symbol, m_stabs_to_ast_state);
 	CCC_RETURN_IF_ERROR(node);
 	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
 	m_output.data_types.emplace_back(std::move(*node));
@@ -357,7 +358,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, s32 add
 	global->storage.type = ast::VariableStorageType::GLOBAL;
 	global->storage.global_location = location;
 	global->storage.global_address = address;
-	global->type = ast::stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
+	global->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	m_output.globals.emplace_back(std::move(global));
 	
 	return Result<void>();
@@ -419,7 +420,7 @@ Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsTyp
 		create_function(name);
 	}
 	
-	m_current_function_type->return_type = ast::stabs_type_to_ast_and_handle_errors(return_type, m_stabs_to_ast_state, 0, 0, true, true);
+	m_current_function_type->return_type = stabs_type_to_ast_and_handle_errors(return_type, m_stabs_to_ast_state, 0, 0, true, true);
 	
 	return Result<void>();
 }
@@ -446,7 +447,7 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
 		parameter->storage.is_by_reference = is_by_reference;
 	}
-	parameter->type = ast::stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
+	parameter->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
 	m_current_function_type->parameters->emplace_back(std::move(parameter));
 	
 	return Result<void>();
@@ -481,7 +482,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 			break;
 		}
 	}
-	local->type = ast::stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
+	local->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	m_current_function->locals.emplace_back(std::move(local));
 	
 	return Result<void>();

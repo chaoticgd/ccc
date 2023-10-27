@@ -51,7 +51,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	stdump.cpp: See above.
 	uncc.cpp: See above.
 	ccc/analysis.cpp: Runs all the different analysis passes.
-	ccc/ast.cpp: Converts parsed STABS types to a C++ AST structure.
+	ccc/ast.cpp: Defines a C++ AST structure.
 	ccc/data_refinement.cpp: Convert global variable data into a structured AST.
 	ccc/dependency.cpp: Try to infer information about which types belong to which files.
 	ccc/elf.cpp: Parses ELF files.
@@ -63,10 +63,12 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	ccc/print_json.cpp: Prints out AST nodes as JSON.
 	ccc/registers.cpp: Enums for EE core MIPS registers.
 	ccc/stabs.cpp: Parses STABS types.
+	ccc/stabs_to_ast.cpp: Converts parsed STABS types into an AST.
 	ccc/symbols.cpp: Parses the STABS and non-STABS symbols.
 	ccc/tables.cpp: Table of EE core MIPS instructions.
 	ccc/util.cpp: Miscellaneous utilities.
-
+	platform/file.cpp: Utility functions for reading files.
+	
 ## Resources
 
 - [Third Eye Software and the MIPS symbol table (Peter Rowell)](http://datahedron.com/mips.html) / [in-repo mirror](docs/ThirdEyeSoftwareAndTheMIPSSymbolTable.html) / [archive.org mirror](https://web.archive.org/web/20230605005654/http://datahedron.com/mips.html)

@@ -319,14 +319,6 @@ public:
 	std::vector<std::unique_ptr<Node>> finish();
 };
 
-struct StabsToAstState {
-	s32 file_index;
-	std::map<s64, const StabsType*>* stabs_types;
-};
-std::unique_ptr<Node> stabs_type_to_ast_and_handle_errors(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
-Result<std::unique_ptr<Node>> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state);
-Result<std::unique_ptr<Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);
-Result<std::unique_ptr<Node>> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
 enum class CompareResultType {
@@ -380,7 +372,6 @@ const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
 const char* global_variable_location_to_string(GlobalVariableLocation location);
 const char* access_specifier_to_string(AccessSpecifier specifier);
-AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility);
 
 enum TraversalOrder {
 	PREORDER_TRAVERSAL,

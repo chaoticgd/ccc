@@ -56,6 +56,8 @@ add_library(ccc STATIC
 	ccc/registers.h
 	ccc/stabs.cpp
 	ccc/stabs.h
+	ccc/stabs_to_ast.cpp
+	ccc/stabs_to_ast.h
 	ccc/symbols.cpp
 	ccc/symbols.h
 	ccc/tables.cpp
