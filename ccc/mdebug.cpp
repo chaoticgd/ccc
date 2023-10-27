@@ -114,7 +114,8 @@ Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_o
 		SymFileDescriptor& fd = symbol_table.files.emplace_back();
 		fd.header = fd_header;
 		
-		Result<const char*> raw_path = get_string(elf, hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + fudge_offset);
+		s32 raw_path_offset = hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + fudge_offset;
+		Result<const char*> raw_path = get_string(elf, raw_path_offset);
 		CCC_RETURN_IF_ERROR(raw_path);
 		fd.raw_path = *raw_path;
 		
@@ -140,7 +141,7 @@ Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_o
 			CCC_RETURN_IF_ERROR(sym);
 			
 			if(fd.base_path.empty() && symbol_header->iss == fd_header->file_path_string_offset && sym->is_stabs && sym->code == N_SO && fd.symbols.size() > 2) {
-				const Symbol& base_path = fd.symbols[fd.symbols.size() - 2];
+				const Symbol& base_path = fd.symbols.back();
 				if(base_path.is_stabs && base_path.code == N_SO) {
 					fd.base_path = base_path.string;
 				}
