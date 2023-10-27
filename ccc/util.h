@@ -58,6 +58,9 @@ void print_warning(FILE* out, const Error* warning);
 #define CCC_ASSERT(condition) \
 	CCC_CHECK_FATAL(condition, #condition)
 
+// The main error handling construct in CCC. This class is used to bundle
+// together a return value and a pointer to error information, so that errors
+// can be propagated up the stack.
 template <typename Value>
 class Result {
 	template <typename OtherValue>
@@ -71,9 +74,10 @@ protected:
 public:
 	Result(Value value) : _value(std::move(value)), _error(nullptr) {}
 	
+	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
 	Result(const Result<OtherValue>& rhs) {
-		CCC_CHECK_FATAL(rhs._error != nullptr, "Result(const Result<>& rhs) called with ccc::Result<> object not storing an error.");
+		CCC_ASSERT(rhs._error != nullptr);
 		_error = rhs._error;
 	}
 	
@@ -94,27 +98,27 @@ public:
 	}
 	
 	const Error& error() const {
-		CCC_CHECK_FATAL(_error != nullptr, "error() called on ccc::Result<> object not storing an error.");
+		CCC_ASSERT(_error != nullptr);
 		return *_error;
 	}
 	
 	Value& operator*() {
-		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on ccc::Result<> object storing an error.");
+		CCC_ASSERT(_error == nullptr);
 		return _value;
 	}
 	
 	const Value& operator*() const {
-		CCC_CHECK_FATAL(_error == nullptr, "operator*() called on const ccc::Result<> object storing an error.");
+		CCC_ASSERT(_error == nullptr);
 		return _value;
 	}
 	
 	Value* operator->() {
-		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on ccc::Result<> object storing an error.");
+		CCC_ASSERT(_error == nullptr);
 		return &_value;
 	}
 	
 	const Value* operator->() const {
-		CCC_CHECK_FATAL(_error == nullptr, "operator->() called on ccc::Result<> object storing an error.");
+		CCC_ASSERT(_error == nullptr);
 		return &_value;
 	}
 };
@@ -126,7 +130,7 @@ public:
 	
 	template <typename Dummy>
 	Result(const Result<Dummy>& rhs) {
-		CCC_CHECK_FATAL(rhs._error != nullptr, "ccc::Result(const Result<>&) called with Result<> object not storing an error.");
+		CCC_ASSERT(rhs._error != nullptr);
 		_error = rhs._error;
 	}
 };
