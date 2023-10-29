@@ -82,12 +82,6 @@ public:
 		m_error = rhs.m_error;
 	}
 	
-	static Result<Value> success(Value value) {
-		Result<Value> result;
-		result.m_value = std::move(value);
-		return result;
-	}
-	
 	static Result<Value> failure(Error* error) {
 		Result<Value> result;
 		result.m_error = error;
@@ -129,15 +123,14 @@ class Result<void> : public Result<int> {
 public:
 	Result() : Result<int>(0) {}
 	
-	template <typename Dummy>
-	Result(const Result<Dummy>& rhs) {
+	template <typename OtherValue>
+	Result(const Result<OtherValue>& rhs) {
 		CCC_ASSERT(rhs.m_error != nullptr);
 		m_error = rhs.m_error;
 	}
 };
 
-struct ResultDummyValue {};
-#define CCC_FAILURE(...) ccc::Result<ccc::ResultDummyValue>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
+#define CCC_FAILURE(...) ccc::Result<int>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
 #define CCC_RETURN_IF_ERROR(result) if(!(result).success()) return (result);
 #define CCC_EXIT_IF_ERROR(result) \
 	if(!(result).success()) { \
