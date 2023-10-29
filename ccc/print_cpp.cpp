@@ -139,7 +139,7 @@ bool CppPrinter::data_type(const ast::Node& node) {
 		fprintf(out, "\n");
 	}
 	
-	if(node.conflict) {
+	if(node.conflict && (node.descriptor != ast::INLINE_ENUM || !node.name.empty())) {
 		fprintf(out, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node.files.at(0), node.compare_fail_reason);
 	}
 	if(node.descriptor == ast::NodeDescriptor::TYPE_NAME && node.as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
