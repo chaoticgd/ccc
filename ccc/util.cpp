@@ -1,14 +1,5 @@
 #include "util.h"
 
-#include <vector>
-#include <cstdint>
-#include <cstring>
-#include <fstream>
-#include <sstream>
-#include <iterator>
-#include <stdexcept>
-#include <filesystem>
-
 namespace ccc {
 
 Error* format_error(const char* source_file, int source_line, const char* format, ...) {
