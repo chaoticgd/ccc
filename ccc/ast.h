@@ -3,7 +3,6 @@
 
 #include "util.h"
 #include "symbols.h"
-#include "registers.h"
 
 namespace ccc::ast {
 
@@ -288,9 +287,7 @@ struct VariableStorage {
 	VariableStorageType type = VariableStorageType::GLOBAL;
 	GlobalVariableLocation global_location = GlobalVariableLocation::NIL;
 	s32 global_address = -1;
-	mips::RegisterClass register_class = mips::RegisterClass::GPR;
 	s32 dbx_register_number = -1;
-	s32 register_index_relative = -1;
 	bool is_by_reference = false;
 	s32 stack_pointer_offset = -1;
 	

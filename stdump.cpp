@@ -38,8 +38,6 @@ struct Options {
 };
 
 static Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file);
-static void print_deduplicated(const mdebug::SymbolTable& symbol_table, Options options);
-static std::vector<std::unique_ptr<ast::Node>> build_deduplicated_ast(std::vector<std::vector<ParsedSymbol>>& symbols, const mdebug::SymbolTable& symbol_table);
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table);
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table);
 static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options);
@@ -485,8 +483,6 @@ static void print_help() {
 	puts("    --omit-member-functions       Do not print member functions.");
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");
-	puts("    --output <output file>        Write the output to the file specified instead");
-	puts("                                  of to the standard output.");
 	puts("");
 	puts("  json [options] <input file>");
 	puts("    Print all of the above as JSON.");

@@ -3,6 +3,8 @@
 #include <cmath>
 #include <chrono>
 
+#include "registers.h"
+
 namespace ccc {
 
 enum VariableNamePrintFlags {
@@ -139,7 +141,7 @@ bool CppPrinter::data_type(const ast::Node& node) {
 		fprintf(out, "\n");
 	}
 	
-	if(node.conflict) {
+	if(node.conflict && (node.descriptor != ast::INLINE_ENUM || !node.name.empty())) {
 		fprintf(out, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node.files.at(0), node.compare_fail_reason);
 	}
 	if(node.descriptor == ast::NodeDescriptor::TYPE_NAME && node.as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
@@ -587,9 +589,11 @@ void CppPrinter::print_variable_storage_comment(const ast::VariableStorage& stor
 				fprintf(out, " %x", storage.global_address);
 			}
 		} else if(storage.type == ast::VariableStorageType::REGISTER) {
-			const char** name_table = mips::REGISTER_STRING_TABLES[(s32) storage.register_class];
-			CCC_ASSERT(storage.register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) storage.register_class]);
-			const char* register_name = name_table[storage.register_index_relative];
+			auto [register_class, register_index_relative] =
+				mips::map_dbx_register_index(storage.dbx_register_number);
+			const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
+			CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
+			const char* register_name = name_table[register_index_relative];
 			fprintf(out, "%s %d", register_name, storage.dbx_register_number);
 		} else {
 			if(storage.stack_pointer_offset >= 0) {

@@ -164,7 +164,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 						type.is_currently_processing = true;
 						std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type, context);
 						type.is_currently_processing = false;
-						return std::move(result);
+						return result;
 					}
 				}
 			}

@@ -2,12 +2,9 @@
 #define _CCC_IR_H
 
 #include "ast.h"
-#include "insn.h"
 #include "stabs.h"
 #include "mdebug.h"
-#include "module.h"
 #include "symbols.h"
-#include "registers.h"
 
 namespace ccc {
 

@@ -105,7 +105,7 @@ enum class StabsFieldVisibility : u8 {
 
 struct StabsBaseClass {
 	StabsFieldVisibility visibility;
-	s32 offset;
+	s32 offset = -1;
 	std::unique_ptr<StabsType> type;
 };
 
@@ -128,9 +128,9 @@ enum class MemberFunctionModifier {
 struct StabsMemberFunction {
 	std::unique_ptr<StabsType> type;
 	StabsFieldVisibility visibility;
-	bool is_const;
-	bool is_volatile;
-	MemberFunctionModifier modifier;
+	bool is_const = false;
+	bool is_volatile = false;
+	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
 };
 
@@ -212,7 +212,7 @@ struct StabsRangeType : StabsType {
 	std::unique_ptr<StabsType> type;
 	s64 low_maybe_wrong = 0;
 	s64 high_maybe_wrong = -1; // For some zero-length arrays gcc writes out a malformed range, in which case these defaults are used.
-	BuiltInClass range_class;
+	BuiltInClass range_class = BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 	
 	StabsRangeType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::RANGE;
@@ -224,7 +224,7 @@ struct StabsRangeType : StabsType {
 };
 
 struct StabsStructOrUnionType : StabsType {
-	s64 size;
+	s64 size = -1;
 	std::vector<StabsBaseClass> base_classes;
 	std::vector<StabsField> fields;
 	std::vector<StabsMemberFunctionSet> member_functions;
@@ -271,8 +271,8 @@ struct StabsCrossReferenceType : StabsType {
 };
 
 struct StabsFloatingPointBuiltInType : StabsType {
-	s32 fpclass;
-	s32 bytes;
+	s32 fpclass = -1;
+	s32 bytes = -1;
 	
 	StabsFloatingPointBuiltInType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::FLOATING_POINT_BUILTIN;
@@ -323,7 +323,7 @@ struct StabsPointerType : StabsType {
 };
 
 struct StabsSizeTypeAttributeType : StabsType {
-	s64 size_bits;
+	s64 size_bits = -1;
 	std::unique_ptr<StabsType> type;
 	
 	StabsSizeTypeAttributeType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
@@ -350,7 +350,7 @@ struct StabsPointerToNonStaticDataMember : StabsType {
 };
 
 struct StabsBuiltInType : StabsType {
-	s64 type_id;
+	s64 type_id = -1;
 	
 	StabsBuiltInType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILTIN;

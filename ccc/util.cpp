@@ -79,7 +79,7 @@ std::string merge_paths(const std::string& base, const std::string& path) {
 	
 	// Actually merge the paths. If path is the entire path, we don't need to
 	// append base onto the front, so check for that now.
-	bool is_absolute_unix = (path.size() >= 1) && path[0] == '/' || path[0] == '\\';
+	bool is_absolute_unix = (path.size() >= 1) && (path[0] == '/' || path[0] == '\\');
 	bool is_absolute_windows = (path.size() >= 3) && path[1] == ':' && (path[2] == '/' || path[2] == '\\');
 	if(base.empty() || is_absolute_unix || is_absolute_windows) {
 		return normalise_path(path.c_str(), is_windows_path);

@@ -1,6 +1,5 @@
 #include "analysis.h"
 
-#include "elf.h"
 #include "stabs_to_ast.h"
 
 namespace ccc {
@@ -84,7 +83,7 @@ Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 fla
 	
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
-		CCC_CHECK_FATAL(file_descriptor_index < symbol_table.files.size(), "file_descriptor_index out of range.");
+		CCC_CHECK_FATAL((size_t) file_descriptor_index < symbol_table.files.size(), "file_descriptor_index out of range.");
 		Result<void> result = analyse_file(high, deduplicator, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
 		CCC_RETURN_IF_ERROR(result);
 	} else {
@@ -176,7 +175,6 @@ Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& de
 					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
-						bool is_register_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE;
 						ast::VariableStorageType storage_type = ast::VariableStorageType::GLOBAL;
 						ast::GlobalVariableLocation location = ast::GlobalVariableLocation::NIL;
 						bool is_static = false;
@@ -394,7 +392,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, s32 address, 
 
 Result<void> LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
 	if(address > -1 && m_current_function && label[0] == '$') {
-		CCC_ASSERT(address < 256 * 1024 * 1024);
+		CCC_CHECK(address < 256 * 1024 * 1024, "Address too big.");
 		ast::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
 		pair.address = address;
 		pair.line_number = line_number;
@@ -433,7 +431,7 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 }
 
 Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
-	CCC_ASSERT(m_current_function_type);
+	CCC_CHECK(m_current_function_type, "Parameter symbol before first func/proc symbol.");
 	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
 	parameter->name = name;
 	parameter->variable_class = ast::VariableClass::PARAMETER;
@@ -443,8 +441,6 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	} else {
 		parameter->storage.type = ast::VariableStorageType::REGISTER;
 		parameter->storage.dbx_register_number = offset_or_register;
-		std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
-			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
 		parameter->storage.is_by_reference = is_by_reference;
 	}
 	parameter->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
@@ -473,8 +469,6 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 		}
 		case ast::VariableStorageType::REGISTER: {
 			local->storage.dbx_register_number = value;
-			std::tie(local->storage.register_class, local->storage.register_index_relative) =
-				mips::map_dbx_register_index(local->storage.dbx_register_number);
 			break;
 		}
 		case ast::VariableStorageType::STACK: {

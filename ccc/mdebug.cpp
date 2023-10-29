@@ -140,7 +140,8 @@ Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_o
 			Result<Symbol> sym = parse_symbol(*symbol_header, elf, strings_offset);
 			CCC_RETURN_IF_ERROR(sym);
 			
-			if(fd.base_path.empty() && symbol_header->iss == fd_header->file_path_string_offset && sym->is_stabs && sym->code == N_SO && fd.symbols.size() > 2) {
+			bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
+			if(fd.base_path.empty() && string_offset_equal && sym->is_stabs && sym->code == N_SO && fd.symbols.size() > 2) {
 				const Symbol& base_path = fd.symbols.back();
 				if(base_path.is_stabs && base_path.code == N_SO) {
 					fd.base_path = base_path.string;
@@ -184,12 +185,12 @@ static s32 get_corruption_fixing_fudge_offset(u32 section_offset, const Symbolic
 	if(hdrr.relative_file_descriptors_offset > 0) right_after_header = std::min(hdrr.relative_file_descriptors_offset, right_after_header);
 	if(hdrr.external_symbols_offset > 0) right_after_header = std::min(hdrr.external_symbols_offset, right_after_header);
 	
-	if(right_after_header == section_offset + sizeof(SymbolicHeader)) {
+	if(right_after_header == (s32) (section_offset + sizeof(SymbolicHeader))) {
 		return 0; // It's probably fine.
 	}
 	
 	if(right_after_header < 0 || right_after_header == INT32_MAX) {
-		fprintf(stderr, "The .mdebug section is probably corrupted and can't be automatically fixed.");
+		CCC_WARN("The .mdebug section is probably corrupted and can't be automatically fixed.");
 		return 0; // It's probably not fine.
 	}
 	

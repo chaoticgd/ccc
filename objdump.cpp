@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
 		u32 insn_address = *text_address + i;
 		
 		printf("%08x:\t\t%08x %s ", insn_address, insn.value, info.mnemonic);
-		for(s32 i = 0; i < 16 - strlen(info.mnemonic); i++) {
+		for(s32 i = 0; i < 16 - (s32) strlen(info.mnemonic); i++) {
 			printf(" ");
 		}
 		bool first_operand = true;
