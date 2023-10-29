@@ -2,7 +2,6 @@
 #define _CCC_IR_H
 
 #include "ast.h"
-#include "insn.h"
 #include "stabs.h"
 #include "mdebug.h"
 #include "symbols.h"

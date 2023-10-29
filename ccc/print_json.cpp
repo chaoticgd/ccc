@@ -1,5 +1,7 @@
 #include "print_json.h"
 
+#include "registers.h"
+
 namespace ccc {
 
 struct JsonPrinter {

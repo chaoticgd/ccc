@@ -3,6 +3,8 @@
 #include <cmath>
 #include <chrono>
 
+#include "registers.h"
+
 namespace ccc {
 
 enum VariableNamePrintFlags {
