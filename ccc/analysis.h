@@ -5,9 +5,7 @@
 #include "insn.h"
 #include "stabs.h"
 #include "mdebug.h"
-#include "module.h"
 #include "symbols.h"
-#include "registers.h"
 
 namespace ccc {
 

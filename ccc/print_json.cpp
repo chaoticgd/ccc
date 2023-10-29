@@ -330,11 +330,13 @@ static void print_json_variable_storage(JsonPrinter& json, const ast::VariableSt
 			break;
 		}
 		case ast::VariableStorageType::REGISTER: {
+			auto [register_class, register_index_relative] =
+				mips::map_dbx_register_index(storage.dbx_register_number);
 			json.string_property("type", "register");
-			json.string_property("register", mips::REGISTER_STRING_TABLES[(s32) storage.register_class][storage.register_index_relative]);
-			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) storage.register_class]);
+			json.string_property("register", mips::REGISTER_STRING_TABLES[(s32) register_class][register_index_relative]);
+			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) register_class]);
 			json.number_property("dbx_register_number", storage.dbx_register_number);
-			json.number_property("register_index", storage.register_index_relative);
+			json.number_property("register_index", register_index_relative);
 			json.boolean_property("is_by_reference", storage.is_by_reference);
 			break;
 		}

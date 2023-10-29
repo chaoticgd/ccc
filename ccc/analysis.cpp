@@ -1,6 +1,5 @@
 #include "analysis.h"
 
-#include "elf.h"
 #include "stabs_to_ast.h"
 
 namespace ccc {
@@ -443,8 +442,6 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	} else {
 		parameter->storage.type = ast::VariableStorageType::REGISTER;
 		parameter->storage.dbx_register_number = offset_or_register;
-		std::tie(parameter->storage.register_class, parameter->storage.register_index_relative) =
-			mips::map_dbx_register_index(parameter->storage.dbx_register_number);
 		parameter->storage.is_by_reference = is_by_reference;
 	}
 	parameter->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
@@ -473,8 +470,6 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 		}
 		case ast::VariableStorageType::REGISTER: {
 			local->storage.dbx_register_number = value;
-			std::tie(local->storage.register_class, local->storage.register_index_relative) =
-				mips::map_dbx_register_index(local->storage.dbx_register_number);
 			break;
 		}
 		case ast::VariableStorageType::STACK: {
