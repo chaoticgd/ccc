@@ -14,6 +14,8 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
 static const char* generate_format_string(s32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
+static std::string string_format(const char* format, va_list args);
+static std::string stringf(const char* format, ...);
 
 void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
 	// Build a map of where all functions and globals are in memory, so that we
@@ -303,6 +305,20 @@ static std::string single_precision_float_to_string(float value) {
 	}
 	result += "f";
 	return result;
+}
+
+static std::string string_format(const char* format, va_list args) {
+	static char buffer[16 * 1024];
+	vsnprintf(buffer, sizeof(buffer), format, args);
+	return std::string(buffer);
+}
+
+static std::string stringf(const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	std::string string = string_format(format, args);
+	va_end(args);
+	return string;
 }
 
 }

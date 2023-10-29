@@ -275,7 +275,8 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.property("stabs_type_number_to_deduplicated_type_index");
 			json.begin_object();
 			for(const auto [stabs_type_number, deduplicated_type_index] : source_file.stabs_type_number_to_deduplicated_type_index) {
-				json.number_property(stringf("%lld", merge_stabs_type_number_parts(stabs_type_number)).c_str(), deduplicated_type_index);
+				s64 merged_type_number = merge_stabs_type_number_parts(stabs_type_number);
+				json.number_property(std::to_string(merged_type_number).c_str(), deduplicated_type_index);
 			}
 			json.end_object();
 			break;

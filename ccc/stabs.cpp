@@ -713,9 +713,13 @@ std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input) {
 	return std::nullopt;
 }
 
-STABS_DEBUG(static void print_field(const StabsField& field) {
+STABS_DEBUG(
+
+static void print_field(const StabsField& field) {
 	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
-})
+}
+
+)
 
 const char* builtin_class_to_string(BuiltInClass bclass) {
 	switch(bclass) {

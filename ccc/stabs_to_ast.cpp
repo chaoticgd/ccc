@@ -84,7 +84,11 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		if(type.anonymous || stabs_type == state.stabs_types->end()) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::ERROR;
-			type_name->type_name = stringf("CCC_BADTYPELOOKUP(%d,%d)", type.type_number.file, type.type_number.type);
+			type_name->type_name += "CCC_BADTYPELOOKUP(";
+			type_name->type_name += std::to_string(type.type_number.file);
+			type_name->type_name += ",";
+			type_name->type_name += std::to_string(type.type_number.type);
+			type_name->type_name += ")";
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 		return stabs_type_to_ast(*stabs_type->second, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
