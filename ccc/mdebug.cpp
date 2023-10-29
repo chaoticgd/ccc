@@ -189,7 +189,7 @@ static s32 get_corruption_fixing_fudge_offset(u32 section_offset, const Symbolic
 	}
 	
 	if(right_after_header < 0 || right_after_header == INT32_MAX) {
-		fprintf(stderr, "The .mdebug section is probably corrupted and can't be automatically fixed.");
+		CCC_WARN("The .mdebug section is probably corrupted and can't be automatically fixed.");
 		return 0; // It's probably not fine.
 	}
 	

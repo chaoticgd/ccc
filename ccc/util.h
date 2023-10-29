@@ -44,15 +44,15 @@ void print_warning(FILE* out, const Error* warning);
 
 #define CCC_FATAL(...) \
 	{ \
-		Error* error = format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		print_error(stderr, error); \
+		ccc::Error* error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+		ccc::print_error(stderr, error); \
 		exit(1); \
 	}
 	
 #define CCC_CHECK_FATAL(condition, ...) \
 	if(!(condition)) { \
-		Error* error = format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		print_error(stderr, error); \
+		ccc::Error* error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+		ccc::print_error(stderr, error); \
 		exit(1); \
 	}
 
@@ -137,7 +137,7 @@ public:
 };
 
 struct ResultDummyValue {};
-#define CCC_FAILURE(...) Result<ResultDummyValue>::failure(format_error(__FILE__, __LINE__, __VA_ARGS__))
+#define CCC_FAILURE(...) ccc::Result<ccc::ResultDummyValue>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
 #define CCC_RETURN_IF_ERROR(result) if(!(result).success()) return (result);
 #define CCC_EXIT_IF_ERROR(result) \
 	if(!(result).success()) { \

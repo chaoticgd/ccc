@@ -394,7 +394,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, s32 address, 
 
 Result<void> LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
 	if(address > -1 && m_current_function && label[0] == '$') {
-		CCC_ASSERT(address < 256 * 1024 * 1024);
+		CCC_CHECK(address < 256 * 1024 * 1024, "Address too big.");
 		ast::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
 		pair.address = address;
 		pair.line_number = line_number;
@@ -433,7 +433,7 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 }
 
 Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
-	CCC_ASSERT(m_current_function_type);
+	CCC_CHECK(m_current_function_type, "Parameter symbol before first func/proc symbol.");
 	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
 	parameter->name = name;
 	parameter->variable_class = ast::VariableClass::PARAMETER;

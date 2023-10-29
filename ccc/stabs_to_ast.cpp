@@ -95,7 +95,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 	switch(type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			const auto& stabs_type_ref = type.as<StabsTypeReferenceType>();
-			if(type.anonymous | stabs_type_ref.type->anonymous || stabs_type_ref.type->type_number != type.type_number) {
+			if(type.anonymous || stabs_type_ref.type->anonymous || stabs_type_ref.type->type_number != type.type_number) {
 				auto node = stabs_type_to_ast(*stabs_type_ref.type, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
 				CCC_RETURN_IF_ERROR(node);
 				result = std::move(*node);
