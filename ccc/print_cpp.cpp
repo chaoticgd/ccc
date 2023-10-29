@@ -592,7 +592,7 @@ void CppPrinter::print_variable_storage_comment(const ast::VariableStorage& stor
 			auto [register_class, register_index_relative] =
 				mips::map_dbx_register_index(storage.dbx_register_number);
 			const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
-			CCC_ASSERT(register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
+			CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
 			const char* register_name = name_table[register_index_relative];
 			fprintf(out, "%s %d", register_name, storage.dbx_register_number);
 		} else {

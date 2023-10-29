@@ -95,7 +95,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 							const std::unique_ptr<ast::SourceFile>& source_file = high.source_files.at(type_name.referenced_file_index);
 							auto type_index = source_file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
 							if(type_index != source_file->stabs_type_number_to_deduplicated_type_index.end()
-								&& type_index->second == i) {
+								&& (size_t) type_index->second == i) {
 								reference_count++;
 							}
 						}
@@ -148,7 +148,7 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& h
 						&& type_name.referenced_stabs_type_number.type > -1) {
 					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
 					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end() && type_index->second != i) {
+					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end() && (size_t) type_index->second != i) {
 						dependencies.emplace(type_index->second);
 					}
 				}
@@ -266,10 +266,8 @@ void print_file_dependency_graph(FILE* out, const HighSymbolTable& high, const F
 		printer.node(name.c_str(), extract_file_name(file->full_path).c_str());
 	}
 	for(size_t i = 0; i < high.source_files.size(); i++) {
-		const std::unique_ptr<ast::SourceFile>& out_node = high.source_files[i];
 		std::string out_name = "f" + std::to_string(i);
 		for(FileIndex in : graph.at(i)) {
-			const std::unique_ptr<ast::SourceFile>& in_node = high.source_files[in.index];
 			std::string in_name = "f" + std::to_string(in.index);
 			printer.edge(out_name.c_str(), in_name.c_str());
 		}

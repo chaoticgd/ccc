@@ -83,7 +83,7 @@ Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 fla
 	
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_descriptor_index > -1) {
-		CCC_CHECK_FATAL(file_descriptor_index < symbol_table.files.size(), "file_descriptor_index out of range.");
+		CCC_CHECK_FATAL((size_t) file_descriptor_index < symbol_table.files.size(), "file_descriptor_index out of range.");
 		Result<void> result = analyse_file(high, deduplicator, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
 		CCC_RETURN_IF_ERROR(result);
 	} else {
@@ -175,7 +175,6 @@ Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& de
 					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
-						bool is_register_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE;
 						ast::VariableStorageType storage_type = ast::VariableStorageType::GLOBAL;
 						ast::GlobalVariableLocation location = ast::GlobalVariableLocation::NIL;
 						bool is_static = false;

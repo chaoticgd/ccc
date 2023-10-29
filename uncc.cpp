@@ -179,7 +179,7 @@ static FunctionsFile parse_functions_file(const fs::path& path) {
 }
 
 static std::span<char> eat_line(std::span<char>& input) {
-	for(s64 i = 0; i < input.size(); i++) {
+	for(size_t i = 0; i < input.size(); i++) {
 		if(input[i] == '\n') {
 			std::span<char> result = input.subspan(0, i);
 			input = input.subspan(i + 1);
@@ -253,7 +253,6 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	
 	// Print types.
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
 			CCC_ASSERT(node);
 			if(node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
@@ -307,7 +306,6 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	
 	// Print types.
 	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *high.source_files[file_index].get();
 		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
 			if(!node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
 				printer.data_type(*node);

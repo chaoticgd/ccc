@@ -108,7 +108,7 @@ struct Symbol {
 	SymbolClass storage_class;
 	u32 index;
 	bool is_stabs = false;
-	StabsCode code;
+	StabsCode code = STAB;
 };
 
 struct SymProcedureDescriptor {

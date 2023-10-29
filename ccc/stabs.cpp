@@ -8,7 +8,7 @@ namespace ccc {
 static Result<std::vector<StabsField>> parse_field_list(const char*& input);
 static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const char*& input);
 static BuiltInClass classify_range(const std::string& low, const std::string& high);
-static void print_field(const StabsField& field);
+STABS_DEBUG(static void print_field(const StabsField& field);)
 
 Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 	StabsTypeInfo info;
@@ -488,7 +488,6 @@ static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const 
 			input++;
 			break;
 		}
-		const char* before = input;
 		StabsMemberFunctionSet member_function_set;
 		
 		std::optional<std::string> name = eat_stabs_identifier(input);
@@ -714,9 +713,9 @@ std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input) {
 	return std::nullopt;
 }
 
-static void print_field(const StabsField& field) {
+STABS_DEBUG(static void print_field(const StabsField& field) {
 	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
-}
+})
 
 const char* builtin_class_to_string(BuiltInClass bclass) {
 	switch(bclass) {
