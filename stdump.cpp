@@ -485,8 +485,6 @@ static void print_help() {
 	puts("    --omit-member-functions       Do not print member functions.");
 	puts("    --include-generated-functions Include member functions that are likely");
 	puts("                                  auto-generated.");
-	puts("    --output <output file>        Write the output to the file specified instead");
-	puts("                                  of to the standard output.");
 	puts("");
 	puts("  json [options] <input file>");
 	puts("    Print all of the above as JSON.");
