@@ -54,20 +54,6 @@ Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset) {
 	return CCC_FAILURE("Unexpected end of buffer while reading string.");
 }
 
-std::string string_format(const char* format, va_list args) {
-	static char buffer[16 * 1024];
-	vsnprintf(buffer, 16 * 1024, format, args);
-	return std::string(buffer);
-}
-
-std::string stringf(const char* format, ...) {
-	va_list args;
-	va_start(args, format);
-	std::string string = string_format(format, args);
-	va_end(args);
-	return string;
-}
-
 std::string merge_paths(const std::string& base, const std::string& path) {
 	// Try to figure out if we're dealing with a Windows path of a UNIX path.
 	bool is_windows_path = false;
