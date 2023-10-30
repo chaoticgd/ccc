@@ -7,7 +7,7 @@ namespace ccc {
 
 static bool detect_bitfield(const StabsField& field, const StabsToAstState& state);
 
-Result<std::unique_ptr<ast::Node>> stabs_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
+Result<std::unique_ptr<ast::Node>> stabs_data_type_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
 	auto node = stabs_type_to_ast_and_handle_errors(*symbol.name_colon_type.type.get(), state, 0, 0, false, false);
 	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
