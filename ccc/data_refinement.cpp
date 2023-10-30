@@ -157,17 +157,14 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
-			if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
-				const ast::SourceFile& source_file = *context.high.source_files[type_name.referenced_file_index].get();
-				auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-				if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
-					ast::Node& resolved_type = *context.high.deduplicated_types.at(type_index->second).get();
-					if(!resolved_type.is_currently_processing) {
-						type.is_currently_processing = true;
-						std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type, context);
-						type.is_currently_processing = false;
-						return result;
-					}
+			s32 resolved_type_index = lookup_type(type_name, context.high, nullptr);
+			if(resolved_type_index > -1) {
+				const ast::Node& resolved_type = *context.high.deduplicated_types.at(resolved_type_index).get();
+				if(!resolved_type.is_currently_processing) {
+					type.is_currently_processing = true;
+					std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type, context);
+					type.is_currently_processing = false;
+					return result;
 				}
 			}
 			std::unique_ptr<ast::Data> error = std::make_unique<ast::Data>();
