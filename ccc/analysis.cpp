@@ -325,7 +325,7 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, s32 text_ad
 }
 
 Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
-	Result<std::unique_ptr<ast::Node>> node = stabs_symbol_to_ast(symbol, m_stabs_to_ast_state);
+	Result<std::unique_ptr<ast::Node>> node = stabs_data_type_symbol_to_ast(symbol, m_stabs_to_ast_state);
 	CCC_RETURN_IF_ERROR(node);
 	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
 	m_output.data_types.emplace_back(std::move(*node));
