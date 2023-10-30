@@ -22,12 +22,21 @@ enum AnalysisFlags {
 	STRIP_GENERATED_FUNCTIONS = (1 << 4)
 };
 
+// Perform all the main analysis passes on the mdebug symbol table and convert
+// it to a set of C++ ASTs.
 Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
-Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
 
+// Build a map of type names to their index is the deduplicated_types array.
 std::map<std::string, s32> build_type_name_to_deduplicated_type_index_map(const HighSymbolTable& symbol_table);
+
+// Lookup a type by its STABS type number. If that fails, and the
+// type_name_to_deduplicated_type_index argument isn't a null pointer, try to
+// lookup the type by its name. On success return the index of the type in the
+// deduplicated_types array, otherwise return -1.
 s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_table, const std::map<std::string, s32>* type_name_to_deduplicated_type_index);
 
+// Try to add pointers from member function declarations to their definitions
+// using a heuristic.
 void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high);
 
 };

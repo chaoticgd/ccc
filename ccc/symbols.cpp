@@ -147,16 +147,19 @@ Result<ParsedSymbol> parse_stabs_type_symbol(const char* input) {
 	auto type = parse_stabs_type(input);
 	CCC_RETURN_IF_ERROR(type);
 	symbol.name_colon_type.type = std::move(*type);
-	// This is a bit of hack to make it so variable names aren't used as type
-	// names e.g.the STABS symbol "somevar:P123=*456" may be referenced by the
-	// type number 123, but the type name is not "somevar".
+	
+	// Make sure that variable names aren't used as type names e.g. the STABS
+	// symbol "somevar:P123=*456" may be referenced by the type number 123, but
+	// the type name is not "somevar".
 	bool is_type = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME
 		|| symbol.name_colon_type.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
 	if(is_type) {
 		symbol.name_colon_type.type->name = symbol.name_colon_type.name;
 	}
+	
 	symbol.name_colon_type.type->is_typedef = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME;
 	symbol.name_colon_type.type->is_root = true;
+	
 	return symbol;
 }
 

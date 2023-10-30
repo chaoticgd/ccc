@@ -57,6 +57,7 @@ enum class SymbolClass : u32 {
 	NONGP = 27
 };
 
+// See stab.def from gcc for documentation on what all these are.
 enum StabsCode {
 	STAB = 0x00,
 	N_GSYM = 0x20,

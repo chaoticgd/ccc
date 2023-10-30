@@ -4,6 +4,7 @@
 
 namespace ccc {
 
+static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
 static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high);
 static std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
@@ -122,7 +123,7 @@ Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 fla
 	return high;
 }
 
-Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
+static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	file->is_windows_path = fd.is_windows_path;
@@ -681,6 +682,8 @@ std::map<std::string, s32> build_type_name_to_deduplicated_type_index_map(const 
 }
 
 s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_table, const std::map<std::string, s32>* type_name_to_deduplicated_type_index) {
+	// Lookup the type by its STABS type number. This path ensures that the
+	// correct type is found even if multiple types have the same name.
 	if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
 		const ast::SourceFile& source_file = *symbol_table.source_files[type_name.referenced_file_index].get();
 		auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
@@ -688,15 +691,17 @@ s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_ta
 			return type_index->second;
 		}
 	}
+	// Looking up the type by its STABS type number failed, so look for it by
+	// its name instead. This happens when a type is forward declared but not
+	// defined in a given translation unit.
 	if(type_name_to_deduplicated_type_index) {
-		// Looking up the type by its STABS type number failed, so look for it
-		// by its name instead. This happens when a type is forward declared but
-		// not defined in a given translation unit.
 		auto iter = type_name_to_deduplicated_type_index->find(type_name.type_name);
 		if(iter != type_name_to_deduplicated_type_index->end()) {
 			return iter->second;
 		}
 	}
+	// Type lookup failed. This happens when a type is forward declared in a
+	// translation unit with symbols but is not defined in one.
 	return -1;
 }
 
