@@ -39,16 +39,12 @@ void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
 				if(parameter.name == "this" && parameter_type.descriptor == ast::POINTER) {
 					ast::Node& class_node = *parameter_type.as<ast::Pointer>().value_type.get();
 					if(class_node.descriptor == ast::TYPE_NAME) {
-						ast::TypeName& class_type = class_node.as<ast::TypeName>();
-						if(class_type.referenced_stabs_type_number.type > -1) {
-							const ast::SourceFile& foreign_file = *high.source_files.at(class_type.referenced_file_index).get();
-							// Lookup the type pointed to by the this pointer.
-							auto type_index = foreign_file.stabs_type_number_to_deduplicated_type_index.find(class_type.referenced_stabs_type_number);
-							if(type_index != foreign_file.stabs_type_number_to_deduplicated_type_index.end()
-									&& high.deduplicated_types[type_index->second]->files.size() != 1) {
-								// Assume the type belongs to the file the function is from.
-								high.deduplicated_types[type_index->second]->files = {(s32) i};
-							}
+						ast::TypeName& type_name = class_node.as<ast::TypeName>();
+						// Lookup the type pointed to by the this pointer.
+						s32 class_type_index = lookup_type(type_name, high, nullptr);
+						if(class_type_index > -1) {
+							// Assume the type belongs to the file the function is from.
+							high.deduplicated_types.at(class_type_index)->files = {(s32) i};
 						}
 					}
 				}
@@ -91,13 +87,9 @@ static void map_types_to_files_based_on_reference_count_single_pass(HighSymbolTa
 					}
 					case ast::TYPE_NAME: {
 						const ast::TypeName& type_name = node.as<ast::TypeName>();
-						if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
-							const std::unique_ptr<ast::SourceFile>& source_file = high.source_files.at(type_name.referenced_file_index);
-							auto type_index = source_file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-							if(type_index != source_file->stabs_type_number_to_deduplicated_type_index.end()
-								&& (size_t) type_index->second == i) {
-								reference_count++;
-							}
+						s32 type_index = lookup_type(type_name, high, nullptr);
+						if(type_index == (s32) i) {
+							reference_count++;
 						}
 						break;
 					}
@@ -142,14 +134,11 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& h
 		ast::for_each_node(*type.get(), ast::PREORDER_TRAVERSAL, [&](const ast::Node& node) {
 			if(node.descriptor == ast::TYPE_NAME) {
 				const ast::TypeName& type_name = node.as<ast::TypeName>();
-				// Filter out forward declarations.
-				if(type_name.source == ast::TypeNameSource::REFERENCE
-						&& type_name.referenced_file_index > -1
-						&& type_name.referenced_stabs_type_number.type > -1) {
-					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
-					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end() && (size_t) type_index->second != i) {
-						dependencies.emplace(type_index->second);
+				if(type_name.source == ast::TypeNameSource::REFERENCE) {
+					// Pass nullptr to filter out forward declarations.
+					s32 dependency_index = lookup_type(type_name, high, nullptr);
+					if(dependency_index > -1) {
+						dependencies.emplace(dependency_index);
 					}
 				}
 			}

@@ -4,6 +4,9 @@
 
 namespace ccc {
 
+static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high);
+static std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
+
 class LocalSymbolTableAnalyser {
 public:
 	LocalSymbolTableAnalyser(ast::SourceFile& output, StabsToAstState& stabs_to_ast_state)
@@ -306,23 +309,6 @@ Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& de
 	return Result<void>();
 }
 
-std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {
-	std::optional<ast::GlobalVariableLocation> location;
-	switch(symbol_class) {
-		case mdebug::SymbolClass::NIL: location = ast::GlobalVariableLocation::NIL; break;
-		case mdebug::SymbolClass::DATA: location = ast::GlobalVariableLocation::DATA; break;
-		case mdebug::SymbolClass::BSS: location = ast::GlobalVariableLocation::BSS; break;
-		case mdebug::SymbolClass::ABS: location = ast::GlobalVariableLocation::ABS; break;
-		case mdebug::SymbolClass::SDATA: location = ast::GlobalVariableLocation::SDATA; break;
-		case mdebug::SymbolClass::SBSS: location = ast::GlobalVariableLocation::SBSS; break;
-		case mdebug::SymbolClass::RDATA: location = ast::GlobalVariableLocation::RDATA; break;
-		case mdebug::SymbolClass::COMMON: location = ast::GlobalVariableLocation::COMMON; break;
-		case mdebug::SymbolClass::SCOMMON: location = ast::GlobalVariableLocation::SCOMMON; break;
-		default: {}
-	}
-	return location;
-}
-
 Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 	return Result<void>();
 }
@@ -580,7 +566,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 	});
 }
 
-void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) {
+static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) {
 	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
 		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
 			return ast::EXPLORE_CHILDREN;
@@ -664,6 +650,54 @@ void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) 
 		}
 		return ast::EXPLORE_CHILDREN;
 	});
+}
+
+static std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {
+	std::optional<ast::GlobalVariableLocation> location;
+	switch(symbol_class) {
+		case mdebug::SymbolClass::NIL: location = ast::GlobalVariableLocation::NIL; break;
+		case mdebug::SymbolClass::DATA: location = ast::GlobalVariableLocation::DATA; break;
+		case mdebug::SymbolClass::BSS: location = ast::GlobalVariableLocation::BSS; break;
+		case mdebug::SymbolClass::ABS: location = ast::GlobalVariableLocation::ABS; break;
+		case mdebug::SymbolClass::SDATA: location = ast::GlobalVariableLocation::SDATA; break;
+		case mdebug::SymbolClass::SBSS: location = ast::GlobalVariableLocation::SBSS; break;
+		case mdebug::SymbolClass::RDATA: location = ast::GlobalVariableLocation::RDATA; break;
+		case mdebug::SymbolClass::COMMON: location = ast::GlobalVariableLocation::COMMON; break;
+		case mdebug::SymbolClass::SCOMMON: location = ast::GlobalVariableLocation::SCOMMON; break;
+		default: {}
+	}
+	return location;
+}
+
+std::map<std::string, s32> build_type_name_to_deduplicated_type_index_map(const HighSymbolTable& symbol_table) {
+	std::map<std::string, s32> type_name_to_deduplicated_type_index;
+	for(size_t i = 0; i < symbol_table.deduplicated_types.size(); i++) {
+		ccc::ast::Node& type = *symbol_table.deduplicated_types[i].get();
+		if(!type.name.empty()) {
+			type_name_to_deduplicated_type_index.emplace(type.name, (s32) i);
+		}
+	}
+	return type_name_to_deduplicated_type_index;
+}
+
+s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_table, const std::map<std::string, s32>* type_name_to_deduplicated_type_index) {
+	if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
+		const ast::SourceFile& source_file = *symbol_table.source_files[type_name.referenced_file_index].get();
+		auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
+		if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
+			return type_index->second;
+		}
+	}
+	if(type_name_to_deduplicated_type_index) {
+		// Looking up the type by its STABS type number failed, so look for it
+		// by its name instead. This happens when a type is forward declared but
+		// not defined in a given translation unit.
+		auto iter = type_name_to_deduplicated_type_index->find(type_name.type_name);
+		if(iter != type_name_to_deduplicated_type_index->end()) {
+			return iter->second;
+		}
+	}
+	return -1;
 }
 
 void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high) {
