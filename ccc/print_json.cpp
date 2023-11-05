@@ -229,10 +229,10 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.end_array();
 			break;
 		}
-		case ast::POINTER: {
-			const ast::Pointer& pointer = node.as<ast::Pointer>();
+		case ast::POINTER_OR_REFERENCE: {
+			const ast::PointerOrReference& pointer_or_reference = node.as<ast::PointerOrReference>();
 			json.property("value_type");
-			print_json_ast_node(json, pointer.value_type.get());
+			print_json_ast_node(json, pointer_or_reference.value_type.get());
 			break;
 		}
 		case ast::POINTER_TO_DATA_MEMBER: {
@@ -241,12 +241,6 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			print_json_ast_node(json, member_pointer.class_type.get());
 			json.property("member_type");
 			print_json_ast_node(json, member_pointer.member_type.get());
-			break;
-		}
-		case ast::REFERENCE: {
-			const ast::Reference& reference = node.as<ast::Reference>();
-			json.property("value_type");
-			print_json_ast_node(json, reference.value_type.get());
 			break;
 		}
 		case ast::SOURCE_FILE: {

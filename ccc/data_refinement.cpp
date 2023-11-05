@@ -145,8 +145,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 			}
 			return list;
 		}
-		case ast::POINTER:
-		case ast::REFERENCE: {
+		case ast::POINTER_OR_REFERENCE: {
 			return refine_pointer_or_reference(virtual_address, type, context);
 		}
 		case ast::POINTER_TO_DATA_MEMBER: {
@@ -269,7 +268,9 @@ static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_addres
 		if(node != context.address_to_node.end()) {
 			if(node->second->descriptor == ast::VARIABLE) {
 				const ast::Variable& variable = node->second->as<ast::Variable>();
-				if(type.descriptor == ast::POINTER && variable.type->descriptor != ast::ARRAY) {
+				bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
+					&& type.as<ast::PointerOrReference>().is_pointer;
+				if(is_pointer && variable.type->descriptor != ast::ARRAY) {
 					data->string += "&";
 				}
 			}

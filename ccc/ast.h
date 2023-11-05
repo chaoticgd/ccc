@@ -25,9 +25,8 @@ enum NodeDescriptor : u8 {
 	INITIALIZER_LIST,
 	INLINE_ENUM,
 	INLINE_STRUCT_OR_UNION,
-	POINTER,
+	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
-	REFERENCE,
 	SOURCE_FILE,
 	TYPE_NAME,
 	VARIABLE
@@ -205,11 +204,12 @@ struct InlineStructOrUnion : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT_OR_UNION;
 };
 
-struct Pointer : Node {
+struct PointerOrReference : Node {
+	bool is_pointer = true;
 	std::unique_ptr<Node> value_type;
 	
-	Pointer() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = POINTER;
+	PointerOrReference() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_OR_REFERENCE;
 };
 
 struct PointerToDataMember : Node {
@@ -218,13 +218,6 @@ struct PointerToDataMember : Node {
 	
 	PointerToDataMember() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_TO_DATA_MEMBER;
-};
-
-struct Reference : Node {
-	std::unique_ptr<Node> value_type;
-	
-	Reference() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = REFERENCE;
 };
 
 struct SourceFile : Node {
@@ -318,6 +311,7 @@ public:
 
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
+
 enum class CompareResultType {
 	MATCHES_NO_SWAP,    // Both lhs and rhs are identical.
 	MATCHES_CONFUSED,   // Both lhs and rhs are almost identical, and we don't which is better.
@@ -325,6 +319,7 @@ enum class CompareResultType {
 	MATCHES_FAVOUR_RHS, // Both lhs and rhs are almost identical, but rhs is better.
 	DIFFERS,            // The two nodes differ substantially.
 };
+
 enum class CompareFailReason {
 	NONE,
 	DESCRIPTOR,
@@ -353,16 +348,19 @@ enum class CompareFailReason {
 	VARIABLE_STORAGE,
 	VARIABLE_BLOCK
 };
+
 struct CompareResult {
 	CompareResult(CompareResultType type) : type(type), fail_reason(CompareFailReason::NONE) {}
 	CompareResult(CompareFailReason reason) : type(CompareResultType::DIFFERS), fail_reason(reason) {}
 	CompareResultType type;
 	CompareFailReason fail_reason;
 };
+
 struct TypeLookupInfo {
 	const std::vector<std::unique_ptr<SourceFile>>* files;
 	std::vector<std::unique_ptr<Node>>* nodes;
 };
+
 CompareResult compare_nodes(const Node& lhs, const Node& rhs, const TypeLookupInfo& lookup, bool check_intrusive_fields);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
@@ -445,20 +443,15 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 			}
 			break;
 		}
-		case POINTER: {
-			auto& pointer = node.template as<Pointer>();
-			for_each_node(*pointer.value_type.get(), order, callback);
+		case POINTER_OR_REFERENCE: {
+			auto& pointer_or_reference = node.template as<PointerOrReference>();
+			for_each_node(*pointer_or_reference.value_type.get(), order, callback);
 			break;
 		}
 		case POINTER_TO_DATA_MEMBER: {
 			auto& pointer = node.template as<PointerToDataMember>();
 			for_each_node(*pointer.class_type.get(), order, callback);
 			for_each_node(*pointer.member_type.get(), order, callback);
-			break;
-		}
-		case REFERENCE: {
-			auto& reference = node.template as<Reference>();
-			for_each_node(*reference.value_type.get(), order, callback);
 			break;
 		}
 		case SOURCE_FILE: {

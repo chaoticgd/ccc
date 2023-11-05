@@ -212,8 +212,9 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			}
 			break;
 		}
-		case POINTER: {
-			const auto [lhs, rhs] = Node::as<Pointer>(node_lhs, node_rhs);
+		case POINTER_OR_REFERENCE: {
+			const auto [lhs, rhs] = Node::as<PointerOrReference>(node_lhs, node_rhs);
+			if(lhs.is_pointer != rhs.is_pointer) return CompareFailReason::DESCRIPTOR;
 			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), lookup)) return result;
 			break;
 		}
@@ -221,11 +222,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
 			if(compare_nodes_and_merge(result, *lhs.class_type.get(), *rhs.class_type.get(), lookup)) return result;
 			if(compare_nodes_and_merge(result, *lhs.member_type.get(), *rhs.member_type.get(), lookup)) return result;
-			break;
-		}
-		case REFERENCE: {
-			const auto [lhs, rhs] = Node::as<Reference>(node_lhs, node_rhs);
-			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), lookup)) return result;
 			break;
 		}
 		case SOURCE_FILE: {
@@ -365,9 +361,15 @@ const char* node_type_to_string(const Node& node) {
 				return "union";
 			}
 		}
-		case POINTER: return "pointer";
+		case POINTER_OR_REFERENCE: {
+			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();
+			if(pointer_or_reference.is_pointer) {
+				return "pointer";
+			} else {
+				return "reference";
+			}
+		}
 		case POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
-		case REFERENCE: return "reference";
 		case SOURCE_FILE: return "source_file";
 		case TYPE_NAME: return "type_name";
 		case VARIABLE: return "variable";

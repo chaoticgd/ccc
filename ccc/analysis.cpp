@@ -609,15 +609,11 @@ static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable&
 				node.computed_size_bytes = node.size_bits / 8;
 				break;
 			}
-			case ast::POINTER: {
+			case ast::POINTER_OR_REFERENCE: {
 				node.computed_size_bytes = 4;
 				break;
 			}
 			case ast::POINTER_TO_DATA_MEMBER: {
-				break;
-			}
-			case ast::REFERENCE: {
-				node.computed_size_bytes = 4;
 				break;
 			}
 			case ast::SOURCE_FILE: {

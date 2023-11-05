@@ -473,11 +473,15 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			}
 			break;
 		}
-		case ast::POINTER: {
-			const ast::Pointer& pointer = node.as<ast::Pointer>();
-			CCC_ASSERT(pointer.value_type.get());
-			name.pointer_chars.emplace_back('*');
-			ast_node(*pointer.value_type.get(), name, indentation_level);
+		case ast::POINTER_OR_REFERENCE: {
+			const ast::PointerOrReference& pointer_or_reference = node.as<ast::PointerOrReference>();
+			CCC_ASSERT(pointer_or_reference.value_type.get());
+			if(pointer_or_reference.is_pointer) {
+				name.pointer_chars.emplace_back('*');
+			} else {
+				name.pointer_chars.emplace_back('&');
+			}
+			ast_node(*pointer_or_reference.value_type.get(), name, indentation_level);
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
@@ -491,14 +495,6 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			ast_node(*member_pointer.class_type.get(), dummy, indentation_level);
 			fprintf(out, "::");
 			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
-			break;
-		}
-		case ast::REFERENCE: {
-			const ast::Reference& reference = node.as<ast::Reference>();
-			CCC_ASSERT(reference.value_type.get());
-			name.pointer_chars.emplace_back('&');
-			ast_node(*reference.value_type.get(), name, indentation_level);
-			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
 		case ast::SOURCE_FILE: {

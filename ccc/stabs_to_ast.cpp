@@ -270,7 +270,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 		case StabsTypeDescriptor::POINTER: {
-			auto pointer = std::make_unique<ast::Pointer>();
+			auto pointer = std::make_unique<ast::PointerOrReference>();
+			pointer->is_pointer = true;
 			
 			auto value_node = stabs_type_to_ast(*type.as<StabsPointerType>().value_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
 			CCC_RETURN_IF_ERROR(value_node);
@@ -280,7 +281,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 		case StabsTypeDescriptor::REFERENCE: {
-			auto reference = std::make_unique<ast::Reference>();
+			auto reference = std::make_unique<ast::PointerOrReference>();
+			reference->is_pointer = false;
 			
 			auto value_node = stabs_type_to_ast(*type.as<StabsReferenceType>().value_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
 			CCC_RETURN_IF_ERROR(value_node);
