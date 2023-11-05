@@ -20,14 +20,14 @@ enum NodeDescriptor : u8 {
 	BITFIELD,
 	BUILTIN,
 	DATA,
+	ENUM,
 	FUNCTION_DEFINITION,
 	FUNCTION_TYPE,
 	INITIALIZER_LIST,
-	INLINE_ENUM,
-	INLINE_STRUCT_OR_UNION,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
 	SOURCE_FILE,
+	STRUCT_OR_UNION,
 	TYPE_NAME,
 	VARIABLE
 };
@@ -141,6 +141,13 @@ struct Data : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = DATA;
 };
 
+struct Enum : Node {
+	std::vector<std::pair<s32, std::string>> constants;
+	
+	Enum() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = ENUM;
+};
+
 struct Variable;
 
 struct LineNumberPair {
@@ -187,23 +194,6 @@ struct InitializerList : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = INITIALIZER_LIST;
 };
 
-struct InlineEnum : Node {
-	std::vector<std::pair<s32, std::string>> constants;
-	
-	InlineEnum() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_ENUM;
-};
-
-struct InlineStructOrUnion : Node {
-	bool is_struct = true;
-	std::vector<std::unique_ptr<Node>> base_classes;
-	std::vector<std::unique_ptr<Node>> fields;
-	std::vector<std::unique_ptr<Node>> member_functions;
-	
-	InlineStructOrUnion() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = INLINE_STRUCT_OR_UNION;
-};
-
 struct PointerOrReference : Node {
 	bool is_pointer = true;
 	std::unique_ptr<Node> value_type;
@@ -233,6 +223,16 @@ struct SourceFile : Node {
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
+};
+
+struct StructOrUnion : Node {
+	bool is_struct = true;
+	std::vector<std::unique_ptr<Node>> base_classes;
+	std::vector<std::unique_ptr<Node>> fields;
+	std::vector<std::unique_ptr<Node>> member_functions;
+	
+	StructOrUnion() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = STRUCT_OR_UNION;
 };
 
 enum class TypeNameSource {
@@ -400,6 +400,9 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 		case DATA: {
 			break;
 		}
+		case ENUM: {
+			break;
+		}
 		case FUNCTION_DEFINITION: {
 			auto& func = node.template as<FunctionDefinition>();
 			for_each_node(*func.type.get(), order, callback);
@@ -427,22 +430,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 			}
 			break;
 		}
-		case INLINE_ENUM: {
-			break;
-		}
-		case INLINE_STRUCT_OR_UNION: {
-			auto& struct_or_union = node.template as<InlineStructOrUnion>();
-			for(auto& child : struct_or_union.base_classes) {
-				for_each_node(*child.get(), order, callback);
-			}
-			for(auto& child : struct_or_union.fields) {
-				for_each_node(*child.get(), order, callback);
-			}
-			for(auto& child : struct_or_union.member_functions) {
-				for_each_node(*child.get(), order, callback);
-			}
-			break;
-		}
 		case POINTER_OR_REFERENCE: {
 			auto& pointer_or_reference = node.template as<PointerOrReference>();
 			for_each_node(*pointer_or_reference.value_type.get(), order, callback);
@@ -463,6 +450,19 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 				for_each_node(*child.get(), order, callback);
 			}
 			for(auto& child : source_file.globals) {
+				for_each_node(*child.get(), order, callback);
+			}
+			break;
+		}
+		case STRUCT_OR_UNION: {
+			auto& struct_or_union = node.template as<StructOrUnion>();
+			for(auto& child : struct_or_union.base_classes) {
+				for_each_node(*child.get(), order, callback);
+			}
+			for(auto& child : struct_or_union.fields) {
+				for_each_node(*child.get(), order, callback);
+			}
+			for(auto& child : struct_or_union.member_functions) {
 				for_each_node(*child.get(), order, callback);
 			}
 			break;

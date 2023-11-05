@@ -248,7 +248,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 				case 's': cross_reference->type = StabsCrossReferenceType::STRUCT; break;
 				case 'u': cross_reference->type = StabsCrossReferenceType::UNION; break;
 				default:
-					return CCC_FAILURE("invalid cross reference type '%c'", cross_reference->type);
+					return CCC_FAILURE("Invalid cross reference type '%c'.", cross_reference->type);
 			}
 			
 			std::optional<std::string> identifier = eat_dodgy_stabs_identifier(input);

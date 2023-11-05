@@ -520,8 +520,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		if(flags & STRIP_ACCESS_SPECIFIERS) {
 			node.access_specifier = ast::AS_PUBLIC;
 		}
-		if(node.descriptor == ast::INLINE_STRUCT_OR_UNION) {
-			auto& struct_or_union = node.as<ast::InlineStructOrUnion>();
+		if(node.descriptor == ast::STRUCT_OR_UNION) {
+			auto& struct_or_union = node.as<ast::StructOrUnion>();
 			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
 				// This allows us to deduplicate types with vtables.
 				if(node->name.starts_with("$vf")) {
@@ -601,11 +601,11 @@ static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable&
 			case ast::INITIALIZER_LIST: {
 				break;
 			}
-			case ast::INLINE_ENUM: {
+			case ast::ENUM: {
 				node.computed_size_bytes = 4;
 				break;
 			}
-			case ast::INLINE_STRUCT_OR_UNION: {
+			case ast::STRUCT_OR_UNION: {
 				node.computed_size_bytes = node.size_bits / 8;
 				break;
 			}
@@ -703,10 +703,10 @@ s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_ta
 
 void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high) {
 	// Enumerate data types.
-	std::map<std::string, ast::InlineStructOrUnion*> type_name_to_node;
+	std::map<std::string, ast::StructOrUnion*> type_name_to_node;
 	for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
-		if(type->descriptor == ast::INLINE_STRUCT_OR_UNION && !type->name.empty()) {
-			type_name_to_node[type->name] = &type->as<ast::InlineStructOrUnion>();
+		if(type->descriptor == ast::STRUCT_OR_UNION && !type->name.empty()) {
+			type_name_to_node[type->name] = &type->as<ast::StructOrUnion>();
 		}
 	}
 	

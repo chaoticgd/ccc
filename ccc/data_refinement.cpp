@@ -99,6 +99,20 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		case ast::DATA: {
 			break;
 		}
+		case ast::ENUM: {
+			const ast::Enum& enumeration = type.as<ast::Enum>();
+			std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
+			s32 value = 0;
+			read_virtual((u8*) &value, virtual_address, 4, context.modules);
+			for(const auto& [number, name] : enumeration.constants) {
+				if(number == value) {
+					data->string = name;
+					return data;
+				}
+			}
+			data->string = stringf("%d", value);
+			return data;
+		}
 		case ast::FUNCTION_DEFINITION: {
 			break;
 		}
@@ -108,22 +122,17 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 		case ast::INITIALIZER_LIST: {
 			break;
 		}
-		case ast::INLINE_ENUM: {
-			const ast::InlineEnum& inline_enum = type.as<ast::InlineEnum>();
-			std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
-			s32 value = 0;
-			read_virtual((u8*) &value, virtual_address, 4, context.modules);
-			for(const auto& [number, name] : inline_enum.constants) {
-				if(number == value) {
-					data->string = name;
-					return data;
-				}
-			}
-			data->string = stringf("%d", value);
-			return data;
+		case ast::POINTER_OR_REFERENCE: {
+			return refine_pointer_or_reference(virtual_address, type, context);
 		}
-		case ast::INLINE_STRUCT_OR_UNION: {
-			const ast::InlineStructOrUnion& struct_or_union = type.as<ast::InlineStructOrUnion>();
+		case ast::POINTER_TO_DATA_MEMBER: {
+			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, context);
+		}
+		case ast::SOURCE_FILE: {
+			break;
+		}
+		case ast::STRUCT_OR_UNION: {
+			const ast::StructOrUnion& struct_or_union = type.as<ast::StructOrUnion>();
 			std::unique_ptr<ast::InitializerList> list = std::make_unique<ast::InitializerList>();
 			for(s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
@@ -144,15 +153,6 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 				list->children.emplace_back(std::move(child));
 			}
 			return list;
-		}
-		case ast::POINTER_OR_REFERENCE: {
-			return refine_pointer_or_reference(virtual_address, type, context);
-		}
-		case ast::POINTER_TO_DATA_MEMBER: {
-			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, context);
-		}
-		case ast::SOURCE_FILE: {
-			break;
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();

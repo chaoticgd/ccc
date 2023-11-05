@@ -135,13 +135,13 @@ bool CppPrinter::data_type(const ast::Node& node) {
 	}
 	
 	bool wants_spacing =
-		node.descriptor == ast::INLINE_ENUM ||
-		node.descriptor == ast::INLINE_STRUCT_OR_UNION;
+		node.descriptor == ast::ENUM ||
+		node.descriptor == ast::STRUCT_OR_UNION;
 	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
 	
-	if(node.conflict && (node.descriptor != ast::INLINE_ENUM || !node.name.empty())) {
+	if(node.conflict && (node.descriptor != ast::ENUM || !node.name.empty())) {
 		fprintf(out, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node.files.at(0), node.compare_fail_reason);
 	}
 	if(node.descriptor == ast::NodeDescriptor::TYPE_NAME && node.as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
@@ -152,7 +152,7 @@ bool CppPrinter::data_type(const ast::Node& node) {
 	}
 	
 	VariableName name;
-	if(node.descriptor == ast::INLINE_STRUCT_OR_UNION && node.size_bits > 0) {
+	if(node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
 		digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
 	}
 	ast_node(node, name, 0);
@@ -271,6 +271,32 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			fprintf(out, "%s", data.string.c_str());
 			break;
 		}
+		case ast::ENUM: {
+			const ast::Enum& enumeration = node.as<ast::Enum>();
+			fprintf(out, "enum");
+			bool name_on_top = (indentation_level == 0) && (enumeration.storage_class != ast::SC_TYPEDEF);
+			if(name_on_top) {
+				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
+			}
+			fprintf(out, " {");
+			if(enumeration.size_bits > -1) {
+				fprintf(out, " // 0x%x", enumeration.size_bits / 8);
+			}
+			fprintf(out, "\n");
+			for(size_t i = 0; i < enumeration.constants.size(); i++) {
+				s32 value = enumeration.constants[i].first;
+				const std::string& name = enumeration.constants[i].second;
+				bool is_last = i == enumeration.constants.size() - 1;
+				indent(out, indentation_level + 1);
+				fprintf(out, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
+			}
+			indent(out, indentation_level);
+			fprintf(out, "}");
+			if(!name_on_top) {
+				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
+			}
+			break;
+		}
 		case ast::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
 			ast_node(*func_def.type.get(), name, indentation_level);
@@ -373,34 +399,45 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			fprintf(out, "}");
 			break;
 		}
-		case ast::INLINE_ENUM: {
-			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
-			fprintf(out, "enum");
-			bool name_on_top = (indentation_level == 0) && (inline_enum.storage_class != ast::SC_TYPEDEF);
-			if(name_on_top) {
-				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
+		case ast::POINTER_OR_REFERENCE: {
+			const ast::PointerOrReference& pointer_or_reference = node.as<ast::PointerOrReference>();
+			CCC_ASSERT(pointer_or_reference.value_type.get());
+			if(pointer_or_reference.is_pointer) {
+				name.pointer_chars.emplace_back('*');
+			} else {
+				name.pointer_chars.emplace_back('&');
 			}
-			fprintf(out, " {");
-			if(inline_enum.size_bits > -1) {
-				fprintf(out, " // 0x%x", inline_enum.size_bits / 8);
+			ast_node(*pointer_or_reference.value_type.get(), name, indentation_level);
+			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
+			break;
+		}
+		case ast::POINTER_TO_DATA_MEMBER: {
+			// This probably isn't correct for nested pointers to data members
+			// but for now lets not think about that.
+			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
+			VariableName dummy;
+			ast_node(*member_pointer.member_type.get(), dummy, indentation_level);
+			fprintf(out, " ");
+			ast_node(*member_pointer.class_type.get(), dummy, indentation_level);
+			fprintf(out, "::");
+			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
+			break;
+		}
+		case ast::SOURCE_FILE: {
+			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
+			for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
+				ast_node(*type.get(), name, indentation_level);
 			}
-			fprintf(out, "\n");
-			for(size_t i = 0; i < inline_enum.constants.size(); i++) {
-				s32 value = inline_enum.constants[i].first;
-				const std::string& name = inline_enum.constants[i].second;
-				bool is_last = i == inline_enum.constants.size() - 1;
-				indent(out, indentation_level + 1);
-				fprintf(out, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
+			for(const std::unique_ptr<ast::Node>& function : source_file.functions) {
+				ast_node(*function.get(), name, indentation_level);
 			}
-			indent(out, indentation_level);
-			fprintf(out, "}");
-			if(!name_on_top) {
-				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
+			for(const std::unique_ptr<ast::Node>& global : source_file.globals) {
+				ast_node(*global.get(), name, indentation_level);
 			}
 			break;
 		}
-		case ast::INLINE_STRUCT_OR_UNION: {
-			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
+		case ast::STRUCT_OR_UNION: {
+			const ast::StructOrUnion& struct_or_union = node.as<ast::StructOrUnion>();
 			s32 access_specifier = ast::AS_PUBLIC;
 			if(struct_or_union.is_struct) {
 				fprintf(out, "struct");
@@ -470,43 +507,6 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			fprintf(out, "}");
 			if(!name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
-			}
-			break;
-		}
-		case ast::POINTER_OR_REFERENCE: {
-			const ast::PointerOrReference& pointer_or_reference = node.as<ast::PointerOrReference>();
-			CCC_ASSERT(pointer_or_reference.value_type.get());
-			if(pointer_or_reference.is_pointer) {
-				name.pointer_chars.emplace_back('*');
-			} else {
-				name.pointer_chars.emplace_back('&');
-			}
-			ast_node(*pointer_or_reference.value_type.get(), name, indentation_level);
-			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
-			break;
-		}
-		case ast::POINTER_TO_DATA_MEMBER: {
-			// This probably isn't correct for nested pointers to data members
-			// but for now lets not think about that.
-			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
-			VariableName dummy;
-			ast_node(*member_pointer.member_type.get(), dummy, indentation_level);
-			fprintf(out, " ");
-			ast_node(*member_pointer.class_type.get(), dummy, indentation_level);
-			fprintf(out, "::");
-			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
-			break;
-		}
-		case ast::SOURCE_FILE: {
-			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
-			for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
-				ast_node(*type.get(), name, indentation_level);
-			}
-			for(const std::unique_ptr<ast::Node>& function : source_file.functions) {
-				ast_node(*function.get(), name, indentation_level);
-			}
-			for(const std::unique_ptr<ast::Node>& global : source_file.globals) {
-				ast_node(*global.get(), name, indentation_level);
 			}
 			break;
 		}

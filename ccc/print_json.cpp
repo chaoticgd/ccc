@@ -123,6 +123,19 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			CCC_FATAL("Tried to print a data node as JSON (which is not supported)!");
 			break;
 		}
+		case ast::ENUM: {
+			const ast::Enum& enumeration = node.as<ast::Enum>();
+			json.property("constants");
+			json.begin_array();
+			for(const auto& [value, name] : enumeration.constants) {
+				json.begin_object();
+				json.number_property("value", value);
+				json.string_property("name", name.c_str());
+				json.end_object();
+			}
+			json.end_array();
+			break;
+		}
 		case ast::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
 			if(function.address_range.valid()) {
@@ -192,43 +205,6 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			CCC_FATAL("Tried to print an initializer list node as JSON (which is not supported)!");
 			break;
 		}
-		case ast::INLINE_ENUM: {
-			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
-			json.property("constants");
-			json.begin_array();
-			for(const auto& [value, name] : inline_enum.constants) {
-				json.begin_object();
-				json.number_property("value", value);
-				json.string_property("name", name.c_str());
-				json.end_object();
-			}
-			json.end_array();
-			break;
-		}
-		case ast::INLINE_STRUCT_OR_UNION: {
-			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
-			if(struct_or_union.is_struct) {
-				json.property("base_classes");
-				json.begin_array();
-				for(const std::unique_ptr<ast::Node>& base_class : struct_or_union.base_classes) {
-					print_json_ast_node(json, base_class.get());
-				}
-				json.end_array();
-			}
-			json.property("fields");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
-				print_json_ast_node(json, node.get());
-			}
-			json.end_array();
-			json.property("member_functions");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& node : struct_or_union.member_functions) {
-				print_json_ast_node(json, node.get());
-			}
-			json.end_array();
-			break;
-		}
 		case ast::POINTER_OR_REFERENCE: {
 			const ast::PointerOrReference& pointer_or_reference = node.as<ast::PointerOrReference>();
 			json.property("value_type");
@@ -273,6 +249,31 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 				json.number_property(std::to_string(merged_type_number).c_str(), deduplicated_type_index);
 			}
 			json.end_object();
+			break;
+		}
+		
+		case ast::STRUCT_OR_UNION: {
+			const ast::StructOrUnion& struct_or_union = node.as<ast::StructOrUnion>();
+			if(struct_or_union.is_struct) {
+				json.property("base_classes");
+				json.begin_array();
+				for(const std::unique_ptr<ast::Node>& base_class : struct_or_union.base_classes) {
+					print_json_ast_node(json, base_class.get());
+				}
+				json.end_array();
+			}
+			json.property("fields");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
+				print_json_ast_node(json, node.get());
+			}
+			json.end_array();
+			json.property("member_functions");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& node : struct_or_union.member_functions) {
+				print_json_ast_node(json, node.get());
+			}
+			json.end_array();
 			break;
 		}
 		case ast::TYPE_NAME: {
