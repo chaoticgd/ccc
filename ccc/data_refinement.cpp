@@ -5,13 +5,13 @@ namespace ccc {
 struct DataRefinementContext {
 	const HighSymbolTable& high;
 	const std::vector<Module*>& modules;
-	const std::map<s32, const ast::Node*>& address_to_node;
+	const std::map<u32, const ast::Node*>& address_to_node;
 };
 
 static void refine_variable(ast::Variable& variable, const DataRefinementContext& context);
-static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
-static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context);
-static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context);
+static std::unique_ptr<ast::Node> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
 static const char* generate_format_string(s32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
@@ -20,17 +20,17 @@ static std::string stringf(const char* format, ...);
 void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
 	// Build a map of where all functions and globals are in memory, so that we
 	// can lookup where pointers point to.
-	std::map<s32, const ast::Node*> address_to_node;
+	std::map<u32, const ast::Node*> address_to_node;
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
 		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
 			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
-			if(function.address_range.low != -1) {
+			if(function.address_range.low != (u32) -1) {
 				address_to_node[function.address_range.low] = node.get();
 			}
 		}
 		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
 			ast::Variable& variable = node->as<ast::Variable>();
-			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address != -1) {
+			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address != (u32) -1) {
 				address_to_node[variable.storage.global_address] = node.get();
 			}
 		}
@@ -58,7 +58,7 @@ void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules
 
 static void refine_variable(ast::Variable& variable, const DataRefinementContext& context) {
 	bool valid_type = variable.storage.type == ast::VariableStorageType::GLOBAL;
-	bool valid_address = variable.storage.global_address != -1;
+	bool valid_address = variable.storage.global_address != (u32) -1;
 	bool valid_location = variable.storage.global_location != ast::GlobalVariableLocation::BSS
 		&& variable.storage.global_location != ast::GlobalVariableLocation::SBSS;
 	if(valid_type && valid_address && valid_location) {
@@ -66,7 +66,7 @@ static void refine_variable(ast::Variable& variable, const DataRefinementContext
 	}
 }
 
-static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
+static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
 	switch(type.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
@@ -178,7 +178,7 @@ static std::unique_ptr<ast::Node> refine_node(s32 virtual_address, const ast::No
 	CCC_FATAL("Failed to refine global variable (%s).", ast::node_type_to_string(type));
 }
 
-static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context) {
+static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context) {
 	std::unique_ptr<ast::Data> data = nullptr;
 	
 	switch(bclass) {
@@ -259,9 +259,9 @@ static std::unique_ptr<ast::Node> refine_builtin(s32 virtual_address, BuiltInCla
 	return data;
 }
 
-static std::unique_ptr<ast::Node> refine_pointer_or_reference(s32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
+static std::unique_ptr<ast::Node> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
 	std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
-	s32 address = 0;
+	u32 address = 0;
 	read_virtual((u8*) &address, virtual_address, 4, context.modules);
 	if(address != 0) {
 		auto node = context.address_to_node.find(address);

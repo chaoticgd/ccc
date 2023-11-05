@@ -33,11 +33,11 @@ enum NodeDescriptor : u8 {
 };
 
 struct AddressRange {
-	s32 low = -1;
-	s32 high = -1;
+	u32 low = (u32) -1;
+	u32 high = (u32) -1;
 	
 	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
-	bool valid() const { return low >= 0; }
+	bool valid() const { return low != (u32) -1; }
 };
 
 enum AccessSpecifier {
@@ -151,12 +151,12 @@ struct Enum : Node {
 struct Variable;
 
 struct LineNumberPair {
-	s32 address;
+	u32 address;
 	s32 line_number;
 };
 
 struct SubSourceFile {
-	s32 address;
+	u32 address;
 	std::string relative_path;
 };
 
@@ -279,7 +279,7 @@ enum class GlobalVariableLocation {
 struct VariableStorage {
 	VariableStorageType type = VariableStorageType::GLOBAL;
 	GlobalVariableLocation global_location = GlobalVariableLocation::NIL;
-	s32 global_address = -1;
+	u32 global_address = -1;
 	s32 dbx_register_number = -1;
 	bool is_by_reference = false;
 	s32 stack_pointer_offset = -1;

@@ -141,8 +141,8 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			if(function.address_range.valid()) {
 				json.property("address_range");
 				json.begin_object();
-				json.number_property("low", function.address_range.low);
-				json.number_property("high", function.address_range.high);
+				json.number_property("low", (function.address_range.low != (u32) -1) ? (s64) function.address_range.low : -1);
+				json.number_property("high", (function.address_range.high != (u32) -1) ? (s64) function.address_range.high : -1);
 				json.end_object();
 			}
 			if(!function.relative_path.empty()) {
@@ -160,7 +160,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.begin_array();
 			for(const ast::LineNumberPair& pair : function.line_numbers) {
 				json.begin_array();
-				json.number(pair.address);
+				json.number((pair.address != (u32) -1) ? (s64) pair.address : -1);
 				json.number(pair.line_number);
 				json.end_array();
 			}
@@ -169,7 +169,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.begin_array();
 			for(const ast::SubSourceFile& sub : function.sub_source_files) {
 				json.begin_object();
-				json.number_property("address", sub.address);
+				json.number_property("address", (sub.address != (u32) -1) ? (s64) sub.address : -1);
 				json.string_property("path", sub.relative_path.c_str());
 				json.end_object();
 			}
@@ -223,7 +223,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
 			json.string_property("path", source_file.full_path.c_str());
 			json.string_property("relative_path", source_file.relative_path.c_str());
-			json.number_property("text_address", source_file.text_address);
+			json.number_property("text_address", (source_file.text_address != (u32) -1) ? (s64) source_file.text_address : -1);
 			json.property("types");
 			json.begin_array();
 			for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
@@ -305,10 +305,8 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			}
 			json.string_property("class", class_string);
 			print_json_variable_storage(json, variable.storage);
-			if(variable.block.low != 0 || variable.block.high != 0) {
-				json.number_property("block_low", variable.block.low);
-				json.number_property("block_high", variable.block.high);
-			}
+			json.number_property("block_low", (variable.block.low != (u32) -1) ? (s64) variable.block.low : -1);
+			json.number_property("block_high", (variable.block.high != (u32) -1) ? (s64) variable.block.high : -1);
 			json.property("type");
 			print_json_ast_node(json, variable.type.get());
 			break;
@@ -324,7 +322,7 @@ static void print_json_variable_storage(JsonPrinter& json, const ast::VariableSt
 		case ast::VariableStorageType::GLOBAL: {
 			json.string_property("type", "global");
 			json.string_property("global_location", ast::global_variable_location_to_string(storage.global_location));
-			json.number_property("global_address", storage.global_address);
+			json.number_property("global_address", (storage.global_address != (u32) -1) ? (s64) storage.global_address : -1);
 			break;
 		}
 		case ast::VariableStorageType::REGISTER: {

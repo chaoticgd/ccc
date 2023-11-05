@@ -581,7 +581,7 @@ void CppPrinter::print_variable_storage_comment(const ast::VariableStorage& stor
 		fprintf(out, "/* ");
 		if(storage.type == ast::VariableStorageType::GLOBAL) {
 			fprintf(out, "%s", ast::global_variable_location_to_string(storage.global_location));
-			if(storage.global_address != -1) {
+			if(storage.global_address != (u32) -1) {
 				fprintf(out, " %x", storage.global_address);
 			}
 		} else if(storage.type == ast::VariableStorageType::REGISTER) {

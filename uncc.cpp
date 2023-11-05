@@ -7,7 +7,7 @@ using namespace ccc;
 
 struct FunctionsFile {
 	std::string contents;
-	std::map<s32, std::span<char>> functions;
+	std::map<u32, std::span<char>> functions;
 };
 
 static std::vector<std::string> parse_sources_file(const fs::path& path);
@@ -148,7 +148,7 @@ static FunctionsFile parse_functions_file(const fs::path& path) {
 		if(line.size() >= 9 && memcmp(line.data(), "@function", 9) == 0) {
 			CCC_CHECK_FATAL(line.size() > 10, "Bad @function directive in FUNCTIONS.txt file.");
 			char* end = nullptr;
-			s32 address = (s32) strtol(line.data() + 10, &end, 16);
+			u32 address = (u32) strtol(line.data() + 10, &end, 16);
 			CCC_CHECK_FATAL(end != line.data() + 10, "Bad @function directive in FUNCTIONS.txt file.");
 			function = &result.functions[address];
 			*function = input.subspan(1);
