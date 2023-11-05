@@ -318,7 +318,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		}
 		case StabsTypeDescriptor::BUILTIN: {
 			CCC_CHECK(type.as<StabsBuiltInType>().type_id == 16,
-				"Unknown built-in type! Please file a bug report.");
+				"Unknown built-in type!");
 			auto builtin = std::make_unique<ast::BuiltIn>();
 			builtin->bclass = BuiltInClass::BOOL_8;
 			result = std::move(builtin);

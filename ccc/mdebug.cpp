@@ -97,7 +97,7 @@ Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_o
 	SymbolTable symbol_table;
 	
 	const SymbolicHeader* hdrr = get_packed<SymbolicHeader>(elf, section_offset);
-	CCC_CHECK(hdrr != nullptr, "MIPS_DEBUG section header out of bounds.");
+	CCC_CHECK(hdrr != nullptr, "MIPS debug section header out of bounds.");
 	CCC_CHECK(hdrr->magic == 0x7009, "Invalid symbolic header.");
 	
 	symbol_table.header = hdrr;
@@ -108,7 +108,7 @@ Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_o
 	for(s64 i = 0; i < hdrr->file_descriptor_count; i++) {
 		u64 fd_offset = hdrr->file_descriptors_offset + i * sizeof(FileDescriptor);
 		const FileDescriptor* fd_header = get_packed<FileDescriptor>(elf, fd_offset + fudge_offset);
-		CCC_CHECK(fd_header != nullptr, "MIPS_DEBUG file descriptor out of bounds.");
+		CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
 		CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
 		
 		SymFileDescriptor& fd = symbol_table.files.emplace_back();
