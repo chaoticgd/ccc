@@ -75,10 +75,12 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://www.prevanders.net/Mdebug.ps) / [in-repo mirror](docs/Mdebug.ps) / [archive.org mirror](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992) / [in-repo mirror](docs/MIPSProgrammingGuide.pdf)
 - [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / [in-repo mirror](docs/STABS.html) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
+- `mdebugread.c` from gdb (reading)
 - `dbxread.c` from gdb (reading)
 - `stabs.c` from binutils (reading)
 - `dbxout.c` from gcc (writing)
 - `stab.def` from gcc (symbol codes)
+- `include/coff/sym.h` from gcc (mdebug headers)
 
 ## JSON Format
 
