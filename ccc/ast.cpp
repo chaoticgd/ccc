@@ -10,13 +10,13 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
 	for(size_t i = 0; i < ast_nodes.size(); i++) {
 		Node& node = *ast_nodes[i].get();
-		if(node.descriptor == NodeDescriptor::INLINE_ENUM && node.name.empty()) {
+		if(node.descriptor == NodeDescriptor::ENUM && node.name.empty()) {
 			bool match = false;
 			for(std::unique_ptr<Node>& other : ast_nodes) {
 				bool is_match = other.get() != &node
-					&& other->descriptor == NodeDescriptor::INLINE_ENUM
+					&& other->descriptor == NodeDescriptor::ENUM
 					&& !other->name.empty()
-					&& other->as<InlineEnum>().constants == node.as<InlineEnum>().constants;
+					&& other->as<Enum>().constants == node.as<Enum>().constants;
 				if(is_match) {
 					match = true;
 					break;
@@ -37,8 +37,8 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 			bool match = false;
 			for(std::unique_ptr<Node>& other : ast_nodes) {
 				bool is_match = other.get() != &node
-					&& (other->descriptor == INLINE_ENUM
-						|| other->descriptor == INLINE_STRUCT_OR_UNION)
+					&& (other->descriptor == ENUM
+						|| other->descriptor == STRUCT_OR_UNION)
 					&& other->name == node.name;
 				if(is_match) {
 					match = true;
@@ -80,7 +80,7 @@ void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, cons
 				CompareResult compare_result = compare_nodes(*existing_node.get(), *node.get(), lookup, true);
 				if(compare_result.type == CompareResultType::DIFFERS) {
 					// The new node doesn't match this existing node.
-					bool is_anonymous_enum = existing_node->descriptor == INLINE_ENUM
+					bool is_anonymous_enum = existing_node->descriptor == ENUM
 						&& existing_node->name.empty();
 					if(!is_anonymous_enum) {
 						existing_node->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
@@ -166,6 +166,11 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			CCC_FATAL("Tried to compare data AST nodes.");
 			break;
 		}
+		case ENUM: {
+			const auto [lhs, rhs] = Node::as<Enum>(node_lhs, node_rhs);
+			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
+			break;
+		}
 		case FUNCTION_DEFINITION: {
 			CCC_FATAL("Tried to compare function definition AST nodes.");
 		}
@@ -191,13 +196,24 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			CCC_FATAL("Tried to compare initializer list AST nodes.");
 			break;
 		}
-		case INLINE_ENUM: {
-			const auto [lhs, rhs] = Node::as<InlineEnum>(node_lhs, node_rhs);
-			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
+		case POINTER_OR_REFERENCE: {
+			const auto [lhs, rhs] = Node::as<PointerOrReference>(node_lhs, node_rhs);
+			if(lhs.is_pointer != rhs.is_pointer) return CompareFailReason::DESCRIPTOR;
+			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), lookup)) return result;
 			break;
 		}
-		case INLINE_STRUCT_OR_UNION: {
-			const auto [lhs, rhs] = Node::as<InlineStructOrUnion>(node_lhs, node_rhs);
+		case POINTER_TO_DATA_MEMBER: {
+			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
+			if(compare_nodes_and_merge(result, *lhs.class_type.get(), *rhs.class_type.get(), lookup)) return result;
+			if(compare_nodes_and_merge(result, *lhs.member_type.get(), *rhs.member_type.get(), lookup)) return result;
+			break;
+		}
+		case SOURCE_FILE: {
+			CCC_FATAL("Tried to compare source file AST nodes.");
+		}
+		case STRUCT_OR_UNION: {
+			const auto [lhs, rhs] = Node::as<StructOrUnion>(node_lhs, node_rhs);
+			if(lhs.is_struct != rhs.is_struct) return CompareFailReason::DESCRIPTOR;
 			if(lhs.base_classes.size() != rhs.base_classes.size()) return CompareFailReason::BASE_CLASS_COUNT;
 			for(size_t i = 0; i < lhs.base_classes.size(); i++) {
 				if(compare_nodes_and_merge(result, *lhs.base_classes[i].get(), *rhs.base_classes[i].get(), lookup)) return result;
@@ -211,25 +227,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 				if(compare_nodes_and_merge(result, *lhs.member_functions[i].get(), *rhs.member_functions[i].get(), lookup)) return result;
 			}
 			break;
-		}
-		case POINTER: {
-			const auto [lhs, rhs] = Node::as<Pointer>(node_lhs, node_rhs);
-			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), lookup)) return result;
-			break;
-		}
-		case POINTER_TO_DATA_MEMBER: {
-			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
-			if(compare_nodes_and_merge(result, *lhs.class_type.get(), *rhs.class_type.get(), lookup)) return result;
-			if(compare_nodes_and_merge(result, *lhs.member_type.get(), *rhs.member_type.get(), lookup)) return result;
-			break;
-		}
-		case REFERENCE: {
-			const auto [lhs, rhs] = Node::as<Reference>(node_lhs, node_rhs);
-			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), lookup)) return result;
-			break;
-		}
-		case SOURCE_FILE: {
-			CCC_FATAL("Tried to compare source file AST nodes.");
 		}
 		case TYPE_NAME: {
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
@@ -353,22 +350,28 @@ const char* node_type_to_string(const Node& node) {
 		case BITFIELD: return "bitfield";
 		case BUILTIN: return "builtin";
 		case DATA: return "data";
+		case ENUM: return "enum";
 		case FUNCTION_DEFINITION: return "function_definition";
 		case FUNCTION_TYPE: return "function_type";
 		case INITIALIZER_LIST: return "initializer_list";
-		case INLINE_ENUM: return "enum";
-		case INLINE_STRUCT_OR_UNION: {
-			const InlineStructOrUnion& struct_or_union = node.as<InlineStructOrUnion>();
+		case POINTER_OR_REFERENCE: {
+			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();
+			if(pointer_or_reference.is_pointer) {
+				return "pointer";
+			} else {
+				return "reference";
+			}
+		}
+		case POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
+		case SOURCE_FILE: return "source_file";
+		case STRUCT_OR_UNION: {
+			const StructOrUnion& struct_or_union = node.as<StructOrUnion>();
 			if(struct_or_union.is_struct) {
 				return "struct";
 			} else {
 				return "union";
 			}
 		}
-		case POINTER: return "pointer";
-		case POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
-		case REFERENCE: return "reference";
-		case SOURCE_FILE: return "source_file";
 		case TYPE_NAME: return "type_name";
 		case VARIABLE: return "variable";
 	}

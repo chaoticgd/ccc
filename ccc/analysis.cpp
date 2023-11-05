@@ -4,7 +4,9 @@
 
 namespace ccc {
 
-static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
+static Result<void> analyse_file(
+	HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table,
+	const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
 static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high);
 static std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
@@ -32,14 +34,14 @@ public:
 	//   end
 	//   ... blocks ...
 	Result<void> stab_magic(const char* magic);
-	Result<void> source_file(const char* path, s32 text_address);
+	Result<void> source_file(const char* path, u32 text_address);
 	Result<void> data_type(const ParsedSymbol& symbol);
-	Result<void> global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location);
-	Result<void> sub_source_file(const char* name, s32 text_address);
-	Result<void> procedure(const char* name, s32 address, bool is_static);
-	Result<void> label(const char* label, s32 address, s32 line_number);
+	Result<void> global_variable(const char* name, u32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location);
+	Result<void> sub_source_file(const char* name, u32 text_address);
+	Result<void> procedure(const char* name, u32 address, bool is_static);
+	Result<void> label(const char* label, u32 address, s32 line_number);
 	Result<void> text_end(const char* name, s32 function_size);
-	Result<void> function(const char* name, const StabsType& return_type, s32 function_address);
+	Result<void> function(const char* name, const StabsType& return_type, u32 function_address);
 	Result<void> function_end();
 	Result<void> parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
 	Result<void> local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
@@ -123,7 +125,10 @@ Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 fla
 	return high;
 }
 
-static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table, const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
+static Result<void> analyse_file(
+	HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table,
+	const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
+	
 	auto file = std::make_unique<ast::SourceFile>();
 	file->full_path = fd.full_path;
 	file->is_windows_path = fd.is_windows_path;
@@ -200,7 +205,7 @@ static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMa
 					case StabsSymbolDescriptor::GLOBAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
-						s32 address = -1;
+						u32 address = -1;
 						std::optional<ast::GlobalVariableLocation> location = symbol_class_to_global_variable_location(symbol.raw->storage_class);
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
 							// The address for non-static global variables is
@@ -209,13 +214,13 @@ static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMa
 							// information in here.
 							auto global_symbol = globals.find(symbol.name_colon_type.name);
 							if(global_symbol != globals.end()) {
-								address = global_symbol->second->value;
+								address = (u32) global_symbol->second->value;
 								location = symbol_class_to_global_variable_location(global_symbol->second->storage_class);
 							}
 						} else {
 							// And for static global variables it's just stored
 							// in the local symbol table.
-							address = symbol.raw->value;
+							address = (u32) symbol.raw->value;
 						}
 						CCC_CHECK(location.has_value(), "Invalid global variable location.")
 						const StabsType& type = *symbol.name_colon_type.type.get();
@@ -314,7 +319,7 @@ Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::source_file(const char* path, s32 text_address) {
+Result<void> LocalSymbolTableAnalyser::source_file(const char* path, u32 text_address) {
 	m_output.relative_path = path;
 	m_output.text_address = text_address;
 	if(m_next_relative_path.empty()) {
@@ -333,7 +338,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, s32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location) {
+Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, u32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location) {
 	std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
 	global->name = name;
 	if(is_static) {
@@ -349,7 +354,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, s32 add
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 text_address) {
+Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, u32 text_address) {
 	if(m_current_function && m_state == IN_FUNCTION_BEGINNING) {
 		ast::SubSourceFile& sub = m_current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
@@ -361,7 +366,7 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, s32 tex
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::procedure(const char* name, s32 address, bool is_static) {
+Result<void> LocalSymbolTableAnalyser::procedure(const char* name, u32 address, bool is_static) {
 	if(!m_current_function || strcmp(name, m_current_function->name.c_str())) {
 		create_function(name);
 	}
@@ -377,8 +382,8 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, s32 address, 
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::label(const char* label, s32 address, s32 line_number) {
-	if(address > -1 && m_current_function && label[0] == '$') {
+Result<void> LocalSymbolTableAnalyser::label(const char* label, u32 address, s32 line_number) {
+	if(address != (u32) -1 && m_current_function && label[0] == '$') {
 		CCC_CHECK(address < 256 * 1024 * 1024, "Address too big.");
 		ast::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
 		pair.address = address;
@@ -400,7 +405,7 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, s32 function_address) {
+Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, u32 function_address) {
 	if(!m_current_function || strcmp(name, m_current_function->name.c_str())) {
 		create_function(name);
 	}
@@ -520,8 +525,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 		if(flags & STRIP_ACCESS_SPECIFIERS) {
 			node.access_specifier = ast::AS_PUBLIC;
 		}
-		if(node.descriptor == ast::INLINE_STRUCT_OR_UNION) {
-			auto& struct_or_union = node.as<ast::InlineStructOrUnion>();
+		if(node.descriptor == ast::STRUCT_OR_UNION) {
+			auto& struct_or_union = node.as<ast::StructOrUnion>();
 			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
 				// This allows us to deduplicate types with vtables.
 				if(node->name.starts_with("$vf")) {
@@ -601,23 +606,19 @@ static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable&
 			case ast::INITIALIZER_LIST: {
 				break;
 			}
-			case ast::INLINE_ENUM: {
+			case ast::ENUM: {
 				node.computed_size_bytes = 4;
 				break;
 			}
-			case ast::INLINE_STRUCT_OR_UNION: {
+			case ast::STRUCT_OR_UNION: {
 				node.computed_size_bytes = node.size_bits / 8;
 				break;
 			}
-			case ast::POINTER: {
+			case ast::POINTER_OR_REFERENCE: {
 				node.computed_size_bytes = 4;
 				break;
 			}
 			case ast::POINTER_TO_DATA_MEMBER: {
-				break;
-			}
-			case ast::REFERENCE: {
-				node.computed_size_bytes = 4;
 				break;
 			}
 			case ast::SOURCE_FILE: {
@@ -707,10 +708,10 @@ s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_ta
 
 void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high) {
 	// Enumerate data types.
-	std::map<std::string, ast::InlineStructOrUnion*> type_name_to_node;
+	std::map<std::string, ast::StructOrUnion*> type_name_to_node;
 	for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
-		if(type->descriptor == ast::INLINE_STRUCT_OR_UNION && !type->name.empty()) {
-			type_name_to_node[type->name] = &type->as<ast::InlineStructOrUnion>();
+		if(type->descriptor == ast::STRUCT_OR_UNION && !type->name.empty()) {
+			type_name_to_node[type->name] = &type->as<ast::StructOrUnion>();
 		}
 	}
 	

@@ -36,8 +36,10 @@ void map_types_to_files_based_on_this_pointers(HighSymbolTable& high) {
 				ast::Variable& parameter = (*type.parameters)[0]->as<ast::Variable>();
 				ast::Node& parameter_type = *parameter.type.get();
 				// Check if the first argument is a this pointer.
-				if(parameter.name == "this" && parameter_type.descriptor == ast::POINTER) {
-					ast::Node& class_node = *parameter_type.as<ast::Pointer>().value_type.get();
+				bool is_pointer = parameter_type.descriptor == ast::POINTER_OR_REFERENCE
+					&& parameter_type.as<ast::PointerOrReference>().is_pointer;
+				if(parameter.name == "this" && is_pointer) {
+					ast::Node& class_node = *parameter_type.as<ast::PointerOrReference>().value_type.get();
 					if(class_node.descriptor == ast::TYPE_NAME) {
 						ast::TypeName& type_name = class_node.as<ast::TypeName>();
 						// Lookup the type pointed to by the this pointer.

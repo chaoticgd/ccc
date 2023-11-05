@@ -129,7 +129,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 		case StabsTypeDescriptor::ENUM: {
-			auto inline_enum = std::make_unique<ast::InlineEnum>();
+			auto inline_enum = std::make_unique<ast::Enum>();
 			const auto& stabs_enum = type.as<StabsEnumType>();
 			inline_enum->constants = stabs_enum.fields;
 			result = std::move(inline_enum);
@@ -178,7 +178,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			} else {
 				stabs_struct_or_union = &type.as<StabsUnionType>();
 			}
-			auto struct_or_union = std::make_unique<ast::InlineStructOrUnion>();
+			auto struct_or_union = std::make_unique<ast::StructOrUnion>();
 			struct_or_union->is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			struct_or_union->size_bits = (s32) stabs_struct_or_union->size * 8;
 			for(const StabsBaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
@@ -270,7 +270,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 		case StabsTypeDescriptor::POINTER: {
-			auto pointer = std::make_unique<ast::Pointer>();
+			auto pointer = std::make_unique<ast::PointerOrReference>();
+			pointer->is_pointer = true;
 			
 			auto value_node = stabs_type_to_ast(*type.as<StabsPointerType>().value_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
 			CCC_RETURN_IF_ERROR(value_node);
@@ -280,7 +281,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 		case StabsTypeDescriptor::REFERENCE: {
-			auto reference = std::make_unique<ast::Reference>();
+			auto reference = std::make_unique<ast::PointerOrReference>();
+			reference->is_pointer = false;
 			
 			auto value_node = stabs_type_to_ast(*type.as<StabsReferenceType>().value_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
 			CCC_RETURN_IF_ERROR(value_node);

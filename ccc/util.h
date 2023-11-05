@@ -33,25 +33,25 @@ using s64 = int64_t;
 #define CCC_ANSI_COLOUR_GRAY "\033[90m"
 
 struct Error {
-	const char* message;
+	std::string message;
 	const char* source_file;
 	s32 source_line;
 };
 
-Error* format_error(const char* source_file, int source_line, const char* format, ...);
-void print_error(FILE* out, const Error* error);
-void print_warning(FILE* out, const Error* warning);
+Error format_error(const char* source_file, int source_line, const char* format, ...);
+void print_error(FILE* out, const Error& error);
+void print_warning(FILE* out, const Error& warning);
 
 #define CCC_FATAL(...) \
 	{ \
-		ccc::Error* error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
 		ccc::print_error(stderr, error); \
 		exit(1); \
 	}
 	
 #define CCC_CHECK_FATAL(condition, ...) \
 	if(!(condition)) { \
-		ccc::Error* error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
 		ccc::print_error(stderr, error); \
 		exit(1); \
 	}
@@ -68,7 +68,7 @@ class Result {
 	friend class Result;
 protected:
 	Value m_value;
-	Error* m_error;
+	std::unique_ptr<Error> m_error;
 	
 	Result() {}
 	
@@ -77,14 +77,14 @@ public:
 	
 	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
-	Result(const Result<OtherValue>& rhs) {
+	Result(Result<OtherValue>&& rhs) {
 		CCC_ASSERT(rhs.m_error != nullptr);
-		m_error = rhs.m_error;
+		m_error = std::move(rhs.m_error);
 	}
 	
-	static Result<Value> failure(Error* error) {
+	static Result<Value> failure(Error error) {
 		Result<Value> result;
-		result.m_error = error;
+		result.m_error = std::make_unique<Error>(std::move(error));
 		return result;
 	}
 	
@@ -123,10 +123,11 @@ class Result<void> : public Result<int> {
 public:
 	Result() : Result<int>(0) {}
 	
+	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
-	Result(const Result<OtherValue>& rhs) {
+	Result(Result<OtherValue>&& rhs) {
 		CCC_ASSERT(rhs.m_error != nullptr);
-		m_error = rhs.m_error;
+		m_error = std::move(rhs.m_error);
 	}
 };
 
@@ -134,7 +135,7 @@ public:
 #define CCC_RETURN_IF_ERROR(result) if(!(result).success()) return (result);
 #define CCC_EXIT_IF_ERROR(result) \
 	if(!(result).success()) { \
-		ccc::print_error(stderr, &(result).error()); \
+		ccc::print_error(stderr, (result).error()); \
 		exit(1); \
 	}
 
@@ -150,7 +151,7 @@ public:
 
 template <typename... Args>
 void warn_impl(const char* source_file, int source_line, const char* format, Args... args) {
-	Error* warning = format_error(source_file, source_line, format, args...);
+	Error warning = format_error(source_file, source_line, format, args...);
 	print_warning(stderr, warning);
 }
 #define CCC_WARN(...) \

@@ -123,13 +123,26 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			CCC_FATAL("Tried to print a data node as JSON (which is not supported)!");
 			break;
 		}
+		case ast::ENUM: {
+			const ast::Enum& enumeration = node.as<ast::Enum>();
+			json.property("constants");
+			json.begin_array();
+			for(const auto& [value, name] : enumeration.constants) {
+				json.begin_object();
+				json.number_property("value", value);
+				json.string_property("name", name.c_str());
+				json.end_object();
+			}
+			json.end_array();
+			break;
+		}
 		case ast::FUNCTION_DEFINITION: {
 			const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
 			if(function.address_range.valid()) {
 				json.property("address_range");
 				json.begin_object();
-				json.number_property("low", function.address_range.low);
-				json.number_property("high", function.address_range.high);
+				json.number_property("low", (function.address_range.low != (u32) -1) ? (s64) function.address_range.low : -1);
+				json.number_property("high", (function.address_range.high != (u32) -1) ? (s64) function.address_range.high : -1);
 				json.end_object();
 			}
 			if(!function.relative_path.empty()) {
@@ -147,7 +160,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.begin_array();
 			for(const ast::LineNumberPair& pair : function.line_numbers) {
 				json.begin_array();
-				json.number(pair.address);
+				json.number((pair.address != (u32) -1) ? (s64) pair.address : -1);
 				json.number(pair.line_number);
 				json.end_array();
 			}
@@ -156,7 +169,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.begin_array();
 			for(const ast::SubSourceFile& sub : function.sub_source_files) {
 				json.begin_object();
-				json.number_property("address", sub.address);
+				json.number_property("address", (sub.address != (u32) -1) ? (s64) sub.address : -1);
 				json.string_property("path", sub.relative_path.c_str());
 				json.end_object();
 			}
@@ -192,47 +205,10 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			CCC_FATAL("Tried to print an initializer list node as JSON (which is not supported)!");
 			break;
 		}
-		case ast::INLINE_ENUM: {
-			const ast::InlineEnum& inline_enum = node.as<ast::InlineEnum>();
-			json.property("constants");
-			json.begin_array();
-			for(const auto& [value, name] : inline_enum.constants) {
-				json.begin_object();
-				json.number_property("value", value);
-				json.string_property("name", name.c_str());
-				json.end_object();
-			}
-			json.end_array();
-			break;
-		}
-		case ast::INLINE_STRUCT_OR_UNION: {
-			const ast::InlineStructOrUnion& struct_or_union = node.as<ast::InlineStructOrUnion>();
-			if(struct_or_union.is_struct) {
-				json.property("base_classes");
-				json.begin_array();
-				for(const std::unique_ptr<ast::Node>& base_class : struct_or_union.base_classes) {
-					print_json_ast_node(json, base_class.get());
-				}
-				json.end_array();
-			}
-			json.property("fields");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
-				print_json_ast_node(json, node.get());
-			}
-			json.end_array();
-			json.property("member_functions");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& node : struct_or_union.member_functions) {
-				print_json_ast_node(json, node.get());
-			}
-			json.end_array();
-			break;
-		}
-		case ast::POINTER: {
-			const ast::Pointer& pointer = node.as<ast::Pointer>();
+		case ast::POINTER_OR_REFERENCE: {
+			const ast::PointerOrReference& pointer_or_reference = node.as<ast::PointerOrReference>();
 			json.property("value_type");
-			print_json_ast_node(json, pointer.value_type.get());
+			print_json_ast_node(json, pointer_or_reference.value_type.get());
 			break;
 		}
 		case ast::POINTER_TO_DATA_MEMBER: {
@@ -243,17 +219,11 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			print_json_ast_node(json, member_pointer.member_type.get());
 			break;
 		}
-		case ast::REFERENCE: {
-			const ast::Reference& reference = node.as<ast::Reference>();
-			json.property("value_type");
-			print_json_ast_node(json, reference.value_type.get());
-			break;
-		}
 		case ast::SOURCE_FILE: {
 			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
 			json.string_property("path", source_file.full_path.c_str());
 			json.string_property("relative_path", source_file.relative_path.c_str());
-			json.number_property("text_address", source_file.text_address);
+			json.number_property("text_address", (source_file.text_address != (u32) -1) ? (s64) source_file.text_address : -1);
 			json.property("types");
 			json.begin_array();
 			for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
@@ -279,6 +249,31 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 				json.number_property(std::to_string(merged_type_number).c_str(), deduplicated_type_index);
 			}
 			json.end_object();
+			break;
+		}
+		
+		case ast::STRUCT_OR_UNION: {
+			const ast::StructOrUnion& struct_or_union = node.as<ast::StructOrUnion>();
+			if(struct_or_union.is_struct) {
+				json.property("base_classes");
+				json.begin_array();
+				for(const std::unique_ptr<ast::Node>& base_class : struct_or_union.base_classes) {
+					print_json_ast_node(json, base_class.get());
+				}
+				json.end_array();
+			}
+			json.property("fields");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
+				print_json_ast_node(json, node.get());
+			}
+			json.end_array();
+			json.property("member_functions");
+			json.begin_array();
+			for(const std::unique_ptr<ast::Node>& node : struct_or_union.member_functions) {
+				print_json_ast_node(json, node.get());
+			}
+			json.end_array();
 			break;
 		}
 		case ast::TYPE_NAME: {
@@ -310,10 +305,8 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			}
 			json.string_property("class", class_string);
 			print_json_variable_storage(json, variable.storage);
-			if(variable.block.low != 0 || variable.block.high != 0) {
-				json.number_property("block_low", variable.block.low);
-				json.number_property("block_high", variable.block.high);
-			}
+			json.number_property("block_low", (variable.block.low != (u32) -1) ? (s64) variable.block.low : -1);
+			json.number_property("block_high", (variable.block.high != (u32) -1) ? (s64) variable.block.high : -1);
 			json.property("type");
 			print_json_ast_node(json, variable.type.get());
 			break;
@@ -329,7 +322,7 @@ static void print_json_variable_storage(JsonPrinter& json, const ast::VariableSt
 		case ast::VariableStorageType::GLOBAL: {
 			json.string_property("type", "global");
 			json.string_property("global_location", ast::global_variable_location_to_string(storage.global_location));
-			json.number_property("global_address", storage.global_address);
+			json.number_property("global_address", (storage.global_address != (u32) -1) ? (s64) storage.global_address : -1);
 			break;
 		}
 		case ast::VariableStorageType::REGISTER: {

@@ -225,51 +225,53 @@ static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector
 
 void print_headers(FILE* dest, const SymbolTable& symbol_table) {
 	const SymbolicHeader& hdrr = *symbol_table.header;
-	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n", hdrr.magic, hdrr.version_stamp);
+	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n",
+		(u16) hdrr.magic,
+		(u16) hdrr.version_stamp);
 	fprintf(dest, "\n");
 	fprintf(dest, "                              Offset              Size (Bytes)        Count\n");
 	fprintf(dest, "                              ------              ------------        -----\n");
 	fprintf(dest, "  Line Numbers                0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.line_numbers_offset,
-		hdrr.line_numbers_size_bytes,
-		hdrr.line_number_count);
+		(u32) hdrr.line_numbers_offset,
+		(u32) hdrr.line_numbers_size_bytes,
+		(u32) hdrr.line_number_count);
 	fprintf(dest, "  Dense Numbers               0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.dense_numbers_offset,
-		hdrr.dense_numbers_count * 8,
-		hdrr.dense_numbers_count);
+		(u32) hdrr.dense_numbers_offset,
+		(u32) hdrr.dense_numbers_count * 8,
+		(u32) hdrr.dense_numbers_count);
 	fprintf(dest, "  Procedure Descriptors       0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.procedure_descriptors_offset,
-		hdrr.procedure_descriptor_count * (s32) sizeof(ProcedureDescriptor),
-		hdrr.procedure_descriptor_count);
+		(u32) hdrr.procedure_descriptors_offset,
+		(u32) hdrr.procedure_descriptor_count * (u32) sizeof(ProcedureDescriptor),
+		(u32) hdrr.procedure_descriptor_count);
 	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.local_symbols_offset,
-		hdrr.local_symbol_count * (s32) sizeof(SymbolHeader),
-		hdrr.local_symbol_count);
+		(u32) hdrr.local_symbols_offset,
+		(u32) hdrr.local_symbol_count * (u32) sizeof(SymbolHeader),
+		(u32) hdrr.local_symbol_count);
 	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   "  "%-8d\n",
-		hdrr.optimization_symbols_offset,
-		hdrr.optimization_symbols_count);
+		(u32) hdrr.optimization_symbols_offset,
+		(u32) hdrr.optimization_symbols_count);
 	fprintf(dest, "  Auxiliary Symbols           0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.auxiliary_symbols_offset,
-		hdrr.auxiliary_symbol_count * 4,
-		hdrr.auxiliary_symbol_count);
+		(u32) hdrr.auxiliary_symbols_offset,
+		(u32) hdrr.auxiliary_symbol_count * 4,
+		(u32) hdrr.auxiliary_symbol_count);
 	fprintf(dest, "  Local Strings               0x%-8x          "  "-                   "  "%-8d\n",
-		hdrr.local_strings_offset,
-		hdrr.local_strings_size_bytes);
+		(u32) hdrr.local_strings_offset,
+		(u32) hdrr.local_strings_size_bytes);
 	fprintf(dest, "  External Strings            0x%-8x          "  "-                   "  "%-8d\n",
-		hdrr.external_strings_offset,
-		hdrr.external_strings_size_bytes);
+		(u32) hdrr.external_strings_offset,
+		(u32) hdrr.external_strings_size_bytes);
 	fprintf(dest, "  File Descriptors            0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.file_descriptors_offset,
-		hdrr.file_descriptor_count * (s32) sizeof(FileDescriptor),
-		hdrr.file_descriptor_count);
+		(u32) hdrr.file_descriptors_offset,
+		(u32) hdrr.file_descriptor_count * (u32) sizeof(FileDescriptor),
+		(u32) hdrr.file_descriptor_count);
 	fprintf(dest, "  Relative Files Descriptors  0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.relative_file_descriptors_offset,
-		hdrr.relative_file_descriptor_count * 4,
-		hdrr.relative_file_descriptor_count);
+		(u32) hdrr.relative_file_descriptors_offset,
+		(u32) hdrr.relative_file_descriptor_count * 4,
+		(u32) hdrr.relative_file_descriptor_count);
 	fprintf(dest, "  External Symbols            0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		hdrr.external_symbols_offset,
-		hdrr.external_symbols_count * 16,
-		hdrr.external_symbols_count);
+		(u32) hdrr.external_symbols_offset,
+		(u32) hdrr.external_symbols_count * 16,
+		(u32) hdrr.external_symbols_count);
 }
 
 const char* symbol_type(SymbolType type) {
