@@ -2,38 +2,32 @@
 
 namespace ccc {
 
-Error* format_error(const char* source_file, int source_line, const char* format, ...) {
+Error format_error(const char* source_file, int source_line, const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 	
-	static char message[4096];
+	char message[4096];
 	if(vsnprintf(message, sizeof(message), format, args) < 0) {
 		strncpy(message, "Failed to generate error message.", sizeof(message));
 	}
 	
-	// Copy it just in case one of the variadic arguments is a pointer to the
-	// last error message.
-	static char message_copy[4096];
-	strncpy(message_copy, message, sizeof(message_copy));
-	message_copy[sizeof(message_copy) - 1] = '\0';
-	
-	static Error error = {};
-	error.message = message_copy;
+	Error error;
+	error.message = message;
 	error.source_file = source_file;
 	error.source_line = source_line;
 	
 	va_end(args);
-	return &error;
+	return error;
 }
 
-void print_error(FILE* out, const Error* error) {
+void print_error(FILE* out, const Error& error) {
 	fprintf(out, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n",
-		error->source_file, error->source_line, error->message);
+		error.source_file, error.source_line, error.message.c_str());
 }
 
-void print_warning(FILE* out, const Error* warning) {
+void print_warning(FILE* out, const Error& warning) {
 	fprintf(out, "[%s:%d] " CCC_ANSI_COLOUR_MAGENTA "warning:" CCC_ANSI_COLOUR_OFF " %s\n",
-		warning->source_file, warning->source_line, warning->message);
+		warning.source_file, warning.source_line, warning.message.c_str());
 }
 
 Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset) {
