@@ -395,7 +395,7 @@ Result<void> LocalSymbolTableAnalyser::label(const char* label, u32 address, s32
 
 Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
 	if(m_state == IN_FUNCTION_BEGINNING) {
-		if(m_current_function->address_range.low >= 0) {
+		if(m_current_function->address_range.low != (u32) -1) {
 			CCC_ASSERT(m_current_function);
 			m_current_function->address_range.high = m_current_function->address_range.low + function_size;
 		}
