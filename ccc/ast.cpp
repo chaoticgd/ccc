@@ -198,6 +198,7 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 		}
 		case INLINE_STRUCT_OR_UNION: {
 			const auto [lhs, rhs] = Node::as<InlineStructOrUnion>(node_lhs, node_rhs);
+			if(lhs.is_struct != rhs.is_struct) return CompareFailReason::DESCRIPTOR;
 			if(lhs.base_classes.size() != rhs.base_classes.size()) return CompareFailReason::BASE_CLASS_COUNT;
 			for(size_t i = 0; i < lhs.base_classes.size(); i++) {
 				if(compare_nodes_and_merge(result, *lhs.base_classes[i].get(), *rhs.base_classes[i].get(), lookup)) return result;
