@@ -24,7 +24,7 @@ enum AnalysisFlags {
 
 // Perform all the main analysis passes on the mdebug symbol table and convert
 // it to a set of C++ ASTs.
-Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index = -1);
+Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_index = -1);
 
 // Build a map of type names to their index is the deduplicated_types array.
 std::map<std::string, s32> build_type_name_to_deduplicated_type_index_map(const HighSymbolTable& symbol_table);

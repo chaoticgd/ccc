@@ -47,16 +47,17 @@ int main(int argc, char** argv) {
 	CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", elf_path.string().c_str());
 	mod.image = std::move(*binary);
 	
-	Result<void> result = parse_elf_file(mod);
-	CCC_EXIT_IF_ERROR(result);
+	Result<void> elf_result = parse_elf_file(mod);
+	CCC_EXIT_IF_ERROR(elf_result);
 	
 	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 	CCC_CHECK_FATAL(mdebug_section != nullptr, "No .mdebug section.");
 	
-	Result<mdebug::SymbolTable> symbol_table = mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);
-	CCC_EXIT_IF_ERROR(symbol_table);
+	mdebug::SymbolTable symbol_table;
+	Result<void> symbol_table_result = symbol_table.init(mod.image, (s32) mdebug_section->file_offset);
+	CCC_EXIT_IF_ERROR(symbol_table_result);
 	
-	Result<HighSymbolTable> high = analyse(*symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
+	Result<HighSymbolTable> high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
 	CCC_EXIT_IF_ERROR(high);
 	map_types_to_files_based_on_this_pointers(*high);
 	map_types_to_files_based_on_reference_count(*high);

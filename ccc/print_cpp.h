@@ -31,7 +31,7 @@ struct CppPrinter {
 	CppPrinter(FILE* o) : out(o) {}
 	
 	void comment_block_beginning(const char* input_file);
-	void comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table);
+	void comment_block_toolchain_version_info(const HighSymbolTable& symbol_table);
 	void comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes);
 	void comment_block_file(const char* path);
 	void begin_include_guard(const char* macro);

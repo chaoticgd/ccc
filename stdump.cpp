@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
 			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
-			mdebug::print_headers(out, *symbol_table);
+			symbol_table->print_header(out);
 			break;
 		}
 		case OutputMode::SYMBOLS: {
@@ -171,21 +171,27 @@ static Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path
 	std::optional<std::vector<u8>> binary = platform::read_binary_file(input_file);
 	CCC_CHECK(binary.has_value(), "Failed to open file '%s'.", input_file.string().c_str());
 	mod.image = std::move(*binary);
-	Result<void> result = parse_elf_file(mod);
-	CCC_RETURN_IF_ERROR(result);
+	
+	Result<void> elf_result = parse_elf_file(mod);
+	CCC_RETURN_IF_ERROR(elf_result);
 	
 	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 	CCC_CHECK(mdebug_section != nullptr, "No .mdebug section.");
 	
-	return mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);
+	mdebug::SymbolTable symbol_table;
+	Result<void> symbol_table_result = symbol_table.init(mod.image, mdebug_section->file_offset);
+	CCC_EXIT_IF_ERROR(symbol_table_result);
+	
+	return symbol_table;
 }
 
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 	CppPrinter printer(out);
-	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		Result<HighSymbolTable> result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		CCC_EXIT_IF_ERROR(result);
-		ast::SourceFile& source_file = *result->source_files.at(0);
+	s32 file_count = symbol_table.file_count();
+	for(s32 i = 0; i < file_count; i++) {
+		Result<HighSymbolTable> high = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		CCC_EXIT_IF_ERROR(high);
+		ast::SourceFile& source_file = *high->source_files.at(0);
 		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
 			printer.function(node->as<ast::FunctionDefinition>());
@@ -195,10 +201,11 @@ static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
 
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table) {
 	CppPrinter printer(out);
-	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		Result<HighSymbolTable> result = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
-		CCC_EXIT_IF_ERROR(result);
-		ast::SourceFile& source_file = *result->source_files.at(0);
+	s32 file_count = symbol_table.file_count();
+	for(s32 i = 0; i < file_count; i++) {
+		Result<HighSymbolTable> high = analyse(symbol_table, NO_ANALYSIS_FLAGS, i);
+		CCC_EXIT_IF_ERROR(high);
+		ast::SourceFile& source_file = *high->source_files.at(0);
 		printer.comment_block_file(source_file.full_path.c_str());
 		for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
 			printer.global_variable(node->as<ast::Variable>());
@@ -213,7 +220,7 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	CCC_EXIT_IF_ERROR(high);
 	CppPrinter printer(out);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
-	printer.comment_block_compiler_version_info(symbol_table);
+	printer.comment_block_toolchain_version_info(*high);
 	printer.comment_block_builtin_types((*high).deduplicated_types);
 	for(const std::unique_ptr<ast::Node>& type : high->deduplicated_types) {
 		printer.data_type(*type);
@@ -224,12 +231,14 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	CppPrinter printer(out);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
-	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-		Result<HighSymbolTable> result = analyse(symbol_table, analysis_flags, i);
-		CCC_EXIT_IF_ERROR(result);
-		ast::SourceFile& source_file = *result->source_files.at(0);
+	
+	s32 file_count = symbol_table.file_count();
+	for(s32 i = 0; i < file_count; i++) {
+		Result<HighSymbolTable> high = analyse(symbol_table, analysis_flags, i);
+		CCC_EXIT_IF_ERROR(high);
+		ast::SourceFile& source_file = *high->source_files.at(0);
 		printer.comment_block_file(source_file.full_path.c_str());
-		printer.comment_block_compiler_version_info(symbol_table);
+		printer.comment_block_toolchain_version_info(*high);
 		printer.comment_block_builtin_types(source_file.data_types);
 		for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
 			printer.data_type(*type);
@@ -238,16 +247,23 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 }
 
 static void print_local_symbols(FILE* out, const mdebug::SymbolTable& symbol_table) {
-	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
-		fprintf(out, "FILE %s:\n", fd.raw_path.c_str());
-		for(const mdebug::Symbol& symbol : fd.symbols) {
+	s32 file_count = symbol_table.file_count();
+	for(s32 i = 0; i < file_count; i++) {
+		Result<mdebug::File> file = symbol_table.parse_file(i);
+		CCC_EXIT_IF_ERROR(file);
+		
+		fprintf(out, "FILE %s:\n", file->raw_path.c_str());
+		for(const mdebug::Symbol& symbol : file->symbols) {
 			print_symbol(out, symbol, true);
 		}
 	}
 }
 
 static void print_external_symbols(FILE* out, const mdebug::SymbolTable& symbol_table) {
-	for(const mdebug::Symbol& symbol : symbol_table.externals) {
+	Result<std::vector<mdebug::Symbol>> external_symbols = symbol_table.parse_external_symbols();
+	CCC_EXIT_IF_ERROR(external_symbols);
+	
+	for(const mdebug::Symbol& symbol : *external_symbols) {
 		print_symbol(out, symbol, false);
 	}
 }
@@ -288,8 +304,12 @@ static u32 build_analysis_flags(u32 flags) {
 }
 
 static void list_files(FILE* out, const mdebug::SymbolTable& symbol_table) {
-	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
-		fprintf(out, "%s\n", fd.full_path.c_str());
+	s32 file_count = symbol_table.file_count();
+	for(s32 i = 0; i < file_count; i++) {
+		Result<mdebug::File> file = symbol_table.parse_file(i);
+		CCC_EXIT_IF_ERROR(file);
+		
+		fprintf(out, "%s\n", file->full_path.c_str());
 	}
 }
 
@@ -303,24 +323,29 @@ static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, co
 		u32 section_end = section.virtual_address + section.size;
 		
 		fprintf(out, "%s:\n", section.name.c_str());
-		for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
+		
+		s32 file_count = symbol_table.file_count();
+		for(s32 i = 0; i < file_count; i++) {
+			Result<mdebug::File> file = symbol_table.parse_file(i);
+			CCC_EXIT_IF_ERROR(file);
+			
 			// Find the text address without running the whole analysis process.
 			u32 text_address = UINT32_MAX;
-			for(const mdebug::Symbol& symbol : fd.symbols) {
+			for(const mdebug::Symbol& symbol : file->symbols) {
 				if(symbol.is_stabs && symbol.code == mdebug::N_SO) {
 					text_address = symbol.value;
 					break;
 				}
 			}
 			if(text_address == UINT32_MAX) {
-				for(const mdebug::Symbol& symbol : fd.symbols) {
+				for(const mdebug::Symbol& symbol : file->symbols) {
 					if(symbol.storage_type == mdebug::SymbolType::PROC && symbol.storage_class == mdebug::SymbolClass::TEXT && symbol.value != -1) {
 						text_address = std::min(text_address, (u32) symbol.value);
 					}
 				}
 			}
 			if(text_address != UINT32_MAX && text_address >= section_start && text_address < section_end) {
-				fprintf(out, "\t%s\n", fd.full_path.c_str());
+				fprintf(out, "\t%s\n", file->full_path.c_str());
 			}
 		}
 	}
@@ -340,15 +365,16 @@ static void test(FILE* out, const fs::path& directory) {
 			
 			Module mod;
 			mod.image = std::move(*binary);
-			Result<void> result = parse_elf_file(mod);
-			CCC_EXIT_IF_ERROR(result);
+			Result<void> elf_result = parse_elf_file(mod);
+			CCC_EXIT_IF_ERROR(elf_result);
 			
 			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
 			if(mdebug_section) {
-				Result<mdebug::SymbolTable> symbol_table = mdebug::parse_symbol_table(mod.image, mdebug_section->file_offset);
-				CCC_EXIT_IF_ERROR(symbol_table);
+				mdebug::SymbolTable symbol_table;
+				Result<void> symbol_table_result = symbol_table.init(mod.image, (s32) mdebug_section->file_offset);
+				CCC_EXIT_IF_ERROR(symbol_table_result);
 				
-				Result<ccc::HighSymbolTable> high = analyse(*symbol_table, DEDUPLICATE_TYPES);
+				Result<ccc::HighSymbolTable> high = analyse(symbol_table, DEDUPLICATE_TYPES);
 				CCC_EXIT_IF_ERROR(high);
 				
 				CppPrinter printer(out);

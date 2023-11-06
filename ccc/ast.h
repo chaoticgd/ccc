@@ -218,6 +218,7 @@ struct SourceFile : Node {
 	std::vector<std::unique_ptr<Node>> functions;
 	std::vector<std::unique_ptr<Node>> globals;
 	std::map<StabsTypeNumber, s32> stabs_type_number_to_deduplicated_type_index;
+	std::set<std::string> toolchain_version_info;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;

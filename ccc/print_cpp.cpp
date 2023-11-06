@@ -37,17 +37,14 @@ void CppPrinter::comment_block_beginning(const char* input_file) {
 	has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_compiler_version_info(const mdebug::SymbolTable& symbol_table) {
+void CppPrinter::comment_block_toolchain_version_info(const HighSymbolTable& symbol_table) {
 	std::set<std::string> compiler_version_info;
-	for(const mdebug::SymFileDescriptor& fd : symbol_table.files) {
-		bool known = false;
-		for(const mdebug::Symbol& symbol : fd.symbols) {
-			if(symbol.storage_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
-				known = true;
-				compiler_version_info.emplace(symbol.string);
+	for(const std::unique_ptr<ast::SourceFile>& source_file : symbol_table.source_files) {
+		if(!source_file->toolchain_version_info.empty()) {
+			for(const std::string& string : source_file->toolchain_version_info) {
+				compiler_version_info.emplace(string);
 			}
-		}
-		if(!known) {
+		} else {
 			compiler_version_info.emplace("unknown");
 		}
 	}
