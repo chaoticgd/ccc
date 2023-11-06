@@ -137,12 +137,11 @@ static Result<void> analyse_file(
 	// one-to-one with the text-based representation.
 	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(fd.symbols, fd.detected_language);
 	CCC_RETURN_IF_ERROR(symbols);
-	file->symbols = std::move(*symbols);
 	
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
 	std::map<StabsTypeNumber, const StabsType*> stabs_types;
-	for(const ParsedSymbol& symbol : file->symbols) {
+	for(const ParsedSymbol& symbol : *symbols) {
 		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);
 		}
@@ -154,7 +153,7 @@ static Result<void> analyse_file(
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
 	LocalSymbolTableAnalyser analyser(*file.get(), stabs_to_ast_state);
-	for(const ParsedSymbol& symbol : file->symbols) {
+	for(const ParsedSymbol& symbol : *symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
 				switch(symbol.name_colon_type.descriptor) {
@@ -288,9 +287,7 @@ static Result<void> analyse_file(
 	CCC_RETURN_IF_ERROR(result);
 	
 	// The STABS types are no longer needed, so delete them now.
-	for(ParsedSymbol& symbol : file->symbols) {
-		symbol.name_colon_type.type = nullptr;
-	}
+	symbols->clear();
 	
 	// Some enums have two separate stabs generated for them, one with a
 	// name of " ", where one stab references the other. Remove these

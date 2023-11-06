@@ -24,10 +24,9 @@ enum class OutputMode {
 enum Flags {
 	NO_FLAGS = 0,
 	FLAG_PER_FILE = (1 << 0),
-	FLAG_VERBOSE = (1 << 1),
-	FLAG_OMIT_ACCESS_SPECIFIERS = (1 << 2),
-	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 3),
-	FLAG_INCLUDE_GENERATED_FUNCTIONS = (1 << 4)
+	FLAG_OMIT_ACCESS_SPECIFIERS = (1 << 1),
+	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 2),
+	FLAG_INCLUDE_GENERATED_FUNCTIONS = (1 << 3)
 };
 
 struct Options {
@@ -216,7 +215,6 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
 	printer.comment_block_compiler_version_info(symbol_table);
 	printer.comment_block_builtin_types((*high).deduplicated_types);
-	printer.verbose = options.flags & FLAG_VERBOSE;
 	for(const std::unique_ptr<ast::Node>& type : high->deduplicated_types) {
 		printer.data_type(*type);
 	}
@@ -225,7 +223,6 @@ static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_tabl
 static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options) {
 	u32 analysis_flags = build_analysis_flags(options.flags);
 	CppPrinter printer(out);
-	printer.verbose = options.flags & FLAG_VERBOSE;
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
 	for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
 		Result<HighSymbolTable> result = analyse(symbol_table, analysis_flags, i);
@@ -234,7 +231,6 @@ static void print_types_per_file(FILE* out, mdebug::SymbolTable& symbol_table, c
 		printer.comment_block_file(source_file.full_path.c_str());
 		printer.comment_block_compiler_version_info(symbol_table);
 		printer.comment_block_builtin_types(source_file.data_types);
-		printer.verbose = options.flags & FLAG_VERBOSE;
 		for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
 			printer.data_type(*type);
 		}
@@ -429,8 +425,6 @@ static Options parse_args(int argc, char** argv) {
 		const char* arg = argv[i];
 		if(strcmp(arg, "--per-file") == 0) {
 			options.flags |= FLAG_PER_FILE;
-		} else if(strcmp(arg, "--verbose") == 0) {
-			options.flags |= FLAG_VERBOSE;
 		} else if(strcmp(arg, "--omit-access-specifiers") == 0) {
 			options.flags |= FLAG_OMIT_ACCESS_SPECIFIERS;
 		} else if(strcmp(arg, "--omit-member-functions") == 0) {
@@ -477,8 +471,6 @@ static void print_help() {
 	puts("    Print all the types recovered from the STABS symbols as C++.");
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
-	puts("    --verbose                     Print additional information such as the raw");
-	puts("                                  STABS symbol along with each type.");
 	puts("    --omit-access-specifiers      Do not print access specifiers.");
 	puts("    --omit-member-functions       Do not print member functions.");
 	puts("    --include-generated-functions Include member functions that are likely");

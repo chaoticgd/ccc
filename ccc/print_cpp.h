@@ -13,7 +13,6 @@ struct VariableName {
 
 struct CppPrinter {
 	FILE* out;
-	bool verbose : 1 = false;
 	bool make_globals_extern : 1 = false;
 	bool skip_statics : 1 = false;
 	bool print_offsets_and_sizes : 1 = true;

@@ -147,9 +147,6 @@ bool CppPrinter::data_type(const ast::Node& node) {
 	if(node.descriptor == ast::NodeDescriptor::TYPE_NAME && node.as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
 		fprintf(out, "// warning: this type name was generated to handle an error\n");
 	}
-	if(verbose && node.symbol != nullptr) {
-		fprintf(out, "// symbol: %s\n", node.symbol->raw->string);
-	}
 	
 	VariableName name;
 	if(node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
