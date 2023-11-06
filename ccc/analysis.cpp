@@ -4,9 +4,13 @@
 
 namespace ccc {
 
-static Result<void> analyse_file(
-	HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table,
-	const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags);
+struct AnalysisContext {
+	const mdebug::SymbolTable* symbol_table;
+	const std::map<std::string, const mdebug::Symbol*>* globals;
+	u32 flags;
+};
+
+static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context);
 static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high);
 static std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
@@ -72,13 +76,16 @@ protected:
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 
-Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_descriptor_index) {
+Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_index) {
 	HighSymbolTable high;
+	
+	Result<std::vector<mdebug::Symbol>> external_symbols = symbol_table.parse_external_symbols();
+	CCC_RETURN_IF_ERROR(external_symbols);
 	
 	// The addresses of the global variables aren't present in the local symbol
 	// table, so here we extract them from the external table.
 	std::map<std::string, const mdebug::Symbol*> globals;
-	for(const mdebug::Symbol& external : symbol_table.externals) {
+	for(const mdebug::Symbol& external : *external_symbols) {
 		if(external.storage_type == mdebug::SymbolType::GLOBAL
 			&& (external.storage_class != mdebug::SymbolClass::UNDEFINED)) {
 			globals[external.string] = &external;
@@ -87,15 +94,23 @@ Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 fla
 	
 	ast::TypeDeduplicatorOMatic deduplicator;
 	
+	// Bundle together some unchanging state to pass to analyse_file.
+	AnalysisContext context;
+	context.symbol_table = &symbol_table;
+	context.globals = &globals;
+	context.flags = flags;
+	
+	Result<s32> file_count = symbol_table.file_count();
+	CCC_RETURN_IF_ERROR(file_count);
+	
 	// Either analyse a specific file descriptor, or all of them.
-	if(file_descriptor_index > -1) {
-		CCC_CHECK_FATAL((size_t) file_descriptor_index < symbol_table.files.size(), "file_descriptor_index out of range.");
-		Result<void> result = analyse_file(high, deduplicator, symbol_table, symbol_table.files[file_descriptor_index], globals, file_descriptor_index, flags);
+	if(file_index > -1) {
+		CCC_CHECK_FATAL(file_index < *file_count, "File index out of range.");
+		Result<void> result = analyse_file(high, deduplicator, file_index, context);
 		CCC_RETURN_IF_ERROR(result);
 	} else {
-		for(s32 i = 0; i < (s32) symbol_table.files.size(); i++) {
-			const mdebug::SymFileDescriptor& fd = symbol_table.files[i];
-			Result<void> result = analyse_file(high, deduplicator, symbol_table, fd, globals, i, flags);
+		for(s32 i = 0; i < *file_count; i++) {
+			Result<void> result = analyse_file(high, deduplicator, i, context);
 			CCC_RETURN_IF_ERROR(result);
 		}
 	}
@@ -125,24 +140,31 @@ Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 fla
 	return high;
 }
 
-static Result<void> analyse_file(
-	HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, const mdebug::SymbolTable& symbol_table,
-	const mdebug::SymFileDescriptor& fd, const std::map<std::string, const mdebug::Symbol*>& globals, s32 file_index, u32 flags) {
+static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context) {
+	Result<mdebug::File> input = context.symbol_table->parse_file(file_index);
+	CCC_RETURN_IF_ERROR(input);
 	
 	auto file = std::make_unique<ast::SourceFile>();
-	file->full_path = fd.full_path;
-	file->is_windows_path = fd.is_windows_path;
+	file->full_path = input->full_path;
+	file->is_windows_path = input->is_windows_path;
+	
+	// Sometimes the INFO symbols contain information about what toolchain
+	// version was used for building the executable.
+	for(mdebug::Symbol& symbol : input->symbols) {
+		if(symbol.storage_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
+			file->toolchain_version_info.emplace(symbol.string);
+		}
+	}
 	
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
-	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(fd.symbols, fd.detected_language);
+	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(input->symbols, input->detected_language);
 	CCC_RETURN_IF_ERROR(symbols);
-	file->symbols = std::move(*symbols);
 	
 	// In stabs, types can be referenced by their number from other stabs,
 	// so here we build a map of type numbers to the parsed types.
 	std::map<StabsTypeNumber, const StabsType*> stabs_types;
-	for(const ParsedSymbol& symbol : file->symbols) {
+	for(const ParsedSymbol& symbol : *symbols) {
 		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);
 		}
@@ -154,7 +176,7 @@ static Result<void> analyse_file(
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
 	LocalSymbolTableAnalyser analyser(*file.get(), stabs_to_ast_state);
-	for(const ParsedSymbol& symbol : file->symbols) {
+	for(const ParsedSymbol& symbol : *symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
 				switch(symbol.name_colon_type.descriptor) {
@@ -212,8 +234,8 @@ static Result<void> analyse_file(
 							// only stored in the external symbol table (and
 							// the ELF symbol table), so we pull that
 							// information in here.
-							auto global_symbol = globals.find(symbol.name_colon_type.name);
-							if(global_symbol != globals.end()) {
+							auto global_symbol = context.globals->find(symbol.name_colon_type.name);
+							if(global_symbol != context.globals->end()) {
 								address = (u32) global_symbol->second->value;
 								location = symbol_class_to_global_variable_location(global_symbol->second->storage_class);
 							}
@@ -288,9 +310,7 @@ static Result<void> analyse_file(
 	CCC_RETURN_IF_ERROR(result);
 	
 	// The STABS types are no longer needed, so delete them now.
-	for(ParsedSymbol& symbol : file->symbols) {
-		symbol.name_colon_type.type = nullptr;
-	}
+	symbols->clear();
 	
 	// Some enums have two separate stabs generated for them, one with a
 	// name of " ", where one stab references the other. Remove these
@@ -303,12 +323,12 @@ static Result<void> analyse_file(
 	
 	// Filter the AST depending on the flags parsed, removing things the
 	// calling code didn't ask for.
-	filter_ast_by_flags(*file, flags);
+	filter_ast_by_flags(*file, context.flags);
 	
 	high.source_files.emplace_back(std::move(file));
 	
 	// Deduplicate types.
-	if(flags & DEDUPLICATE_TYPES) {
+	if(context.flags & DEDUPLICATE_TYPES) {
 		deduplicator.process_file(*high.source_files.back().get(), file_index, high.source_files);
 	}
 	
@@ -395,7 +415,7 @@ Result<void> LocalSymbolTableAnalyser::label(const char* label, u32 address, s32
 
 Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
 	if(m_state == IN_FUNCTION_BEGINNING) {
-		if(m_current_function->address_range.low >= 0) {
+		if(m_current_function->address_range.low != (u32) -1) {
 			CCC_ASSERT(m_current_function);
 			m_current_function->address_range.high = m_current_function->address_range.low + function_size;
 		}

@@ -90,87 +90,149 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 	/* 0x4 */ SymbolHeader symbol;
 )
 
-static s32 get_corruption_fixing_fudge_offset(u32 section_offset, const SymbolicHeader& hdrr);
+static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
 static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector<u8>& elf, s32 strings_offset);
 
-Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_offset) {
-	SymbolTable symbol_table;
+Result<void> SymbolTable::init(const std::vector<u8>& elf, s32 section_offset) {
+	m_elf = &elf;
+	m_section_offset = section_offset;
 	
-	const SymbolicHeader* hdrr = get_packed<SymbolicHeader>(elf, section_offset);
-	CCC_CHECK(hdrr != nullptr, "MIPS_DEBUG section header out of bounds.");
-	CCC_CHECK(hdrr->magic == 0x7009, "Invalid symbolic header.");
+	m_hdrr = get_packed<SymbolicHeader>(*m_elf, m_section_offset);
+	CCC_CHECK(m_hdrr != nullptr, "MIPS debug section header out of bounds.");
+	CCC_CHECK(m_hdrr->magic == 0x7009, "Invalid symbolic header.");
 	
-	symbol_table.header = hdrr;
+	m_fudge_offset = get_corruption_fixing_fudge_offset(m_section_offset, *m_hdrr);
 	
-	s32 fudge_offset = get_corruption_fixing_fudge_offset(section_offset, *hdrr);
+	m_ready = true;
 	
-	// Iterate over file descriptors.
-	for(s64 i = 0; i < hdrr->file_descriptor_count; i++) {
-		u64 fd_offset = hdrr->file_descriptors_offset + i * sizeof(FileDescriptor);
-		const FileDescriptor* fd_header = get_packed<FileDescriptor>(elf, fd_offset + fudge_offset);
-		CCC_CHECK(fd_header != nullptr, "MIPS_DEBUG file descriptor out of bounds.");
-		CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
-		
-		SymFileDescriptor& fd = symbol_table.files.emplace_back();
-		fd.header = fd_header;
-		
-		s32 raw_path_offset = hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + fudge_offset;
-		Result<const char*> raw_path = get_string(elf, raw_path_offset);
-		CCC_RETURN_IF_ERROR(raw_path);
-		fd.raw_path = *raw_path;
-		
-		// Try to detect the source language.
-		std::string lower_name = fd.raw_path;
-		for(char& c : lower_name) c = tolower(c);
-		if(lower_name.ends_with(".c")) {
-			fd.detected_language = SourceLanguage::C;
-		} else if(lower_name.ends_with(".cpp") || lower_name.ends_with(".cc") || lower_name.ends_with(".cxx")) {
-			fd.detected_language = SourceLanguage::CPP;
-		} else if(lower_name.ends_with(".s") || lower_name.ends_with(".asm")) {
-			fd.detected_language = SourceLanguage::ASSEMBLY;
-		}
-		
-		// Parse local symbols.
-		for(s64 j = 0; j < fd_header->symbol_count; j++) {
-			u64 sym_offset = hdrr->local_symbols_offset + (fd_header->isym_base + j) * sizeof(SymbolHeader);
-			const SymbolHeader* symbol_header = get_packed<SymbolHeader>(elf, sym_offset + fudge_offset);
-			CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
-			
-			s32 strings_offset = hdrr->local_strings_offset + fd_header->strings_offset + fudge_offset;
-			Result<Symbol> sym = parse_symbol(*symbol_header, elf, strings_offset);
-			CCC_RETURN_IF_ERROR(sym);
-			
-			bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
-			if(fd.base_path.empty() && string_offset_equal && sym->is_stabs && sym->code == N_SO && fd.symbols.size() > 2) {
-				const Symbol& base_path = fd.symbols.back();
-				if(base_path.is_stabs && base_path.code == N_SO) {
-					fd.base_path = base_path.string;
-				}
-			}
-			
-			fd.symbols.emplace_back(std::move(*sym));
-		}
-		
-		fd.full_path = merge_paths(fd.base_path, fd.raw_path);
-	}
+	return Result<void>();
+}
 	
-	// Parse external symbols.
-	for(s64 i = 0; i < hdrr->external_symbols_count; i++) {
-		u64 sym_offset = hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
-		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(elf, sym_offset + fudge_offset);
-		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
-		Result<Symbol> sym = parse_symbol(external_header->symbol, elf, hdrr->external_strings_offset + fudge_offset);
-		CCC_RETURN_IF_ERROR(sym);
-		symbol_table.externals.emplace_back(std::move(*sym));
-	}
-	
-	return symbol_table;
+s32 SymbolTable::file_count() const {
+	CCC_ASSERT(m_ready);
+	return m_hdrr->file_descriptor_count;
 }
 
-static s32 get_corruption_fixing_fudge_offset(u32 section_offset, const SymbolicHeader& hdrr) {
-	// If the .mdebug section was moved without updating its contents all the
-	// absolute file offsets stored within will be incorrect by a fixed amount.
+Result<File> SymbolTable::parse_file(s32 index) const {
+	CCC_ASSERT(m_ready);
 	
+	File file;
+	
+	u64 fd_offset = m_hdrr->file_descriptors_offset + index * sizeof(FileDescriptor);
+	const FileDescriptor* fd_header = get_packed<FileDescriptor>(*m_elf, fd_offset + m_fudge_offset);
+	CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
+	CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
+	
+	s32 raw_path_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + m_fudge_offset;
+	Result<const char*> raw_path = get_string(*m_elf, raw_path_offset);
+	CCC_RETURN_IF_ERROR(raw_path);
+	file.raw_path = *raw_path;
+	
+	// Try to detect the source language.
+	std::string lower_name = file.raw_path;
+	for(char& c : lower_name) c = tolower(c);
+	if(lower_name.ends_with(".c")) {
+		file.detected_language = SourceLanguage::C;
+	} else if(lower_name.ends_with(".cpp") || lower_name.ends_with(".cc") || lower_name.ends_with(".cxx")) {
+		file.detected_language = SourceLanguage::CPP;
+	} else if(lower_name.ends_with(".s") || lower_name.ends_with(".asm")) {
+		file.detected_language = SourceLanguage::ASSEMBLY;
+	}
+	
+	// Parse local symbols.
+	for(s64 j = 0; j < fd_header->symbol_count; j++) {
+		u64 symbol_offset = m_hdrr->local_symbols_offset + (fd_header->isym_base + j) * sizeof(SymbolHeader) + m_fudge_offset;
+		const SymbolHeader* symbol_header = get_packed<SymbolHeader>(*m_elf, symbol_offset);
+		CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
+		
+		s32 strings_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + m_fudge_offset;
+		Result<Symbol> sym = parse_symbol(*symbol_header, *m_elf, strings_offset);
+		CCC_RETURN_IF_ERROR(sym);
+		
+		bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
+		if(file.base_path.empty() && string_offset_equal && sym->is_stabs && sym->code == N_SO && file.symbols.size() > 2) {
+			const Symbol& base_path = file.symbols.back();
+			if(base_path.is_stabs && base_path.code == N_SO) {
+				file.base_path = base_path.string;
+			}
+		}
+		
+		file.symbols.emplace_back(std::move(*sym));
+	}
+	
+	file.full_path = merge_paths(file.base_path, file.raw_path);
+	
+	return file;
+}
+
+Result<std::vector<Symbol>> SymbolTable::parse_external_symbols() const {
+	CCC_ASSERT(m_ready);
+	
+	std::vector<Symbol> external_symbols;
+	for(s64 i = 0; i < m_hdrr->external_symbols_count; i++) {
+		u64 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
+		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(*m_elf, sym_offset + m_fudge_offset);
+		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
+		Result<Symbol> sym = parse_symbol(external_header->symbol, *m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
+		CCC_RETURN_IF_ERROR(sym);
+		external_symbols.emplace_back(std::move(*sym));
+	}
+	return external_symbols;
+}
+
+void SymbolTable::print_header(FILE* dest) const {
+	CCC_ASSERT(m_ready);
+	
+	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n",
+		(u16) m_hdrr->magic,
+		(u16) m_hdrr->version_stamp);
+	fprintf(dest, "\n");
+	fprintf(dest, "                              Offset              Size (Bytes)        Count\n");
+	fprintf(dest, "                              ------              ------------        -----\n");
+	fprintf(dest, "  Line Numbers                0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->line_numbers_offset,
+		(u32) m_hdrr->line_numbers_size_bytes,
+		(u32) m_hdrr->line_number_count);
+	fprintf(dest, "  Dense Numbers               0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->dense_numbers_offset,
+		(u32) m_hdrr->dense_numbers_count * 8,
+		(u32) m_hdrr->dense_numbers_count);
+	fprintf(dest, "  Procedure Descriptors       0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->procedure_descriptors_offset,
+		(u32) m_hdrr->procedure_descriptor_count * (u32) sizeof(ProcedureDescriptor),
+		(u32) m_hdrr->procedure_descriptor_count);
+	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->local_symbols_offset,
+		(u32) m_hdrr->local_symbol_count * (u32) sizeof(SymbolHeader),
+		(u32) m_hdrr->local_symbol_count);
+	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   "  "%-8d\n",
+		(u32) m_hdrr->optimization_symbols_offset,
+		(u32) m_hdrr->optimization_symbols_count);
+	fprintf(dest, "  Auxiliary Symbols           0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->auxiliary_symbols_offset,
+		(u32) m_hdrr->auxiliary_symbol_count * 4,
+		(u32) m_hdrr->auxiliary_symbol_count);
+	fprintf(dest, "  Local Strings               0x%-8x          "  "-                   "  "%-8d\n",
+		(u32) m_hdrr->local_strings_offset,
+		(u32) m_hdrr->local_strings_size_bytes);
+	fprintf(dest, "  External Strings            0x%-8x          "  "-                   "  "%-8d\n",
+		(u32) m_hdrr->external_strings_offset,
+		(u32) m_hdrr->external_strings_size_bytes);
+	fprintf(dest, "  File Descriptors            0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->file_descriptors_offset,
+		(u32) m_hdrr->file_descriptor_count * (u32) sizeof(FileDescriptor),
+		(u32) m_hdrr->file_descriptor_count);
+	fprintf(dest, "  Relative Files Descriptors  0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->relative_file_descriptors_offset,
+		(u32) m_hdrr->relative_file_descriptor_count * 4,
+		(u32) m_hdrr->relative_file_descriptor_count);
+	fprintf(dest, "  External Symbols            0x%-8x          "  "0x%-8x          "  "%-8d\n",
+		(u32) m_hdrr->external_symbols_offset,
+		(u32) m_hdrr->external_symbols_count * 16,
+		(u32) m_hdrr->external_symbols_count);
+}
+
+static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr) {
 	// Test for corruption.
 	s32 right_after_header = INT32_MAX;
 	if(hdrr.line_numbers_offset > 0) right_after_header = std::min(hdrr.line_numbers_offset, right_after_header);
@@ -185,7 +247,7 @@ static s32 get_corruption_fixing_fudge_offset(u32 section_offset, const Symbolic
 	if(hdrr.relative_file_descriptors_offset > 0) right_after_header = std::min(hdrr.relative_file_descriptors_offset, right_after_header);
 	if(hdrr.external_symbols_offset > 0) right_after_header = std::min(hdrr.external_symbols_offset, right_after_header);
 	
-	if(right_after_header == (s32) (section_offset + sizeof(SymbolicHeader))) {
+	if(right_after_header == section_offset + (s32) sizeof(SymbolicHeader)) {
 		return 0; // It's probably fine.
 	}
 	
@@ -221,57 +283,6 @@ static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector
 		symbol.is_stabs = false;
 	}
 	return symbol;
-}
-
-void print_headers(FILE* dest, const SymbolTable& symbol_table) {
-	const SymbolicHeader& hdrr = *symbol_table.header;
-	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n",
-		(u16) hdrr.magic,
-		(u16) hdrr.version_stamp);
-	fprintf(dest, "\n");
-	fprintf(dest, "                              Offset              Size (Bytes)        Count\n");
-	fprintf(dest, "                              ------              ------------        -----\n");
-	fprintf(dest, "  Line Numbers                0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.line_numbers_offset,
-		(u32) hdrr.line_numbers_size_bytes,
-		(u32) hdrr.line_number_count);
-	fprintf(dest, "  Dense Numbers               0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.dense_numbers_offset,
-		(u32) hdrr.dense_numbers_count * 8,
-		(u32) hdrr.dense_numbers_count);
-	fprintf(dest, "  Procedure Descriptors       0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.procedure_descriptors_offset,
-		(u32) hdrr.procedure_descriptor_count * (u32) sizeof(ProcedureDescriptor),
-		(u32) hdrr.procedure_descriptor_count);
-	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.local_symbols_offset,
-		(u32) hdrr.local_symbol_count * (u32) sizeof(SymbolHeader),
-		(u32) hdrr.local_symbol_count);
-	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   "  "%-8d\n",
-		(u32) hdrr.optimization_symbols_offset,
-		(u32) hdrr.optimization_symbols_count);
-	fprintf(dest, "  Auxiliary Symbols           0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.auxiliary_symbols_offset,
-		(u32) hdrr.auxiliary_symbol_count * 4,
-		(u32) hdrr.auxiliary_symbol_count);
-	fprintf(dest, "  Local Strings               0x%-8x          "  "-                   "  "%-8d\n",
-		(u32) hdrr.local_strings_offset,
-		(u32) hdrr.local_strings_size_bytes);
-	fprintf(dest, "  External Strings            0x%-8x          "  "-                   "  "%-8d\n",
-		(u32) hdrr.external_strings_offset,
-		(u32) hdrr.external_strings_size_bytes);
-	fprintf(dest, "  File Descriptors            0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.file_descriptors_offset,
-		(u32) hdrr.file_descriptor_count * (u32) sizeof(FileDescriptor),
-		(u32) hdrr.file_descriptor_count);
-	fprintf(dest, "  Relative Files Descriptors  0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.relative_file_descriptors_offset,
-		(u32) hdrr.relative_file_descriptor_count * 4,
-		(u32) hdrr.relative_file_descriptor_count);
-	fprintf(dest, "  External Symbols            0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) hdrr.external_symbols_offset,
-		(u32) hdrr.external_symbols_count * 16,
-		(u32) hdrr.external_symbols_count);
 }
 
 const char* symbol_type(SymbolType type) {

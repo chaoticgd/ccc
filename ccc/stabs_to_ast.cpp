@@ -11,7 +11,6 @@ Result<std::unique_ptr<ast::Node>> stabs_data_type_symbol_to_ast(const ParsedSym
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
 	auto node = stabs_type_to_ast_and_handle_errors(*symbol.name_colon_type.type.get(), state, 0, 0, false, false);
 	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
-	node->symbol = &symbol;
 	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
 		node->storage_class = ast::SC_TYPEDEF;
 	}
@@ -318,7 +317,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		}
 		case StabsTypeDescriptor::BUILTIN: {
 			CCC_CHECK(type.as<StabsBuiltInType>().type_id == 16,
-				"Unknown built-in type! Please file a bug report.");
+				"Unknown built-in type!");
 			auto builtin = std::make_unique<ast::BuiltIn>();
 			builtin->bclass = BuiltInClass::BOOL_8;
 			result = std::move(builtin);

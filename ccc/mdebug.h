@@ -6,8 +6,6 @@
 namespace ccc::mdebug {
 
 struct SymbolicHeader;
-struct FileDescriptor;
-struct ProcedureDescriptor;
 
 enum class SymbolType : u32 {
 	NIL = 0,
@@ -112,11 +110,6 @@ struct Symbol {
 	StabsCode code = STAB;
 };
 
-struct SymProcedureDescriptor {
-	std::string name;
-	u32 address;
-};
-
 enum class SourceLanguage {
 	C,
 	CPP,
@@ -124,25 +117,38 @@ enum class SourceLanguage {
 	UNKNOWN
 };
 
-struct SymFileDescriptor {
-	const FileDescriptor* header;
+struct File {
 	std::string base_path;
 	std::string raw_path;
 	std::string full_path;
 	bool is_windows_path = false;
 	std::vector<Symbol> symbols;
-	std::vector<SymProcedureDescriptor> procedures;
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
 };
 
-struct SymbolTable {
-	const SymbolicHeader* header;
-	std::vector<SymFileDescriptor> files;
-	std::vector<Symbol> externals;
+class SymbolTable {
+public:
+	Result<void> init(const std::vector<u8>& elf, s32 section_offset);
+	
+	s32 file_count() const;
+	Result<File> parse_file(s32 index) const;
+	Result<std::vector<Symbol>> parse_external_symbols() const;
+	
+	void print_header(FILE* dest) const;
+
+protected:
+	bool m_ready = false;
+	
+	const std::vector<u8>* m_elf;
+	s32 m_section_offset;
+	
+	// If the .mdebug section was moved without updating its contents all the
+	// absolute file offsets stored within will be incorrect by a fixed amount.
+	s32 m_fudge_offset;
+	
+	const SymbolicHeader* m_hdrr;
 };
 
-Result<SymbolTable> parse_symbol_table(const std::vector<u8>& elf, u32 section_offset);
-void print_headers(FILE* dest, const SymbolTable& symbol_table);
 const char* symbol_type(SymbolType type);
 const char* symbol_class(SymbolClass symbol_class);
 const char* stabs_code(StabsCode code);

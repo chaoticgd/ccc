@@ -378,7 +378,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		}
 		default: {
 			return CCC_FAILURE(
-				"Invalid type descriptor '%c' (%02x). Please file a bug report!",
+				"Invalid type descriptor '%c' (%02x).",
 				(u32) descriptor, (u32) descriptor);
 		}
 	}

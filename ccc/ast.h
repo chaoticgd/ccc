@@ -77,7 +77,6 @@ struct Node {
 	std::string name;
 	
 	std::vector<s32> files; // List of files for which a given top-level type is present.
-	const ParsedSymbol* symbol = nullptr;
 	const char* compare_fail_reason = "";
 	StabsTypeNumber stabs_type_number;
 	
@@ -218,8 +217,8 @@ struct SourceFile : Node {
 	std::vector<std::unique_ptr<Node>> data_types;
 	std::vector<std::unique_ptr<Node>> functions;
 	std::vector<std::unique_ptr<Node>> globals;
-	std::vector<ParsedSymbol> symbols;
 	std::map<StabsTypeNumber, s32> stabs_type_number_to_deduplicated_type_index;
+	std::set<std::string> toolchain_version_info;
 	
 	SourceFile() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
