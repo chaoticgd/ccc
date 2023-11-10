@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3
+
+- Massively reduced memory usage.
+- Reworked error handling.
+- stdump: Removed `--verbose` option.
+- stdump: Fixed issue where the `mdebug` option would display some sizes as counts.
+
 ## v1.2.1
 
 - Fixed detection of bitfields where the underlying type is a typedef.

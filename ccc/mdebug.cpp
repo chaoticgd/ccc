@@ -192,44 +192,44 @@ void SymbolTable::print_header(FILE* dest) const {
 	fprintf(dest, "  Line Numbers                0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->line_numbers_offset,
 		(u32) m_hdrr->line_numbers_size_bytes,
-		(u32) m_hdrr->line_number_count);
+		m_hdrr->line_number_count);
 	fprintf(dest, "  Dense Numbers               0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->dense_numbers_offset,
 		(u32) m_hdrr->dense_numbers_count * 8,
-		(u32) m_hdrr->dense_numbers_count);
+		m_hdrr->dense_numbers_count);
 	fprintf(dest, "  Procedure Descriptors       0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->procedure_descriptors_offset,
 		(u32) m_hdrr->procedure_descriptor_count * (u32) sizeof(ProcedureDescriptor),
-		(u32) m_hdrr->procedure_descriptor_count);
+		m_hdrr->procedure_descriptor_count);
 	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->local_symbols_offset,
 		(u32) m_hdrr->local_symbol_count * (u32) sizeof(SymbolHeader),
-		(u32) m_hdrr->local_symbol_count);
-	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   "  "%-8d\n",
+		m_hdrr->local_symbol_count);
+	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   " "%-8d\n",
 		(u32) m_hdrr->optimization_symbols_offset,
-		(u32) m_hdrr->optimization_symbols_count);
+		m_hdrr->optimization_symbols_count);
 	fprintf(dest, "  Auxiliary Symbols           0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->auxiliary_symbols_offset,
 		(u32) m_hdrr->auxiliary_symbol_count * 4,
-		(u32) m_hdrr->auxiliary_symbol_count);
-	fprintf(dest, "  Local Strings               0x%-8x          "  "-                   "  "%-8d\n",
+		m_hdrr->auxiliary_symbol_count);
+	fprintf(dest, "  Local Strings               0x%-8x          "  "0x%-8x          "  "-\n",
 		(u32) m_hdrr->local_strings_offset,
 		(u32) m_hdrr->local_strings_size_bytes);
-	fprintf(dest, "  External Strings            0x%-8x          "  "-                   "  "%-8d\n",
+	fprintf(dest, "  External Strings            0x%-8x          "  "0x%-8x          "  "-\n",
 		(u32) m_hdrr->external_strings_offset,
 		(u32) m_hdrr->external_strings_size_bytes);
 	fprintf(dest, "  File Descriptors            0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->file_descriptors_offset,
 		(u32) m_hdrr->file_descriptor_count * (u32) sizeof(FileDescriptor),
-		(u32) m_hdrr->file_descriptor_count);
+		m_hdrr->file_descriptor_count);
 	fprintf(dest, "  Relative Files Descriptors  0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->relative_file_descriptors_offset,
 		(u32) m_hdrr->relative_file_descriptor_count * 4,
-		(u32) m_hdrr->relative_file_descriptor_count);
+		m_hdrr->relative_file_descriptor_count);
 	fprintf(dest, "  External Symbols            0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->external_symbols_offset,
 		(u32) m_hdrr->external_symbols_count * 16,
-		(u32) m_hdrr->external_symbols_count);
+		m_hdrr->external_symbols_count);
 }
 
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr) {
