@@ -1,5 +1,4 @@
-#ifndef _CCC_SYMBOLS_H
-#define _CCC_SYMBOLS_H
+#pragma once
 
 #include "util.h"
 #include "stabs.h"
@@ -52,5 +51,3 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 Result<ParsedSymbol> parse_stabs_type_symbol(const char* input);
 
 }
-
-#endif

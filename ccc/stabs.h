@@ -1,5 +1,4 @@
-#ifndef _CCC_STABS_H
-#define _CCC_STABS_H
+#pragma once
 
 #include "util.h"
 #include "mdebug.h"
@@ -367,5 +366,3 @@ s32 builtin_class_size(BuiltInClass bclass);
 const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);
 
 }
-
-#endif

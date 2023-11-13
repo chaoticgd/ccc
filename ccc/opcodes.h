@@ -1,5 +1,4 @@
-#ifndef _CCC_OPCODES_H
-#define _CCC_OPCODES_H
+#pragma once
 
 namespace ccc {
 
@@ -736,5 +735,3 @@ enum W {
 };
 
 }
-
-#endif

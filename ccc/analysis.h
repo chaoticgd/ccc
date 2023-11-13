@@ -1,5 +1,4 @@
-#ifndef _CCC_ANALYSIS_H
-#define _CCC_ANALYSIS_H
+#pragma once
 
 #include "ast.h"
 #include "stabs.h"
@@ -40,5 +39,3 @@ s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_ta
 void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high);
 
 };
-
-#endif

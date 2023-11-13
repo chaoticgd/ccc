@@ -1,5 +1,4 @@
-#ifndef _CCC_DEPENDENCY_H
-#define _CCC_DEPENDENCY_H
+#pragma once
 
 #include "analysis.h"
 
@@ -30,7 +29,4 @@ FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& h
 void print_type_dependency_graph(FILE* out, const HighSymbolTable& high, const TypeDependencyAdjacencyList& graph);
 void print_file_dependency_graph(FILE* out, const HighSymbolTable& high, const FileDependencyAdjacencyList& graph);
 
-
 }
-
-#endif

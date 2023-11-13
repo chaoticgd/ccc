@@ -1,5 +1,4 @@
-#ifndef _PLATFORM_FILE_H
-#define _PLATFORM_FILE_H
+#pragma once
 
 #include <vector>
 #include <stdio.h>
@@ -22,5 +21,3 @@ int64_t file_size(FILE* file);
 #endif
 
 }
-
-#endif

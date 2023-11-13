@@ -1,5 +1,4 @@
-#ifndef _CCC_REGISTERS_H
-#define _CCC_REGISTERS_H
+#pragma once
 
 #include "util.h"
 
@@ -181,5 +180,3 @@ extern const char* VU0_STRINGS[32];
 std::pair<RegisterClass, s32> map_dbx_register_index(s32 index);
 
 }
-
-#endif

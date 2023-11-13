@@ -1,5 +1,4 @@
-#ifndef _CCC_PRINT_CPP_H
-#define _CCC_PRINT_CPP_H
+#pragma once
 
 #include "analysis.h"
 
@@ -46,5 +45,3 @@ struct CppPrinter {
 };
 
 }
-
-#endif

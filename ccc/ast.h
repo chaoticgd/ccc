@@ -1,5 +1,4 @@
-#ifndef _CCC_AST_H
-#define _CCC_AST_H
+#pragma once
 
 #include "util.h"
 #include "symbols.h"
@@ -484,5 +483,3 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 }
 
 }
-
-#endif

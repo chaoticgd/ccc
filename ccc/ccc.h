@@ -1,5 +1,4 @@
-#ifndef _CCC_H
-#define _CCC_H
+#pragma once
 
 #include "analysis.h"
 #include "ast.h"
@@ -17,5 +16,3 @@
 #include "symbols.h"
 #include "tables.h"
 #include "util.h"
-
-#endif

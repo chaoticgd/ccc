@@ -1,5 +1,4 @@
-#ifndef _CCC_STABS_TO_AST_H
-#define _CCC_STABS_TO_AST_H
+#pragma once
 
 #include "ast.h"
 #include "stabs.h"
@@ -18,5 +17,3 @@ Result<std::unique_ptr<ast::Node>> stabs_field_to_ast(const StabsField& field, c
 ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility);
 
 }
-
-#endif

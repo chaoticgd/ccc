@@ -1,5 +1,4 @@
-#ifndef _CCC_MODULE_H
-#define _CCC_MODULE_H
+#pragma once
 
 #include "util.h"
 
@@ -60,6 +59,5 @@ std::vector<T> read_virtual_vector(u32 address, u32 count, const std::vector<Mod
 	read_virtual((u8*) result.data(), address, count * sizeof(T), modules);
 	return result;
 }
-};
 
-#endif
+}

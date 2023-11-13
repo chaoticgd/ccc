@@ -1,5 +1,4 @@
-#ifndef _CCC_MDEBUG_H
-#define _CCC_MDEBUG_H
+#pragma once
 
 #include "util.h"
 
@@ -154,5 +153,3 @@ const char* symbol_class(SymbolClass symbol_class);
 const char* stabs_code(StabsCode code);
 
 }
-
-#endif

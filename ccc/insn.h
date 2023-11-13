@@ -1,5 +1,4 @@
-#ifndef _CCC_INSN_H
-#define _CCC_INSN_H
+#pragma once
 
 #include "util.h"
 #include "opcodes.h"
@@ -139,5 +138,3 @@ struct Insn {
 };
 
 }
-
-#endif

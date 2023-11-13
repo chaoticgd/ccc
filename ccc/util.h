@@ -1,5 +1,4 @@
-#ifndef _CCC_UTIL_H
-#define _CCC_UTIL_H
+#pragma once
 
 #include <map>
 #include <set>
@@ -187,5 +186,3 @@ bool guess_is_windows_path(const char* path);
 std::string extract_file_name(const std::string& path);
 
 }
-
-#endif
