@@ -1,5 +1,5 @@
-#ifndef _CCC_IR_H
-#define _CCC_IR_H
+#ifndef _CCC_ANALYSIS_H
+#define _CCC_ANALYSIS_H
 
 #include "ast.h"
 #include "stabs.h"
