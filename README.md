@@ -57,7 +57,6 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	ccc/elf.cpp: Parses ELF files.
 	ccc/insn.cpp: Parses EE core MIPS instructions.
 	ccc/mdebug.cpp: Read the .mdebug symbol table section.
-	ccc/module.cpp: Provides data structures for representing programs.
 	ccc/opcodes.h: Enums for different types of EE core MIPS opcodes.
 	ccc/print_cpp.cpp: Prints out AST nodes as C++ code.
 	ccc/print_json.cpp: Prints out AST nodes as JSON.

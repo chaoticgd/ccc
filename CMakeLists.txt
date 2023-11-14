@@ -46,8 +46,6 @@ add_library(ccc STATIC
 	ccc/insn.h
 	ccc/mdebug.cpp
 	ccc/mdebug.h
-	ccc/module.cpp
-	ccc/module.h
 	ccc/print_cpp.cpp
 	ccc/print_cpp.h
 	ccc/print_json.cpp

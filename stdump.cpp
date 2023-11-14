@@ -36,7 +36,7 @@ struct Options {
 	u32 flags = NO_FLAGS;
 };
 
-static Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file);
+static Result<mdebug::SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file);
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table);
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table);
 static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options);
@@ -46,7 +46,7 @@ static void print_external_symbols(FILE* out, const mdebug::SymbolTable& symbol_
 static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
 static u32 build_analysis_flags(u32 flags);
 static void list_files(FILE* out, const mdebug::SymbolTable& symbol_table);
-static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, const Module& modules);
+static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, const ElfFile& elf);
 static void test(FILE* out, const fs::path& directory);
 static Options parse_args(int argc, char** argv);
 static void print_help();
@@ -60,24 +60,24 @@ int main(int argc, char** argv) {
 	}
 	switch(options.mode) {
 		case OutputMode::FUNCTIONS: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_functions(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::GLOBALS: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_globals(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::TYPES: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			if(!(options.flags & FLAG_PER_FILE)) {
@@ -88,8 +88,8 @@ int main(int argc, char** argv) {
 			return 0;
 		}
 		case OutputMode::JSON: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			u32 analysis_flags = STRIP_GENERATED_FUNCTIONS;
@@ -104,48 +104,48 @@ int main(int argc, char** argv) {
 			break;
 		}
 		case OutputMode::MDEBUG: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			symbol_table->print_header(out);
 			break;
 		}
 		case OutputMode::SYMBOLS: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_local_symbols(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::EXTERNALS: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_external_symbols(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::FILES: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			list_files(out, *symbol_table);
 			return 0;
 		}
 		case OutputMode::SECTIONS: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
-			list_sections(out, *symbol_table, mod);
+			list_sections(out, *symbol_table, elf);
 			return 0;
 		}
 		case OutputMode::TYPE_GRAPH: {
-			Module mod;
-			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(mod, options.input_file);
+			ElfFile elf;
+			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			Result<HighSymbolTable> high = analyse(*symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
@@ -167,19 +167,19 @@ int main(int argc, char** argv) {
 	}
 }
 
-static Result<mdebug::SymbolTable> read_symbol_table(Module& mod, const fs::path& input_file) {
-	std::optional<std::vector<u8>> binary = platform::read_binary_file(input_file);
-	CCC_CHECK(binary.has_value(), "Failed to open file '%s'.", input_file.string().c_str());
-	mod.image = std::move(*binary);
+static Result<mdebug::SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file) {
+	std::optional<std::vector<u8>> image = platform::read_binary_file(input_file);
+	CCC_CHECK(image.has_value(), "Failed to open file '%s'.", input_file.string().c_str());
 	
-	Result<void> elf_result = parse_elf_file(mod);
+	Result<ElfFile> elf_result = parse_elf_file(std::move(*image));
 	CCC_RETURN_IF_ERROR(elf_result);
+	elf = std::move(*elf_result);
 	
-	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+	ElfSection* mdebug_section = elf.lookup_section(".mdebug");
 	CCC_CHECK(mdebug_section != nullptr, "No .mdebug section.");
 	
 	mdebug::SymbolTable symbol_table;
-	Result<void> symbol_table_result = symbol_table.init(mod.image, mdebug_section->file_offset);
+	Result<void> symbol_table_result = symbol_table.init(elf.image, mdebug_section->file_offset);
 	CCC_EXIT_IF_ERROR(symbol_table_result);
 	
 	return symbol_table;
@@ -313,8 +313,8 @@ static void list_files(FILE* out, const mdebug::SymbolTable& symbol_table) {
 	}
 }
 
-static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, const Module& module) {
-	for(const ModuleSection& section : module.sections) {
+static void list_sections(FILE* out, const mdebug::SymbolTable& symbol_table, const ElfFile& elf) {
+	for(const ElfSection& section : elf.sections) {
 		if(section.virtual_address == 0) {
 			continue;
 		}
@@ -363,15 +363,13 @@ static void test(FILE* out, const fs::path& directory) {
 			std::optional<std::vector<u8>> binary = platform::read_binary_file(entry.path());
 			CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", entry.path().string().c_str());
 			
-			Module mod;
-			mod.image = std::move(*binary);
-			Result<void> elf_result = parse_elf_file(mod);
-			CCC_EXIT_IF_ERROR(elf_result);
+			Result<ElfFile> elf = parse_elf_file(std::move(*binary));
+			CCC_EXIT_IF_ERROR(elf);
 			
-			ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+			ElfSection* mdebug_section = elf->lookup_section(".mdebug");
 			if(mdebug_section) {
 				mdebug::SymbolTable symbol_table;
-				Result<void> symbol_table_result = symbol_table.init(mod.image, (s32) mdebug_section->file_offset);
+				Result<void> symbol_table_result = symbol_table.init(elf->image, (s32) mdebug_section->file_offset);
 				CCC_EXIT_IF_ERROR(symbol_table_result);
 				
 				Result<ccc::HighSymbolTable> high = analyse(symbol_table, DEDUPLICATE_TYPES);

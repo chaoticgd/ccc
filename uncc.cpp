@@ -42,19 +42,17 @@ int main(int argc, char** argv) {
 		functions_file = parse_functions_file(functions_file_path);
 	}
 	
-	Module mod;
-	std::optional<std::vector<u8>> binary = platform::read_binary_file(elf_path);
-	CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", elf_path.string().c_str());
-	mod.image = std::move(*binary);
+	std::optional<std::vector<u8>> image = platform::read_binary_file(elf_path);
+	CCC_CHECK_FATAL(image.has_value(), "Failed to open file '%s'.", elf_path.string().c_str());
 	
-	Result<void> elf_result = parse_elf_file(mod);
-	CCC_EXIT_IF_ERROR(elf_result);
+	Result<ElfFile> elf = parse_elf_file(std::move(*image));
+	CCC_EXIT_IF_ERROR(elf);
 	
-	ModuleSection* mdebug_section = mod.lookup_section(".mdebug");
+	ElfSection* mdebug_section = elf->lookup_section(".mdebug");
 	CCC_CHECK_FATAL(mdebug_section != nullptr, "No .mdebug section.");
 	
 	mdebug::SymbolTable symbol_table;
-	Result<void> symbol_table_result = symbol_table.init(mod.image, (s32) mdebug_section->file_offset);
+	Result<void> symbol_table_result = symbol_table.init(elf->image, (s32) mdebug_section->file_offset);
 	CCC_EXIT_IF_ERROR(symbol_table_result);
 	
 	Result<HighSymbolTable> high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
@@ -64,7 +62,7 @@ int main(int argc, char** argv) {
 	demangle_all(*high);
 	
 	// Fish out the values of global variables (and static locals).
-	std::vector<Module*> modules{&mod};
+	std::vector<ElfFile*> modules{&(*elf)};
 	refine_variables(*high, modules);
 	
 	fill_in_pointers_to_member_function_definitions(*high);

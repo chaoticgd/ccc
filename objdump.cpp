@@ -6,25 +6,22 @@ using namespace ccc;
 int main(int argc, char** argv) {
 	CCC_CHECK_FATAL(argc == 2, "Incorrect number of arguments.");
 	
-	Module mod;
-	
 	fs::path input_path(argv[1]);
-	std::optional<std::vector<u8>> binary = platform::read_binary_file(input_path);
-	CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", input_path.string().c_str());
-	mod.image = std::move(*binary);
+	std::optional<std::vector<u8>> image = platform::read_binary_file(input_path);
+	CCC_CHECK_FATAL(image.has_value(), "Failed to open file '%s'.", input_path.string().c_str());
 	
-	Result<void> result = parse_elf_file(mod);
-	CCC_EXIT_IF_ERROR(result);
+	Result<ElfFile> elf = parse_elf_file(std::move(*image));
+	CCC_EXIT_IF_ERROR(elf);
 	
-	std::vector<Module*> modules{&mod};
+	std::vector<ElfFile*> elves{&(*elf)};
 	
-	ModuleSection* text = mod.lookup_section(".text");
+	ElfSection* text = elf->lookup_section(".text");
 	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
 	
-	std::optional<u32> text_address = mod.file_offset_to_virtual_address(text->file_offset);
+	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->file_offset);
 	CCC_CHECK_FATAL(text_address.has_value(), "Failed to translate file offset to virtual address.");
 	
-	std::vector<mips::Insn> insns = read_virtual_vector<mips::Insn>(*text_address, text->size / 4, modules);
+	std::vector<mips::Insn> insns = read_virtual_vector<mips::Insn>(*text_address, text->size / 4, elves);
 	
 	for(u64 i = 0; i < text->size / 4; i++) {
 		mips::Insn insn = insns[i];

@@ -4,7 +4,7 @@ namespace ccc {
 
 struct DataRefinementContext {
 	const HighSymbolTable& high;
-	const std::vector<Module*>& modules;
+	const std::vector<ElfFile*>& elves;
 	const std::map<u32, const ast::Node*>& address_to_node;
 };
 
@@ -17,7 +17,7 @@ static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
 static std::string stringf(const char* format, ...);
 
-void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules) {
+void refine_variables(HighSymbolTable& high, const std::vector<ElfFile*>& elves) {
 	// Build a map of where all functions and globals are in memory, so that we
 	// can lookup where pointers point to.
 	std::map<u32, const ast::Node*> address_to_node;
@@ -36,7 +36,7 @@ void refine_variables(HighSymbolTable& high, const std::vector<Module*>& modules
 		}
 	}
 	
-	DataRefinementContext context{high, modules, address_to_node};
+	DataRefinementContext context{high, elves, address_to_node};
 	
 	// Refine all global variables.
 	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
@@ -103,7 +103,7 @@ static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::No
 			const ast::Enum& enumeration = type.as<ast::Enum>();
 			std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
 			s32 value = 0;
-			read_virtual((u8*) &value, virtual_address, 4, context.modules);
+			read_virtual((u8*) &value, virtual_address, 4, context.elves);
 			for(const auto& [number, name] : enumeration.constants) {
 				if(number == value) {
 					data->string = name;
@@ -193,7 +193,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			data = std::make_unique<ast::Data>();
 			u64 value = 0;
 			s32 size = builtin_class_size(bclass);
-			read_virtual((u8*) &value, virtual_address, size, context.modules);
+			read_virtual((u8*) &value, virtual_address, size, context.elves);
 			const char* format = generate_format_string(size, false);
 			data->string = stringf(format, value);
 			break;
@@ -205,7 +205,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			data = std::make_unique<ast::Data>();
 			s64 value = 0;
 			s32 size = builtin_class_size(bclass);
-			read_virtual((u8*) &value, virtual_address, size, context.modules);
+			read_virtual((u8*) &value, virtual_address, size, context.elves);
 			const char* format = generate_format_string(size, true);
 			data->string = stringf(format, value);
 			break;
@@ -213,7 +213,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 		case BuiltInClass::BOOL_8: {
 			data = std::make_unique<ast::Data>();
 			bool value = false;
-			read_virtual((u8*) &value, virtual_address, 1, context.modules);
+			read_virtual((u8*) &value, virtual_address, 1, context.elves);
 			data->string = value ? "true" : "false";
 			break;
 		}
@@ -221,7 +221,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			data = std::make_unique<ast::Data>();
 			float value = 0.f;
 			static_assert(sizeof(value) == 4);
-			read_virtual((u8*) &value, virtual_address, 4, context.modules);
+			read_virtual((u8*) &value, virtual_address, 4, context.elves);
 			data->string = single_precision_float_to_string(value);
 			break;
 		}
@@ -229,7 +229,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			data = std::make_unique<ast::Data>();
 			double value = 0.f;
 			static_assert(sizeof(value) == 8);
-			read_virtual((u8*) &value, virtual_address, 8, context.modules);
+			read_virtual((u8*) &value, virtual_address, 8, context.elves);
 			data->string = stringf("%g", value);
 			if(strtof(data->string.c_str(), nullptr) != value) {
 				data->string = stringf("%.17g", value);
@@ -242,7 +242,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 		case BuiltInClass::FLOAT_128: {
 			data = std::make_unique<ast::Data>();
 			float value[4];
-			read_virtual((u8*) value, virtual_address, 16, context.modules);
+			read_virtual((u8*) value, virtual_address, 16, context.elves);
 			data->string = stringf("VECTOR(%s, %s, %s, %s)",
 				single_precision_float_to_string(value[0]).c_str(),
 				single_precision_float_to_string(value[1]).c_str(),
@@ -262,7 +262,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 static std::unique_ptr<ast::Node> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
 	std::unique_ptr<ast::Data> data = std::make_unique<ast::Data>();
 	u32 address = 0;
-	read_virtual((u8*) &address, virtual_address, 4, context.modules);
+	read_virtual((u8*) &address, virtual_address, 4, context.elves);
 	if(address != 0) {
 		auto node = context.address_to_node.find(address);
 		if(node != context.address_to_node.end()) {

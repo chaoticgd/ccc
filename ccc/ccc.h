@@ -7,7 +7,6 @@
 #include "elf.h"
 #include "insn.h"
 #include "mdebug.h"
-#include "module.h"
 #include "opcodes.h"
 #include "print_cpp.h"
 #include "print_json.h"

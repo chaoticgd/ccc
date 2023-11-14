@@ -73,22 +73,43 @@ CCC_PACKED_STRUCT(ElfSectionHeader32,
 	/* 0x24 */ u32 entsize;
 )
 
-Result<void> parse_elf_file(Module& mod) {
-	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(mod.image, 0);
+ElfSection* ElfFile::lookup_section(const char* name) {
+	for(ElfSection& section : sections) {
+		if(section.name == name) {
+			return &section;
+		}
+	}
+	return nullptr;
+}
+
+std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) {
+	for(ElfSegment& segment : segments) {
+		if(file_offset >= segment.file_offset && file_offset < segment.file_offset + segment.size) {
+			return segment.virtual_address + file_offset - segment.file_offset;
+		}
+	}
+	return std::nullopt;
+}
+
+Result<ElfFile> parse_elf_file(std::vector<u8> image) {
+	ElfFile elf;
+	elf.image = std::move(image);
+	
+	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(elf.image, 0);
 	CCC_CHECK(ident, "ELF ident out of range.");
 	CCC_CHECK(memcmp(ident->magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
 	CCC_CHECK(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
-	const ElfFileHeader32* header = get_packed<ElfFileHeader32>(mod.image, sizeof(ElfIdentHeader));
+	const ElfFileHeader32* header = get_packed<ElfFileHeader32>(elf.image, sizeof(ElfIdentHeader));
 	CCC_CHECK(ident, "ELF file header out of range.");
 	CCC_CHECK(header->machine == ElfMachine::MIPS, "Wrong architecture.");
 	
 	for(u32 i = 0; i < header->phnum; i++) {
 		u64 header_offset = header->phoff + i * sizeof(ElfProgramHeader32);
-		const ElfProgramHeader32* program_header = get_packed<ElfProgramHeader32>(mod.image, header_offset);
+		const ElfProgramHeader32* program_header = get_packed<ElfProgramHeader32>(elf.image, header_offset);
 		CCC_CHECK(program_header, "ELF program header out of range.");
 		
-		ModuleSegment& segment = mod.segments.emplace_back();
+		ElfSegment& segment = elf.segments.emplace_back();
 		segment.file_offset = program_header->offset;
 		segment.size = program_header->filesz;
 		segment.virtual_address = program_header->vaddr;
@@ -96,10 +117,10 @@ Result<void> parse_elf_file(Module& mod) {
 	
 	for(u32 i = 0; i < header->shnum; i++) {
 		u64 header_offset = header->shoff + i * sizeof(ElfSectionHeader32);
-		const auto& section_header = get_packed<ElfSectionHeader32>(mod.image, header_offset);
+		const auto& section_header = get_packed<ElfSectionHeader32>(elf.image, header_offset);
 		CCC_CHECK(section_header, "ELF section header out of range.");
 		
-		ModuleSection& section = mod.sections.emplace_back();
+		ElfSection& section = elf.sections.emplace_back();
 		section.file_offset = section_header->offset;
 		section.size = section_header->size;
 		section.type = section_header->type;
@@ -107,14 +128,38 @@ Result<void> parse_elf_file(Module& mod) {
 		section.virtual_address = section_header->addr;
 	}
 	
-	if(header->shstrndx < mod.sections.size()) {
-		for(ModuleSection& section : mod.sections) {
-			Result<const char*> name = get_string(mod.image, mod.sections[header->shstrndx].file_offset + section.name_offset);
+	if(header->shstrndx < elf.sections.size()) {
+		for(ElfSection& section : elf.sections) {
+			Result<const char*> name = get_string(elf.image, elf.sections[header->shstrndx].file_offset + section.name_offset);
 			CCC_CHECK(name.success(), "Section name out of bounds.");
 			section.name = *name;
 		}
 	}
 	
+	return elf;
+}
+
+Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves) {
+	while(size > 0) {
+		bool mapped = false;
+		
+		for(const ElfFile* elf : elves) {
+			for(const ElfSegment& segment : elf->segments) {
+				if(address >= segment.virtual_address && address < segment.virtual_address + segment.size) {
+					u32 offset = address - segment.virtual_address;
+					u32 copy_size = std::min(segment.size - offset, size);
+					CCC_CHECK(segment.file_offset + offset + copy_size <= elf->image.size(), "Program header is corrupted or executable file is truncated.");
+					memcpy(dest, &elf->image[segment.file_offset + offset], copy_size);
+					dest += copy_size;
+					address += copy_size;
+					size -= copy_size;
+					mapped = true;
+				}
+			}
+		}
+		
+		CCC_CHECK(mapped, "Tried to read from memory that wouldn't have come from any of the loaded ELF files");
+	}
 	return Result<void>();
 }
 
