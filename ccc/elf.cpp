@@ -24,7 +24,7 @@ enum class ElfMachine : u16 {
 };
 
 CCC_PACKED_STRUCT(ElfIdentHeader,
-	/* 0x0 */ u8 magic[4]; // 7f 45 4c 46
+	/* 0x0 */ u32 magic; // 7f 45 4c 46
 	/* 0x4 */ ElfIdentClass e_class;
 	/* 0x5 */ u8 endianess;
 	/* 0x6 */ u8 version;
@@ -97,7 +97,7 @@ Result<ElfFile> parse_elf_file(std::vector<u8> image) {
 	
 	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(elf.image, 0);
 	CCC_CHECK(ident, "ELF ident out of range.");
-	CCC_CHECK(memcmp(ident->magic, "\x7f\x45\x4c\x46", 4) == 0, "Invalid ELF file.");
+	CCC_CHECK(ident->magic == CCC_FOURCC("\x7f\x45\x4c\x46"), "Invalid ELF file.");
 	CCC_CHECK(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
 	const ElfFileHeader32* header = get_packed<ElfFileHeader32>(elf.image, sizeof(ElfIdentHeader));

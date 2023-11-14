@@ -58,6 +58,8 @@ add_library(ccc STATIC
 	ccc/stabs_to_ast.h
 	ccc/symbols.cpp
 	ccc/symbols.h
+	ccc/symbol_table.cpp
+	ccc/symbol_table.h
 	ccc/tables.cpp
 	ccc/tables.h
 	ccc/util.cpp
@@ -79,6 +81,10 @@ add_executable(stdump stdump.cpp)
 target_link_libraries(stdump ccc ccc_platform versioninfo)
 add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
+add_executable(tests tests.cpp)
+target_link_libraries(tests ccc ccc_platform versioninfo)
+add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/test)
+
 add_executable(uncc uncc.cpp)
 target_link_libraries(uncc ccc ccc_platform demanglegnu versioninfo)
 
@@ -86,6 +92,7 @@ if(WIN32)
 	target_sources(demangle PUBLIC ccc.manifest)
 	target_sources(objdump PUBLIC ccc.manifest)
 	target_sources(stdump PUBLIC ccc.manifest)
+	target_sources(test PUBLIC ccc.manifest)
 	target_sources(uncc PUBLIC ccc.manifest)
 endif()
 

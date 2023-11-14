@@ -42,8 +42,8 @@ int main(int argc, char** argv) {
 		functions_file = parse_functions_file(functions_file_path);
 	}
 	
-	std::optional<std::vector<u8>> image = platform::read_binary_file(elf_path);
-	CCC_CHECK_FATAL(image.has_value(), "Failed to open file '%s'.", elf_path.string().c_str());
+	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
+	CCC_EXIT_IF_ERROR(image);
 	
 	Result<ElfFile> elf = parse_elf_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf);

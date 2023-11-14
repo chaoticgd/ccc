@@ -177,6 +177,8 @@ Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset);
 #define CCC_BEGIN_END(x) (x).begin(), (x).end()
 #define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#define CCC_FOURCC(string) ((string)[0] | (string)[1] << 8 | (string)[2] << 16 | (string)[3] << 24)
+
 // These functions are to be used only for source file paths present in the
 // symbol table, since we want them to be handled consistently across different
 // platforms, which with std::filesystem::path doesn't seem to be possible.

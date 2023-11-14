@@ -6,6 +6,7 @@
 using namespace ccc;
 
 enum class OutputMode {
+	IDENTIFY,
 	FUNCTIONS,
 	GLOBALS,
 	TYPES,
@@ -36,7 +37,20 @@ struct Options {
 	u32 flags = NO_FLAGS;
 };
 
+struct SymbolTableCounts {
+	s32 symtab_count = 0;
+	s32 map_count = 0;
+	s32 mdebug_count = 0;
+	s32 stab_count = 0;
+	s32 dwarf_count = 0;
+	s32 sndata_count = 0;
+	s32 sndll_count = 0;
+	s32 unknown_count = 0;
+};
+
 static Result<mdebug::SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file);
+static void identify_symbol_tables(FILE* out, const fs::path& input_path);
+static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts& totals, const fs::path& file_path);
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table);
 static void print_globals(FILE* out, mdebug::SymbolTable& symbol_table);
 static void print_types_deduplicated(FILE* out, mdebug::SymbolTable& symbol_table, const Options& options);
@@ -59,6 +73,10 @@ int main(int argc, char** argv) {
 		CCC_CHECK_FATAL(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
 	}
 	switch(options.mode) {
+		case OutputMode::IDENTIFY: {
+			identify_symbol_tables(out, options.input_file);
+			return 0;
+		}
 		case OutputMode::FUNCTIONS: {
 			ElfFile elf;
 			Result<mdebug::SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
@@ -168,8 +186,8 @@ int main(int argc, char** argv) {
 }
 
 static Result<mdebug::SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file) {
-	std::optional<std::vector<u8>> image = platform::read_binary_file(input_file);
-	CCC_CHECK(image.has_value(), "Failed to open file '%s'.", input_file.string().c_str());
+	Result<std::vector<u8>> image = platform::read_binary_file(input_file);
+	CCC_EXIT_IF_ERROR(image);
 	
 	Result<ElfFile> elf_result = parse_elf_file(std::move(*image));
 	CCC_RETURN_IF_ERROR(elf_result);
@@ -183,6 +201,75 @@ static Result<mdebug::SymbolTable> read_symbol_table(ElfFile& elf, const fs::pat
 	CCC_EXIT_IF_ERROR(symbol_table_result);
 	
 	return symbol_table;
+}
+
+static void identify_symbol_tables(FILE* out, const fs::path& input_path) {
+	SymbolTableCounts totals;
+	
+	if(fs::is_regular_file(input_path)) {
+		identify_symbol_tables_in_file(out, totals, input_path);
+		fprintf(out, "\n");
+	} else if(fs::is_directory(input_path)) {
+		for(auto entry : fs::recursive_directory_iterator(input_path)) {
+			if(entry.is_regular_file()) {
+				identify_symbol_tables_in_file(out, totals, entry.path());
+				fprintf(out, "\n");
+			}
+		}
+	} else {
+		CCC_FATAL("Input file '%s' is neither a regular file nor a directory.", input_path.string().c_str());
+	}
+	
+	fprintf(out, "Totals:\n");
+	fprintf(out, "  %d symtab\n", totals.symtab_count);
+	fprintf(out, "  %d map\n", totals.map_count);
+	fprintf(out, "  %d mdebug\n", totals.mdebug_count);
+	fprintf(out, "  %d stab\n", totals.stab_count);
+	fprintf(out, "  %d dwarf\n", totals.dwarf_count);
+	fprintf(out, "  %d sndata\n", totals.sndata_count);
+	fprintf(out, "  %d sndll\n", totals.sndll_count);
+	fprintf(out, "  %d unknown\n", totals.unknown_count);
+}
+
+static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts& totals, const fs::path& file_path) {
+	fprintf(out, "%s ", file_path.string().c_str());
+	
+	Result<std::vector<u8>> file = platform::read_binary_file(file_path);
+	CCC_EXIT_IF_ERROR(file);
+	
+	const u32* fourcc = get_packed<u32>(*file, 0);
+	if(!fourcc) {
+		fprintf(out, "file too small");
+		return;
+	}
+	
+	switch(*fourcc) {
+		case CCC_FOURCC("\x7f\x45\x4c\x46"): {// ELF
+			Result<ElfFile> elf = parse_elf_file(std::move(*file));
+			CCC_EXIT_IF_ERROR(elf);
+			
+			u32 formats = identify_symbol_tables(*elf);
+		
+			if(formats & SYMTAB) totals.symtab_count++;
+			if(formats & MDEBUG) totals.mdebug_count++;
+			if(formats & STAB) totals.stab_count++;
+			if(formats & DWARF) totals.dwarf_count++;
+			if(formats & SNDATA) totals.sndata_count++;
+			
+			print_symbol_table_formats_to_string(out, formats);
+			break;
+		}
+		case CCC_FOURCC("SNR2"): { // SN systems DLL file
+			totals.sndll_count++;
+			fprintf(out, "sndll");
+			break;
+		}
+		default: {
+			totals.unknown_count++;
+			fprintf(out, "unknown format");
+			break;
+		}
+	}
 }
 
 static void print_functions(FILE* out, mdebug::SymbolTable& symbol_table) {
@@ -360,8 +447,8 @@ static void test(FILE* out, const fs::path& directory) {
 		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
 			printf("%s ", entry.path().filename().string().c_str());
 			
-			std::optional<std::vector<u8>> binary = platform::read_binary_file(entry.path());
-			CCC_CHECK_FATAL(binary.has_value(), "Failed to open file '%s'.", entry.path().string().c_str());
+			Result<std::vector<u8>> binary = platform::read_binary_file(entry.path());
+			CCC_EXIT_IF_ERROR(binary);
 			
 			Result<ElfFile> elf = parse_elf_file(std::move(*binary));
 			CCC_EXIT_IF_ERROR(elf);
@@ -412,6 +499,7 @@ static Options parse_args(int argc, char** argv) {
 		const char* argument;
 		const char* legacy_argument = nullptr;
 	} commands[] = {
+		{OutputMode::IDENTIFY, "identify"},
 		{OutputMode::FUNCTIONS, "functions", "print_functions"},
 		{OutputMode::GLOBALS, "globals", "print_globals"},
 		{OutputMode::TYPES, "types", "print_types"},
@@ -485,6 +573,10 @@ static void print_help() {
 	puts("  Mdebug/STABS symbol table parser and dumper.");
 	puts("");
 	puts("Commands:");
+	puts("  identify <input path>");
+	puts("    Identify the symbol tables present in the input file(s). If the input path");
+	puts("    is a directory, it will be walked recursively.");
+	puts("");
 	puts("  functions <input file>");
 	puts("    Print all the functions recovered from the STABS symbols as C++.");
 	puts("");

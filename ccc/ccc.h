@@ -13,5 +13,6 @@
 #include "registers.h"
 #include "stabs.h"
 #include "symbols.h"
+#include "symbol_table.h"
 #include "tables.h"
 #include "util.h"

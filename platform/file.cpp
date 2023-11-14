@@ -3,17 +3,19 @@
 #include <fstream>
 #include <sstream>
 
+using namespace ccc;
+
 namespace platform {
 
-std::optional<std::vector<unsigned char>> read_binary_file(const fs::path& path) {
+ccc::Result<std::vector<ccc::u8>> read_binary_file(const fs::path& path) {
 	FILE* file = fopen(path.string().c_str(), "rb");
-	if(file == nullptr) {
-		return std::nullopt;
-	}
-	int64_t size = file_size(file);
-	std::vector<unsigned char> output(size);
-	if(fread(output.data(), size, 1, file) != 1) {
-		return std::nullopt;
+	CCC_CHECK(file != nullptr, "Failed to open file '%s' (%s).", path.string().c_str(), strerror(errno));
+	s64 size = file_size(file);
+	std::vector<u8> output(size);
+	if(size > 0) {
+		size_t read_result = fread(output.data(), size, 1, file);
+		fclose(file);
+		CCC_CHECK(read_result == 1, "Failed to read from file '%s' (%s).", path.string().c_str(), strerror(errno));
 	}
 	return output;
 }
@@ -29,10 +31,10 @@ std::optional<std::string> read_text_file(const fs::path& path) {
 	return string_stream.str();
 }
 
-int64_t file_size(FILE* file) {
-	int64_t pos = ftell(file);
+s64 file_size(FILE* file) {
+	s64 pos = ftell(file);
 	fseek(file, 0, SEEK_END);
-	int64_t size = ftell(file);
+	s64 size = ftell(file);
 	fseek(file, pos, SEEK_SET);
 	return size;
 }
