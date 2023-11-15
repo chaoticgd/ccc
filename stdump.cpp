@@ -220,15 +220,16 @@ static void identify_symbol_tables(FILE* out, const fs::path& input_path) {
 		CCC_FATAL("Input file '%s' is neither a regular file nor a directory.", input_path.string().c_str());
 	}
 	
+	fprintf(out, "\n");
 	fprintf(out, "Totals:\n");
-	fprintf(out, "  %d symtab\n", totals.symtab_count);
-	fprintf(out, "  %d map\n", totals.map_count);
-	fprintf(out, "  %d mdebug\n", totals.mdebug_count);
-	fprintf(out, "  %d stab\n", totals.stab_count);
-	fprintf(out, "  %d dwarf\n", totals.dwarf_count);
-	fprintf(out, "  %d sndata\n", totals.sndata_count);
-	fprintf(out, "  %d sndll\n", totals.sndll_count);
-	fprintf(out, "  %d unknown\n", totals.unknown_count);
+	fprintf(out, "  %4d .symtab sections\n", totals.symtab_count);
+	fprintf(out, "  %4d .map files\n", totals.map_count);
+	fprintf(out, "  %4d .mdebug sections\n", totals.mdebug_count);
+	fprintf(out, "  %4d .stab sections\n", totals.stab_count);
+	fprintf(out, "  %4d .debug sections (dwarf)\n", totals.dwarf_count);
+	fprintf(out, "  %4d .sndata sections\n", totals.sndata_count);
+	fprintf(out, "  %4d .rel files (sndll)\n", totals.sndll_count);
+	fprintf(out, "  %4d unknown\n", totals.unknown_count);
 }
 
 static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts& totals, const fs::path& file_path) {

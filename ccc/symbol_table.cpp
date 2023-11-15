@@ -24,6 +24,34 @@ u32 identify_symbol_tables(const ElfFile& elf) {
 	return result;
 }
 
+// *****************************************************************************
+
+SymbolTableGuardian::SymbolTableGuardian() {}
+
+std::optional<SymbolTableHandle> SymbolTableGuardian::get_current_handle() const {
+	std::lock_guard<std::mutex> guard(m_big_symbol_table_lock);
+	return m_current_handle;
+}
+
+bool SymbolTableGuardian::read(SymbolTableHandle handle, std::function<void(const SymbolTable&)> callback) const {
+	std::lock_guard<std::mutex> guard(m_big_symbol_table_lock);
+	if(handle != m_current_handle) {
+		return false;
+	}
+	callback(m_symbol_table);
+	return true;
+}
+
+void SymbolTableGuardian::overwrite(SymbolTable symbol_table) {
+	std::lock_guard<std::mutex> guard(m_big_symbol_table_lock);
+	m_symbol_table = std::move(symbol_table);
+	m_current_handle = s_next_handle++;
+}
+
+std::atomic<s32> SymbolTableGuardian::s_next_handle;
+
+// *****************************************************************************
+
 void print_symbol_table_formats_to_string(FILE* out, u32 formats) {
 	bool printed = false;
 	for(u32 bit = 1; bit < MAX_SYMBOL_TABLE; bit <<= 1) {
