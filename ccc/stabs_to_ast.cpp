@@ -241,12 +241,12 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			const auto& fp_builtin = type.as<StabsFloatingPointBuiltInType>();
 			auto builtin = std::make_unique<ast::BuiltIn>();
 			switch(fp_builtin.bytes) {
-				case 1: builtin->bclass = BuiltInClass::UNSIGNED_8; break;
-				case 2: builtin->bclass = BuiltInClass::UNSIGNED_16; break;
-				case 4: builtin->bclass = BuiltInClass::UNSIGNED_32; break;
-				case 8: builtin->bclass = BuiltInClass::UNSIGNED_64; break;
-				case 16: builtin->bclass = BuiltInClass::UNSIGNED_128; break;
-				default: builtin->bclass = BuiltInClass::UNSIGNED_8; break;
+				case 1: builtin->bclass = ast::BuiltInClass::UNSIGNED_8; break;
+				case 2: builtin->bclass = ast::BuiltInClass::UNSIGNED_16; break;
+				case 4: builtin->bclass = ast::BuiltInClass::UNSIGNED_32; break;
+				case 8: builtin->bclass = ast::BuiltInClass::UNSIGNED_64; break;
+				case 16: builtin->bclass = ast::BuiltInClass::UNSIGNED_128; break;
+				default: builtin->bclass = ast::BuiltInClass::UNSIGNED_8; break;
 			}
 			result = std::move(builtin);
 			break;
@@ -319,7 +319,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			CCC_CHECK(type.as<StabsBuiltInType>().type_id == 16,
 				"Unknown built-in type!");
 			auto builtin = std::make_unique<ast::BuiltIn>();
-			builtin->bclass = BuiltInClass::BOOL_8;
+			builtin->bclass = ast::BuiltInClass::BOOL_8;
 			result = std::move(builtin);
 			break;
 		}
@@ -344,9 +344,6 @@ Result<std::unique_ptr<ast::Node>> stabs_field_to_ast(const StabsField& field, c
 		bitfield->size_bits = field.size_bits;
 		bitfield->underlying_type = std::move(*bitfield_node);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
-		if(field.is_static) {
-			bitfield->storage_class = ast::SC_STATIC;
-		}
 		bitfield->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 		return std::unique_ptr<ast::Node>(std::move(bitfield));
 	}

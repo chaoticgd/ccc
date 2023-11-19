@@ -15,11 +15,10 @@ enum VariableNamePrintFlags {
 
 static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags);
-static void print_cpp_offset(FILE* out, const ast::Node& node, const CppPrinter& printer);
 static void indent(FILE* out, s32 level);
 
 void CppPrinter::comment_block_beginning(const char* input_file) {
-	if(has_anything_been_printed) {
+	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
 	
@@ -29,40 +28,41 @@ void CppPrinter::comment_block_beginning(const char* input_file) {
 	if(t) {
 		fprintf(out, " on %04d-%02d-%02d", 1900 + t->tm_year, t->tm_mon + 1, t->tm_mday);
 	}
-	fprintf(out, "\n// \n");
+	fprintf(out, "\n");
+	fprintf(out, "// \n");
 	fprintf(out, "// Input file:\n");
 	fprintf(out, "//   %s\n", input_file);
 	
-	last_wants_spacing = true;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = true;
+	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_toolchain_version_info(const HighSymbolTable& symbol_table) {
-	std::set<std::string> compiler_version_info;
-	for(const std::unique_ptr<ast::SourceFile>& source_file : symbol_table.source_files) {
-		if(!source_file->toolchain_version_info.empty()) {
-			for(const std::string& string : source_file->toolchain_version_info) {
-				compiler_version_info.emplace(string);
+void CppPrinter::comment_block_toolchain_version_info(const SymbolTable& symbol_table) {
+	std::set<std::string> toolchain_version_info;
+	for(const SourceFile& source_file : symbol_table.source_files) {
+		if(!source_file.toolchain_version_info.empty()) {
+			for(const std::string& string : source_file.toolchain_version_info) {
+				toolchain_version_info.emplace(string);
 			}
 		} else {
-			compiler_version_info.emplace("unknown");
+			toolchain_version_info.emplace("unknown");
 		}
 	}
 	
 	fprintf(out, "// Toolchain version(s):\n");
-	for(const std::string& string : compiler_version_info) {
+	for(const std::string& string : toolchain_version_info) {
 		fprintf(out, "//   %s\n", string.c_str());
 	}
 	
-	last_wants_spacing = true;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = true;
+	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_builtin_types(const std::vector<std::unique_ptr<ast::Node>>& ast_nodes) {
-	std::set<std::pair<std::string, BuiltInClass>> builtins;
-	for(const std::unique_ptr<ast::Node>& node : ast_nodes) {
-		if(node->descriptor == ast::BUILTIN) {
-			builtins.emplace(node->name, node->as<ast::BuiltIn>().bclass);
+void CppPrinter::comment_block_builtin_types(const SymbolList<DataType>& data_types) {
+	std::set<std::pair<std::string, ast::BuiltInClass>> builtins;
+	for(const DataType& data_type : data_types) {
+		if(data_type.type().descriptor == ast::BUILTIN) {
+			builtins.emplace(data_type.type().name, data_type.type().as<ast::BuiltIn>().bclass);
 		}
 	}
 	
@@ -70,16 +70,16 @@ void CppPrinter::comment_block_builtin_types(const std::vector<std::unique_ptr<a
 		fprintf(out, "// Built-in types:\n");
 		
 		for(const auto& [type, bclass] : builtins) {
-			fprintf(out, "//   %-25s%s\n", type.c_str(), builtin_class_to_string(bclass));
+			fprintf(out, "//   %-25s%s\n", type.c_str(), ast::builtin_class_to_string(bclass));
 		}
 	}
 	
-	last_wants_spacing = true;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = true;
+	m_has_anything_been_printed = true;
 }
 
 void CppPrinter::comment_block_file(const char* path) {
-	if(has_anything_been_printed) {
+	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
 	
@@ -87,46 +87,48 @@ void CppPrinter::comment_block_file(const char* path) {
 	fprintf(out, "// FILE -- %s\n", path);
 	fprintf(out, "// *****************************************************************************\n");
 	
-	last_wants_spacing = true;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = true;
+	m_has_anything_been_printed = true;
 }
 
 
 void CppPrinter::begin_include_guard(const char* macro) {
-	if(has_anything_been_printed) {
+	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
 	
 	fprintf(out, "#ifndef %s\n", macro);
 	fprintf(out, "#define %s\n", macro);
 	
-	last_wants_spacing = true;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = true;
+	m_has_anything_been_printed = true;
 }
 
 void CppPrinter::end_include_guard(const char* macro) {
-	if(has_anything_been_printed) {
+	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
 	
 	fprintf(out, "#endif // %s\n", macro);
 	
-	last_wants_spacing = true;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = true;
+	m_has_anything_been_printed = true;
 }
 
 void CppPrinter::include_directive(const char* path) {
-	if(has_anything_been_printed) {
+	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
 	
 	fprintf(out, "#include \"%s\"\n", path);
 	
-	last_wants_spacing = true;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = true;
+	m_has_anything_been_printed = true;
 }
 
-bool CppPrinter::data_type(const ast::Node& node) {
+bool CppPrinter::data_type(const DataType& symbol) {
+	const ast::Node& node = symbol.type();
+	
 	if(node.descriptor == ast::BUILTIN) {
 		return false;
 	}
@@ -134,95 +136,133 @@ bool CppPrinter::data_type(const ast::Node& node) {
 	bool wants_spacing =
 		node.descriptor == ast::ENUM ||
 		node.descriptor == ast::STRUCT_OR_UNION;
-	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
+	if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
 	
 	if(node.conflict && (node.descriptor != ast::ENUM || !node.name.empty())) {
-		fprintf(out, "// warning: multiple differing types with the same name (#%d, %s not equal)\n", node.files.at(0), node.compare_fail_reason);
+		fprintf(out, "// warning: multiple differing types with the same name (%s not equal)\n", node.compare_fail_reason);
 	}
 	if(node.descriptor == ast::NodeDescriptor::TYPE_NAME && node.as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
 		fprintf(out, "// warning: this type name was generated to handle an error\n");
 	}
 	
 	VariableName name;
+	name.identifier = &symbol.name();
 	if(node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
-		digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
+		m_digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
 	}
 	ast_node(node, name, 0);
 	fprintf(out, ";\n");
 	
-	last_wants_spacing = wants_spacing;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = wants_spacing;
+	m_has_anything_been_printed = true;
 	
 	return true;
 }
 
-void CppPrinter::global_variable(const ast::Variable& node) {
-	if(skip_statics && node.storage_class == ast::SC_STATIC) {
+void CppPrinter::function(const Function& symbol, const SymbolTable& symbol_table) {
+	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
 	
-	bool wants_spacing = print_variable_data
-		&& node.data != nullptr
-		&& node.data->descriptor == ast::INITIALIZER_LIST;
-	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
+	//if(m_config.skip_member_functions_outside_types && node.is_member_function_ish) {
+	//	return;
+	//}
+	
+	bool wants_spacing = m_config.print_function_bodies
+		&& (!symbol.local_variables().empty() || function_bodies);
+	if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
 	
-	VariableName dummy;
-	ast_node(node, dummy, 0);
-	fprintf(out, ";\n");
+	VariableName name;
+	name.identifier = &symbol.name();
 	
-	last_wants_spacing = wants_spacing;
-}
-
-void CppPrinter::function(const ast::FunctionDefinition& node) {
-	if(skip_statics && node.storage_class == ast::SC_STATIC) {
-		return;
+	if(m_config.print_storage_information && symbol.address_range.valid()) {
+		fprintf(out, "/* %08x %08x */ ", symbol.address_range.low, symbol.address_range.high);
 	}
 	
-	if(skip_member_functions_outside_types && node.is_member_function_ish) {
-		return;
-	}
+	//ast_node(node, name, 0);
+	//if(m_config.print_function_bodies) {
+	//	fprintf(out, " ");
+	//	const std::span<char>* body = nullptr;
+	//	if(function_bodies) {
+	//		auto body_iter = function_bodies->find(symbol.address_range.low);
+	//		if(body_iter != function_bodies->end()) {
+	//			body = &body_iter->second;
+	//		}
+	//	}
+	//	if(!symbol.local_variables.empty() || body) {
+	//		fprintf(out, "{\n");
+	//		for(const LocalVariable& variable : symbol_table.local_variables.iterator(symbol.local_variables)) {
+	//			indent(out, 1);
+	//			CCC_ASSERT(variable.type.get());
+	//			ast_node(*variable.type, name, 1);
+	//			fprintf(out, ";\n");
+	//		}
+	//		if(body) {
+	//			if(!symbol.local_variables.empty()) {
+	//				indent(out, 1);
+	//				fprintf(out, "\n");
+	//			}
+	//			fwrite(body->data(), body->size(), 1, out);
+	//		}
+	//		indent(out, 0);
+	//		fprintf(out, "}");
+	//	} else {
+	//		fprintf(out, "{}");
+	//	}
+	//} else {
+	//	fprintf(out, ";");
+	//}
 	
-	bool wants_spacing = print_function_bodies
-		&& (!node.locals.empty() || function_bodies);
-	if(has_anything_been_printed && (last_wants_spacing || wants_spacing)) {
-		fprintf(out, "\n");
-	}
-	
-	VariableName dummy;
-	ast_node(node, dummy, 0);
 	fprintf(out, "\n");
 	
-	last_wants_spacing = wants_spacing;
-	has_anything_been_printed = true;
+	m_last_wants_spacing = wants_spacing;
+	m_has_anything_been_printed = true;
+}
+
+void CppPrinter::global_variable(const GlobalVariable& symbol) {
+	const ast::Node& node = symbol.type();
+	
+	if(m_config.skip_statics && node.storage_class == ast::SC_STATIC) {
+		return;
+	}
+	
+	//bool wants_spacing = m_config.print_variable_data
+	//	&& node.data != nullptr
+	//	&& node.data->descriptor == ast::INITIALIZER_LIST;
+	//if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
+	//	fprintf(out, "\n");
+	//}
+	
+	VariableName name;
+	name.identifier = &symbol.name();
+	ast_node(node, name, 0);
+	fprintf(out, ";\n");
+	
+	//m_last_wants_spacing = wants_spacing;
 }
 
 void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
-	if(node.descriptor == ast::FUNCTION_DEFINITION) {
-		const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
-		if(print_storage_information && func_def.address_range.valid()) {
-			fprintf(out, "/* %08x %08x */ ", func_def.address_range.low, func_def.address_range.high);
-		}
-	} else if(node.descriptor == ast::FUNCTION_TYPE) {
-		const ast::FunctionType& func_type = node.as<ast::FunctionType>();
-		if(func_type.vtable_index > -1) {
-			fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
-		}
-	} else if(node.descriptor == ast::VARIABLE) {
-		const ast::Variable& variable = node.as<ast::Variable>();
-		print_variable_storage_comment(variable.storage);
-	}
+	//if(node.descriptor == ast::FUNCTION_TYPE) {
+	//	const ast::FunctionType& func_type = node.as<ast::FunctionType>();
+	//	if(func_type.vtable_index > -1) {
+	//		fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
+	//	}
+	//} else if(node.descriptor == ast::VARIABLE) {
+	//	const ast::Variable& variable = node.as<ast::Variable>();
+	//	print_variable_storage_comment(variable.storage);
+	//}
 	
 	ast::StorageClass storage_class = (ast::StorageClass) node.storage_class;
-	if(make_globals_extern && node.descriptor == ast::VARIABLE && node.as<ast::Variable>().variable_class == ast::VariableClass::GLOBAL) {
-		storage_class = ast::SC_EXTERN; // For printing out header files.
-	}
+	//if(m_config.make_globals_extern && node.descriptor == ast::VARIABLE && node.as<ast::Variable>().variable_class == ast::VariableClass::GLOBAL) {
+	//	storage_class = ast::SC_EXTERN; // For printing out header files.
+	//}
 	print_cpp_storage_class(out, storage_class);
 	
 	if(node.is_const) {
@@ -249,7 +289,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		}
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
-			if(builtin.bclass == BuiltInClass::VOID) {
+			if(builtin.bclass == ast::BuiltInClass::VOID) {
 				fprintf(out, "void");
 			} else {
 				fprintf(out, "CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
@@ -291,47 +331,11 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			}
 			break;
 		}
-		case ast::FUNCTION_DEFINITION: {
-			const ast::FunctionDefinition& func_def = node.as<ast::FunctionDefinition>();
-			ast_node(*func_def.type.get(), name, indentation_level);
-			if(print_function_bodies) {
-				fprintf(out, " ");
-				const std::span<char>* body = nullptr;
-				if(function_bodies) {
-					auto body_iter = function_bodies->find(func_def.address_range.low);
-					if(body_iter != function_bodies->end()) {
-						body = &body_iter->second;
-					}
-				}
-				if(!func_def.locals.empty() || body) {
-					fprintf(out, "{\n");
-					for(const std::unique_ptr<ast::Variable>& variable : func_def.locals) {
-						indent(out, indentation_level + 1);
-						ast_node(*variable.get(), name, indentation_level + 1);
-						fprintf(out, ";\n");
-					}
-					if(body) {
-						if(!func_def.locals.empty()) {
-							indent(out, indentation_level + 1);
-							fprintf(out, "\n");
-						}
-						fwrite(body->data(), body->size(), 1, out);
-					}
-					indent(out, indentation_level);
-					fprintf(out, "}");
-				} else {
-					fprintf(out, "{}");
-				}
-			} else {
-				fprintf(out, ";");
-			}
-			break;
-		}
 		case ast::FUNCTION_TYPE: {
 			const ast::FunctionType& function = node.as<ast::FunctionType>();
-			if(function.modifier == MemberFunctionModifier::STATIC) {
+			if(function.modifier == ast::MemberFunctionModifier::STATIC) {
 				fprintf(out, "static ");
-			} else if(function.modifier == MemberFunctionModifier::VIRTUAL) {
+			} else if(function.modifier == ast::MemberFunctionModifier::VIRTUAL) {
 				fprintf(out, "virtual ");
 			}
 			if(!function.is_constructor) {
@@ -348,15 +352,15 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				
 				// The parameters provided in STABS member function declarations
 				// are wrong, so are swapped out for the correct ones here.
-				if(substitute_parameter_lists && function.definition) {
-					ast::FunctionType& definition_type = function.definition->type->as<ast::FunctionType>();
-					if(definition_type.parameters.has_value()) {
-						parameters = &(*definition_type.parameters);
-					}
-				}
+				//if(m_config.substitute_parameter_lists && function.definition) {
+				//	ast::FunctionType& definition_type = function.definition->type->as<ast::FunctionType>();
+				//	if(definition_type.parameters.has_value()) {
+				//		parameters = &(*definition_type.parameters);
+				//	}
+				//}
 				
 				size_t start;
-				if(omit_this_parameter && parameters->size() >= 1 && (*parameters)[0]->name == "this") {
+				if(m_config.omit_this_parameter && parameters->size() >= 1 && (*parameters)[0]->name == "this") {
 					start = 1;
 				} else {
 					start = 0;
@@ -417,19 +421,6 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
 			break;
 		}
-		case ast::SOURCE_FILE: {
-			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
-			for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
-				ast_node(*type.get(), name, indentation_level);
-			}
-			for(const std::unique_ptr<ast::Node>& function : source_file.functions) {
-				ast_node(*function.get(), name, indentation_level);
-			}
-			for(const std::unique_ptr<ast::Node>& global : source_file.globals) {
-				ast_node(*global.get(), name, indentation_level);
-			}
-			break;
-		}
 		case ast::STRUCT_OR_UNION: {
 			const ast::StructOrUnion& struct_or_union = node.as<ast::StructOrUnion>();
 			s32 access_specifier = ast::AS_PUBLIC;
@@ -448,7 +439,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				for(size_t i = 0; i < struct_or_union.base_classes.size(); i++) {
 					ast::Node& base_class = *struct_or_union.base_classes[i].get();
 					CCC_ASSERT(base_class.descriptor == ast::TypeName::DESCRIPTOR);
-					print_cpp_offset(out, base_class, *this);
+					offset(base_class);
 					if(base_class.access_specifier != ast::AS_PUBLIC) {
 						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
 					}
@@ -461,7 +452,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			}
 			
 			fprintf(out, " {");
-			if(print_offsets_and_sizes) {
+			if(m_config.print_offsets_and_sizes) {
 				fprintf(out, " // 0x%x", struct_or_union.size_bits / 8);
 			}
 			fprintf(out, "\n");
@@ -475,7 +466,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 					access_specifier = field->access_specifier;
 				}
 				indent(out, indentation_level + 1);
-				print_cpp_offset(out, *field.get(), *this);
+				offset(*field.get());
 				ast_node(*field.get(), name, indentation_level + 1);
 				fprintf(out, ";\n");
 			}
@@ -510,15 +501,15 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
-		case ast::VARIABLE: {
-			const ast::Variable& variable = node.as<ast::Variable>();
-			ast_node(*variable.type.get(), name, indentation_level);
-			if(print_variable_data && variable.data.get()) {
-				fprintf(out, " = ");
-				ast_node(*variable.data.get(), name, indentation_level);
-			}
-			break;
-		}
+		//case ast::VARIABLE: {
+		//	const ast::Variable& variable = node.as<ast::Variable>();
+		//	ast_node(*variable.type.get(), name, indentation_level);
+		//	if(print_variable_data && variable.data.get()) {
+		//		fprintf(out, " = ");
+		//		ast_node(*variable.data.get(), name, indentation_level);
+		//	}
+		//	break;
+		//}
 	}
 }
 
@@ -559,38 +550,40 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags) {
 	}
 }
 
-static void print_cpp_offset(FILE* out, const ast::Node& node, const CppPrinter& printer) {
-	if(printer.print_offsets_and_sizes && node.storage_class != ast::SC_STATIC && node.absolute_offset_bytes > -1) {
-		CCC_ASSERT(printer.digits_for_offset > -1 && printer.digits_for_offset < 100);
-		fprintf(out, "/* 0x%0*x", printer.digits_for_offset, node.absolute_offset_bytes);
-		if(node.descriptor == ast::BITFIELD) {
-			fprintf(out, ":%d", node.as<ast::BitField>().bitfield_offset_bits);
+void CppPrinter::variable_storage_comment(const Variable::Storage& storage) {
+	if(m_config.print_storage_information) {
+		fprintf(out, "/* ");
+		if(const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&storage)) {
+			fprintf(out, "%s", Variable::GlobalStorage::location_to_string(global_storage->location));
+			if(global_storage->address != (u32) -1) {
+				fprintf(out, " %x", global_storage->address);
+			}
+		}
+		if(const Variable::RegisterStorage* register_storage = std::get_if<Variable::RegisterStorage>(&storage)) {
+			auto [register_class, register_index_relative] =
+				mips::map_dbx_register_index(register_storage->dbx_register_number);
+			const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
+			CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
+			const char* register_name = name_table[register_index_relative];
+			fprintf(out, "%s %d", register_name, register_storage->dbx_register_number);
+		}
+		if(const Variable::StackStorage* stack_storage = std::get_if<Variable::StackStorage>(&storage)) {
+			if(stack_storage->stack_pointer_offset >= 0) {
+				fprintf(out, "0x%x(sp)", stack_storage->stack_pointer_offset);
+			} else {
+				fprintf(out, "-0x%x(sp)", -stack_storage->stack_pointer_offset);
+			}
 		}
 		fprintf(out, " */ ");
 	}
 }
 
-void CppPrinter::print_variable_storage_comment(const ast::VariableStorage& storage) {
-	if(print_storage_information) {
-		fprintf(out, "/* ");
-		if(storage.type == ast::VariableStorageType::GLOBAL) {
-			fprintf(out, "%s", ast::global_variable_location_to_string(storage.global_location));
-			if(storage.global_address != (u32) -1) {
-				fprintf(out, " %x", storage.global_address);
-			}
-		} else if(storage.type == ast::VariableStorageType::REGISTER) {
-			auto [register_class, register_index_relative] =
-				mips::map_dbx_register_index(storage.dbx_register_number);
-			const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
-			CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
-			const char* register_name = name_table[register_index_relative];
-			fprintf(out, "%s %d", register_name, storage.dbx_register_number);
-		} else {
-			if(storage.stack_pointer_offset >= 0) {
-				fprintf(out, "0x%x(sp)", storage.stack_pointer_offset);
-			} else {
-				fprintf(out, "-0x%x(sp)", -storage.stack_pointer_offset);
-			}
+void CppPrinter::offset(const ast::Node& node) {
+	if(m_config.print_offsets_and_sizes && node.storage_class != ast::SC_STATIC && node.absolute_offset_bytes > -1) {
+		CCC_ASSERT(m_digits_for_offset > -1 && m_digits_for_offset < 100);
+		fprintf(out, "/* 0x%0*x", m_digits_for_offset, node.absolute_offset_bytes);
+		if(node.descriptor == ast::BITFIELD) {
+			fprintf(out, ":%d", node.as<ast::BitField>().bitfield_offset_bits);
 		}
 		fprintf(out, " */ ");
 	}

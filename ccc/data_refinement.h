@@ -1,10 +1,10 @@
 #pragma once
 
-#include "analysis.h"
 #include "elf.h"
+#include "symbol_table.h"
 
 namespace ccc {
 
-void refine_variables(HighSymbolTable& high, const std::vector<ElfFile*>& elves);
+void refine_variables(SymbolTable& symbol_table, const std::vector<ElfFile*>& elves);
 
 }

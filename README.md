@@ -50,13 +50,13 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	objdump.cpp: See above.
 	stdump.cpp: See above.
 	uncc.cpp: See above.
-	ccc/analysis.cpp: Runs all the different analysis passes.
 	ccc/ast.cpp: Defines a C++ AST structure.
 	ccc/data_refinement.cpp: Convert global variable data into a structured AST.
 	ccc/dependency.cpp: Try to infer information about which types belong to which files.
 	ccc/elf.cpp: Parses ELF files.
 	ccc/insn.cpp: Parses EE core MIPS instructions.
 	ccc/mdebug.cpp: Read the .mdebug symbol table section.
+	ccc/mdebug_analysis.cpp: Runs all the different analysis passes for .mdebug symbol tables.
 	ccc/opcodes.h: Enums for different types of EE core MIPS opcodes.
 	ccc/print_cpp.cpp: Prints out AST nodes as C++ code.
 	ccc/print_json.cpp: Prints out AST nodes as JSON.

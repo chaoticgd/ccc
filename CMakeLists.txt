@@ -32,8 +32,6 @@ endif()
 include(cmake/version_finder.cmake)
 
 add_library(ccc STATIC
-	ccc/analysis.cpp
-	ccc/analysis.h
 	ccc/ast.cpp
 	ccc/ast.h
 	ccc/data_refinement.cpp
@@ -46,6 +44,8 @@ add_library(ccc STATIC
 	ccc/insn.h
 	ccc/mdebug.cpp
 	ccc/mdebug.h
+	ccc/mdebug_analysis.cpp
+	ccc/mdebug_analysis.h
 	ccc/print_cpp.cpp
 	ccc/print_cpp.h
 	ccc/print_json.cpp

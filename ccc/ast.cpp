@@ -53,72 +53,72 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	}
 }
 
-void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files) {
-	for(std::unique_ptr<Node>& node : file.data_types) {
-		auto existing_node_iterator = name_to_deduplicated_index.find(node->name);
-		if(existing_node_iterator == name_to_deduplicated_index.end()) {
-			// No types with this name have previously been processed.
-			node->files = {file_index};
-			name_to_deduplicated_index[node->name] = deduplicated_nodes_grouped_by_name.size();
-			deduplicated_nodes_grouped_by_name.emplace_back().emplace_back((s32) flat_nodes.size());
-			if(node->stabs_type_number.type > -1) {
-				file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
-			}
-			flat_nodes.emplace_back(std::move(node));
-		} else {
-			// Types with this name have previously been processed, we need
-			// to figure out if this one matches any of the previous ones.
-			std::vector<s32>& nodes_with_the_same_name = deduplicated_nodes_grouped_by_name[existing_node_iterator->second];
-			bool match = false;
-			for(s32 existing_node_index : nodes_with_the_same_name) {
-				std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
-				CCC_ASSERT(existing_node.get());
-				CCC_ASSERT(node.get());
-				TypeLookupInfo lookup;
-				lookup.files = &files;
-				lookup.nodes = &flat_nodes;
-				CompareResult compare_result = compare_nodes(*existing_node.get(), *node.get(), lookup, true);
-				if(compare_result.type == CompareResultType::DIFFERS) {
-					// The new node doesn't match this existing node.
-					bool is_anonymous_enum = existing_node->descriptor == ENUM
-						&& existing_node->name.empty();
-					if(!is_anonymous_enum) {
-						existing_node->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
-						node->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
-					}
-				} else {
-					// The new node matches this existing node.
-					existing_node->files.emplace_back(file_index);
-					if(node->stabs_type_number.type > -1) {
-						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
-					}
-					if(compare_result.type == CompareResultType::MATCHES_FAVOUR_RHS) {
-						// The new node matches the old one, but the new one
-						// is slightly better, so we swap them.
-						existing_node.swap(node);
-						std::swap(node->files, existing_node->files);
-						std::swap(node->compare_fail_reason, existing_node->compare_fail_reason);
-					}
-					match = true;
-					break;
-				}
-			}
-			if(!match) {
-				// This type doesn't match the others with the same name
-				// that have already been processed.
-				node->files = {file_index};
-				nodes_with_the_same_name.emplace_back((s32) flat_nodes.size());
-				if(node->stabs_type_number.type > -1) {
-					file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
-				}
-				flat_nodes.emplace_back(std::move(node));
-			}
-		}
-	}
-	
-	// Free all the nodes that are no longer needed.
-	file.data_types.clear();
-}
+//void TypeDeduplicatorOMatic::process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files) {
+//	for(std::unique_ptr<Node>& node : file.data_types) {
+//		auto existing_node_iterator = name_to_deduplicated_index.find(node->name);
+//		if(existing_node_iterator == name_to_deduplicated_index.end()) {
+//			// No types with this name have previously been processed.
+//			node->files = {file_index};
+//			name_to_deduplicated_index[node->name] = deduplicated_nodes_grouped_by_name.size();
+//			deduplicated_nodes_grouped_by_name.emplace_back().emplace_back((s32) flat_nodes.size());
+//			if(node->stabs_type_number.type > -1) {
+//				file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
+//			}
+//			flat_nodes.emplace_back(std::move(node));
+//		} else {
+//			// Types with this name have previously been processed, we need
+//			// to figure out if this one matches any of the previous ones.
+//			std::vector<s32>& nodes_with_the_same_name = deduplicated_nodes_grouped_by_name[existing_node_iterator->second];
+//			bool match = false;
+//			for(s32 existing_node_index : nodes_with_the_same_name) {
+//				std::unique_ptr<Node>& existing_node = flat_nodes[existing_node_index];
+//				CCC_ASSERT(existing_node.get());
+//				CCC_ASSERT(node.get());
+//				TypeLookupInfo lookup;
+//				lookup.files = &files;
+//				lookup.nodes = &flat_nodes;
+//				CompareResult compare_result = compare_nodes(*existing_node.get(), *node.get(), lookup, true);
+//				if(compare_result.type == CompareResultType::DIFFERS) {
+//					// The new node doesn't match this existing node.
+//					bool is_anonymous_enum = existing_node->descriptor == ENUM
+//						&& existing_node->name.empty();
+//					if(!is_anonymous_enum) {
+//						existing_node->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
+//						node->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
+//					}
+//				} else {
+//					// The new node matches this existing node.
+//					existing_node->files.emplace_back(file_index);
+//					if(node->stabs_type_number.type > -1) {
+//						file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = existing_node_index;
+//					}
+//					if(compare_result.type == CompareResultType::MATCHES_FAVOUR_RHS) {
+//						// The new node matches the old one, but the new one
+//						// is slightly better, so we swap them.
+//						existing_node.swap(node);
+//						std::swap(node->files, existing_node->files);
+//						std::swap(node->compare_fail_reason, existing_node->compare_fail_reason);
+//					}
+//					match = true;
+//					break;
+//				}
+//			}
+//			if(!match) {
+//				// This type doesn't match the others with the same name
+//				// that have already been processed.
+//				node->files = {file_index};
+//				nodes_with_the_same_name.emplace_back((s32) flat_nodes.size());
+//				if(node->stabs_type_number.type > -1) {
+//					file.stabs_type_number_to_deduplicated_type_index[node->stabs_type_number] = (s32) flat_nodes.size();
+//				}
+//				flat_nodes.emplace_back(std::move(node));
+//			}
+//		}
+//	}
+//	
+//	// Free all the nodes that are no longer needed.
+//	file.data_types.clear();
+//}
 
 std::vector<std::unique_ptr<Node>> TypeDeduplicatorOMatic::finish() {
 	for(std::vector<s32>& node_group : deduplicated_nodes_grouped_by_name) {
@@ -171,9 +171,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
 			break;
 		}
-		case FUNCTION_DEFINITION: {
-			CCC_FATAL("Tried to compare function definition AST nodes.");
-		}
 		case FUNCTION_TYPE: {
 			const auto [lhs, rhs] = Node::as<FunctionType>(node_lhs, node_rhs);
 			if(lhs.return_type.has_value() != rhs.return_type.has_value()) return CompareFailReason::FUNCTION_RETURN_TYPE_HAS_VALUE;
@@ -208,9 +205,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			if(compare_nodes_and_merge(result, *lhs.member_type.get(), *rhs.member_type.get(), lookup)) return result;
 			break;
 		}
-		case SOURCE_FILE: {
-			CCC_FATAL("Tried to compare source file AST nodes.");
-		}
 		case STRUCT_OR_UNION: {
 			const auto [lhs, rhs] = Node::as<StructOrUnion>(node_lhs, node_rhs);
 			if(lhs.is_struct != rhs.is_struct) return CompareFailReason::DESCRIPTOR;
@@ -237,14 +231,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Ty
 			// from different translation units, so we don't check the file
 			// index or the STABS type number, since those vary between
 			// different files.
-			break;
-		}
-		case VARIABLE: {
-			const auto [lhs, rhs] = Node::as<Variable>(node_lhs, node_rhs);
-			if(lhs.variable_class != rhs.variable_class) return CompareFailReason::VARIABLE_CLASS;
-			if(lhs.storage != rhs.storage) return CompareFailReason::VARIABLE_STORAGE;
-			if(lhs.block != rhs.block) return CompareFailReason::VARIABLE_BLOCK;
-			if(compare_nodes_and_merge(result, *lhs.type.get(), *rhs.type.get(), lookup)) return result;
 			break;
 		}
 	}
@@ -294,18 +280,18 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 		if(type_name_node->descriptor == TYPE_NAME) {
 			const TypeName& type_name = type_name_node->as<TypeName>();
 			if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
-				const std::unique_ptr<SourceFile>& file = lookup.files->at(type_name.referenced_file_index);
-				auto index = file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-				if(index != file->stabs_type_number_to_deduplicated_type_index.end()) {
-					const Node& referenced_type = *lookup.nodes->at(index->second);
-					// Don't compare 'intrusive' fields e.g. the offset.
-					CompareResult new_result = compare_nodes(referenced_type, *raw_node, lookup, false);
-					if(new_result.type != CompareResultType::DIFFERS) {
-						result.type = (i == 0)
-							? CompareResultType::MATCHES_FAVOUR_LHS
-							: CompareResultType::MATCHES_FAVOUR_RHS;
-					}
-				}
+				//const std::unique_ptr<SourceFile>& file = lookup.files->at(type_name.referenced_file_index);
+				//auto index = file->stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
+				//if(index != file->stabs_type_number_to_deduplicated_type_index.end()) {
+				//	const Node& referenced_type = *lookup.nodes->at(index->second);
+				//	// Don't compare 'intrusive' fields e.g. the offset.
+				//	CompareResult new_result = compare_nodes(referenced_type, *raw_node, lookup, false);
+				//	if(new_result.type != CompareResultType::DIFFERS) {
+				//		result.type = (i == 0)
+				//			? CompareResultType::MATCHES_FAVOUR_LHS
+				//			: CompareResultType::MATCHES_FAVOUR_RHS;
+				//	}
+				//}
 			}
 		}
 		std::swap(type_name_node, raw_node);
@@ -351,7 +337,6 @@ const char* node_type_to_string(const Node& node) {
 		case BUILTIN: return "builtin";
 		case DATA: return "data";
 		case ENUM: return "enum";
-		case FUNCTION_DEFINITION: return "function_definition";
 		case FUNCTION_TYPE: return "function_type";
 		case INITIALIZER_LIST: return "initializer_list";
 		case POINTER_OR_REFERENCE: {
@@ -363,7 +348,6 @@ const char* node_type_to_string(const Node& node) {
 			}
 		}
 		case POINTER_TO_DATA_MEMBER: return "pointer_to_data_member";
-		case SOURCE_FILE: return "source_file";
 		case STRUCT_OR_UNION: {
 			const StructOrUnion& struct_or_union = node.as<StructOrUnion>();
 			if(struct_or_union.is_struct) {
@@ -373,7 +357,6 @@ const char* node_type_to_string(const Node& node) {
 			}
 		}
 		case TYPE_NAME: return "type_name";
-		case VARIABLE: return "variable";
 	}
 	return "CCC_BAD_NODE_DESCRIPTOR";
 }
@@ -390,21 +373,6 @@ const char* storage_class_to_string(StorageClass storage_class) {
 	return "";
 }
 
-const char* global_variable_location_to_string(GlobalVariableLocation location) {
-	switch(location) {
-		case GlobalVariableLocation::NIL: return "nil";
-		case GlobalVariableLocation::DATA: return "data";
-		case GlobalVariableLocation::BSS: return "bss";
-		case GlobalVariableLocation::ABS: return "abs";
-		case GlobalVariableLocation::SDATA: return "sdata";
-		case GlobalVariableLocation::SBSS: return "sbss";
-		case GlobalVariableLocation::RDATA: return "rdata";
-		case GlobalVariableLocation::COMMON: return "common";
-		case GlobalVariableLocation::SCOMMON: return "scommon";
-	}
-	return "";
-}
-
 const char* access_specifier_to_string(AccessSpecifier specifier) {
 	switch(specifier) {
 		case AS_PUBLIC: return "public";
@@ -412,6 +380,54 @@ const char* access_specifier_to_string(AccessSpecifier specifier) {
 		case AS_PRIVATE: return "private";
 	}
 	return "";
+}
+
+const char* builtin_class_to_string(BuiltInClass bclass) {
+	switch(bclass) {
+		case BuiltInClass::VOID: return "void";
+		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
+		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
+		case BuiltInClass::UNQUALIFIED_8: return "8-bit integer";
+		case BuiltInClass::BOOL_8: return "8-bit boolean";
+		case BuiltInClass::UNSIGNED_16: return "16-bit unsigned integer";
+		case BuiltInClass::SIGNED_16: return "16-bit signed integer";
+		case BuiltInClass::UNSIGNED_32: return "32-bit unsigned integer";
+		case BuiltInClass::SIGNED_32: return "32-bit signed integer";
+		case BuiltInClass::FLOAT_32: return "32-bit floating point";
+		case BuiltInClass::UNSIGNED_64: return "64-bit unsigned integer";
+		case BuiltInClass::SIGNED_64: return "64-bit signed integer";
+		case BuiltInClass::FLOAT_64: return "64-bit floating point";
+		case BuiltInClass::UNSIGNED_128: return "128-bit unsigned integer";
+		case BuiltInClass::SIGNED_128: return "128-bit signed integer";
+		case BuiltInClass::UNQUALIFIED_128: return "128-bit integer";
+		case BuiltInClass::FLOAT_128: return "128-bit floating point";
+		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
+	}
+	return "";
+}
+
+s32 builtin_class_size(BuiltInClass bclass) {
+	switch(bclass) {
+		case BuiltInClass::VOID: return 0;
+		case BuiltInClass::UNSIGNED_8: return 1;
+		case BuiltInClass::SIGNED_8: return 1;
+		case BuiltInClass::UNQUALIFIED_8: return 1;
+		case BuiltInClass::BOOL_8: return 1;
+		case BuiltInClass::UNSIGNED_16: return 2;
+		case BuiltInClass::SIGNED_16: return 2;
+		case BuiltInClass::UNSIGNED_32: return 4;
+		case BuiltInClass::SIGNED_32: return 4;
+		case BuiltInClass::FLOAT_32: return 4;
+		case BuiltInClass::UNSIGNED_64: return 8;
+		case BuiltInClass::SIGNED_64: return 8;
+		case BuiltInClass::FLOAT_64: return 8;
+		case BuiltInClass::UNSIGNED_128: return 16;
+		case BuiltInClass::SIGNED_128: return 16;
+		case BuiltInClass::UNQUALIFIED_128: return 16;
+		case BuiltInClass::FLOAT_128: return 16;
+		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return 0;
+	}
+	return 0;
 }
 
 }

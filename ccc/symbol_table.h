@@ -1,8 +1,10 @@
 #pragma once
 
-#include <atomic>
+#include <variant>
 #include <functional>
+#include <shared_mutex>
 
+#include "ast.h"
 #include "elf.h"
 
 namespace ccc {
@@ -16,7 +18,7 @@ enum SymbolTableFormat {
 	STAB   = 1 << 3, // Simpler container format for STABS symbols
 	DWARF  = 1 << 4, // DWARF 1 symbol table
 	SNDATA = 1 << 5, // SNDLL linker symbols from an executable (.elf)
-	SNDLL  = 1 << 6  // SNDLL linker smybols from a dynamic library (.rel)
+	SNDLL  = 1 << 6  // SNDLL linker symbols from a dynamic library (.rel)
 };
 
 enum {
@@ -25,163 +27,364 @@ enum {
 };
 
 u32 identify_symbol_tables(const ElfFile& elf);
+void print_symbol_table_formats_to_string(FILE* out, u32 formats);
+const char* symbol_table_format_to_string(SymbolTableFormat format);
+
+// Define an X macro for all the symbol types.
+
+#define CCC_FOR_EACH_SYMBOL_TYPE_DO_X \
+	CCC_X(DataType, data_types) \
+	CCC_X(Function, functions) \
+	CCC_X(GlobalVariable, global_variables) \
+	CCC_X(Label, labels) \
+	CCC_X(LocalVariable, local_variables) \
+	CCC_X(ParameterVariable, parameter_variables) \
+	CCC_X(SourceFile, source_files)
 
 // Forward declare all the different types of symbol table objects.
 
-struct DataType;
-struct Function;
-struct GlobalVariable;
-struct Label;
-struct SourceFile;
+#define CCC_X(SymbolType, symbol_list) class SymbolType;
+CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+#undef CCC_X
 struct SymbolTable;
+class SymbolTableGuardian;
 
 // Define strongly typed handles for all of the symbol table objects.
 
 template <typename SymbolType>
 struct SymbolHandle {
-	s32 value = -1;
+	u32 value = -1;
 	
-	SymbolHandle() : value(-1) {}
-	SymbolHandle(s32 v) : value(v) {}
+	SymbolHandle() {}
+	SymbolHandle(u32 v) : value(v) {}
 	
 	SymbolHandle& operator++() { ++value; return *this; }
 	SymbolHandle operator++(int) { SymbolHandle old = *this; value++; return old; }
-	operator s32() const { return value; }
+	
+	bool valid() const { return value != (u32) -1; }
+	
 	friend auto operator<=>(const SymbolHandle& lhs, const SymbolHandle& rhs) = default;
 };
 
-using DataTypeHandle = SymbolHandle<DataType>;
-using FunctionHandle = SymbolHandle<Function>;
-using GlobalVariableHandle = SymbolHandle<GlobalVariable>;
-using LabelHandle = SymbolHandle<Label>;
-using SourceFileHandle = SymbolHandle<SourceFile>;
+#define CCC_X(SymbolType, symbol_list) using SymbolType##Handle = SymbolHandle<SymbolType>;
+CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+#undef CCC_X
 using SymbolTableHandle = SymbolHandle<SymbolTable>;
 
-// Define iterators for all of the symbol table objects that skip over all
-// deleted objects.
+// Define range types for all of the symbol table objects. Note that the last
+// member actually points to the last real element in the range. To represent an
+// empty range, both symbol handles should be invalid.
 
 template <typename SymbolType>
-struct SymbolIterator {
-	using iterator_category = std::forward_iterator_tag;
-	using difference_type   = std::ptrdiff_t;
-	using value_type        = std::pair<SymbolHandle<SymbolType>, SymbolType>;
-	using pointer           = value_type*;
-	using reference         = value_type&;
+struct SymbolRange {
+	SymbolHandle<SymbolType> first;
+	SymbolHandle<SymbolType> last;
 	
-	SymbolIterator(const std::vector<SymbolType>& symbols, size_t current)
-		: m_symbols(symbols)
-		, m_current((s32) current) { skip_deleted(); }
-	
-	value_type& operator*() const { return m_current.operator*(); }
-	value_type* operator->() { return m_current.operator->(); }
-	SymbolIterator& operator++() { skip_deleted(); return *this; }
-	SymbolIterator operator++(int) { SymbolIterator old = *this; skip_deleted(); return old; }
-	friend auto operator<=>(const SymbolIterator& lhs, const SymbolIterator& rhs) = default;
-	
-protected:
-	void skip_deleted() {
-		while((u32) m_current.value < m_symbols.size() && m_symbols[m_current.value].is_deleted) {
-			m_current++;
-		}
+	bool empty() const {
+		return !first.valid() || !last.valid();
 	}
-
-	const std::vector<SymbolType>& m_symbols;
-	SymbolHandle<SymbolType> m_current;
-};
-
-using DataTypeIterator = SymbolIterator<DataType>;
-using FunctionIterator = SymbolIterator<Function>;
-using GlobalVariableIterator = SymbolIterator<GlobalVariable>;
-using LabelIterator = SymbolIterator<Label>;
-using SourceFileIterator = SymbolIterator<SourceFile>;
-using SymbolTableIterator = SymbolIterator<SymbolTable>;
-
-struct Symbol {
-	std::string name;
-	u32 address = 0;
-	bool is_deleted = false;
-};
-
-// All the different types of symbol table objects.
-
-struct DataType : Symbol {
 	
-};
-
-struct Function : Symbol {
-	SourceFileHandle source_file;
-};
-
-struct GlobalVariable : Symbol {
-	SourceFileHandle source_file;
-};
-
-struct Label : Symbol {
+	bool single() const {
+		return !empty() && first == last;
+	}
 	
-};
-
-struct SourceFile : Symbol {
-	std::string path;
-	std::optional<std::string> working_dir;
-	std::optional<std::string> relative_path;
+	void expand_to_include(SymbolHandle<SymbolType> handle) {
+		if(!first.valid()) {
+			first = handle;
+		}
+		CCC_ASSERT(!last.valid() || last.value < handle.value);
+		last = handle;
+	}
 	
-	FunctionHandle first_function;
-	FunctionHandle last_function;
+	void clear() {
+		first = SymbolHandle<SymbolType>();
+		last = SymbolHandle<SymbolType>();
+	}
+	
+	friend auto operator<=>(const SymbolRange& lhs, const SymbolRange& rhs) = default;
 };
 
-// A container for symbols of a given type that maintains maps of their names
-// and optionally their addresses.
+#define CCC_X(SymbolType, symbol_list) using SymbolType##Range = SymbolRange<SymbolType>;
+CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+#undef CCC_X
 
-template <typename SymbolType, bool unique_addresses>
+struct AddressRange {
+	u32 low = (u32) -1;
+	u32 high = (u32) -1;
+	
+	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
+	bool valid() const { return low != (u32) -1; }
+};
+
+// A container base class for symbols of a given type that maintains maps of
+// their names.
+
+enum SymbolListFlags {
+	NO_LIST_FLAGS = 0,
+	WITH_ADDRESS_MAP = 1 << 0,
+	WITH_NAME_MAP = 1 << 1
+};
+
+template <typename SymbolType>
 class SymbolList {
 public:
-	const SymbolType* operator[](SymbolHandle<SymbolType> handle) const {
-		if(handle.value < 0 || (size_t) handle >= m_symbols.size()) {
-			return nullptr;
-		}
-		return &m_symbols[handle];
-	}
-
-	SymbolIterator<SymbolType> begin() const { return SymbolIterator<SymbolType>(m_symbols, 0); }
-	SymbolIterator<SymbolType> end() const { return SymbolIterator<SymbolType>(m_symbols, m_symbols.size()); }
+	// Lookup symbols from their handles using binary search.
+	SymbolType* operator[](SymbolHandle<SymbolType> handle);
+	const SymbolType* operator[](SymbolHandle<SymbolType> handle) const;
+	SymbolType& at(SymbolHandle<SymbolType> handle);
+	const SymbolType& at(SymbolHandle<SymbolType> handle) const;
 	
-	SymbolHandle<SymbolType> add(SymbolType symbol) {
-		if constexpr(unique_addresses) {
-			auto handle = m_address_to_handle.find(symbol.address);
-			if(handle != m_address_to_handle.end()) {
-				remove(handle->second);
-			}
-		}
-		
-		m_name_to_handle.emplace(symbol.name, (s32) m_symbols.size());
-		m_address_to_handle.emplace(symbol.address, (s32) m_symbols.size());
-		
-		m_symbols.emplace_back(std::move(symbol));
-	}
+	using Iterator = typename std::vector<SymbolType>::iterator;
+	using ConstIterator = typename std::vector<SymbolType>::const_iterator;
 	
-	bool remove(SymbolHandle<SymbolType> handle) {
-		SymbolType* symbol = (*this)[handle];
-		if(symbol) {
-			symbol->is_deleted = true;
-			return true;
-		}
-		return false;
-	}
+	// For iterating over all the symbols with a range-based for loop.
+	Iterator begin();
+	ConstIterator begin() const;
+	Iterator end();
+	ConstIterator end() const;
+	
+	// For iterating over a subset of the symbols with a range-based for loop.
+	std::span<SymbolType> span(SymbolRange<SymbolType> range);
+	std::span<const SymbolType> span(SymbolRange<SymbolType> range) const;
+	
+	bool empty() const;
+	SymbolType* create_symbol(std::string name, u32 address = (u32) -1);
+	bool destroy_symbol(SymbolHandle<SymbolType> handle);
+	u32 destroy_symbols(SymbolRange<SymbolType> range);
 
 protected:
-	std::vector<DataType> m_symbols;
-	std::map<std::string_view, SymbolHandle<SymbolType>> m_name_to_handle;
-	std::map<u32, SymbolHandle<SymbolType>> m_address_to_handle;
+	
+	// Do a binary search for a handle, and return either its index, or the
+	// index where it could be inserted.
+	u32 binary_search(SymbolHandle<SymbolType> handle) const;
+	
+	std::vector<SymbolType> m_symbols;
+	u32 m_next_handle = 0;
+	std::unordered_map<u32, SymbolHandle<SymbolType>> m_address_to_handle;
+	std::unordered_multimap<std::string, SymbolHandle<SymbolType>> m_name_to_handle;
 };
 
-// The symbol table type itself.
+enum ShouldDeleteOldSymbols {
+	DONT_DELETE_OLD_SYMBOLS,
+	DELETE_OLD_SYMBOLS
+};
+
+// Base class for all the symbols.
+
+class Symbol {
+	template <typename SymbolType>
+	friend class SymbolList;
+public:
+	const std::string& name() const { return m_name; }
+	
+	ast::Node& type() { CCC_ASSERT(m_type.get()); return *m_type; }
+	const ast::Node& type() const { CCC_ASSERT(m_type.get()); return *m_type; }
+	ast::Node* type_ptr() { return m_type.get(); }
+	const ast::Node* type_ptr() const { return m_type.get(); }
+	
+	void set_type_and_invalidate_node_handles(std::unique_ptr<ast::Node> type) { m_type = std::move(type); }
+	
+protected:
+	u32 m_handle = (u32) -1;
+	u32 m_address = (u32) -1;
+	std::string m_name;
+	std::unique_ptr<ast::Node> m_type;
+};
+
+// Base class for variable symbols.
+
+class Variable : public Symbol {
+public:
+	enum Class {
+		GLOBAL,
+		LOCAL,
+		PARAMETER
+	};
+	
+	struct GlobalStorage {
+		enum Location {
+			NIL,
+			DATA,
+			BSS,
+			ABS,
+			SDATA,
+			SBSS,
+			RDATA,
+			COMMON,
+			SCOMMON
+		};
+		
+		Location location = Location::NIL;
+		u32 address = (u32) -1;
+		
+		static const char* location_to_string(Location location);
+		
+		GlobalStorage() {}
+		friend auto operator<=>(const GlobalStorage& lhs, const GlobalStorage& rhs) = default;
+	};
+
+	struct RegisterStorage {
+		s32 dbx_register_number = -1;
+		bool is_by_reference;
+		
+		RegisterStorage() {}
+		friend auto operator<=>(const RegisterStorage& lhs, const RegisterStorage& rhs) = default;
+	};
+
+	struct StackStorage {
+		s32 stack_pointer_offset = -1;
+		
+		StackStorage() {}
+		friend auto operator<=>(const StackStorage& lhs, const StackStorage& rhs) = default;
+	};
+	
+	using Storage = std::variant<GlobalStorage, RegisterStorage, StackStorage>;
+	
+	Class variable_class;
+	Storage storage;
+	AddressRange live_range;
+	std::unique_ptr<ast::Node> data;
+};
+
+// All the different types of symbol objects.
+
+class DataType : public Symbol {
+public:
+	static constexpr u32 LIST_FLAGS = WITH_NAME_MAP;
+	
+	SymbolHandle<DataType> handle() const { return m_handle; }
+	
+	std::vector<SourceFileHandle> files; // List of files for which a given top-level type is present.
+	bool probably_defined_in_cpp_file = false;
+};
+
+class Function : public Symbol {
+	friend SourceFile;
+public:
+	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	
+	FunctionHandle handle() const { return m_handle; }
+	SourceFileHandle source_file() const { return m_source_file; }
+	ParameterVariableRange parameter_variables() const { return m_parameter_variables; }
+	LocalVariableRange local_variables() const { return m_local_variables; }
+	void set_parameter_variables(ParameterVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table);
+	void set_local_variables(LocalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table);
+	
+	struct Parameter {
+		std::string name;
+		Variable variable;
+	};
+	
+	struct Local {
+		std::string name;
+		Variable variable;
+	};
+	
+	struct LineNumberPair {
+		u32 address;
+		s32 line_number;
+	};
+
+	struct SubSourceFile {
+		u32 address;
+		std::string relative_path;
+	};
+	
+	AddressRange address_range;
+	std::string relative_path;
+	ast::StorageClass storage_class;
+	std::vector<LineNumberPair> line_numbers;
+	std::vector<SubSourceFile> sub_source_files;
+	
+protected:
+	SourceFileHandle m_source_file;
+	ParameterVariableRange m_parameter_variables;
+	LocalVariableRange m_local_variables;
+};
+
+class GlobalVariable : public Variable {
+	friend SourceFile;
+public:
+	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	
+	GlobalVariableHandle handle() const { return m_handle; }
+	SourceFileHandle source_file() const { return m_source_file; };
+	
+protected:
+	SourceFileHandle m_source_file;
+};
+
+class Label : public Symbol {
+public:
+	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	
+	LabelHandle handle() const { return m_handle; }
+};
+
+class LocalVariable : public Variable {
+	friend Function;
+public:
+	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
+	
+	LocalVariableHandle handle() const { return m_handle; }
+	FunctionHandle function() const { return m_function; };
+	
+protected:
+	FunctionHandle m_function;
+};
+
+class ParameterVariable : public Variable {
+	friend Function;
+public:
+	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
+	
+	ParameterVariableHandle handle() const { return m_handle; }
+	FunctionHandle function() const { return m_function; };
+	
+protected:
+	FunctionHandle m_function;
+};
+
+class SourceFile : public Symbol {
+public:
+	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
+	
+	SourceFileHandle handle() const { return m_handle; }
+	const std::string& full_path() const { return name(); }
+	FunctionRange functions() const { return m_functions; }
+	GlobalVariableRange globals_variables() const { return m_globals_variables; }
+	
+	void set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table);
+	void set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table);
+	
+	std::string relative_path;
+	u32 text_address = 0;
+	std::vector<std::unique_ptr<ast::Node>> data_types;
+	//std::map<StabsTypeNumber, s32> stabs_type_number_to_deduplicated_type_index;
+	std::set<std::string> toolchain_version_info;
+	
+protected:
+	FunctionRange m_functions;
+	GlobalVariableRange m_globals_variables;
+};
+
+// The symbol table itself.
 
 struct SymbolTable {
-	SymbolList<DataType, false> data_types;
-	SymbolList<Function, true> functions;
-	SymbolList<GlobalVariable, true> global_variables;
-	SymbolList<Label, true> labels;
-	SymbolList<SourceFile, false> source_files;
+	std::string name;
+	
+	SymbolList<DataType> data_types;
+	SymbolList<Function> functions;
+	SymbolList<GlobalVariable> global_variables;
+	SymbolList<Label> labels;
+	SymbolList<LocalVariable> local_variables;
+	SymbolList<ParameterVariable> parameter_variables;
+	SymbolList<SourceFile> source_files;
+	
+	// Lookup a type by its STABS type number. If that fails, optionally try to
+	// lookup the type by its name. On success return a handle to the type,
+	// otherwise return an invalid handle.
+	DataTypeHandle lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const;
 };
 
 // Handles synchronising access to a symbol table from multiple threads.
@@ -190,28 +393,34 @@ class SymbolTableGuardian {
 public:
 	SymbolTableGuardian();
 	
-	// Get the handle for the current symbol table.
-	std::optional<SymbolTableHandle> get_current_handle() const;
+	// Create a new symbol table and return its handle.
+	SymbolTableHandle create(std::string name);
 	
-	// Use this when you want to read from the symbol table, including accessing
+	// Destroy a symbol table and free all of its resources.
+	bool destroy(SymbolTableHandle handle);
+	
+	// Destroy all symbol tables managed by this guardian object. This
+	// invalidates ALL symbol table handles.
+	void clear();
+	
+	// Lookup a symbol table by its name.
+	std::optional<SymbolTableHandle> lookup(const std::string& name) const;
+	
+	// Use this when you want to read from a symbol table, including accessing
 	// pointers to AST nodes of said symbol table. If the symbol table was
-	// destroyed this function will return false and your callback will not run.
+	// destroyed this will return false and your callback will not run.
 	[[nodiscard]] bool read(SymbolTableHandle handle, std::function<void(const SymbolTable&)> callback) const;
 	
-	// Overwrite the currently stored symbol table with a new one, thereby
-	// invalidating the current symbol table handle.
-	void overwrite(SymbolTable symbol_table);
+	// Use this when you want to write to a symbol table. If the symbol table was
+	// destroyed this will return false and your callback will not run.
+	[[nodiscard]] bool write(SymbolTableHandle handle, std::function<void(SymbolTable&)> callback);
 	
 protected:
-	SymbolTable m_symbol_table;
-	SymbolTableHandle m_current_handle;
-	static std::atomic<s32> s_next_handle;
-	mutable std::mutex m_big_symbol_table_lock;
+	std::vector<SymbolTable> m_symbol_tables;
+	mutable std::shared_mutex m_big_symbol_table_lock;
+	mutable std::vector<std::unique_ptr<std::shared_mutex>> m_small_symbol_table_locks;
 };
 
-SymbolTable parse_symbol_table();
-
-void print_symbol_table_formats_to_string(FILE* out, u32 formats);
-const char* symbol_table_format_to_string(SymbolTableFormat format);
+Result<SymbolTable> parse_symbol_table(ElfFile& elf);
 
 }

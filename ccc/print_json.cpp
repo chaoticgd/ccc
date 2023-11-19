@@ -26,32 +26,32 @@ struct JsonPrinter {
 };
 
 static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr);
-static void print_json_variable_storage(JsonPrinter& json, const ast::VariableStorage& storage);
+static void print_json_variable_storage(JsonPrinter& json, const Variable::Storage& storage);
 static s64 merge_stabs_type_number_parts(const StabsTypeNumber& number);
 
-void print_json(FILE* out, const HighSymbolTable& high, bool print_per_file_types) {
+void print_json(FILE* out, const SymbolTable& symbol_table, bool print_per_file_types) {
 	JsonPrinter json;
 	json.out = out;
 	
 	json.begin_object();
 	
-	json.number_property("version", 7);
+	json.number_property("version", 8);
 	
-	json.property("files");
-	json.begin_array();
-	for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
-		print_json_ast_node(json, file.get());
-	}
-	json.end_array();
-	
-	if(!print_per_file_types) {
-		json.property("deduplicated_types");
-		json.begin_array();
-		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-			print_json_ast_node(json, node.get());
-		}
-		json.end_array();
-	}
+	//json.property("files");
+	//json.begin_array();
+	//for(const std::unique_ptr<ast::SourceFile>& file : high.source_files) {
+	//	print_json_ast_node(json, file.get());
+	//}
+	//json.end_array();
+	//
+	//if(!print_per_file_types) {
+	//	json.property("deduplicated_types");
+	//	json.begin_array();
+	//	for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
+	//		print_json_ast_node(json, node.get());
+	//	}
+	//	json.end_array();
+	//}
 	
 	json.end_object();
 }
@@ -91,14 +91,14 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 	if(node.stabs_type_number.type != -1) {
 		json.number_property("stabs_type_number", merge_stabs_type_number_parts(node.stabs_type_number));
 	}
-	if(!node.files.empty()) {
-		json.property("files");
-		json.begin_array();
-		for(s32 file : node.files) {
-			json.number(file);
-		}
-		json.end_array();
-	}
+	//if(!node.files.empty()) {
+	//	json.property("files");
+	//	json.begin_array();
+	//	for(s32 file : node.files) {
+	//		json.number(file);
+	//	}
+	//	json.end_array();
+	//}
 	switch(node.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
@@ -136,46 +136,46 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.end_array();
 			break;
 		}
-		case ast::FUNCTION_DEFINITION: {
-			const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
-			if(function.address_range.valid()) {
-				json.property("address_range");
-				json.begin_object();
-				json.number_property("low", (function.address_range.low != (u32) -1) ? (s64) function.address_range.low : -1);
-				json.number_property("high", (function.address_range.high != (u32) -1) ? (s64) function.address_range.high : -1);
-				json.end_object();
-			}
-			if(!function.relative_path.empty()) {
-				json.string_property("relative_path", function.relative_path.c_str());
-			}
-			json.property("type");
-			print_json_ast_node(json, function.type.get());
-			json.property("locals");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Variable>& local : function.locals) {
-				print_json_ast_node(json, local.get());
-			}
-			json.end_array();
-			json.property("line_numbers");
-			json.begin_array();
-			for(const ast::LineNumberPair& pair : function.line_numbers) {
-				json.begin_array();
-				json.number((pair.address != (u32) -1) ? (s64) pair.address : -1);
-				json.number(pair.line_number);
-				json.end_array();
-			}
-			json.end_array();
-			json.property("sub_source_files");
-			json.begin_array();
-			for(const ast::SubSourceFile& sub : function.sub_source_files) {
-				json.begin_object();
-				json.number_property("address", (sub.address != (u32) -1) ? (s64) sub.address : -1);
-				json.string_property("path", sub.relative_path.c_str());
-				json.end_object();
-			}
-			json.end_array();
-			break;
-		}
+		//case ast::FUNCTION_DEFINITION: {
+		//	const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
+		//	if(function.address_range.valid()) {
+		//		json.property("address_range");
+		//		json.begin_object();
+		//		json.number_property("low", (function.address_range.low != (u32) -1) ? (s64) function.address_range.low : -1);
+		//		json.number_property("high", (function.address_range.high != (u32) -1) ? (s64) function.address_range.high : -1);
+		//		json.end_object();
+		//	}
+		//	if(!function.relative_path.empty()) {
+		//		json.string_property("relative_path", function.relative_path.c_str());
+		//	}
+		//	json.property("type");
+		//	print_json_ast_node(json, function.type.get());
+		//	json.property("locals");
+		//	json.begin_array();
+		//	for(const std::unique_ptr<ast::Variable>& local : function.locals) {
+		//		print_json_ast_node(json, local.get());
+		//	}
+		//	json.end_array();
+		//	json.property("line_numbers");
+		//	json.begin_array();
+		//	for(const ast::LineNumberPair& pair : function.line_numbers) {
+		//		json.begin_array();
+		//		json.number((pair.address != (u32) -1) ? (s64) pair.address : -1);
+		//		json.number(pair.line_number);
+		//		json.end_array();
+		//	}
+		//	json.end_array();
+		//	json.property("sub_source_files");
+		//	json.begin_array();
+		//	for(const ast::SubSourceFile& sub : function.sub_source_files) {
+		//		json.begin_object();
+		//		json.number_property("address", (sub.address != (u32) -1) ? (s64) sub.address : -1);
+		//		json.string_property("path", sub.relative_path.c_str());
+		//		json.end_object();
+		//	}
+		//	json.end_array();
+		//	break;
+		//}
 		case ast::FUNCTION_TYPE: {
 			const ast::FunctionType& function = node.as<ast::FunctionType>();
 			if(function.return_type.has_value()) {
@@ -191,9 +191,9 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 				json.end_array();
 			}
 			const char* modifier = "none";
-			if(function.modifier == MemberFunctionModifier::STATIC) {
+			if(function.modifier == ast::MemberFunctionModifier::STATIC) {
 				modifier = "static";
-			} else if(function.modifier == MemberFunctionModifier::VIRTUAL) {
+			} else if(function.modifier == ast::MemberFunctionModifier::VIRTUAL) {
 				modifier = "virtual";
 			}
 			json.string_property("modifier", modifier);
@@ -219,39 +219,39 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			print_json_ast_node(json, member_pointer.member_type.get());
 			break;
 		}
-		case ast::SOURCE_FILE: {
-			const ast::SourceFile& source_file = node.as<ast::SourceFile>();
-			json.string_property("path", source_file.full_path.c_str());
-			json.string_property("relative_path", source_file.relative_path.c_str());
-			json.number_property("text_address", (source_file.text_address != (u32) -1) ? (s64) source_file.text_address : -1);
-			json.property("types");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
-				print_json_ast_node(json, type.get());
-			}
-			json.end_array();
-			json.property("functions");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& function : source_file.functions) {
-				print_json_ast_node(json, function.get());
-			}
-			json.end_array();
-			json.property("globals");
-			json.begin_array();
-			for(const std::unique_ptr<ast::Node>& global : source_file.globals) {
-				print_json_ast_node(json, global.get());
-			}
-			json.end_array();
-			json.property("stabs_type_number_to_deduplicated_type_index");
-			json.begin_object();
-			for(const auto [stabs_type_number, deduplicated_type_index] : source_file.stabs_type_number_to_deduplicated_type_index) {
-				s64 merged_type_number = merge_stabs_type_number_parts(stabs_type_number);
-				json.number_property(std::to_string(merged_type_number).c_str(), deduplicated_type_index);
-			}
-			json.end_object();
-			break;
-		}
-		
+		//case ast::SOURCE_FILE: {
+		//	const ast::SourceFile& source_file = node.as<ast::SourceFile>();
+		//	json.string_property("path", source_file.full_path.c_str());
+		//	json.string_property("relative_path", source_file.relative_path.c_str());
+		//	json.number_property("text_address", (source_file.text_address != (u32) -1) ? (s64) source_file.text_address : -1);
+		//	json.property("types");
+		//	json.begin_array();
+		//	for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
+		//		print_json_ast_node(json, type.get());
+		//	}
+		//	json.end_array();
+		//	json.property("functions");
+		//	json.begin_array();
+		//	for(const std::unique_ptr<ast::Node>& function : source_file.functions) {
+		//		print_json_ast_node(json, function.get());
+		//	}
+		//	json.end_array();
+		//	json.property("globals");
+		//	json.begin_array();
+		//	for(const std::unique_ptr<ast::Node>& global : source_file.globals) {
+		//		print_json_ast_node(json, global.get());
+		//	}
+		//	json.end_array();
+		//	json.property("stabs_type_number_to_deduplicated_type_index");
+		//	json.begin_object();
+		//	for(const auto [stabs_type_number, deduplicated_type_index] : source_file.stabs_type_number_to_deduplicated_type_index) {
+		//		s64 merged_type_number = merge_stabs_type_number_parts(stabs_type_number);
+		//		json.number_property(std::to_string(merged_type_number).c_str(), deduplicated_type_index);
+		//	}
+		//	json.end_object();
+		//	break;
+		//}
+		//
 		case ast::STRUCT_OR_UNION: {
 			const ast::StructOrUnion& struct_or_union = node.as<ast::StructOrUnion>();
 			if(struct_or_union.is_struct) {
@@ -295,52 +295,48 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			}
 			break;
 		}
-		case ast::VARIABLE: {
-			const ast::Variable& variable = node.as<ast::Variable>();
-			const char* class_string = "";
-			switch(variable.variable_class) {
-				case ast::VariableClass::GLOBAL: class_string = "global"; break;
-				case ast::VariableClass::LOCAL: class_string = "local"; break;
-				case ast::VariableClass::PARAMETER: class_string = "parameter"; break;
-			}
-			json.string_property("class", class_string);
-			print_json_variable_storage(json, variable.storage);
-			json.number_property("block_low", (variable.block.low != (u32) -1) ? (s64) variable.block.low : -1);
-			json.number_property("block_high", (variable.block.high != (u32) -1) ? (s64) variable.block.high : -1);
-			json.property("type");
-			print_json_ast_node(json, variable.type.get());
-			break;
-		}
+		//case ast::VARIABLE: {
+		//	const ast::Variable& variable = node.as<ast::Variable>();
+		//	const char* class_string = "";
+		//	switch(variable.variable_class) {
+		//		case ast::VariableClass::GLOBAL: class_string = "global"; break;
+		//		case ast::VariableClass::LOCAL: class_string = "local"; break;
+		//		case ast::VariableClass::PARAMETER: class_string = "parameter"; break;
+		//	}
+		//	json.string_property("class", class_string);
+		//	print_json_variable_storage(json, variable.storage);
+		//	json.number_property("block_low", (variable.block.low != (u32) -1) ? (s64) variable.block.low : -1);
+		//	json.number_property("block_high", (variable.block.high != (u32) -1) ? (s64) variable.block.high : -1);
+		//	json.property("type");
+		//	print_json_ast_node(json, variable.type.get());
+		//	break;
+		//}
 	}
 	json.end_object();
 }
 
-static void print_json_variable_storage(JsonPrinter& json, const ast::VariableStorage& storage) {
+static void print_json_variable_storage(JsonPrinter& json, const Variable::Storage& storage) {
 	json.property("storage");
 	json.begin_object();
-	switch(storage.type) {
-		case ast::VariableStorageType::GLOBAL: {
-			json.string_property("type", "global");
-			json.string_property("global_location", ast::global_variable_location_to_string(storage.global_location));
-			json.number_property("global_address", (storage.global_address != (u32) -1) ? (s64) storage.global_address : -1);
-			break;
-		}
-		case ast::VariableStorageType::REGISTER: {
-			auto [register_class, register_index_relative] =
-				mips::map_dbx_register_index(storage.dbx_register_number);
+	if(const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&storage)) {
+		json.string_property("type", "global");
+		json.string_property("global_location", Variable::GlobalStorage::location_to_string(global_storage->location));
+		json.number_property("global_address", global_storage->address);
+	}
+	if(const Variable::RegisterStorage* register_storage = std::get_if<Variable::RegisterStorage>(&storage)) {
+		auto [register_class, register_index_relative] =
+				mips::map_dbx_register_index(register_storage->dbx_register_number);
 			json.string_property("type", "register");
 			json.string_property("register", mips::REGISTER_STRING_TABLES[(s32) register_class][register_index_relative]);
 			json.string_property("register_class", mips::REGISTER_CLASSES[(s32) register_class]);
-			json.number_property("dbx_register_number", storage.dbx_register_number);
+			json.number_property("dbx_register_number", register_storage->dbx_register_number);
 			json.number_property("register_index", register_index_relative);
-			json.boolean_property("is_by_reference", storage.is_by_reference);
-			break;
-		}
-		case ast::VariableStorageType::STACK: {
-			json.string_property("type", "stack");
-			json.number_property("stack_offset", storage.stack_pointer_offset);
-			break;
-		}
+			json.boolean_property("is_by_reference", register_storage->is_by_reference);
+	}
+	
+	if(const Variable::StackStorage* stack_storage = std::get_if<Variable::StackStorage>(&storage)) {
+		json.string_property("type", "stack");
+		json.number_property("stack_offset", stack_storage->stack_pointer_offset);
 	}
 	json.end_object();
 }

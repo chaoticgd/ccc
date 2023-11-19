@@ -93,7 +93,7 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
 static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector<u8>& elf, s32 strings_offset);
 
-Result<void> SymbolTable::init(const std::vector<u8>& elf, s32 section_offset) {
+Result<void> SymbolTableReader::init(const std::vector<u8>& elf, s32 section_offset) {
 	m_elf = &elf;
 	m_section_offset = section_offset;
 	
@@ -108,12 +108,12 @@ Result<void> SymbolTable::init(const std::vector<u8>& elf, s32 section_offset) {
 	return Result<void>();
 }
 	
-s32 SymbolTable::file_count() const {
+s32 SymbolTableReader::file_count() const {
 	CCC_ASSERT(m_ready);
 	return m_hdrr->file_descriptor_count;
 }
 
-Result<File> SymbolTable::parse_file(s32 index) const {
+Result<File> SymbolTableReader::parse_file(s32 index) const {
 	CCC_ASSERT(m_ready);
 	
 	File file;
@@ -165,7 +165,7 @@ Result<File> SymbolTable::parse_file(s32 index) const {
 	return file;
 }
 
-Result<std::vector<Symbol>> SymbolTable::parse_external_symbols() const {
+Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const {
 	CCC_ASSERT(m_ready);
 	
 	std::vector<Symbol> external_symbols;
@@ -180,7 +180,7 @@ Result<std::vector<Symbol>> SymbolTable::parse_external_symbols() const {
 	return external_symbols;
 }
 
-void SymbolTable::print_header(FILE* dest) const {
+void SymbolTableReader::print_header(FILE* dest) const {
 	CCC_ASSERT(m_ready);
 	
 	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n",

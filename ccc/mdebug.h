@@ -120,14 +120,13 @@ struct File {
 	std::string base_path;
 	std::string raw_path;
 	std::string full_path;
-	bool is_windows_path = false;
 	std::vector<Symbol> symbols;
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
 };
 
-class SymbolTable {
+class SymbolTableReader {
 public:
-	Result<void> init(const std::vector<u8>& elf, s32 section_offset);
+	[[nodiscard]] Result<void> init(const std::vector<u8>& elf, s32 section_offset);
 	
 	s32 file_count() const;
 	Result<File> parse_file(s32 index) const;

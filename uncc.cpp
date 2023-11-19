@@ -16,11 +16,11 @@ static std::span<char> eat_line(std::span<char>& input);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
-static void demangle_all(HighSymbolTable& high);
-static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file);
-static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices);
-static bool needs_lost_and_found_file(const HighSymbolTable& high);
-static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high);
+static void demangle_all(SymbolTable& symbol_table);
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file);
+static void write_h_file(const fs::path& path, std::string relative_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files);
+static bool needs_lost_and_found_file(const SymbolTable& symbol_table);
+static void write_lost_and_found_file(const fs::path& path, const SymbolTable& symbol_table);
 static void print_help(int argc, char** argv);
 
 int main(int argc, char** argv) {
@@ -48,44 +48,32 @@ int main(int argc, char** argv) {
 	Result<ElfFile> elf = parse_elf_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf);
 	
-	ElfSection* mdebug_section = elf->lookup_section(".mdebug");
-	CCC_CHECK_FATAL(mdebug_section != nullptr, "No .mdebug section.");
+	Result<SymbolTable> symbol_table = parse_symbol_table(*elf);
+	CCC_EXIT_IF_ERROR(symbol_table);
 	
-	mdebug::SymbolTable symbol_table;
-	Result<void> symbol_table_result = symbol_table.init(elf->image, (s32) mdebug_section->file_offset);
-	CCC_EXIT_IF_ERROR(symbol_table_result);
-	
-	Result<HighSymbolTable> high = analyse(symbol_table, DEDUPLICATE_TYPES | STRIP_GENERATED_FUNCTIONS);
-	CCC_EXIT_IF_ERROR(high);
-	map_types_to_files_based_on_this_pointers(*high);
-	map_types_to_files_based_on_reference_count(*high);
-	demangle_all(*high);
+	map_types_to_files_based_on_this_pointers(*symbol_table);
+	map_types_to_files_based_on_reference_count(*symbol_table);
+	demangle_all(*symbol_table);
 	
 	// Fish out the values of global variables (and static locals).
 	std::vector<ElfFile*> modules{&(*elf)};
-	refine_variables(*high, modules);
+	refine_variables(*symbol_table, modules);
 	
-	fill_in_pointers_to_member_function_definitions(*high);
+	fill_in_pointers_to_member_function_definitions(*symbol_table);
 	
 	// Group duplicate source file entries, filter out files not referenced in
 	// the SOURCES.txt file.
-	std::map<std::string, std::vector<s32>> path_to_source_file;
-	for(size_t path_index = 0, source_index = 0; path_index < source_paths.size() && source_index < high->source_files.size(); path_index++, source_index++) {
-		// Find the next file referenced in the SOURCES.txt file.
-		std::string source_name = extract_file_name(source_paths[path_index]);
-		while(source_index < high->source_files.size()) {
-			std::string symbol_name = extract_file_name(high->source_files[source_index]->full_path);
-			if(symbol_name == source_name) {
-				break;
-			}
-			printf("Skipping %s (not referenced, expected %s next)\n", symbol_name.c_str(), source_name.c_str());
-			source_index++;
-		}
-		if(source_index >= high->source_files.size()) {
+	std::map<std::string, std::vector<SourceFileHandle>> path_to_source_file;
+	size_t path_index = 0;
+	for(SourceFile& source_file : symbol_table->source_files) {
+		if(path_index >= source_paths.size()) {
 			break;
 		}
-		// Add the file.
-		path_to_source_file[source_paths[path_index]].emplace_back((s32) source_index);
+		std::string source_name = extract_file_name(source_file.full_path());
+		std::string path_name = extract_file_name(source_paths.at(path_index));
+		if(source_name == path_name) {
+			path_to_source_file[source_paths[path_index++]].emplace_back(source_file.handle());
+		}
 	}
 	
 	// Write out all the source files.
@@ -100,13 +88,13 @@ int main(int argc, char** argv) {
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
-				write_c_cpp_file(path, relative_header_path, *high, sources, functions_file);
+				write_c_cpp_file(path, relative_header_path, *symbol_table, sources, functions_file);
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
 			// Write .h file.
 			if(should_overwrite_file(header_path)) {
-				write_h_file(header_path, relative_header_path.string(), *high, sources);
+				write_h_file(header_path, relative_header_path.string(), *symbol_table, sources);
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
 			}
@@ -117,8 +105,8 @@ int main(int argc, char** argv) {
 	
 	// Write out a lost+found file for types that can't be mapped to a specific
 	// source file if we need it.
-	if(needs_lost_and_found_file(*high)) {
-		write_lost_and_found_file(output_path/"lost+found.h", *high);
+	if(needs_lost_and_found_file(*symbol_table)) {
+		write_lost_and_found_file(output_path/"lost+found.h", *symbol_table);
 	}
 }
 
@@ -210,90 +198,92 @@ static bool should_overwrite_file(const fs::path& path) {
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void demangle_all(HighSymbolTable& high) {
-	for(std::unique_ptr<ast::SourceFile>& source : high.source_files) {
-		for(std::unique_ptr<ast::Node>& function : source->functions) {
-			if(!function->name.empty()) {
-				const char* demangled = cplus_demangle(function->name.c_str(), 0);
-				if(demangled) {
-					function->name = std::string(demangled);
-					free((void*) demangled);
-				}
-			}
-		}
-		for(std::unique_ptr<ast::Node>& global : source->globals) {
-			if(!global->name.empty()) {
-				const char* demangled = cplus_demangle(global->name.c_str(), 0);
-				if(demangled) {
-					global->name = std::string(demangled);
-					free((void*) demangled);
-				}
-			}
-		}
-	}
+static void demangle_all(SymbolTable& symbol_table) {
+	//for(SourceFile& source : symbol_table.source_files) {
+	//	for(Function& function : symbol_table.functions.span(source.functions())) {
+	//		if(!function.name().empty()) {
+	//			const char* demangled = cplus_demangle(function.name.c_str(), 0);
+	//			if(demangled) {
+	//				function->name = std::string(demangled);
+	//				free((void*) demangled);
+	//			}
+	//		}
+	//	}
+	//	for(std::unique_ptr<ast::Node>& global : source->globals) {
+	//		if(!global->name.empty()) {
+	//			const char* demangled = cplus_demangle(global->name.c_str(), 0);
+	//			if(demangled) {
+	//				global->name = std::string(demangled);
+	//				free((void*) demangled);
+	//			}
+	//		}
+	//	}
+	//}
 }
 
-static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const HighSymbolTable& high, const std::vector<s32>& file_indices, const FunctionsFile& functions_file) {
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	CCC_CHECK_FATAL(out, "Failed to open '%s' for writing.", path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
 	// Configure printing.
-	CppPrinter printer(out);
-	printer.print_offsets_and_sizes = false;
-	printer.print_storage_information = false;
-	printer.print_variable_data = true;
-	printer.omit_this_parameter = true;
-	printer.substitute_parameter_lists = true;
+	CppPrinterConfig config;
+	config.print_offsets_and_sizes = false;
+	config.print_storage_information = false;
+	config.print_variable_data = true;
+	config.omit_this_parameter = true;
+	config.substitute_parameter_lists = true;
+	CppPrinter printer(out, config);
 	printer.function_bodies = &functions_file.functions;
 	
 	printer.include_directive(header_path.filename().string().c_str());
 	
 	// Print types.
-	for(s32 file_index : file_indices) {
-		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-			CCC_ASSERT(node);
-			if(node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
-				printer.data_type(*node);
-			}
-		}
-	}
-	
-	// Print globals.
-	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *high.source_files[file_index].get();
-		for(const std::unique_ptr<ast::Node>& node : file.globals) {
-			printer.global_variable(node->as<ast::Variable>());
-		}
-	}
-	
-	// Print functions.
-	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *high.source_files[file_index].get();
-		for(const std::unique_ptr<ast::Node>& node : file.functions) {
-			printer.function(node->as<ast::FunctionDefinition>());
-		}
-	}
+	//for(s32 file_index : files) {
+	//	for(const DataType& data_type : symbol_table.data_types) {
+	//		CCC_ASSERT(data_type.node.get());
+	//		if(data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_index) {
+	//			printer.data_type(data_type);
+	//		}
+	//	}
+	//}
+	//
+	//// Print globals.
+	//for(s32 file_index : file_indices) {
+	//	const ast::SourceFile& file = *high.source_files[file_index].get();
+	//	for(const std::unique_ptr<ast::Node>& node : file.globals) {
+	//		printer.global_variable(node->as<ast::Variable>());
+	//	}
+	//}
+	//
+	//// Print functions.
+	//for(s32 file_index : file_indices) {
+	//	const ast::SourceFile& file = *high.source_files[file_index].get();
+	//	for(const std::unique_ptr<ast::Node>& node : file.functions) {
+	//		printer.function(node->as<ast::FunctionDefinition>());
+	//	}
+	//}
 	
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path, std::string relative_path, const HighSymbolTable& high, const std::vector<s32>& file_indices) {
+static void write_h_file(const fs::path& path, std::string relative_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
 	// Configure printing.
-	CppPrinter printer(out);
-	printer.make_globals_extern = true;
-	printer.skip_statics = true;
-	printer.print_offsets_and_sizes = false;
-	printer.print_function_bodies = false;
-	printer.print_storage_information = false;
-	printer.omit_this_parameter = true;
-	printer.substitute_parameter_lists = true;
-	printer.skip_member_functions_outside_types = true;
+	CppPrinterConfig config;
+	config.make_globals_extern = true;
+	config.skip_statics = true;
+	config.print_offsets_and_sizes = false;
+	config.print_function_bodies = false;
+	config.print_storage_information = false;
+	config.omit_this_parameter = true;
+	config.substitute_parameter_lists = true;
+	config.skip_member_functions_outside_types = true;
+	CppPrinter printer(out, config);
 	
 	for(char& c : relative_path) {
 		c = toupper(c);
@@ -304,60 +294,61 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	printer.begin_include_guard(relative_path.c_str());
 	
 	// Print types.
-	for(s32 file_index : file_indices) {
-		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-			if(!node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
-				printer.data_type(*node);
-			}
-		}
-	}
-	
-	// Print globals.
-	bool has_global = false;
-	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *high.source_files[file_index].get();
-		for(const std::unique_ptr<ast::Node>& node : file.globals) {
-			printer.global_variable(node->as<ast::Variable>());
-			has_global = true;
-		}
-	}
-	if(has_global) {
-		fprintf(out, "\n");
-	}
-	
-	// Print functions.
-	for(s32 file_index : file_indices) {
-		const ast::SourceFile& file = *high.source_files[file_index].get();
-		for(const std::unique_ptr<ast::Node>& node : file.functions) {
-			printer.function(node->as<ast::FunctionDefinition>());
-		}
-	}
+	//for(s32 file_index : file_indices) {
+	//	for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
+	//		if(!node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
+	//			printer.data_type(*node);
+	//		}
+	//	}
+	//}
+	//
+	//// Print globals.
+	//bool has_global = false;
+	//for(s32 file_index : file_indices) {
+	//	const ast::SourceFile& file = *high.source_files[file_index].get();
+	//	for(const std::unique_ptr<ast::Node>& node : file.globals) {
+	//		printer.global_variable(node->as<ast::Variable>());
+	//		has_global = true;
+	//	}
+	//}
+	//if(has_global) {
+	//	fprintf(out, "\n");
+	//}
+	//
+	//// Print functions.
+	//for(s32 file_index : file_indices) {
+	//	const ast::SourceFile& file = *high.source_files[file_index].get();
+	//	for(const std::unique_ptr<ast::Node>& node : file.functions) {
+	//		printer.function(node->as<ast::FunctionDefinition>());
+	//	}
+	//}
 	
 	printer.end_include_guard(relative_path.c_str());
 	
 	fclose(out);
 }
 
-static bool needs_lost_and_found_file(const HighSymbolTable& high) {
-	for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-		if(node->files.size() != 1) {
+static bool needs_lost_and_found_file(const SymbolTable& symbol_table) {
+	for(const DataType& data_type : symbol_table.data_types) {
+		if(data_type.files.size() != 1) {
 			return true;
 		}
 	}
 	return false;
 }
 
-static void write_lost_and_found_file(const fs::path& path, const HighSymbolTable& high) {
+static void write_lost_and_found_file(const fs::path& path, const SymbolTable& symbol_table) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
-	CppPrinter printer(out);
-	printer.print_offsets_and_sizes = false;
-	printer.omit_this_parameter = true;
-	printer.substitute_parameter_lists = true;
+	CppPrinterConfig config;
+	config.print_offsets_and_sizes = false;
+	config.omit_this_parameter = true;
+	config.substitute_parameter_lists = true;
+	CppPrinter printer(out, config);
 	s32 nodes_printed = 0;
-	for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-		if(node->files.size() != 1) {
-			if(printer.data_type(*node)) {
+	for(const DataType& data_type : symbol_table.data_types) {
+		if(data_type.files.size() != 1) {
+			if(printer.data_type(data_type)) {
 				nodes_printed++;
 			}
 		}

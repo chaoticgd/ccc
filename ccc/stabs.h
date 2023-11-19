@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ast.h"
 #include "util.h"
 #include "mdebug.h"
 
@@ -25,32 +26,9 @@ enum class StabsTypeDescriptor : u8 {
 	BUILTIN = '-'
 };
 
-enum class BuiltInClass {
-	VOID,
-	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
-	UNSIGNED_16, SIGNED_16,
-	UNSIGNED_32, SIGNED_32, FLOAT_32,
-	UNSIGNED_64, SIGNED_64, FLOAT_64,
-	UNSIGNED_128, SIGNED_128, UNQUALIFIED_128, FLOAT_128,
-	UNKNOWN_PROBABLY_ARRAY
-};
-
 struct StabsBaseClass;
 struct StabsField;
 struct StabsMemberFunctionSet;
-
-// These are used to reference STABS types from other types within a single
-// translation unit. For most games these will just be a single number, the type
-// number. In some cases, for example with the homebrew SDK, type numbers are a
-// pair of two numbers surrounded by round brackets e.g. (1,23) where the first
-// number is the index of the include file to use (includes are listed for each
-// translation unit separately), and the second number is the type number.
-struct StabsTypeNumber {
-	s32 file = -1;
-	s32 type = -1;
-	
-	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
-};
 
 // Fields to be filled in before the per-descriptor code that actually allocates
 // the stab runs.
@@ -118,18 +96,12 @@ struct StabsField {
 	std::string type_name;
 };
 
-enum class MemberFunctionModifier {
-	NONE,
-	STATIC,
-	VIRTUAL
-};
-
 struct StabsMemberFunction {
 	std::unique_ptr<StabsType> type;
 	StabsFieldVisibility visibility;
 	bool is_const = false;
 	bool is_volatile = false;
-	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
+	ast::MemberFunctionModifier modifier = ast::MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
 };
 
@@ -211,7 +183,7 @@ struct StabsRangeType : StabsType {
 	std::unique_ptr<StabsType> type;
 	s64 low_maybe_wrong = 0;
 	s64 high_maybe_wrong = -1; // For some zero-length arrays gcc writes out a malformed range, in which case these defaults are used.
-	BuiltInClass range_class = BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
+	ast::BuiltInClass range_class = ast::BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 	
 	StabsRangeType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::RANGE;
@@ -361,8 +333,6 @@ std::optional<s32> eat_s32_literal(const char*& input);
 std::optional<s64> eat_s64_literal(const char*& input);
 std::optional<std::string> eat_stabs_identifier(const char*& input);
 std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input);
-const char* builtin_class_to_string(BuiltInClass bclass);
-s32 builtin_class_size(BuiltInClass bclass);
 const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);
 
 }

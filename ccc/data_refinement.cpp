@@ -3,66 +3,42 @@
 namespace ccc {
 
 struct DataRefinementContext {
-	const HighSymbolTable& high;
+	const SymbolTable& symbol_table;
 	const std::vector<ElfFile*>& elves;
-	const std::map<u32, const ast::Node*>& address_to_node;
 };
 
-static void refine_variable(ast::Variable& variable, const DataRefinementContext& context);
+static void refine_variable(Variable& variable, const DataRefinementContext& context);
 static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
-static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context);
+static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context);
 static std::unique_ptr<ast::Node> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
 static const char* generate_format_string(s32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
 static std::string stringf(const char* format, ...);
 
-void refine_variables(HighSymbolTable& high, const std::vector<ElfFile*>& elves) {
-	// Build a map of where all functions and globals are in memory, so that we
-	// can lookup where pointers point to.
-	std::map<u32, const ast::Node*> address_to_node;
-	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
-		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
-			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
-			if(function.address_range.low != (u32) -1) {
-				address_to_node[function.address_range.low] = node.get();
-			}
-		}
-		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
-			ast::Variable& variable = node->as<ast::Variable>();
-			if(variable.storage.type == ast::VariableStorageType::GLOBAL && variable.storage.global_address != (u32) -1) {
-				address_to_node[variable.storage.global_address] = node.get();
-			}
-		}
-	}
-	
-	DataRefinementContext context{high, elves, address_to_node};
+void refine_variables(SymbolTable& symbol_table, const std::vector<ElfFile*>& elves) {
+	DataRefinementContext context{symbol_table, elves};
 	
 	// Refine all global variables.
-	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
-		for(std::unique_ptr<ast::Node>& node : source_file->globals) {
-			refine_variable(node->as<ast::Variable>(), context);
-		}
+	for(GlobalVariable& global_variable : symbol_table.global_variables) {
+		refine_variable(global_variable, context);
 	}
 	
 	// Refine all static local variables.
-	for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
-		for(std::unique_ptr<ast::Node>& node : source_file->functions) {
-			ast::FunctionDefinition& function = node->as<ast::FunctionDefinition>();
-			for(std::unique_ptr<ast::Variable>& local : function.locals) {
-				refine_variable(*local.get(), context);
-			}
-		}
+	for(LocalVariable& local_variable : symbol_table.local_variables) {
+		refine_variable(local_variable, context);
 	}
 }
 
-static void refine_variable(ast::Variable& variable, const DataRefinementContext& context) {
-	bool valid_type = variable.storage.type == ast::VariableStorageType::GLOBAL;
-	bool valid_address = variable.storage.global_address != (u32) -1;
-	bool valid_location = variable.storage.global_location != ast::GlobalVariableLocation::BSS
-		&& variable.storage.global_location != ast::GlobalVariableLocation::SBSS;
-	if(valid_type && valid_address && valid_location) {
-		variable.data = refine_node(variable.storage.global_address, *variable.type.get(), context);
+static void refine_variable(Variable& variable, const DataRefinementContext& context) {
+	Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&variable.storage);
+	if(global_storage) {
+		bool valid_address = global_storage->address != (u32) -1;
+		bool valid_location = global_storage->location != Variable::GlobalStorage::Location::BSS
+			&& global_storage->location != Variable::GlobalStorage::Location::SBSS;
+		if(valid_address && valid_location) {
+			variable.data = refine_node(global_storage->address, variable.type(), context);
+		}
 	}
 }
 
@@ -113,9 +89,6 @@ static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::No
 			data->string = stringf("%d", value);
 			return data;
 		}
-		case ast::FUNCTION_DEFINITION: {
-			break;
-		}
 		case ast::FUNCTION_TYPE: {
 			break;
 		}
@@ -126,10 +99,7 @@ static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::No
 			return refine_pointer_or_reference(virtual_address, type, context);
 		}
 		case ast::POINTER_TO_DATA_MEMBER: {
-			return refine_builtin(virtual_address, BuiltInClass::UNSIGNED_32, context);
-		}
-		case ast::SOURCE_FILE: {
-			break;
+			return refine_builtin(virtual_address, ast::BuiltInClass::UNSIGNED_32, context);
 		}
 		case ast::STRUCT_OR_UNION: {
 			const ast::StructOrUnion& struct_or_union = type.as<ast::StructOrUnion>();
@@ -156,13 +126,13 @@ static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::No
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
-			s32 resolved_type_index = lookup_type(type_name, context.high, nullptr);
-			if(resolved_type_index > -1) {
-				const ast::Node& resolved_type = *context.high.deduplicated_types.at(resolved_type_index).get();
-				if(!resolved_type.is_currently_processing) {
-					type.is_currently_processing = true;
-					std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type, context);
-					type.is_currently_processing = false;
+			DataTypeHandle resolved_type_handle = context.symbol_table.lookup_type(type_name, false);
+			if(resolved_type_handle.valid()) {
+				const DataType& resolved_type = context.symbol_table.data_types.at(resolved_type_handle);
+				if(!resolved_type.type().is_currently_processing) {
+					resolved_type.type().is_currently_processing = true;
+					std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type.type(), context);
+					resolved_type.type().is_currently_processing = false;
 					return result;
 				}
 			}
@@ -170,26 +140,23 @@ static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::No
 			error->string = "CCC_TYPE_LOOKUP_FAILED";
 			return error;
 		}
-		case ast::VARIABLE: {
-			break;
-		}
 	}
 	
 	CCC_FATAL("Failed to refine global variable (%s).", ast::node_type_to_string(type));
 }
 
-static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInClass bclass, const DataRefinementContext& context) {
+static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context) {
 	std::unique_ptr<ast::Data> data = nullptr;
 	
 	switch(bclass) {
-		case BuiltInClass::VOID: {
+		case ast::BuiltInClass::VOID: {
 			break;
 		}
-		case BuiltInClass::UNSIGNED_8:
-		case BuiltInClass::UNQUALIFIED_8:
-		case BuiltInClass::UNSIGNED_16:
-		case BuiltInClass::UNSIGNED_32:
-		case BuiltInClass::UNSIGNED_64: {
+		case ast::BuiltInClass::UNSIGNED_8:
+		case ast::BuiltInClass::UNQUALIFIED_8:
+		case ast::BuiltInClass::UNSIGNED_16:
+		case ast::BuiltInClass::UNSIGNED_32:
+		case ast::BuiltInClass::UNSIGNED_64: {
 			data = std::make_unique<ast::Data>();
 			u64 value = 0;
 			s32 size = builtin_class_size(bclass);
@@ -198,10 +165,10 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			data->string = stringf(format, value);
 			break;
 		}
-		case BuiltInClass::SIGNED_8:
-		case BuiltInClass::SIGNED_16:
-		case BuiltInClass::SIGNED_32:
-		case BuiltInClass::SIGNED_64: {
+		case ast::BuiltInClass::SIGNED_8:
+		case ast::BuiltInClass::SIGNED_16:
+		case ast::BuiltInClass::SIGNED_32:
+		case ast::BuiltInClass::SIGNED_64: {
 			data = std::make_unique<ast::Data>();
 			s64 value = 0;
 			s32 size = builtin_class_size(bclass);
@@ -210,14 +177,14 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			data->string = stringf(format, value);
 			break;
 		}
-		case BuiltInClass::BOOL_8: {
+		case ast::BuiltInClass::BOOL_8: {
 			data = std::make_unique<ast::Data>();
 			bool value = false;
 			read_virtual((u8*) &value, virtual_address, 1, context.elves);
 			data->string = value ? "true" : "false";
 			break;
 		}
-		case BuiltInClass::FLOAT_32: {
+		case ast::BuiltInClass::FLOAT_32: {
 			data = std::make_unique<ast::Data>();
 			float value = 0.f;
 			static_assert(sizeof(value) == 4);
@@ -225,7 +192,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			data->string = single_precision_float_to_string(value);
 			break;
 		}
-		case BuiltInClass::FLOAT_64: {
+		case ast::BuiltInClass::FLOAT_64: {
 			data = std::make_unique<ast::Data>();
 			double value = 0.f;
 			static_assert(sizeof(value) == 8);
@@ -236,10 +203,10 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 			}
 			break;
 		}
-		case BuiltInClass::UNSIGNED_128:
-		case BuiltInClass::SIGNED_128:
-		case BuiltInClass::UNQUALIFIED_128:
-		case BuiltInClass::FLOAT_128: {
+		case ast::BuiltInClass::UNSIGNED_128:
+		case ast::BuiltInClass::SIGNED_128:
+		case ast::BuiltInClass::UNQUALIFIED_128:
+		case ast::BuiltInClass::FLOAT_128: {
 			data = std::make_unique<ast::Data>();
 			float value[4];
 			read_virtual((u8*) value, virtual_address, 16, context.elves);
@@ -250,7 +217,7 @@ static std::unique_ptr<ast::Node> refine_builtin(u32 virtual_address, BuiltInCla
 				single_precision_float_to_string(value[3]).c_str());
 			break;
 		}
-		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: {
+		case ast::BuiltInClass::UNKNOWN_PROBABLY_ARRAY: {
 			break;
 		}
 	}
@@ -264,17 +231,17 @@ static std::unique_ptr<ast::Node> refine_pointer_or_reference(u32 virtual_addres
 	u32 address = 0;
 	read_virtual((u8*) &address, virtual_address, 4, context.elves);
 	if(address != 0) {
-		auto node = context.address_to_node.find(address);
-		if(node != context.address_to_node.end()) {
-			if(node->second->descriptor == ast::VARIABLE) {
-				const ast::Variable& variable = node->second->as<ast::Variable>();
-				bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
-					&& type.as<ast::PointerOrReference>().is_pointer;
-				if(is_pointer && variable.type->descriptor != ast::ARRAY) {
-					data->string += "&";
-				}
-			}
-			data->string += node->second->name;
+		const Function* function_symbol = context.symbol_table.functions[address];
+		if(function_symbol) {
+			//if(node->second->descriptor == ast::VARIABLE) {
+			//	const ast::Variable& variable = node->second->as<ast::Variable>();
+			//	bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
+			//		&& type.as<ast::PointerOrReference>().is_pointer;
+			//	if(is_pointer && variable.type->descriptor != ast::ARRAY) {
+			//		data->string += "&";
+			//	}
+			//}
+			data->string += function_symbol->name();
 		} else {
 			data->string = stringf("0x%x", address);
 		}

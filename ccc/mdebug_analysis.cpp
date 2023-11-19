@@ -1,23 +1,25 @@
-#include "analysis.h"
+#include "mdebug_analysis.h"
 
 #include "stabs_to_ast.h"
 
 namespace ccc {
 
 struct AnalysisContext {
-	const mdebug::SymbolTable* symbol_table;
+	const mdebug::SymbolTableReader* reader;
 	const std::map<std::string, const mdebug::Symbol*>* globals;
 	u32 flags;
 };
 
-static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context);
-static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high);
-static std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
+static Result<void> analyse_file(SymbolTable& symbol_table, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context);
+static void compute_size_bytes_recursive(ast::Node& node, const SymbolTable& high);
+static std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
 class LocalSymbolTableAnalyser {
 public:
-	LocalSymbolTableAnalyser(ast::SourceFile& output, StabsToAstState& stabs_to_ast_state)
-		: m_output(output), m_stabs_to_ast_state(stabs_to_ast_state) {}
+	LocalSymbolTableAnalyser(SourceFile& output, SymbolTable& symbol_table, StabsToAstState& stabs_to_ast_state)
+		: m_symbol_table(symbol_table)
+		, m_stabs_to_ast_state(stabs_to_ast_state)
+		, m_source_file(output) {}
 	
 	// Functions for processing individual symbols.
 	//
@@ -37,24 +39,24 @@ public:
 	//   ... line numbers ...
 	//   end
 	//   ... blocks ...
-	Result<void> stab_magic(const char* magic);
-	Result<void> source_file(const char* path, u32 text_address);
-	Result<void> data_type(const ParsedSymbol& symbol);
-	Result<void> global_variable(const char* name, u32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location);
-	Result<void> sub_source_file(const char* name, u32 text_address);
-	Result<void> procedure(const char* name, u32 address, bool is_static);
-	Result<void> label(const char* label, u32 address, s32 line_number);
-	Result<void> text_end(const char* name, s32 function_size);
-	Result<void> function(const char* name, const StabsType& return_type, u32 function_address);
-	Result<void> function_end();
-	Result<void> parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
-	Result<void> local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static);
-	Result<void> lbrac(s32 number, s32 begin_offset);
-	Result<void> rbrac(s32 number, s32 end_offset);
+	[[nodiscard]] Result<void> stab_magic(const char* magic);
+	[[nodiscard]] Result<void> source_file(const char* path, u32 text_address);
+	[[nodiscard]] Result<void> data_type(const ParsedSymbol& symbol);
+	[[nodiscard]] Result<void> global_variable(const char* name, u32 address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location);
+	[[nodiscard]] Result<void> sub_source_file(const char* name, u32 text_address);
+	[[nodiscard]] Result<void> procedure(const char* name, u32 address, bool is_static);
+	[[nodiscard]] Result<void> label(const char* label, u32 address, s32 line_number);
+	[[nodiscard]] Result<void> text_end(const char* name, s32 function_size);
+	[[nodiscard]] Result<void> function(const char* name, const StabsType& return_type, u32 address);
+	[[nodiscard]] Result<void> function_end();
+	[[nodiscard]] Result<void> parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
+	[[nodiscard]] Result<void> local_variable(const char* name, const StabsType& type, const Variable::Storage& storage, bool is_static);
+	[[nodiscard]] Result<void> lbrac(s32 number, s32 begin_offset);
+	[[nodiscard]] Result<void> rbrac(s32 number, s32 end_offset);
 	
-	Result<void> finish();
+	[[nodiscard]] Result<void> finish();
 	
-	void create_function(const char* name);
+	[[nodiscard]] Result<void> create_function(u32 address, const char* name);
 	
 protected:
 	enum AnalysisState {
@@ -63,23 +65,26 @@ protected:
 		IN_FUNCTION_END
 	};
 	
-	ast::SourceFile& m_output;
+	SymbolTable& m_symbol_table;
 	StabsToAstState& m_stabs_to_ast_state;
 	
 	AnalysisState m_state = NOT_IN_FUNCTION;
-	ast::FunctionDefinition* m_current_function = nullptr;
-	ast::FunctionType* m_current_function_type = nullptr;
-	std::vector<ast::Variable*> m_pending_variables_begin;
-	std::map<s32, std::vector<ast::Variable*>> m_pending_variables_end;
+	SourceFile& m_source_file;
+	FunctionRange m_functions;
+	Function* m_current_function = nullptr;
+	ParameterVariableRange m_current_parameter_variables;
+	LocalVariableRange m_current_local_variables;
+	std::vector<LocalVariableHandle> m_pending_local_variables_begin;
+	std::map<s32, std::vector<LocalVariableHandle>> m_pending_local_variables_end;
 	std::string m_next_relative_path;
 };
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags);
 
-Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 flags, s32 file_index) {
-	HighSymbolTable high;
+Result<SymbolTable> analyse(const mdebug::SymbolTableReader& reader, u32 flags, s32 file_index) {
+	SymbolTable symbol_table;
 	
-	Result<std::vector<mdebug::Symbol>> external_symbols = symbol_table.parse_external_symbols();
+	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
 	CCC_RETURN_IF_ERROR(external_symbols);
 	
 	// The addresses of the global variables aren't present in the local symbol
@@ -96,63 +101,62 @@ Result<HighSymbolTable> analyse(const mdebug::SymbolTable& symbol_table, u32 fla
 	
 	// Bundle together some unchanging state to pass to analyse_file.
 	AnalysisContext context;
-	context.symbol_table = &symbol_table;
+	context.reader = &reader;
 	context.globals = &globals;
 	context.flags = flags;
 	
-	Result<s32> file_count = symbol_table.file_count();
+	Result<s32> file_count = reader.file_count();
 	CCC_RETURN_IF_ERROR(file_count);
 	
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_index > -1) {
 		CCC_CHECK_FATAL(file_index < *file_count, "File index out of range.");
-		Result<void> result = analyse_file(high, deduplicator, file_index, context);
+		Result<void> result = analyse_file(symbol_table, deduplicator, file_index, context);
 		CCC_RETURN_IF_ERROR(result);
 	} else {
 		for(s32 i = 0; i < *file_count; i++) {
-			Result<void> result = analyse_file(high, deduplicator, i, context);
+			Result<void> result = analyse_file(symbol_table, deduplicator, i, context);
 			CCC_RETURN_IF_ERROR(result);
 		}
 	}
 	
 	// Deduplicate types from different translation units, preserving multiple
 	// copies of types that actually differ.
-	if(flags & DEDUPLICATE_TYPES) {
-		high.deduplicated_types = deduplicator.finish();
-		
-		// The files field may be modified by further analysis passes, so we
-		// need to save this information here.
-		for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-			if(node->files.size() == 1) {
-				node->probably_defined_in_cpp_file = true;
-			}
-		}
-		
-		// Compute size information for all nodes.
-		for(std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
-			compute_size_bytes_recursive(*source_file.get(), high);
-		}
-		for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
-			compute_size_bytes_recursive(*type.get(), high);
+	//symbol_table.data_types = deduplicator.finish();
+	
+	// The files field may be modified by further analysis passes, so we
+	// need to save this information here.
+	for(DataType& data_type : symbol_table.data_types) {
+		if(data_type.files.size() == 1) {
+			data_type.probably_defined_in_cpp_file = true;
 		}
 	}
 	
-	return high;
+	// Compute size information for all nodes.
+#define CCC_X(SymbolType, symbol_list) \
+	for(SymbolType& symbol : symbol_table.symbol_list) { \
+		if(symbol.type_ptr()) { \
+			compute_size_bytes_recursive(*symbol.type_ptr(), symbol_table); \
+		} \
+	}
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+#undef CCC_X
+	
+	return symbol_table;
 }
 
-static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context) {
-	Result<mdebug::File> input = context.symbol_table->parse_file(file_index);
+static Result<void> analyse_file(SymbolTable& symbol_table, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context) {
+	Result<mdebug::File> input = context.reader->parse_file(file_index);
 	CCC_RETURN_IF_ERROR(input);
 	
-	auto file = std::make_unique<ast::SourceFile>();
-	file->full_path = input->full_path;
-	file->is_windows_path = input->is_windows_path;
+	SourceFile* source_file = symbol_table.source_files.create_symbol(input->full_path);
+	CCC_CHECK(source_file, "Failed to create source file symbol.");
 	
 	// Sometimes the INFO symbols contain information about what toolchain
 	// version was used for building the executable.
 	for(mdebug::Symbol& symbol : input->symbols) {
 		if(symbol.storage_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
-			file->toolchain_version_info.emplace(symbol.string);
+			source_file->toolchain_version_info.emplace(symbol.string);
 		}
 	}
 	
@@ -175,7 +179,7 @@ static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMa
 	stabs_to_ast_state.stabs_types = &stabs_types;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
-	LocalSymbolTableAnalyser analyser(*file.get(), stabs_to_ast_state);
+	LocalSymbolTableAnalyser analyser(*source_file, symbol_table, stabs_to_ast_state);
 	for(const ParsedSymbol& symbol : *symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
@@ -197,6 +201,7 @@ static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMa
 						bool is_stack_variable = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::VALUE_PARAMETER;
 						bool is_by_reference = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REFERENCE_PARAMETER_A
 							|| symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REFERENCE_PARAMETER_V;
+						
 						Result<void> result = analyser.parameter(name, type, is_stack_variable, symbol.raw->value, is_by_reference);
 						CCC_RETURN_IF_ERROR(result);
 						break;
@@ -206,21 +211,29 @@ static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMa
 					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
-						ast::VariableStorageType storage_type = ast::VariableStorageType::GLOBAL;
-						ast::GlobalVariableLocation location = ast::GlobalVariableLocation::NIL;
+						Variable::Storage storage;
 						bool is_static = false;
+						
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
-							storage_type = ast::VariableStorageType::GLOBAL;
-							std::optional<ast::GlobalVariableLocation> location_opt = symbol_class_to_global_variable_location(symbol.raw->storage_class);
+							Variable::GlobalStorage global_storage;
+							std::optional<Variable::GlobalStorage::Location> location_opt =
+								symbol_class_to_global_variable_location(symbol.raw->storage_class);
 							CCC_CHECK(location_opt.has_value(), "Invalid static local variable location.");
-							location = *location_opt;
+							global_storage.location = *location_opt;
+							global_storage.address = symbol.raw->value;
+							storage = global_storage;
 							is_static = true;
 						} else if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
-							storage_type = ast::VariableStorageType::REGISTER;
+							Variable::RegisterStorage register_storage;
+							register_storage.dbx_register_number = symbol.raw->value;
+							storage = register_storage;
 						} else {
-							storage_type = ast::VariableStorageType::STACK;
+							Variable::StackStorage stack_storage;
+							stack_storage.stack_pointer_offset = symbol.raw->value;
+							storage = stack_storage;
 						}
-						Result<void> result = analyser.local_variable(name, type, storage_type, symbol.raw->value, location, is_static);
+						
+						Result<void> result = analyser.local_variable(name, type, storage, is_static);
 						CCC_RETURN_IF_ERROR(result);
 						break;
 					}
@@ -228,7 +241,8 @@ static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMa
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						u32 address = -1;
-						std::optional<ast::GlobalVariableLocation> location = symbol_class_to_global_variable_location(symbol.raw->storage_class);
+						std::optional<Variable::GlobalStorage::Location> location =
+							symbol_class_to_global_variable_location(symbol.raw->storage_class);
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
 							// The address for non-static global variables is
 							// only stored in the external symbol table (and
@@ -315,22 +329,18 @@ static Result<void> analyse_file(HighSymbolTable& high, ast::TypeDeduplicatorOMa
 	// Some enums have two separate stabs generated for them, one with a
 	// name of " ", where one stab references the other. Remove these
 	// duplicate AST nodes.
-	ast::remove_duplicate_enums(file->data_types);
+	//ast::remove_duplicate_enums(source_file.data_types);
 	
 	// For some reason typedefs referencing themselves are generated along
 	// with a proper struct of the same name.
-	ast::remove_duplicate_self_typedefs(file->data_types);
+	//ast::remove_duplicate_self_typedefs(source_file.data_types);
 	
 	// Filter the AST depending on the flags parsed, removing things the
 	// calling code didn't ask for.
-	filter_ast_by_flags(*file, context.flags);
-	
-	high.source_files.emplace_back(std::move(file));
+	//filter_ast_by_flags(*file, context.flags);
 	
 	// Deduplicate types.
-	if(context.flags & DEDUPLICATE_TYPES) {
-		deduplicator.process_file(*high.source_files.back().get(), file_index, high.source_files);
-	}
+	//deduplicator.process_file(source_file, file_index, high.source_files);
 	
 	return Result<void>();
 }
@@ -340,10 +350,10 @@ Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 }
 
 Result<void> LocalSymbolTableAnalyser::source_file(const char* path, u32 text_address) {
-	m_output.relative_path = path;
-	m_output.text_address = text_address;
+	m_source_file.relative_path = path;
+	m_source_file.text_address = text_address;
 	if(m_next_relative_path.empty()) {
-		m_next_relative_path = m_output.relative_path;
+		m_next_relative_path = m_source_file.relative_path;
 	}
 	
 	return Result<void>();
@@ -353,30 +363,33 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	Result<std::unique_ptr<ast::Node>> node = stabs_data_type_symbol_to_ast(symbol, m_stabs_to_ast_state);
 	CCC_RETURN_IF_ERROR(node);
 	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
-	m_output.data_types.emplace_back(std::move(*node));
+	m_source_file.data_types.emplace_back(std::move(*node));
 	
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, u32 address, const StabsType& type, bool is_static, ast::GlobalVariableLocation location) {
-	std::unique_ptr<ast::Variable> global = std::make_unique<ast::Variable>();
-	global->name = name;
+Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, u32 address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
+	GlobalVariable* global = m_symbol_table.global_variables.create_symbol(name, address);
+	CCC_CHECK(global, "Failed to create global variable symbol.");
+	
+	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
-		global->storage_class = ast::SC_STATIC;
+		node->storage_class = ast::SC_STATIC;
 	}
-	global->variable_class = ast::VariableClass::GLOBAL;
-	global->storage.type = ast::VariableStorageType::GLOBAL;
-	global->storage.global_location = location;
-	global->storage.global_address = address;
-	global->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
-	m_output.globals.emplace_back(std::move(global));
+	global->set_type_and_invalidate_node_handles(std::move(node));
+	
+	global->variable_class = Variable::Class::GLOBAL;
+	Variable::GlobalStorage global_storage;
+	global_storage.location = location;
+	global_storage.address = address;
+	global->storage = global_storage;
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, u32 text_address) {
 	if(m_current_function && m_state == IN_FUNCTION_BEGINNING) {
-		ast::SubSourceFile& sub = m_current_function->sub_source_files.emplace_back();
+		Function::SubSourceFile& sub = m_current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
 		sub.relative_path = path;
 	} else {
@@ -387,8 +400,9 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, u32 tex
 }
 
 Result<void> LocalSymbolTableAnalyser::procedure(const char* name, u32 address, bool is_static) {
-	if(!m_current_function || strcmp(name, m_current_function->name.c_str())) {
-		create_function(name);
+	if(!m_current_function || strcmp(name, m_current_function->name().c_str())) {
+		Result<void> result = create_function(address, name);
+		CCC_RETURN_IF_ERROR(result);
 	}
 	
 	m_current_function->address_range.low = address;
@@ -396,8 +410,8 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, u32 address, 
 		m_current_function->storage_class = ast::SC_STATIC;
 	}
 	
-	m_pending_variables_begin.clear();
-	m_pending_variables_end.clear();
+	m_pending_local_variables_begin.clear();
+	m_pending_local_variables_end.clear();
 	
 	return Result<void>();
 }
@@ -405,7 +419,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, u32 address, 
 Result<void> LocalSymbolTableAnalyser::label(const char* label, u32 address, s32 line_number) {
 	if(address != (u32) -1 && m_current_function && label[0] == '$') {
 		CCC_CHECK(address < 256 * 1024 * 1024, "Address too big.");
-		ast::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
+		Function::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
 		pair.address = address;
 		pair.line_number = line_number;
 	}
@@ -425,92 +439,98 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, u32 function_address) {
-	if(!m_current_function || strcmp(name, m_current_function->name.c_str())) {
-		create_function(name);
+Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, u32 address) {
+	if(!m_current_function || strcmp(name, m_current_function->name().c_str())) {
+		Result<void> result = create_function(address, name);
+		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	m_current_function_type->return_type = stabs_type_to_ast_and_handle_errors(return_type, m_stabs_to_ast_state, 0, 0, true, true);
+	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(return_type, m_stabs_to_ast_state, 0, 0, true, true);;
+	m_current_function->set_type_and_invalidate_node_handles(std::move(node));
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::function_end() {
+	if(m_current_function) {
+		m_current_function->set_parameter_variables(m_current_parameter_variables, DONT_DELETE_OLD_SYMBOLS, m_symbol_table);
+		m_current_function->set_local_variables(m_current_local_variables, DONT_DELETE_OLD_SYMBOLS, m_symbol_table);
+	}
+	
 	m_current_function = nullptr;
-	m_current_function_type = nullptr;
+	m_current_parameter_variables.clear();
+	m_current_local_variables.clear();
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
-	CCC_CHECK(m_current_function_type, "Parameter symbol before first func/proc symbol.");
-	std::unique_ptr<ast::Variable> parameter = std::make_unique<ast::Variable>();
-	parameter->name = name;
-	parameter->variable_class = ast::VariableClass::PARAMETER;
+	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
+	
+	ParameterVariable* parameter_variable = m_symbol_table.parameter_variables.create_symbol(name);
+	CCC_CHECK(parameter_variable, "Failed to create parameter variable symbol.");
+	m_current_parameter_variables.expand_to_include(parameter_variable->handle());
+	
+	parameter_variable->set_type_and_invalidate_node_handles(stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true));
+	
+	parameter_variable->variable_class = Variable::Class::PARAMETER;
 	if(is_stack_variable) {
-		parameter->storage.type = ast::VariableStorageType::STACK;
-		parameter->storage.stack_pointer_offset = offset_or_register;
+		Variable::StackStorage stack_storage;
+		stack_storage.stack_pointer_offset = offset_or_register;
+		parameter_variable->storage = stack_storage;
 	} else {
-		parameter->storage.type = ast::VariableStorageType::REGISTER;
-		parameter->storage.dbx_register_number = offset_or_register;
-		parameter->storage.is_by_reference = is_by_reference;
+		Variable::RegisterStorage register_storage;
+		register_storage.dbx_register_number = offset_or_register;
+		register_storage.is_by_reference = is_by_reference;
+		parameter_variable->storage = register_storage;
 	}
-	parameter->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
-	m_current_function_type->parameters->emplace_back(std::move(parameter));
 	
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, ast::VariableStorageType storage_type, s32 value, ast::GlobalVariableLocation location, bool is_static) {
+Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, const Variable::Storage& storage, bool is_static) {
 	if(!m_current_function) {
 		return Result<void>();
 	}
-	std::unique_ptr<ast::Variable> local = std::make_unique<ast::Variable>();
-	m_pending_variables_begin.emplace_back(local.get());
-	local->name = name;
+	
+	LocalVariable* local_variable = m_symbol_table.local_variables.create_symbol(name);
+	CCC_CHECK(local_variable, "Failed to create local variable symbol.");
+	m_pending_local_variables_begin.emplace_back(local_variable->handle());
+	
+	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
-		local->storage_class = ast::SC_STATIC;
+		node->storage_class = ast::SC_STATIC;
 	}
-	local->variable_class = ast::VariableClass::LOCAL;
-	local->storage.type = storage_type;
-	switch(storage_type) {
-		case ast::VariableStorageType::GLOBAL: {
-			local->storage.global_location = location;
-			local->storage.global_address = value;
-			break;
-		}
-		case ast::VariableStorageType::REGISTER: {
-			local->storage.dbx_register_number = value;
-			break;
-		}
-		case ast::VariableStorageType::STACK: {
-			local->storage.stack_pointer_offset = value;
-			break;
-		}
-	}
-	local->type = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
-	m_current_function->locals.emplace_back(std::move(local));
+	local_variable->set_type_and_invalidate_node_handles(std::move(node));
+	
+	local_variable->variable_class = Variable::Class::LOCAL;
+	local_variable->storage = storage;
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::lbrac(s32 number, s32 begin_offset) {
-	auto& pending_end = m_pending_variables_end[number];
-	for(ast::Variable* variable : m_pending_variables_begin) {
-		pending_end.emplace_back(variable);
-		variable->block.low = m_output.text_address + begin_offset;
+	for(LocalVariableHandle local_variable_handle : m_pending_local_variables_begin) {
+		LocalVariable* local_variable = m_symbol_table.local_variables[local_variable_handle];
+		CCC_ASSERT(local_variable);
+		local_variable->live_range.low = m_source_file.text_address + begin_offset;
 	}
-	m_pending_variables_begin.clear();
+	
+	auto& pending_end = m_pending_local_variables_end[number];
+	pending_end.insert(pending_end.end(), CCC_BEGIN_END(m_pending_local_variables_begin));
+	m_pending_local_variables_begin.clear();
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
-	auto variables = m_pending_variables_end.find(number);
-	CCC_CHECK(variables != m_pending_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
+	auto variables = m_pending_local_variables_end.find(number);
+	CCC_CHECK(variables != m_pending_local_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
 	
-	for(ast::Variable* variable : variables->second) {
-		variable->block.high = m_output.text_address + end_offset;
+	for(LocalVariableHandle local_variable_handle : variables->second) {
+		LocalVariable* local_variable = m_symbol_table.local_variables[local_variable_handle];
+		CCC_ASSERT(local_variable);
+		local_variable->live_range.high = m_source_file.text_address + end_offset;
 	}
 	
 	return Result<void>();
@@ -518,26 +538,25 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
 
 Result<void> LocalSymbolTableAnalyser::finish() {
 	CCC_CHECK(m_state != IN_FUNCTION_BEGINNING,
-		"Unexpected end of symbol table for '%s'.", m_output.full_path.c_str());
+		"Unexpected end of symbol table for '%s'.", m_source_file.name().c_str());
+	
+	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_symbol_table);
 	
 	return Result<void>();
 }
 
-void LocalSymbolTableAnalyser::create_function(const char* name) {
-	std::unique_ptr<ast::FunctionDefinition> ptr = std::make_unique<ast::FunctionDefinition>();
-	m_current_function = ptr.get();
-	m_output.functions.emplace_back(std::move(ptr));
-	m_current_function->name = name;
+Result<void> LocalSymbolTableAnalyser::create_function(u32 address, const char* name) {
+	m_current_function = m_symbol_table.functions.create_symbol(name, address);
+	CCC_CHECK(m_current_function, "Failed to create function symbol.");
+	m_functions.expand_to_include(m_current_function->handle());
+	
 	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
 	
-	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_output.relative_path) {
+	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_source_file.relative_path) {
 		m_current_function->relative_path = m_next_relative_path;
 	}
 	
-	std::unique_ptr<ast::FunctionType> function_type = std::make_unique<ast::FunctionType>();
-	m_current_function_type = function_type.get();
-	m_current_function_type->parameters.emplace();
-	m_current_function->type = std::move(function_type);
+	return Result<void>();
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
@@ -592,7 +611,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 flags) {
 	});
 }
 
-static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable& high) {
+static void compute_size_bytes_recursive(ast::Node& node, const SymbolTable& high) {
 	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
 		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
 			return ast::EXPLORE_CHILDREN;
@@ -617,9 +636,6 @@ static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable&
 			case ast::DATA: {
 				break;
 			}
-			case ast::FUNCTION_DEFINITION: {
-				break;
-			}
 			case ast::FUNCTION_TYPE: {
 				break;
 			}
@@ -641,29 +657,19 @@ static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable&
 			case ast::POINTER_TO_DATA_MEMBER: {
 				break;
 			}
-			case ast::SOURCE_FILE: {
-				break;
-			}
 			case ast::TYPE_NAME: {
-				ast::TypeName& type_name = node.as<ast::TypeName>();
-				if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
-					const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
-					auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-					if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
-						ast::Node& resolved_type = *high.deduplicated_types.at(type_index->second).get();
-						if(resolved_type.computed_size_bytes < 0 && !resolved_type.cannot_compute_size) {
-							compute_size_bytes_recursive(resolved_type, high);
-						}
-						type_name.computed_size_bytes = resolved_type.computed_size_bytes;
-					}
-				}
-				break;
-			}
-			case ast::VARIABLE: {
-				ast::Variable& variable = node.as<ast::Variable>();
-				if(variable.type->computed_size_bytes > -1) {
-					variable.computed_size_bytes = variable.type->computed_size_bytes;
-				}
+				//ast::TypeName& type_name = node.as<ast::TypeName>();
+				//if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
+				//	const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
+				//	auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
+				//	if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
+				//		ast::Node& resolved_type = *high.deduplicated_types.at(type_index->second).get();
+				//		if(resolved_type.computed_size_bytes < 0 && !resolved_type.cannot_compute_size) {
+				//			compute_size_bytes_recursive(resolved_type, high);
+				//		}
+				//		type_name.computed_size_bytes = resolved_type.computed_size_bytes;
+				//	}
+				//}
 				break;
 			}
 		}
@@ -674,94 +680,59 @@ static void compute_size_bytes_recursive(ast::Node& node, const HighSymbolTable&
 	});
 }
 
-static std::optional<ast::GlobalVariableLocation> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {
-	std::optional<ast::GlobalVariableLocation> location;
+static std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {
+	std::optional<Variable::GlobalStorage::Location> location;
 	switch(symbol_class) {
-		case mdebug::SymbolClass::NIL: location = ast::GlobalVariableLocation::NIL; break;
-		case mdebug::SymbolClass::DATA: location = ast::GlobalVariableLocation::DATA; break;
-		case mdebug::SymbolClass::BSS: location = ast::GlobalVariableLocation::BSS; break;
-		case mdebug::SymbolClass::ABS: location = ast::GlobalVariableLocation::ABS; break;
-		case mdebug::SymbolClass::SDATA: location = ast::GlobalVariableLocation::SDATA; break;
-		case mdebug::SymbolClass::SBSS: location = ast::GlobalVariableLocation::SBSS; break;
-		case mdebug::SymbolClass::RDATA: location = ast::GlobalVariableLocation::RDATA; break;
-		case mdebug::SymbolClass::COMMON: location = ast::GlobalVariableLocation::COMMON; break;
-		case mdebug::SymbolClass::SCOMMON: location = ast::GlobalVariableLocation::SCOMMON; break;
+		case mdebug::SymbolClass::NIL: location = Variable::GlobalStorage::Location::NIL; break;
+		case mdebug::SymbolClass::DATA: location = Variable::GlobalStorage::Location::DATA; break;
+		case mdebug::SymbolClass::BSS: location = Variable::GlobalStorage::Location::BSS; break;
+		case mdebug::SymbolClass::ABS: location = Variable::GlobalStorage::Location::ABS; break;
+		case mdebug::SymbolClass::SDATA: location = Variable::GlobalStorage::Location::SDATA; break;
+		case mdebug::SymbolClass::SBSS: location = Variable::GlobalStorage::Location::SBSS; break;
+		case mdebug::SymbolClass::RDATA: location = Variable::GlobalStorage::Location::RDATA; break;
+		case mdebug::SymbolClass::COMMON: location = Variable::GlobalStorage::Location::COMMON; break;
+		case mdebug::SymbolClass::SCOMMON: location = Variable::GlobalStorage::Location::SCOMMON; break;
 		default: {}
 	}
 	return location;
 }
 
-std::map<std::string, s32> build_type_name_to_deduplicated_type_index_map(const HighSymbolTable& symbol_table) {
-	std::map<std::string, s32> type_name_to_deduplicated_type_index;
-	for(size_t i = 0; i < symbol_table.deduplicated_types.size(); i++) {
-		ccc::ast::Node& type = *symbol_table.deduplicated_types[i].get();
-		if(!type.name.empty()) {
-			type_name_to_deduplicated_type_index.emplace(type.name, (s32) i);
-		}
-	}
-	return type_name_to_deduplicated_type_index;
-}
-
-s32 lookup_type(const ast::TypeName& type_name, const HighSymbolTable& symbol_table, const std::map<std::string, s32>* type_name_to_deduplicated_type_index) {
-	// Lookup the type by its STABS type number. This path ensures that the
-	// correct type is found even if multiple types have the same name.
-	if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
-		const ast::SourceFile& source_file = *symbol_table.source_files[type_name.referenced_file_index].get();
-		auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-		if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
-			return type_index->second;
-		}
-	}
-	// Looking up the type by its STABS type number failed, so look for it by
-	// its name instead. This happens when a type is forward declared but not
-	// defined in a given translation unit.
-	if(type_name_to_deduplicated_type_index) {
-		auto iter = type_name_to_deduplicated_type_index->find(type_name.type_name);
-		if(iter != type_name_to_deduplicated_type_index->end()) {
-			return iter->second;
-		}
-	}
-	// Type lookup failed. This happens when a type is forward declared in a
-	// translation unit with symbols but is not defined in one.
-	return -1;
-}
-
-void fill_in_pointers_to_member_function_definitions(HighSymbolTable& high) {
-	// Enumerate data types.
-	std::map<std::string, ast::StructOrUnion*> type_name_to_node;
-	for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
-		if(type->descriptor == ast::STRUCT_OR_UNION && !type->name.empty()) {
-			type_name_to_node[type->name] = &type->as<ast::StructOrUnion>();
-		}
-	}
-	
-	// Fill in pointers from member function declaration to corresponding definitions.
-	for(const std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
-		for(const std::unique_ptr<ast::Node>& node : source_file->functions) {
-			ast::FunctionDefinition& definition = node->as<ast::FunctionDefinition>();
-			std::string::size_type name_separator_pos = definition.name.find_last_of("::");
-			if(name_separator_pos != std::string::npos && name_separator_pos > 0) {
-				std::string function_name = definition.name.substr(name_separator_pos + 1);
-				// This won't work for some template types, and that's okay.
-				std::string::size_type type_separator_pos = definition.name.find_last_of("::", name_separator_pos - 2);
-				std::string type_name;
-				if(type_separator_pos != std::string::npos) {
-					type_name = definition.name.substr(type_separator_pos + 1, name_separator_pos - type_separator_pos - 2);
-				} else {
-					type_name = definition.name.substr(0, name_separator_pos - 1);
-				}
-				auto type = type_name_to_node.find(type_name);
-				if(type != type_name_to_node.end()) {
-					for(std::unique_ptr<ast::Node>& declaration : type->second->member_functions) {
-						if(declaration->name == function_name) {
-							declaration->as<ast::FunctionType>().definition = &definition;
-							definition.is_member_function_ish = true;
-						}
-					}
-				}
-			}
-		}
-	}
+void fill_in_pointers_to_member_function_definitions(SymbolTable& symbol_table) {
+	//// Enumerate data types.
+	//std::map<std::string, ast::StructOrUnion*> type_name_to_node;
+	//for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
+	//	if(type->descriptor == ast::STRUCT_OR_UNION && !type->name.empty()) {
+	//		type_name_to_node[type->name] = &type->as<ast::StructOrUnion>();
+	//	}
+	//}
+	//
+	//// Fill in pointers from member function declaration to corresponding definitions.
+	//for(const std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
+	//	for(const std::unique_ptr<ast::Node>& node : source_file->functions) {
+	//		ast::FunctionDefinition& definition = node->as<ast::FunctionDefinition>();
+	//		std::string::size_type name_separator_pos = definition.name.find_last_of("::");
+	//		if(name_separator_pos != std::string::npos && name_separator_pos > 0) {
+	//			std::string function_name = definition.name.substr(name_separator_pos + 1);
+	//			// This won't work for some template types, and that's okay.
+	//			std::string::size_type type_separator_pos = definition.name.find_last_of("::", name_separator_pos - 2);
+	//			std::string type_name;
+	//			if(type_separator_pos != std::string::npos) {
+	//				type_name = definition.name.substr(type_separator_pos + 1, name_separator_pos - type_separator_pos - 2);
+	//			} else {
+	//				type_name = definition.name.substr(0, name_separator_pos - 1);
+	//			}
+	//			auto type = type_name_to_node.find(type_name);
+	//			if(type != type_name_to_node.end()) {
+	//				for(std::unique_ptr<ast::Node>& declaration : type->second->member_functions) {
+	//					if(declaration->name == function_name) {
+	//						declaration->as<ast::FunctionType>().definition = &definition;
+	//						definition.is_member_function_ish = true;
+	//					}
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 }

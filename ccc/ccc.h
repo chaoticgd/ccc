@@ -1,12 +1,12 @@
 #pragma once
 
-#include "analysis.h"
 #include "ast.h"
 #include "data_refinement.h"
 #include "dependency.h"
 #include "elf.h"
 #include "insn.h"
 #include "mdebug.h"
+#include "mdebug_analysis.h"
 #include "opcodes.h"
 #include "print_cpp.h"
 #include "print_json.h"

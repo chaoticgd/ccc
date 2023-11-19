@@ -1,32 +1,17 @@
 #pragma once
 
-#include "analysis.h"
+#include "symbol_table.h"
 
 namespace ccc {
 
-struct TypeIndex {
-	s32 index;
-	TypeIndex(s32 i) : index(i) {}
-	operator s32() const { return index; }
-	friend auto operator<=>(const TypeIndex& lhs, const TypeIndex& rhs) = default;
-};
+using TypeDependencyAdjacencyList = std::vector<std::set<DataTypeHandle>>;
+using FileDependencyAdjacencyList = std::vector<std::set<SourceFileHandle>>;
 
-using TypeDependencyAdjacencyList = std::vector<std::set<TypeIndex>>;
-
-struct FileIndex {
-	s32 index;
-	FileIndex(s32 i) : index(i) {}
-	operator s32() const { return index; }
-	friend auto operator<=>(const FileIndex& lhs, const FileIndex& rhs) = default;
-};
-
-using FileDependencyAdjacencyList = std::vector<std::set<FileIndex>>;
-
-void map_types_to_files_based_on_this_pointers(HighSymbolTable& high);
-void map_types_to_files_based_on_reference_count(HighSymbolTable& high);
-TypeDependencyAdjacencyList build_type_dependency_graph(const HighSymbolTable& high);
-FileDependencyAdjacencyList build_file_dependency_graph(const HighSymbolTable& high, const TypeDependencyAdjacencyList& type_graph);
-void print_type_dependency_graph(FILE* out, const HighSymbolTable& high, const TypeDependencyAdjacencyList& graph);
-void print_file_dependency_graph(FILE* out, const HighSymbolTable& high, const FileDependencyAdjacencyList& graph);
+void map_types_to_files_based_on_this_pointers(SymbolTable& symbol_table);
+void map_types_to_files_based_on_reference_count(SymbolTable& symbol_table);
+TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolTable& symbol_table);
+FileDependencyAdjacencyList build_file_dependency_graph(const SymbolTable& symbol_table, const TypeDependencyAdjacencyList& type_graph);
+void print_type_dependency_graph(FILE* out, const SymbolTable& symbol_table, const TypeDependencyAdjacencyList& graph);
+void print_file_dependency_graph(FILE* out, const SymbolTable& symbol_table, const FileDependencyAdjacencyList& graph);
 
 }

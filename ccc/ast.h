@@ -1,7 +1,25 @@
 #pragma once
 
 #include "util.h"
-#include "symbols.h"
+
+namespace ccc {
+
+// TODO: Figure out what to do about this.
+
+// These are used to reference STABS types from other types within a single
+// translation unit. For most games these will just be a single number, the type
+// number. In some cases, for example with the homebrew SDK, type numbers are a
+// pair of two numbers surrounded by round brackets e.g. (1,23) where the first
+// number is the index of the include file to use (includes are listed for each
+// translation unit separately), and the second number is the type number.
+struct StabsTypeNumber {
+	s32 file = -1;
+	s32 type = -1;
+	
+	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
+};
+
+}
 
 namespace ccc::ast {
 
@@ -20,23 +38,12 @@ enum NodeDescriptor : u8 {
 	BUILTIN,
 	DATA,
 	ENUM,
-	FUNCTION_DEFINITION,
 	FUNCTION_TYPE,
 	INITIALIZER_LIST,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
-	SOURCE_FILE,
 	STRUCT_OR_UNION,
-	TYPE_NAME,
-	VARIABLE
-};
-
-struct AddressRange {
-	u32 low = (u32) -1;
-	u32 high = (u32) -1;
-	
-	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
-	bool valid() const { return low != (u32) -1; }
+	TYPE_NAME
 };
 
 enum AccessSpecifier {
@@ -61,7 +68,6 @@ struct Node {
 	u8 is_volatile : 1 = false;
 	u8 conflict : 1 = false; // Are there multiple differing types with the same name?
 	u8 is_base_class : 1 = false;
-	u8 probably_defined_in_cpp_file : 1 = false; // Only set for deduplicated types.
 	u8 cannot_compute_size : 1 = false;
 	u8 is_member_function_ish : 1 = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
@@ -75,7 +81,6 @@ struct Node {
 	// should pass the name down.
 	std::string name;
 	
-	std::vector<s32> files; // List of files for which a given top-level type is present.
 	const char* compare_fail_reason = "";
 	StabsTypeNumber stabs_type_number;
 	
@@ -122,6 +127,16 @@ struct BitField : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BITFIELD;
 };
 
+enum class BuiltInClass {
+	VOID,
+	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
+	UNSIGNED_16, SIGNED_16,
+	UNSIGNED_32, SIGNED_32, FLOAT_32,
+	UNSIGNED_64, SIGNED_64, FLOAT_64,
+	UNSIGNED_128, SIGNED_128, UNQUALIFIED_128, FLOAT_128,
+	UNKNOWN_PROBABLY_ARRAY
+};
+
 struct BuiltIn : Node {
 	BuiltInClass bclass;
 	
@@ -146,28 +161,10 @@ struct Enum : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = ENUM;
 };
 
-struct Variable;
-
-struct LineNumberPair {
-	u32 address;
-	s32 line_number;
-};
-
-struct SubSourceFile {
-	u32 address;
-	std::string relative_path;
-};
-
-struct FunctionDefinition : Node {
-	AddressRange address_range;
-	std::string relative_path;
-	std::unique_ptr<Node> type;
-	std::vector<std::unique_ptr<Variable>> locals;
-	std::vector<LineNumberPair> line_numbers;
-	std::vector<SubSourceFile> sub_source_files;
-	
-	FunctionDefinition() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_DEFINITION;
+enum class MemberFunctionModifier {
+	NONE,
+	STATIC,
+	VIRTUAL
 };
 
 struct FunctionType : Node {
@@ -176,7 +173,7 @@ struct FunctionType : Node {
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
 	bool is_constructor = false;
-	FunctionDefinition* definition = nullptr; // Filled in by fill_in_pointers_to_member_function_definitions.
+	s32 definition_handle = -1; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 	FunctionType() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;
@@ -208,21 +205,6 @@ struct PointerToDataMember : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_TO_DATA_MEMBER;
 };
 
-struct SourceFile : Node {
-	std::string full_path;
-	bool is_windows_path = false;
-	std::string relative_path = "";
-	u32 text_address = 0;
-	std::vector<std::unique_ptr<Node>> data_types;
-	std::vector<std::unique_ptr<Node>> functions;
-	std::vector<std::unique_ptr<Node>> globals;
-	std::map<StabsTypeNumber, s32> stabs_type_number_to_deduplicated_type_index;
-	std::set<std::string> toolchain_version_info;
-	
-	SourceFile() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = SOURCE_FILE;
-};
-
 struct StructOrUnion : Node {
 	bool is_struct = true;
 	std::vector<std::unique_ptr<Node>> base_classes;
@@ -250,52 +232,6 @@ struct TypeName : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
 };
 
-enum class VariableClass {
-	GLOBAL,
-	LOCAL,
-	PARAMETER
-};
-
-enum class VariableStorageType {
-	GLOBAL,
-	REGISTER,
-	STACK
-};
-
-enum class GlobalVariableLocation {
-	NIL,
-	DATA,
-	BSS,
-	ABS,
-	SDATA,
-	SBSS,
-	RDATA,
-	COMMON,
-	SCOMMON
-};
-
-struct VariableStorage {
-	VariableStorageType type = VariableStorageType::GLOBAL;
-	GlobalVariableLocation global_location = GlobalVariableLocation::NIL;
-	u32 global_address = -1;
-	s32 dbx_register_number = -1;
-	bool is_by_reference = false;
-	s32 stack_pointer_offset = -1;
-	
-	friend auto operator<=>(const VariableStorage& lhs, const VariableStorage& rhs) = default;
-};
-
-struct Variable : Node {
-	VariableClass variable_class;
-	VariableStorage storage;
-	AddressRange block;
-	std::unique_ptr<Node> type;
-	std::unique_ptr<Node> data;
-	
-	Variable() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = VARIABLE;
-};
-
 class TypeDeduplicatorOMatic {
 private:
 	std::vector<std::unique_ptr<Node>> flat_nodes;
@@ -303,7 +239,7 @@ private:
 	std::map<std::string, size_t> name_to_deduplicated_index;
 	
 public:
-	void process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files);
+	//void process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files);
 	std::vector<std::unique_ptr<Node>> finish();
 };
 
@@ -355,7 +291,7 @@ struct CompareResult {
 };
 
 struct TypeLookupInfo {
-	const std::vector<std::unique_ptr<SourceFile>>* files;
+	//const std::vector<std::unique_ptr<SourceFile>>* files;
 	std::vector<std::unique_ptr<Node>>* nodes;
 };
 
@@ -363,8 +299,9 @@ CompareResult compare_nodes(const Node& lhs, const Node& rhs, const TypeLookupIn
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
-const char* global_variable_location_to_string(GlobalVariableLocation location);
 const char* access_specifier_to_string(AccessSpecifier specifier);
+const char* builtin_class_to_string(BuiltInClass bclass);
+s32 builtin_class_size(BuiltInClass bclass);
 
 enum TraversalOrder {
 	PREORDER_TRAVERSAL,
@@ -401,14 +338,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 		case ENUM: {
 			break;
 		}
-		case FUNCTION_DEFINITION: {
-			auto& func = node.template as<FunctionDefinition>();
-			for_each_node(*func.type.get(), order, callback);
-			for(auto& child : func.locals) {
-				for_each_node(*child.get(), order, callback);
-			}
-			break;
-		}
 		case FUNCTION_TYPE: {
 			auto& func = node.template as<FunctionType>();
 			if(func.return_type.has_value()) {
@@ -439,19 +368,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 			for_each_node(*pointer.member_type.get(), order, callback);
 			break;
 		}
-		case SOURCE_FILE: {
-			auto& source_file = node.template as<SourceFile>();
-			for(auto& child : source_file.data_types) {
-				for_each_node(*child.get(), order, callback);
-			}
-			for(auto& child : source_file.functions) {
-				for_each_node(*child.get(), order, callback);
-			}
-			for(auto& child : source_file.globals) {
-				for_each_node(*child.get(), order, callback);
-			}
-			break;
-		}
 		case STRUCT_OR_UNION: {
 			auto& struct_or_union = node.template as<StructOrUnion>();
 			for(auto& child : struct_or_union.base_classes) {
@@ -466,14 +382,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 			break;
 		}
 		case TYPE_NAME: {
-			break;
-		}
-		case VARIABLE: {
-			auto& variable = node.template as<Variable>();
-			for_each_node(*variable.type.get(), order, callback);
-			if(variable.data.get()) {
-				for_each_node(*variable.data.get(), order, callback);
-			}
 			break;
 		}
 	}

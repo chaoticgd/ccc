@@ -2,6 +2,7 @@
 
 #include "ast.h"
 #include "stabs.h"
+#include "symbols.h"
 
 namespace ccc {
 	
