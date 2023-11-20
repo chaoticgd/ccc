@@ -1,3 +1,6 @@
+// This file is part of the Chaos Compiler Collection.
+// SPDX-License-Identifier: MIT
+
 #include "stabs_to_ast.h"
 
 #define AST_DEBUG(...) //__VA_ARGS__

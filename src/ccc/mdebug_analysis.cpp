@@ -1,3 +1,6 @@
+// This file is part of the Chaos Compiler Collection.
+// SPDX-License-Identifier: MIT
+
 #include "mdebug_analysis.h"
 
 #include "stabs_to_ast.h"

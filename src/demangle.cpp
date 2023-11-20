@@ -1,3 +1,6 @@
+// This file is part of the Chaos Compiler Collection.
+// SPDX-License-Identifier: MIT
+
 #include "ccc/ccc.h"
 #define HAVE_DECL_BASENAME 1
 #include "demanglegnu/demangle.h"

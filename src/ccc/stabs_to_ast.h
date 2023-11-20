@@ -1,3 +1,6 @@
+// This file is part of the Chaos Compiler Collection.
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include "ast.h"

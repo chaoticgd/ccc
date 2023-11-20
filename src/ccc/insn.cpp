@@ -1,3 +1,7 @@
+// This file is part of the Chaos Compiler Collection.
+//
+// SPDX-License-Identifier: MIT
+
 #include "insn.h"
 
 #include "tables.h"

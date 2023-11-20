@@ -1,3 +1,6 @@
+// This file is part of the Chaos Compiler Collection.
+// SPDX-License-Identifier: MIT
+
 #include "print_cpp.h"
 
 #include <cmath>
