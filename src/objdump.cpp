@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "ccc/ccc.h"
+#include "mips/insn.h"
 #include "platform/file.h"
 
 using namespace ccc;

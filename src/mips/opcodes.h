@@ -3,7 +3,7 @@
 
 #pragma once
 
-namespace ccc {
+namespace ccc::mips {
 
 enum OpCode {
 	OPCODE_SPECIAL  = 0b000000,

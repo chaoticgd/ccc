@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "util.h"
+#include "../ccc/util.h"
+#include "../ccc/registers.h"
 #include "opcodes.h"
-#include "registers.h"
 
 namespace ccc::mips {
 

@@ -40,8 +40,6 @@ add_library(ccc STATIC
 	src/ccc/dependency.h
 	src/ccc/elf.cpp
 	src/ccc/elf.h
-	src/ccc/insn.cpp
-	src/ccc/insn.h
 	src/ccc/mdebug.cpp
 	src/ccc/mdebug.h
 	src/ccc/mdebug_analysis.cpp
@@ -60,10 +58,16 @@ add_library(ccc STATIC
 	src/ccc/symbols.h
 	src/ccc/symbol_table.cpp
 	src/ccc/symbol_table.h
-	src/ccc/tables.cpp
-	src/ccc/tables.h
 	src/ccc/util.cpp
 	src/ccc/util.h
+)
+
+add_library(ccc_mips STATIC
+	src/mips/insn.cpp
+	src/mips/insn.h
+	src/mips/opcodes.h
+	src/mips/tables.cpp
+	src/mips/tables.h
 )
 
 add_library(ccc_platform STATIC
@@ -75,7 +79,7 @@ add_executable(demangle src/demangle.cpp)
 target_link_libraries(demangle ccc demanglegnu versioninfo)
 
 add_executable(objdump src/objdump.cpp)
-target_link_libraries(objdump ccc ccc_platform versioninfo)
+target_link_libraries(objdump ccc ccc_mips ccc_platform versioninfo)
 
 add_executable(stdump src/stdump.cpp)
 target_link_libraries(stdump ccc ccc_platform versioninfo)
