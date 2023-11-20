@@ -32,60 +32,60 @@ endif()
 include(cmake/version_finder.cmake)
 
 add_library(ccc STATIC
-	ccc/ast.cpp
-	ccc/ast.h
-	ccc/data_refinement.cpp
-	ccc/data_refinement.h
-	ccc/dependency.cpp
-	ccc/dependency.h
-	ccc/elf.cpp
-	ccc/elf.h
-	ccc/insn.cpp
-	ccc/insn.h
-	ccc/mdebug.cpp
-	ccc/mdebug.h
-	ccc/mdebug_analysis.cpp
-	ccc/mdebug_analysis.h
-	ccc/print_cpp.cpp
-	ccc/print_cpp.h
-	ccc/print_json.cpp
-	ccc/print_json.h
-	ccc/registers.cpp
-	ccc/registers.h
-	ccc/stabs.cpp
-	ccc/stabs.h
-	ccc/stabs_to_ast.cpp
-	ccc/stabs_to_ast.h
-	ccc/symbols.cpp
-	ccc/symbols.h
-	ccc/symbol_table.cpp
-	ccc/symbol_table.h
-	ccc/tables.cpp
-	ccc/tables.h
-	ccc/util.cpp
-	ccc/util.h
+	src/ccc/ast.cpp
+	src/ccc/ast.h
+	src/ccc/data_refinement.cpp
+	src/ccc/data_refinement.h
+	src/ccc/dependency.cpp
+	src/ccc/dependency.h
+	src/ccc/elf.cpp
+	src/ccc/elf.h
+	src/ccc/insn.cpp
+	src/ccc/insn.h
+	src/ccc/mdebug.cpp
+	src/ccc/mdebug.h
+	src/ccc/mdebug_analysis.cpp
+	src/ccc/mdebug_analysis.h
+	src/ccc/print_cpp.cpp
+	src/ccc/print_cpp.h
+	src/ccc/print_json.cpp
+	src/ccc/print_json.h
+	src/ccc/registers.cpp
+	src/ccc/registers.h
+	src/ccc/stabs.cpp
+	src/ccc/stabs.h
+	src/ccc/stabs_to_ast.cpp
+	src/ccc/stabs_to_ast.h
+	src/ccc/symbols.cpp
+	src/ccc/symbols.h
+	src/ccc/symbol_table.cpp
+	src/ccc/symbol_table.h
+	src/ccc/tables.cpp
+	src/ccc/tables.h
+	src/ccc/util.cpp
+	src/ccc/util.h
 )
 
 add_library(ccc_platform STATIC
-	platform/file.cpp
-	platform/file.h
+	src/platform/file.cpp
+	src/platform/file.h
 )
 
-add_executable(demangle demangle.cpp)
+add_executable(demangle src/demangle.cpp)
 target_link_libraries(demangle ccc demanglegnu versioninfo)
 
-add_executable(objdump objdump.cpp)
+add_executable(objdump src/objdump.cpp)
 target_link_libraries(objdump ccc ccc_platform versioninfo)
 
-add_executable(stdump stdump.cpp)
+add_executable(stdump src/stdump.cpp)
 target_link_libraries(stdump ccc ccc_platform versioninfo)
 add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
-add_executable(tests tests.cpp)
+add_executable(tests src/tests.cpp)
 target_link_libraries(tests ccc ccc_platform versioninfo)
 add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/test)
 
-add_executable(uncc uncc.cpp)
+add_executable(uncc src/uncc.cpp)
 target_link_libraries(uncc ccc ccc_platform demanglegnu versioninfo)
 
 if(WIN32)
@@ -96,7 +96,7 @@ if(WIN32)
 	target_sources(uncc PUBLIC ccc.manifest)
 endif()
 
-add_subdirectory(demanglegnu)
+add_subdirectory(src/demanglegnu)
 
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
