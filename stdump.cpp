@@ -296,11 +296,11 @@ static void print_types_deduplicated(FILE* out, SymbolTable& symbol_table, const
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
-	//printer.comment_block_toolchain_version_info(*symbol_table);
-	//printer.comment_block_builtin_types((*symbol_table).deduplicated_types);
-	//for(const std::unique_ptr<ast::Node>& type : symbol_table.data_types) {
-	//	printer.data_type(*type);
-	//}
+	printer.comment_block_toolchain_version_info(symbol_table);
+	printer.comment_block_builtin_types(symbol_table.data_types);
+	for(const DataType& data_type : symbol_table.data_types) {
+		printer.data_type(data_type);
+	}
 }
 
 static void print_types_per_file(FILE* out, SymbolTable& symbol_table, const Options& options) {

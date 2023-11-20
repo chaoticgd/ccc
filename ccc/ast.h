@@ -19,6 +19,8 @@ struct StabsTypeNumber {
 	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
 };
 
+struct SymbolTable;
+
 }
 
 namespace ccc::ast {
@@ -66,7 +68,6 @@ struct Node {
 	NodeDescriptor descriptor;
 	u8 is_const : 1 = false;
 	u8 is_volatile : 1 = false;
-	u8 conflict : 1 = false; // Are there multiple differing types with the same name?
 	u8 is_base_class : 1 = false;
 	u8 cannot_compute_size : 1 = false;
 	u8 is_member_function_ish : 1 = false; // Filled in by fill_in_pointers_to_member_function_definitions.
@@ -81,7 +82,6 @@ struct Node {
 	// should pass the name down.
 	std::string name;
 	
-	const char* compare_fail_reason = "";
 	StabsTypeNumber stabs_type_number;
 	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
@@ -225,22 +225,11 @@ enum class TypeNameSource {
 struct TypeName : Node {
 	TypeNameSource source = TypeNameSource::ERROR;
 	std::string type_name;
-	s32 referenced_file_index = -1;
+	u32 referenced_file_handle = (u32) -1;
 	StabsTypeNumber referenced_stabs_type_number;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
-};
-
-class TypeDeduplicatorOMatic {
-private:
-	std::vector<std::unique_ptr<Node>> flat_nodes;
-	std::vector<std::vector<s32>> deduplicated_nodes_grouped_by_name;
-	std::map<std::string, size_t> name_to_deduplicated_index;
-	
-public:
-	//void process_file(SourceFile& file, s32 file_index, const std::vector<std::unique_ptr<SourceFile>>& files);
-	std::vector<std::unique_ptr<Node>> finish();
 };
 
 void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
@@ -290,12 +279,7 @@ struct CompareResult {
 	CompareFailReason fail_reason;
 };
 
-struct TypeLookupInfo {
-	//const std::vector<std::unique_ptr<SourceFile>>* files;
-	std::vector<std::unique_ptr<Node>>* nodes;
-};
-
-CompareResult compare_nodes(const Node& lhs, const Node& rhs, const TypeLookupInfo& lookup, bool check_intrusive_fields);
+CompareResult compare_nodes(const Node& lhs, const Node& rhs, const SymbolTable& symbol_table, bool check_intrusive_fields);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);

@@ -7,7 +7,7 @@
 namespace ccc {
 	
 struct StabsToAstState {
-	s32 file_index;
+	u32 file_handle;
 	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
 };
 

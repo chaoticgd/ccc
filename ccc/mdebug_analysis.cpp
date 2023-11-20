@@ -10,7 +10,7 @@ struct AnalysisContext {
 	u32 flags;
 };
 
-static Result<void> analyse_file(SymbolTable& symbol_table, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context);
+static Result<void> analyse_file(SymbolTable& symbol_table, s32 file_index, const AnalysisContext& context);
 static void compute_size_bytes_recursive(ast::Node& node, const SymbolTable& high);
 static std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
@@ -97,8 +97,6 @@ Result<SymbolTable> analyse(const mdebug::SymbolTableReader& reader, u32 flags, 
 		}
 	}
 	
-	ast::TypeDeduplicatorOMatic deduplicator;
-	
 	// Bundle together some unchanging state to pass to analyse_file.
 	AnalysisContext context;
 	context.reader = &reader;
@@ -111,18 +109,14 @@ Result<SymbolTable> analyse(const mdebug::SymbolTableReader& reader, u32 flags, 
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_index > -1) {
 		CCC_CHECK_FATAL(file_index < *file_count, "File index out of range.");
-		Result<void> result = analyse_file(symbol_table, deduplicator, file_index, context);
+		Result<void> result = analyse_file(symbol_table, file_index, context);
 		CCC_RETURN_IF_ERROR(result);
 	} else {
 		for(s32 i = 0; i < *file_count; i++) {
-			Result<void> result = analyse_file(symbol_table, deduplicator, i, context);
+			Result<void> result = analyse_file(symbol_table, i, context);
 			CCC_RETURN_IF_ERROR(result);
 		}
 	}
-	
-	// Deduplicate types from different translation units, preserving multiple
-	// copies of types that actually differ.
-	//symbol_table.data_types = deduplicator.finish();
 	
 	// The files field may be modified by further analysis passes, so we
 	// need to save this information here.
@@ -145,18 +139,18 @@ Result<SymbolTable> analyse(const mdebug::SymbolTableReader& reader, u32 flags, 
 	return symbol_table;
 }
 
-static Result<void> analyse_file(SymbolTable& symbol_table, ast::TypeDeduplicatorOMatic& deduplicator, s32 file_index, const AnalysisContext& context) {
+static Result<void> analyse_file(SymbolTable& symbol_table, s32 file_index, const AnalysisContext& context) {
 	Result<mdebug::File> input = context.reader->parse_file(file_index);
 	CCC_RETURN_IF_ERROR(input);
 	
-	SourceFile* source_file = symbol_table.source_files.create_symbol(input->full_path);
-	CCC_CHECK(source_file, "Failed to create source file symbol.");
+	Result<SourceFile*> source_file = symbol_table.source_files.create_symbol(input->full_path);
+	CCC_RETURN_IF_ERROR(source_file);
 	
 	// Sometimes the INFO symbols contain information about what toolchain
 	// version was used for building the executable.
 	for(mdebug::Symbol& symbol : input->symbols) {
 		if(symbol.storage_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
-			source_file->toolchain_version_info.emplace(symbol.string);
+			(*source_file)->toolchain_version_info.emplace(symbol.string);
 		}
 	}
 	
@@ -175,11 +169,11 @@ static Result<void> analyse_file(SymbolTable& symbol_table, ast::TypeDeduplicato
 	}
 	
 	StabsToAstState stabs_to_ast_state;
-	stabs_to_ast_state.file_index = file_index;
+	stabs_to_ast_state.file_handle = (*source_file)->handle().value;
 	stabs_to_ast_state.stabs_types = &stabs_types;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
-	LocalSymbolTableAnalyser analyser(*source_file, symbol_table, stabs_to_ast_state);
+	LocalSymbolTableAnalyser analyser(**source_file, symbol_table, stabs_to_ast_state);
 	for(const ParsedSymbol& symbol : *symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
@@ -339,9 +333,6 @@ static Result<void> analyse_file(SymbolTable& symbol_table, ast::TypeDeduplicato
 	// calling code didn't ask for.
 	//filter_ast_by_flags(*file, context.flags);
 	
-	// Deduplicate types.
-	//deduplicator.process_file(source_file, file_index, high.source_files);
-	
 	return Result<void>();
 }
 
@@ -363,26 +354,29 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	Result<std::unique_ptr<ast::Node>> node = stabs_data_type_symbol_to_ast(symbol, m_stabs_to_ast_state);
 	CCC_RETURN_IF_ERROR(node);
 	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
-	m_source_file.data_types.emplace_back(std::move(*node));
+	const char* name = (*node)->name.c_str();
+	
+	Result<ccc::DataType*> type = m_symbol_table.create_data_type_if_unique(std::move(*node), name, m_source_file);
+	CCC_RETURN_IF_ERROR(type);
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, u32 address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
-	GlobalVariable* global = m_symbol_table.global_variables.create_symbol(name, address);
-	CCC_CHECK(global, "Failed to create global variable symbol.");
+	Result<GlobalVariable*> global = m_symbol_table.global_variables.create_symbol(name, address);
+	CCC_RETURN_IF_ERROR(global);
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
 		node->storage_class = ast::SC_STATIC;
 	}
-	global->set_type_and_invalidate_node_handles(std::move(node));
+	(*global)->set_type_and_invalidate_node_handles(std::move(node));
 	
-	global->variable_class = Variable::Class::GLOBAL;
+	(*global)->variable_class = Variable::Class::GLOBAL;
 	Variable::GlobalStorage global_storage;
 	global_storage.location = location;
 	global_storage.address = address;
-	global->storage = global_storage;
+	(*global)->storage = global_storage;
 	
 	return Result<void>();
 }
@@ -467,22 +461,22 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
 	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
 	
-	ParameterVariable* parameter_variable = m_symbol_table.parameter_variables.create_symbol(name);
-	CCC_CHECK(parameter_variable, "Failed to create parameter variable symbol.");
-	m_current_parameter_variables.expand_to_include(parameter_variable->handle());
+	Result<ParameterVariable*> parameter_variable = m_symbol_table.parameter_variables.create_symbol(name);
+	CCC_RETURN_IF_ERROR(parameter_variable);
+	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
 	
-	parameter_variable->set_type_and_invalidate_node_handles(stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true));
+	(*parameter_variable)->set_type_and_invalidate_node_handles(stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true));
 	
-	parameter_variable->variable_class = Variable::Class::PARAMETER;
+	(*parameter_variable)->variable_class = Variable::Class::PARAMETER;
 	if(is_stack_variable) {
 		Variable::StackStorage stack_storage;
 		stack_storage.stack_pointer_offset = offset_or_register;
-		parameter_variable->storage = stack_storage;
+		(*parameter_variable)->storage = stack_storage;
 	} else {
 		Variable::RegisterStorage register_storage;
 		register_storage.dbx_register_number = offset_or_register;
 		register_storage.is_by_reference = is_by_reference;
-		parameter_variable->storage = register_storage;
+		(*parameter_variable)->storage = register_storage;
 	}
 	
 	return Result<void>();
@@ -493,18 +487,18 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 		return Result<void>();
 	}
 	
-	LocalVariable* local_variable = m_symbol_table.local_variables.create_symbol(name);
-	CCC_CHECK(local_variable, "Failed to create local variable symbol.");
-	m_pending_local_variables_begin.emplace_back(local_variable->handle());
+	Result<LocalVariable*> local_variable = m_symbol_table.local_variables.create_symbol(name);
+	CCC_RETURN_IF_ERROR(local_variable);
+	m_pending_local_variables_begin.emplace_back((*local_variable)->handle());
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
 		node->storage_class = ast::SC_STATIC;
 	}
-	local_variable->set_type_and_invalidate_node_handles(std::move(node));
+	(*local_variable)->set_type_and_invalidate_node_handles(std::move(node));
 	
-	local_variable->variable_class = Variable::Class::LOCAL;
-	local_variable->storage = storage;
+	(*local_variable)->variable_class = Variable::Class::LOCAL;
+	(*local_variable)->storage = storage;
 	
 	return Result<void>();
 }
@@ -546,8 +540,9 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 }
 
 Result<void> LocalSymbolTableAnalyser::create_function(u32 address, const char* name) {
-	m_current_function = m_symbol_table.functions.create_symbol(name, address);
-	CCC_CHECK(m_current_function, "Failed to create function symbol.");
+	Result<Function*> function = m_symbol_table.functions.create_symbol(name, address);
+	CCC_RETURN_IF_ERROR(function);
+	m_current_function = *function;
 	m_functions.expand_to_include(m_current_function->handle());
 	
 	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;

@@ -148,10 +148,26 @@ public:
 	std::span<const SymbolType> span(SymbolRange<SymbolType> range) const;
 	
 	bool empty() const;
-	SymbolType* create_symbol(std::string name, u32 address = (u32) -1);
+	
+	Result<SymbolType*> create_symbol(std::string name, u32 address = (u32) -1);
 	bool destroy_symbol(SymbolHandle<SymbolType> handle);
 	u32 destroy_symbols(SymbolRange<SymbolType> range);
-
+	
+	using AddressToHandleMap = std::unordered_map<u32, SymbolHandle<SymbolType>>;
+	using NameToHandleMap = std::unordered_multimap<std::string, SymbolHandle<SymbolType>>;
+	
+	// This lets us use range-based for loops to iterate over all symbols with
+	// a given name.
+	struct NameMapIterators {
+		typename NameToHandleMap::const_iterator begin_iterator;
+		typename NameToHandleMap::const_iterator end_iterator;
+		typename NameToHandleMap::const_iterator begin() const { return begin_iterator; }
+		typename NameToHandleMap::const_iterator end() const { return end_iterator; }
+	};
+	
+	SymbolHandle<SymbolType> handle_from_address(u32 address) const;
+	NameMapIterators handles_from_name(const char* name) const;
+	
 protected:
 	
 	// Do a binary search for a handle, and return either its index, or the
@@ -160,8 +176,8 @@ protected:
 	
 	std::vector<SymbolType> m_symbols;
 	u32 m_next_handle = 0;
-	std::unordered_map<u32, SymbolHandle<SymbolType>> m_address_to_handle;
-	std::unordered_multimap<std::string, SymbolHandle<SymbolType>> m_name_to_handle;
+	AddressToHandleMap m_address_to_handle;
+	NameToHandleMap m_name_to_handle;
 };
 
 enum ShouldDeleteOldSymbols {
@@ -250,19 +266,21 @@ public:
 
 class DataType : public Symbol {
 public:
-	static constexpr u32 LIST_FLAGS = WITH_NAME_MAP;
-	
 	SymbolHandle<DataType> handle() const { return m_handle; }
 	
 	std::vector<SourceFileHandle> files; // List of files for which a given top-level type is present.
-	bool probably_defined_in_cpp_file = false;
+	const char* compare_fail_reason = "";
+	
+	bool probably_defined_in_cpp_file : 1 = false;
+	bool conflict : 1 = false;
+	
+	static constexpr const char* SYMBOL_TYPE_NAME = "data type";
+	static constexpr const u32 LIST_FLAGS = WITH_NAME_MAP;
 };
 
 class Function : public Symbol {
 	friend SourceFile;
 public:
-	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
-	
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
 	ParameterVariableRange parameter_variables() const { return m_parameter_variables; }
@@ -296,6 +314,9 @@ public:
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
 	
+	static constexpr const char* SYMBOL_TYPE_NAME = "function";
+	static constexpr const u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	
 protected:
 	SourceFileHandle m_source_file;
 	ParameterVariableRange m_parameter_variables;
@@ -305,10 +326,11 @@ protected:
 class GlobalVariable : public Variable {
 	friend SourceFile;
 public:
-	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
-	
 	GlobalVariableHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; };
+	
+	static constexpr const char* SYMBOL_TYPE_NAME = "global variable";
+	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	SourceFileHandle m_source_file;
@@ -316,18 +338,20 @@ protected:
 
 class Label : public Symbol {
 public:
-	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
-	
 	LabelHandle handle() const { return m_handle; }
+	
+	static constexpr const char* SYMBOL_TYPE_NAME = "label";
+	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 };
 
 class LocalVariable : public Variable {
 	friend Function;
 public:
-	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
-	
 	LocalVariableHandle handle() const { return m_handle; }
 	FunctionHandle function() const { return m_function; };
+	
+	static constexpr const char* SYMBOL_TYPE_NAME = "local variable";
+	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
 	
 protected:
 	FunctionHandle m_function;
@@ -336,10 +360,11 @@ protected:
 class ParameterVariable : public Variable {
 	friend Function;
 public:
-	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
-	
 	ParameterVariableHandle handle() const { return m_handle; }
 	FunctionHandle function() const { return m_function; };
+	
+	static constexpr const char* SYMBOL_TYPE_NAME = "parameter variable";
+	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
 	
 protected:
 	FunctionHandle m_function;
@@ -347,8 +372,6 @@ protected:
 
 class SourceFile : public Symbol {
 public:
-	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
-	
 	SourceFileHandle handle() const { return m_handle; }
 	const std::string& full_path() const { return name(); }
 	FunctionRange functions() const { return m_functions; }
@@ -359,9 +382,11 @@ public:
 	
 	std::string relative_path;
 	u32 text_address = 0;
-	std::vector<std::unique_ptr<ast::Node>> data_types;
-	//std::map<StabsTypeNumber, s32> stabs_type_number_to_deduplicated_type_index;
+	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
 	std::set<std::string> toolchain_version_info;
+	
+	static constexpr const char* SYMBOL_TYPE_NAME = "source file";
+	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
 	
 protected:
 	FunctionRange m_functions;
@@ -385,6 +410,8 @@ struct SymbolTable {
 	// lookup the type by its name. On success return a handle to the type,
 	// otherwise return an invalid handle.
 	DataTypeHandle lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const;
+	
+	[[nodiscard]] Result<DataType*> create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file);
 };
 
 // Handles synchronising access to a symbol table from multiple threads.

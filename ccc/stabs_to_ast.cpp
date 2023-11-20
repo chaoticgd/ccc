@@ -53,7 +53,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
 			type_name->type_name = *type.name;
-			type_name->referenced_file_index = state.file_index;
+			type_name->referenced_file_handle = state.file_handle;
 			type_name->referenced_stabs_type_number = type.type_number;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
@@ -70,7 +70,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
 			type_name->type_name = type_string;
-			type_name->referenced_file_index = state.file_index;
+			type_name->referenced_file_handle = state.file_handle;
 			type_name->referenced_stabs_type_number = type.type_number;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}

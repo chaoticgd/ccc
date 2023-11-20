@@ -120,14 +120,33 @@ bool SymbolList<SymbolType>::empty() const {
 }
 
 template <typename SymbolType>
-SymbolType* SymbolList<SymbolType>::create_symbol(std::string name, u32 address) {
-	if(m_next_handle == UINT32_MAX) {
-		return nullptr;
+SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(u32 address) const {
+	auto iterator = m_address_to_handle.find(address);
+	if(iterator != m_address_to_handle.end()) {
+		return iterator->second;
+	} else {
+		return SymbolHandle<SymbolType>();
 	}
+}
+
+template <typename SymbolType>
+typename SymbolList<SymbolType>::NameMapIterators SymbolList<SymbolType>::handles_from_name(const char* name) const {
+	return {m_name_to_handle.find(name), m_name_to_handle.end()};
+}
+
+template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, u32 address) {
+	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::SYMBOL_TYPE_NAME);
 	
 	u32 handle = m_next_handle++;
 	
 	if(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
+		auto iterator = m_address_to_handle.find(address);
+		if(iterator != m_address_to_handle.end()) {
+			// We're replacing an existing symbol.
+			destroy_symbol(iterator->second);
+		}
+		
 		m_address_to_handle.emplace(address, handle);
 	}
 	
@@ -165,7 +184,7 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 	// Clean up map entries.
 	if(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
 		for(u32 i = begin_index; i < end_index; i++) {
-			
+			m_address_to_handle.erase(m_symbols[i].m_address);
 		}
 	}
 	
@@ -273,27 +292,92 @@ void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOl
 // *****************************************************************************
 
 DataTypeHandle SymbolTable::lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const {
-	/// Lookup the type by its STABS type number. This path ensures that the
-	/// correct type is found even if multiple types have the same name.
-	//f(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
-	//	const SourceFile* source_file = source_files[type_name.referenced_file_index];
-	//	auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-	//	if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
-	//		return type_index->second;
-	//	}
-	//
-	/// Looking up the type by its STABS type number failed, so look for it by
-	/// its name instead. This happens when a type is forward declared but not
-	/// defined in a given translation unit.
-	//f(type_name_to_deduplicated_type_index) {
-	//	auto iter = type_name_to_deduplicated_type_index->find(type_name.type_name);
-	//	if(iter != type_name_to_deduplicated_type_index->end()) {
-	//		return iter->second;
-	//	}
-	//
-	/// Type lookup failed. This happens when a type is forward declared in a
-	/// translation unit with symbols but is not defined in one.
-	return -1;
+	// Lookup the type by its STABS type number. This path ensures that the
+	// correct type is found even if multiple types have the same name.
+	if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
+		const SourceFile* source_file = source_files[type_name.referenced_file_handle];
+		CCC_ASSERT(source_file);
+		auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);
+		if(handle != source_file->stabs_type_number_to_handle.end()) {
+			return handle->second;
+		}
+	}
+	
+	// Looking up the type by its STABS type number failed, so look for it by
+	// its name instead. This happens when a type is forward declared but not
+	// defined in a given translation unit.
+	if(fallback_on_name_lookup) {
+		auto types_with_name = data_types.handles_from_name(type_name.type_name.c_str());
+		if(types_with_name.begin() != types_with_name.end()) {
+			return types_with_name.begin()->second;
+		}
+	}
+	
+	// Type lookup failed. This happens when a type is forward declared in a
+	// translation unit with symbols but is not defined in one.
+	return DataTypeHandle();
+}
+
+Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file) {
+	auto types_with_same_name = data_types.handles_from_name(name);
+	const char* compare_fail_reason = nullptr;
+	if(types_with_same_name.begin() == types_with_same_name.end()) {
+		// No types with this name have previously been processed.
+		Result<DataType*> data_type = data_types.create_symbol(name);
+		CCC_RETURN_IF_ERROR(data_type);
+		
+		(*data_type)->files = {source_file.handle()};
+		if(node->stabs_type_number.type > -1) {
+			source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
+		}
+		return *data_type;
+	} else {
+		// Types with this name have previously been processed, we need
+		// to figure out if this one matches any of the previous ones.
+		bool match = false;
+		for(auto [key, existing_type_handle] : types_with_same_name) {
+			DataType* existing_type = data_types[existing_type_handle];
+			CCC_ASSERT(existing_type);
+			
+			ast::CompareResult compare_result = compare_nodes(existing_type->type(), *node.get(), *this, true);
+			if(compare_result.type == ast::CompareResultType::DIFFERS) {
+				// The new node doesn't match this existing node.
+				bool is_anonymous_enum = existing_type->type().descriptor == ast::ENUM
+					&& existing_type->name().empty();
+				if(!is_anonymous_enum) {
+					existing_type->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
+					compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
+				}
+			} else {
+				// The new node matches this existing node.
+				existing_type->files.emplace_back(source_file.handle());
+				if(node->stabs_type_number.type > -1) {
+					source_file.stabs_type_number_to_handle[node->stabs_type_number] = existing_type->handle();
+				}
+				if(compare_result.type == ast::CompareResultType::MATCHES_FAVOUR_RHS) {
+					// The new node matches the old one, but the new one
+					// is slightly better, so we swap them.
+					existing_type->set_type_and_invalidate_node_handles(std::move(node));
+				}
+				match = true;
+				break;
+			}
+		}
+		if(!match) {
+			// This type doesn't match the others with the same name
+			// that have already been processed.
+			Result<DataType*> data_type = data_types.create_symbol(name);
+			CCC_RETURN_IF_ERROR(data_type);
+			(*data_type)->files = {source_file.handle()};
+			if(node->stabs_type_number.type > -1) {
+				source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
+			}
+			(*data_type)->compare_fail_reason = compare_fail_reason;
+			return *data_type;
+		}
+	}
+	
+	return nullptr;
 }
 
 // *****************************************************************************

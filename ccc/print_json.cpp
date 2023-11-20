@@ -85,9 +85,6 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 	if(node.access_specifier != ast::AS_PUBLIC) {
 		json.string_property("access_specifier", access_specifier_to_string((ast::AccessSpecifier) node.access_specifier));
 	}
-	if(node.conflict) {
-		json.boolean_property("conflict", true);
-	}
 	if(node.stabs_type_number.type != -1) {
 		json.number_property("stabs_type_number", merge_stabs_type_number_parts(node.stabs_type_number));
 	}
@@ -287,8 +284,8 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			}
 			json.string_property("source", source);
 			json.string_property("type_name", type_name.type_name.c_str());
-			if(type_name.referenced_file_index > -1) {
-				json.number_property("referenced_file_index", type_name.referenced_file_index);
+			if(type_name.referenced_file_handle > -1) {
+				json.number_property("referenced_file_handle", type_name.referenced_file_handle);
 			}
 			if(type_name.referenced_stabs_type_number.type > -1) {
 				json.number_property("referenced_stabs_type_number", merge_stabs_type_number_parts(type_name.referenced_stabs_type_number));
