@@ -41,7 +41,7 @@ static void refine_variable(Variable& variable, const DataRefinementContext& con
 		bool valid_location = global_storage->location != Variable::GlobalStorage::Location::BSS
 			&& global_storage->location != Variable::GlobalStorage::Location::SBSS;
 		if(valid_address && valid_location) {
-			variable.data = refine_node(global_storage->address, variable.type(), context);
+			variable.data = refine_node(global_storage->address.value, variable.type(), context);
 		}
 	}
 }

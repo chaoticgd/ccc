@@ -56,13 +56,10 @@ class SymbolTableGuardian;
 
 template <typename SymbolType>
 struct SymbolHandle {
-	u32 value = -1;
+	u32 value = (u32) -1;
 	
 	SymbolHandle() {}
 	SymbolHandle(u32 v) : value(v) {}
-	
-	SymbolHandle& operator++() { ++value; return *this; }
-	SymbolHandle operator++(int) { SymbolHandle old = *this; value++; return old; }
 	
 	bool valid() const { return value != (u32) -1; }
 	
@@ -111,14 +108,6 @@ struct SymbolRange {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-struct AddressRange {
-	u32 low = (u32) -1;
-	u32 high = (u32) -1;
-	
-	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
-	bool valid() const { return low != (u32) -1; }
-};
-
 // A container base class for symbols of a given type that maintains maps of
 // their names.
 
@@ -152,7 +141,7 @@ public:
 	
 	bool empty() const;
 	
-	Result<SymbolType*> create_symbol(std::string name, u32 address = (u32) -1);
+	Result<SymbolType*> create_symbol(std::string name, Address address = Address());
 	bool destroy_symbol(SymbolHandle<SymbolType> handle);
 	u32 destroy_symbols(SymbolRange<SymbolType> range);
 	
@@ -168,7 +157,7 @@ public:
 		typename NameToHandleMap::const_iterator end() const { return end_iterator; }
 	};
 	
-	SymbolHandle<SymbolType> handle_from_address(u32 address) const;
+	SymbolHandle<SymbolType> handle_from_address(Address address) const;
 	NameMapIterators handles_from_name(const char* name) const;
 	
 protected:
@@ -205,7 +194,7 @@ public:
 	
 protected:
 	u32 m_handle = (u32) -1;
-	u32 m_address = (u32) -1;
+	Address m_address;
 	std::string m_name;
 	std::unique_ptr<ast::Node> m_type;
 };
@@ -234,7 +223,7 @@ public:
 		};
 		
 		Location location = Location::NIL;
-		u32 address = (u32) -1;
+		Address address;
 		
 		static const char* location_to_string(Location location);
 		
@@ -302,12 +291,12 @@ public:
 	};
 	
 	struct LineNumberPair {
-		u32 address;
+		Address address;
 		s32 line_number;
 	};
 
 	struct SubSourceFile {
-		u32 address;
+		Address address;
 		std::string relative_path;
 	};
 	
@@ -384,7 +373,7 @@ public:
 	void set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table);
 	
 	std::string relative_path;
-	u32 text_address = 0;
+	Address text_address = 0;
 	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
 	std::set<std::string> toolchain_version_info;
 	

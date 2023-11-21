@@ -206,7 +206,7 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 	for(s32 i = 0; result.type == CompareResultType::DIFFERS && i < 2; i++) {
 		if(type_name_node->descriptor == TYPE_NAME) {
 			const TypeName& type_name = type_name_node->as<TypeName>();
-			if(type_name.referenced_file_handle > -1 && type_name.referenced_stabs_type_number.type > -1) {
+			if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
 				const SourceFile* source_file = symbol_table.source_files[type_name.referenced_file_handle];
 				CCC_ASSERT(source_file);
 				auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);

@@ -182,6 +182,25 @@ Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset);
 
 #define CCC_FOURCC(string) ((string)[0] | (string)[1] << 8 | (string)[2] << 16 | (string)[3] << 24)
 
+struct Address {
+	u32 value = (u32) -1;
+	
+	Address() {}
+	Address(u32 v) : value(v) {}
+	
+	bool valid() const { return value != (u32) -1; }
+	
+	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;
+};
+
+struct AddressRange {
+	Address low;
+	Address high;
+	
+	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
+	bool valid() const { return low.valid(); }
+};
+
 // These functions are to be used only for source file paths present in the
 // symbol table, since we want them to be handled consistently across different
 // platforms, which with std::filesystem::path doesn't seem to be possible.

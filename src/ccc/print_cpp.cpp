@@ -183,7 +183,7 @@ void CppPrinter::function(const Function& symbol, const SymbolTable& symbol_tabl
 	name.identifier = &symbol.name();
 	
 	if(m_config.print_storage_information && symbol.address_range.valid()) {
-		fprintf(out, "/* %08x %08x */ ", symbol.address_range.low, symbol.address_range.high);
+		fprintf(out, "/* %08x %08x */ ", symbol.address_range.low.value, symbol.address_range.high.value);
 	}
 	
 	//ast_node(node, name, 0);
@@ -558,8 +558,8 @@ void CppPrinter::variable_storage_comment(const Variable::Storage& storage) {
 		fprintf(out, "/* ");
 		if(const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&storage)) {
 			fprintf(out, "%s", Variable::GlobalStorage::location_to_string(global_storage->location));
-			if(global_storage->address != (u32) -1) {
-				fprintf(out, " %x", global_storage->address);
+			if(global_storage->address.valid()) {
+				fprintf(out, " %x", global_storage->address.value);
 			}
 		}
 		if(const Variable::RegisterStorage* register_storage = std::get_if<Variable::RegisterStorage>(&storage)) {

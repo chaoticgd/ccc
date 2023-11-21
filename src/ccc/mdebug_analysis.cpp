@@ -43,14 +43,14 @@ public:
 	//   end
 	//   ... blocks ...
 	[[nodiscard]] Result<void> stab_magic(const char* magic);
-	[[nodiscard]] Result<void> source_file(const char* path, u32 text_address);
+	[[nodiscard]] Result<void> source_file(const char* path, Address text_address);
 	[[nodiscard]] Result<void> data_type(const ParsedSymbol& symbol);
-	[[nodiscard]] Result<void> global_variable(const char* name, u32 address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location);
-	[[nodiscard]] Result<void> sub_source_file(const char* name, u32 text_address);
-	[[nodiscard]] Result<void> procedure(const char* name, u32 address, bool is_static);
-	[[nodiscard]] Result<void> label(const char* label, u32 address, s32 line_number);
+	[[nodiscard]] Result<void> global_variable(const char* name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location);
+	[[nodiscard]] Result<void> sub_source_file(const char* name, Address text_address);
+	[[nodiscard]] Result<void> procedure(const char* name, Address address, bool is_static);
+	[[nodiscard]] Result<void> label(const char* label, Address address, s32 line_number);
 	[[nodiscard]] Result<void> text_end(const char* name, s32 function_size);
-	[[nodiscard]] Result<void> function(const char* name, const StabsType& return_type, u32 address);
+	[[nodiscard]] Result<void> function(const char* name, const StabsType& return_type, Address address);
 	[[nodiscard]] Result<void> function_end();
 	[[nodiscard]] Result<void> parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
 	[[nodiscard]] Result<void> local_variable(const char* name, const StabsType& type, const Variable::Storage& storage, bool is_static);
@@ -59,7 +59,7 @@ public:
 	
 	[[nodiscard]] Result<void> finish();
 	
-	[[nodiscard]] Result<void> create_function(u32 address, const char* name);
+	[[nodiscard]] Result<void> create_function(Address address, const char* name);
 	
 protected:
 	enum AnalysisState {
@@ -343,7 +343,7 @@ Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::source_file(const char* path, u32 text_address) {
+Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address text_address) {
 	m_source_file.relative_path = path;
 	m_source_file.text_address = text_address;
 	if(m_next_relative_path.empty()) {
@@ -365,7 +365,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, u32 address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
+Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
 	Result<GlobalVariable*> global = m_symbol_table.global_variables.create_symbol(name, address);
 	CCC_RETURN_IF_ERROR(global);
 	
@@ -384,7 +384,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, u32 add
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, u32 text_address) {
+Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address text_address) {
 	if(m_current_function && m_state == IN_FUNCTION_BEGINNING) {
 		Function::SubSourceFile& sub = m_current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
@@ -396,7 +396,7 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, u32 tex
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::procedure(const char* name, u32 address, bool is_static) {
+Result<void> LocalSymbolTableAnalyser::procedure(const char* name, Address address, bool is_static) {
 	if(!m_current_function || strcmp(name, m_current_function->name().c_str())) {
 		Result<void> result = create_function(address, name);
 		CCC_RETURN_IF_ERROR(result);
@@ -413,7 +413,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, u32 address, 
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::label(const char* label, u32 address, s32 line_number) {
+Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address, s32 line_number) {
 	if(address != (u32) -1 && m_current_function && label[0] == '$') {
 		CCC_CHECK(address < 256 * 1024 * 1024, "Address too big.");
 		Function::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
@@ -428,7 +428,7 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 	if(m_state == IN_FUNCTION_BEGINNING) {
 		if(m_current_function->address_range.low != (u32) -1) {
 			CCC_ASSERT(m_current_function);
-			m_current_function->address_range.high = m_current_function->address_range.low + function_size;
+			m_current_function->address_range.high = m_current_function->address_range.low.value + function_size;
 		}
 		m_state = IN_FUNCTION_END;
 	}
@@ -436,7 +436,7 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, u32 address) {
+Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, Address address) {
 	if(!m_current_function || strcmp(name, m_current_function->name().c_str())) {
 		Result<void> result = create_function(address, name);
 		CCC_RETURN_IF_ERROR(result);
@@ -510,7 +510,7 @@ Result<void> LocalSymbolTableAnalyser::lbrac(s32 number, s32 begin_offset) {
 	for(LocalVariableHandle local_variable_handle : m_pending_local_variables_begin) {
 		LocalVariable* local_variable = m_symbol_table.local_variables[local_variable_handle];
 		CCC_ASSERT(local_variable);
-		local_variable->live_range.low = m_source_file.text_address + begin_offset;
+		local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
 	}
 	
 	auto& pending_end = m_pending_local_variables_end[number];
@@ -527,7 +527,7 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
 	for(LocalVariableHandle local_variable_handle : variables->second) {
 		LocalVariable* local_variable = m_symbol_table.local_variables[local_variable_handle];
 		CCC_ASSERT(local_variable);
-		local_variable->live_range.high = m_source_file.text_address + end_offset;
+		local_variable->live_range.high = m_source_file.text_address.value + end_offset;
 	}
 	
 	return Result<void>();
@@ -542,7 +542,7 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::create_function(u32 address, const char* name) {
+Result<void> LocalSymbolTableAnalyser::create_function(Address address, const char* name) {
 	Result<Function*> function = m_symbol_table.functions.create_symbol(name, address);
 	CCC_RETURN_IF_ERROR(function);
 	m_current_function = *function;

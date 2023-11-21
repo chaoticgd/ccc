@@ -287,7 +287,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			}
 			json.string_property("source", source);
 			json.string_property("type_name", type_name.type_name.c_str());
-			if(type_name.referenced_file_handle > -1) {
+			if(type_name.referenced_file_handle != (u32) -1) {
 				json.number_property("referenced_file_handle", type_name.referenced_file_handle);
 			}
 			if(type_name.referenced_stabs_type_number.type > -1) {
@@ -321,7 +321,7 @@ static void print_json_variable_storage(JsonPrinter& json, const Variable::Stora
 	if(const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&storage)) {
 		json.string_property("type", "global");
 		json.string_property("global_location", Variable::GlobalStorage::location_to_string(global_storage->location));
-		json.number_property("global_address", global_storage->address);
+		json.number_property("global_address", global_storage->address.value);
 	}
 	if(const Variable::RegisterStorage* register_storage = std::get_if<Variable::RegisterStorage>(&storage)) {
 		auto [register_class, register_index_relative] =

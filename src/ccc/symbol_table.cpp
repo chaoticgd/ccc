@@ -63,6 +63,12 @@ const char* symbol_table_format_to_string(SymbolTableFormat format) {
 
 template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::operator[](SymbolHandle<SymbolType> handle) {
+	// If no symbols have been deleted, this will work.
+	if(handle.value < m_symbols.size() && m_symbols[handle.value].m_handle == handle) {
+		return &m_symbols[handle.value];
+	}
+	
+	// Otherwise we fallback on doing a binary search.
 	size_t index = binary_search(handle);
 	return m_symbols[index].m_handle == handle ? &m_symbols[index] : nullptr;
 }
@@ -123,8 +129,8 @@ bool SymbolList<SymbolType>::empty() const {
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(u32 address) const {
-	auto iterator = m_address_to_handle.find(address);
+SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(Address address) const {
+	auto iterator = m_address_to_handle.find(address.value);
 	if(iterator != m_address_to_handle.end()) {
 		return iterator->second;
 	} else {
@@ -138,19 +144,19 @@ typename SymbolList<SymbolType>::NameMapIterators SymbolList<SymbolType>::handle
 }
 
 template <typename SymbolType>
-Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, u32 address) {
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Address address) {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::SYMBOL_TYPE_NAME);
 	
 	u32 handle = m_next_handle++;
 	
-	if(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
-		auto iterator = m_address_to_handle.find(address);
+	if((SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) && address.valid()) {
+		auto iterator = m_address_to_handle.find(address.value);
 		if(iterator != m_address_to_handle.end()) {
 			// We're replacing an existing symbol.
 			destroy_symbol(iterator->second);
 		}
 		
-		m_address_to_handle.emplace(address, handle);
+		m_address_to_handle.emplace(address.value, handle);
 	}
 	
 	if(SymbolType::LIST_FLAGS & WITH_NAME_MAP) {
@@ -158,7 +164,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, u32 
 	}
 	
 	SymbolType& symbol = m_symbols.emplace_back();
-	symbol.m_handle = m_next_handle++;
+	symbol.m_handle = handle;
 	symbol.m_address = address;
 	symbol.m_name = std::move(name);
 	
@@ -187,7 +193,9 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 	// Clean up map entries.
 	if(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
 		for(u32 i = begin_index; i < end_index; i++) {
-			m_address_to_handle.erase(m_symbols[i].m_address);
+			if(m_symbols[i].m_address.valid()) {
+				m_address_to_handle.erase(m_symbols[i].m_address.value);
+			}
 		}
 	}
 	
@@ -333,10 +341,13 @@ Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::N
 		if(node->stabs_type_number.type > -1) {
 			source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
 		}
+		
+		(*data_type)->set_type_and_invalidate_node_handles(std::move(node));
+		
 		return *data_type;
 	} else {
-		// Types with this name have previously been processed, we need
-		// to figure out if this one matches any of the previous ones.
+		// Types with this name have previously been processed, we need to
+		// figure out if this one matches any of the previous ones.
 		bool match = false;
 		for(auto [key, existing_type_handle] : types_with_same_name) {
 			DataType* existing_type = data_types[existing_type_handle];
@@ -358,8 +369,8 @@ Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::N
 					source_file.stabs_type_number_to_handle[node->stabs_type_number] = existing_type->handle();
 				}
 				if(compare_result.type == ast::CompareResultType::MATCHES_FAVOUR_RHS) {
-					// The new node matches the old one, but the new one
-					// is slightly better, so we swap them.
+					// The new node almost matches the old one, but the new one
+					// is slightly better, so we replace the old type.
 					existing_type->set_type_and_invalidate_node_handles(std::move(node));
 				}
 				match = true;
@@ -367,15 +378,19 @@ Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::N
 			}
 		}
 		if(!match) {
-			// This type doesn't match the others with the same name
-			// that have already been processed.
+			// This type doesn't match the others with the same name that have
+			// already been processed.
 			Result<DataType*> data_type = data_types.create_symbol(name);
 			CCC_RETURN_IF_ERROR(data_type);
+			
 			(*data_type)->files = {source_file.handle()};
 			if(node->stabs_type_number.type > -1) {
 				source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
 			}
 			(*data_type)->compare_fail_reason = compare_fail_reason;
+			
+			(*data_type)->set_type_and_invalidate_node_handles(std::move(node));
+			
 			return *data_type;
 		}
 	}
