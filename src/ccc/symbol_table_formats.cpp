@@ -8,7 +8,7 @@
 namespace ccc {
 	
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags);
-static void compute_size_bytes_recursive(ast::Node& node, SymbolTable& symbol_table);
+static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database);
 
 u32 identify_elf_symbol_tables(const ElfFile& elf) {
 	u32 result = 0;
@@ -64,7 +64,7 @@ const char* symbol_table_format_to_string(SymbolTableFormat format) {
 	return "";
 }
 
-Result<SymbolTable> parse_symbol_table(std::vector<u8> image, u32 parser_flags) {
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags) {
 	Result<ElfFile> elf = parse_elf_file(std::move(image));
 	CCC_RETURN_IF_ERROR(elf);
 	
@@ -75,21 +75,21 @@ Result<SymbolTable> parse_symbol_table(std::vector<u8> image, u32 parser_flags) 
 	Result<void> reader_result = reader.init(elf->image, mdebug_section->file_offset);
 	CCC_EXIT_IF_ERROR(reader_result);
 	
-	Result<SymbolTable> symbol_table = analyse(reader, parser_flags);
-	CCC_EXIT_IF_ERROR(symbol_table);
+	Result<SymbolSourceHandle> symbol_source = analyse(database, reader, parser_flags);
+	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	// Filter the AST and compute size information for all nodes.
 #define CCC_X(SymbolType, symbol_list) \
-	for(SymbolType& symbol : symbol_table->symbol_list) { \
+	for(SymbolType& symbol : database.symbol_list) { \
 		if(symbol.type_ptr()) { \
 			filter_ast_by_flags(*symbol.type_ptr(), parser_flags); \
-			compute_size_bytes_recursive(*symbol.type_ptr(), *symbol_table); \
+			compute_size_bytes_recursive(*symbol.type_ptr(), database); \
 		} \
 	}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 	
-	return symbol_table;
+	return symbol_source;
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
@@ -144,7 +144,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
 	});
 }
 
-static void compute_size_bytes_recursive(ast::Node& node, SymbolTable& symbol_table) {
+static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database) {
 	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
 		// Skip nodes that have already been processed.
 		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
@@ -196,12 +196,12 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolTable& symbol_ta
 			}
 			case ast::TYPE_NAME: {
 				ast::TypeName& type_name = node.as<ast::TypeName>();
-				DataTypeHandle resolved_type_handle = symbol_table.lookup_type(type_name, false);
-				DataType* resolved_type = symbol_table.data_types[resolved_type_handle];
+				DataTypeHandle resolved_type_handle = database.lookup_type(type_name, false);
+				DataType* resolved_type = database.data_types[resolved_type_handle];
 				if(resolved_type) {
 					ast::Node& resolved_node = resolved_type->type();
 					if(resolved_node.computed_size_bytes < 0 && !resolved_node.cannot_compute_size) {
-						compute_size_bytes_recursive(resolved_node, symbol_table);
+						compute_size_bytes_recursive(resolved_node, database);
 					}
 					type_name.computed_size_bytes = resolved_node.computed_size_bytes;
 				}

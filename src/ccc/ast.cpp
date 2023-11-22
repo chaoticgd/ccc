@@ -4,12 +4,12 @@
 
 #include "ast.h"
 
-#include "symbol_table.h"
+#include "symbol_database.h"
 
 namespace ccc::ast {
 
-static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolTable& symbol_table);
-static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolTable& symbol_table);
+static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
+static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 
 // Some enums have two symbols associated with them: One named " " and another
 // one referencing the first.
@@ -59,7 +59,7 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	}
 }
 
-CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const SymbolTable& symbol_table, bool check_intrusive_fields) {
+CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields) {
 	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(check_intrusive_fields) {
@@ -74,14 +74,14 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 	switch(node_lhs.descriptor) {
 		case ARRAY: {
 			const auto [lhs, rhs] = Node::as<Array>(node_lhs, node_rhs);
-			if(compare_nodes_and_merge(result, *lhs.element_type.get(), *rhs.element_type.get(), symbol_table)) return result;
+			if(compare_nodes_and_merge(result, *lhs.element_type.get(), *rhs.element_type.get(), database)) return result;
 			if(lhs.element_count != rhs.element_count) return CompareFailReason::ARRAY_ELEMENT_COUNT;
 			break;
 		}
 		case BITFIELD: {
 			const auto [lhs, rhs] = Node::as<BitField>(node_lhs, node_rhs);
 			if(lhs.bitfield_offset_bits != rhs.bitfield_offset_bits) return CompareFailReason::BITFIELD_OFFSET_BITS;
-			if(compare_nodes_and_merge(result, *lhs.underlying_type.get(), *rhs.underlying_type.get(), symbol_table)) return result;
+			if(compare_nodes_and_merge(result, *lhs.underlying_type.get(), *rhs.underlying_type.get(), database)) return result;
 			break;
 		}
 		case BUILTIN: {
@@ -102,12 +102,12 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 			const auto [lhs, rhs] = Node::as<FunctionType>(node_lhs, node_rhs);
 			if(lhs.return_type.has_value() != rhs.return_type.has_value()) return CompareFailReason::FUNCTION_RETURN_TYPE_HAS_VALUE;
 			if(lhs.return_type.has_value()) {
-				if(compare_nodes_and_merge(result, *lhs.return_type->get(), *rhs.return_type->get(), symbol_table)) return result;
+				if(compare_nodes_and_merge(result, *lhs.return_type->get(), *rhs.return_type->get(), database)) return result;
 			}
 			if(lhs.parameters.has_value() && rhs.parameters.has_value()) {
 				if(lhs.parameters->size() != rhs.parameters->size()) return CompareFailReason::FUNCTION_PARAMAETER_COUNT;
 				for(size_t i = 0; i < lhs.parameters->size(); i++) {
-					if(compare_nodes_and_merge(result, *(*lhs.parameters)[i].get(), *(*rhs.parameters)[i].get(), symbol_table)) return result;
+					if(compare_nodes_and_merge(result, *(*lhs.parameters)[i].get(), *(*rhs.parameters)[i].get(), database)) return result;
 				}
 			} else if(lhs.parameters.has_value() != rhs.parameters.has_value()) {
 				return CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE;
@@ -123,13 +123,13 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 		case POINTER_OR_REFERENCE: {
 			const auto [lhs, rhs] = Node::as<PointerOrReference>(node_lhs, node_rhs);
 			if(lhs.is_pointer != rhs.is_pointer) return CompareFailReason::DESCRIPTOR;
-			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), symbol_table)) return result;
+			if(compare_nodes_and_merge(result, *lhs.value_type.get(), *rhs.value_type.get(), database)) return result;
 			break;
 		}
 		case POINTER_TO_DATA_MEMBER: {
 			const auto [lhs, rhs] = Node::as<PointerToDataMember>(node_lhs, node_rhs);
-			if(compare_nodes_and_merge(result, *lhs.class_type.get(), *rhs.class_type.get(), symbol_table)) return result;
-			if(compare_nodes_and_merge(result, *lhs.member_type.get(), *rhs.member_type.get(), symbol_table)) return result;
+			if(compare_nodes_and_merge(result, *lhs.class_type.get(), *rhs.class_type.get(), database)) return result;
+			if(compare_nodes_and_merge(result, *lhs.member_type.get(), *rhs.member_type.get(), database)) return result;
 			break;
 		}
 		case STRUCT_OR_UNION: {
@@ -137,15 +137,15 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 			if(lhs.is_struct != rhs.is_struct) return CompareFailReason::DESCRIPTOR;
 			if(lhs.base_classes.size() != rhs.base_classes.size()) return CompareFailReason::BASE_CLASS_COUNT;
 			for(size_t i = 0; i < lhs.base_classes.size(); i++) {
-				if(compare_nodes_and_merge(result, *lhs.base_classes[i].get(), *rhs.base_classes[i].get(), symbol_table)) return result;
+				if(compare_nodes_and_merge(result, *lhs.base_classes[i].get(), *rhs.base_classes[i].get(), database)) return result;
 			}
 			if(lhs.fields.size() != rhs.fields.size()) return CompareFailReason::FIELDS_SIZE;
 			for(size_t i = 0; i < lhs.fields.size(); i++) {
-				if(compare_nodes_and_merge(result, *lhs.fields[i].get(), *rhs.fields[i].get(), symbol_table)) return result;
+				if(compare_nodes_and_merge(result, *lhs.fields[i].get(), *rhs.fields[i].get(), database)) return result;
 			}
 			if(lhs.member_functions.size() != rhs.member_functions.size()) return CompareFailReason::MEMBER_FUNCTION_COUNT;
 			for(size_t i = 0; i < lhs.member_functions.size(); i++) {
-				if(compare_nodes_and_merge(result, *lhs.member_functions[i].get(), *rhs.member_functions[i].get(), symbol_table)) return result;
+				if(compare_nodes_and_merge(result, *lhs.member_functions[i].get(), *rhs.member_functions[i].get(), database)) return result;
 			}
 			break;
 		}
@@ -164,9 +164,9 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 	return result;
 }
 
-static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolTable& symbol_table) {
-	CompareResult result = compare_nodes(node_lhs, node_rhs, symbol_table, true);
-	try_to_match_wobbly_typedefs(result, node_lhs, node_rhs, symbol_table);
+static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database) {
+	CompareResult result = compare_nodes(node_lhs, node_rhs, database, true);
+	try_to_match_wobbly_typedefs(result, node_lhs, node_rhs, database);
 	if(dest.type != result.type) {
 		if(dest.type == CompareResultType::DIFFERS || result.type == CompareResultType::DIFFERS) {
 			// If any of the inner types differ, the outer type does too.
@@ -198,7 +198,7 @@ static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, c
 	return dest.type == CompareResultType::DIFFERS;
 }
 
-static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolTable& symbol_table) {
+static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database) {
 	// Detect if one side has a typedef when the other just has the plain type.
 	// This was previously a common reason why type deduplication would fail.
 	const Node* type_name_node = &node_lhs;
@@ -207,14 +207,14 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 		if(type_name_node->descriptor == TYPE_NAME) {
 			const TypeName& type_name = type_name_node->as<TypeName>();
 			if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
-				const SourceFile* source_file = symbol_table.source_files[type_name.referenced_file_handle];
+				const SourceFile* source_file = database.source_files[type_name.referenced_file_handle];
 				CCC_ASSERT(source_file);
 				auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);
 				if(handle != source_file->stabs_type_number_to_handle.end()) {
-					const DataType* referenced_type = symbol_table.data_types[handle->second];
+					const DataType* referenced_type = database.data_types[handle->second];
 					CCC_ASSERT(referenced_type);
 					// Don't compare 'intrusive' fields e.g. the offset.
-					CompareResult new_result = compare_nodes(referenced_type->type(), *raw_node, symbol_table, false);
+					CompareResult new_result = compare_nodes(referenced_type->type(), *raw_node, database, false);
 					if(new_result.type != CompareResultType::DIFFERS) {
 						result.type = (i == 0)
 							? CompareResultType::MATCHES_FAVOUR_LHS

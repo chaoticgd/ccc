@@ -27,9 +27,9 @@ struct GraphPrinter {
 	void new_line();
 };
 
-static void map_types_to_files_based_on_reference_count_single_pass(SymbolTable& symbol_table, bool do_types);
+static void map_types_to_files_based_on_reference_count_single_pass(SymbolDatabase& database, bool do_types);
 
-void map_types_to_files_based_on_this_pointers(SymbolTable& symbol_table) {
+void map_types_to_files_based_on_this_pointers(SymbolDatabase& database) {
 	// Iterate over all functions in all files.
 	//for(const Function& function : symbol_table.functions) {
 	//	if(function.type->parameters.has_value() && !function.parameter_variables.empty()) {
@@ -54,12 +54,12 @@ void map_types_to_files_based_on_this_pointers(SymbolTable& symbol_table) {
 	//}
 }
 
-void map_types_to_files_based_on_reference_count(SymbolTable& symbol_table) {
-	map_types_to_files_based_on_reference_count_single_pass(symbol_table, false);
-	map_types_to_files_based_on_reference_count_single_pass(symbol_table, true);
+void map_types_to_files_based_on_reference_count(SymbolDatabase& database) {
+	map_types_to_files_based_on_reference_count_single_pass(database, false);
+	map_types_to_files_based_on_reference_count_single_pass(database, true);
 }
 
-static void map_types_to_files_based_on_reference_count_single_pass(SymbolTable& symbol_table, bool do_types) {
+static void map_types_to_files_based_on_reference_count_single_pass(SymbolDatabase& database, bool do_types) {
 	//for(const DataType& type : symbol_table.data_types) {
 	//	if(type.files.size() == 1) {
 	//		continue;
@@ -136,7 +136,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolTable&
 	//}
 }
 
-TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolTable& symbol_table) {
+TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolDatabase& database) {
 	TypeDependencyAdjacencyList graph;
 	//for(const DataType& type : symbol_table.data_types) {
 	//	std::set<TypeIndex>& dependencies = graph.emplace_back();
@@ -159,7 +159,7 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolTable& symbo
 
 // This currently doesn't work very well, so is not user accessible. There are
 // the remains of some more experiments like this in the git history.
-FileDependencyAdjacencyList build_file_dependency_graph(const SymbolTable& symbol_table, const TypeDependencyAdjacencyList& type_graph) {
+FileDependencyAdjacencyList build_file_dependency_graph(const SymbolDatabase& database, const TypeDependencyAdjacencyList& type_graph) {
 	// Assume that if a type A depends on a type B then the file containing type
 	// A depends on the file containing type B. Note that this creates a fairly
 	// densely connected graph, which is not what we want in this case.
@@ -232,7 +232,7 @@ FileDependencyAdjacencyList build_file_dependency_graph(const SymbolTable& symbo
 	return sparse;
 }
 
-void print_type_dependency_graph(FILE* out, const SymbolTable& symbol_table, const TypeDependencyAdjacencyList& graph) {
+void print_type_dependency_graph(FILE* out, const SymbolDatabase& database, const TypeDependencyAdjacencyList& graph) {
 	//GraphPrinter printer(out);
 	//printer.begin_graph("type_dependencies", DIRECTED);
 	//for(size_t i = 0; i < symbol_table.deduplicated_types.size(); i++) {
@@ -255,7 +255,7 @@ void print_type_dependency_graph(FILE* out, const SymbolTable& symbol_table, con
 	//printer.end_graph();
 }
 
-void print_file_dependency_graph(FILE* out, const SymbolTable& symbol_table, const FileDependencyAdjacencyList& graph) {
+void print_file_dependency_graph(FILE* out, const SymbolDatabase& database, const FileDependencyAdjacencyList& graph) {
 	//GraphPrinter printer(out);
 	//printer.begin_graph("file_dependencies", DIRECTED);
 	//for(size_t i = 0; i < symbol_table.source_files.size(); i++) {

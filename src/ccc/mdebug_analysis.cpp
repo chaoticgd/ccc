@@ -11,17 +11,19 @@ namespace ccc {
 struct AnalysisContext {
 	const mdebug::SymbolTableReader* reader;
 	const std::map<std::string, const mdebug::Symbol*>* globals;
+	SymbolSourceHandle symbol_source;
+	u32 parser_flags;
 };
 
-static Result<void> analyse_file(SymbolTable& symbol_table, s32 file_index, const AnalysisContext& context, u32 parser_flags);
+static Result<void> analyse_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context, u32 parser_flags);
 static std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
 
 class LocalSymbolTableAnalyser {
 public:
-	LocalSymbolTableAnalyser(SymbolTable& symbol_table, StabsToAstState& stabs_to_ast_state, u32 parser_flags, SourceFile& source_file)
-		: m_symbol_table(symbol_table)
+	LocalSymbolTableAnalyser(SymbolDatabase& database, const StabsToAstState& stabs_to_ast_state, const AnalysisContext& context, SourceFile& source_file)
+		: m_database(database)
+		, m_context(context)
 		, m_stabs_to_ast_state(stabs_to_ast_state)
-		, m_parser_flags(parser_flags)
 		, m_source_file(source_file) {}
 	
 	// Functions for processing individual symbols.
@@ -68,9 +70,9 @@ protected:
 		IN_FUNCTION_END
 	};
 	
-	SymbolTable& m_symbol_table;
-	StabsToAstState& m_stabs_to_ast_state;
-	u32 m_parser_flags;
+	SymbolDatabase& m_database;
+	const AnalysisContext& m_context;
+	const StabsToAstState& m_stabs_to_ast_state;
 	
 	AnalysisState m_state = NOT_IN_FUNCTION;
 	SourceFile& m_source_file;
@@ -83,8 +85,10 @@ protected:
 	std::string m_next_relative_path;
 };
 
-Result<SymbolTable> analyse(const mdebug::SymbolTableReader& reader, u32 parser_flags, s32 file_index) {
-	SymbolTable symbol_table;
+Result<SymbolSourceHandle> analyse(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, s32 file_index) {
+	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(".mdebug", SymbolSourceHandle());
+	CCC_RETURN_IF_ERROR(symbol_source);
+	(*symbol_source)->source_type = SymbolSource::SYMBOL_TABLE;
 	
 	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
 	CCC_RETURN_IF_ERROR(external_symbols);
@@ -103,6 +107,8 @@ Result<SymbolTable> analyse(const mdebug::SymbolTableReader& reader, u32 parser_
 	AnalysisContext context;
 	context.reader = &reader;
 	context.globals = &globals;
+	context.symbol_source = (*symbol_source)->handle();
+	context.parser_flags = parser_flags;
 	
 	Result<s32> file_count = reader.file_count();
 	CCC_RETURN_IF_ERROR(file_count);
@@ -110,32 +116,32 @@ Result<SymbolTable> analyse(const mdebug::SymbolTableReader& reader, u32 parser_
 	// Either analyse a specific file descriptor, or all of them.
 	if(file_index > -1) {
 		CCC_CHECK_FATAL(file_index < *file_count, "File index out of range.");
-		Result<void> result = analyse_file(symbol_table, file_index, context, parser_flags);
+		Result<void> result = analyse_file(database, file_index, context, parser_flags);
 		CCC_RETURN_IF_ERROR(result);
 	} else {
 		for(s32 i = 0; i < *file_count; i++) {
-			Result<void> result = analyse_file(symbol_table, i, context, parser_flags);
+			Result<void> result = analyse_file(database, i, context, parser_flags);
 			CCC_RETURN_IF_ERROR(result);
 		}
 	}
 	
 	// The files field may be modified by further analysis passes, so we
 	// need to save this information here.
-	for(DataType& data_type : symbol_table.data_types) {
-		if(data_type.files.size() == 1) {
+	for(DataType& data_type : database.data_types) {
+		if(data_type.source() == context.symbol_source && data_type.files.size() == 1) {
 			data_type.probably_defined_in_cpp_file = true;
 		}
 	}
 
 	
-	return symbol_table;
+	return context.symbol_source;
 }
 
-static Result<void> analyse_file(SymbolTable& symbol_table, s32 file_index, const AnalysisContext& context, u32 parser_flags) {
+static Result<void> analyse_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context, u32 parser_flags) {
 	Result<mdebug::File> input = context.reader->parse_file(file_index);
 	CCC_RETURN_IF_ERROR(input);
 	
-	Result<SourceFile*> source_file = symbol_table.source_files.create_symbol(input->full_path);
+	Result<SourceFile*> source_file = database.source_files.create_symbol(input->full_path, context.symbol_source);
 	CCC_RETURN_IF_ERROR(source_file);
 	
 	// Sometimes the INFO symbols contain information about what toolchain
@@ -165,7 +171,7 @@ static Result<void> analyse_file(SymbolTable& symbol_table, s32 file_index, cons
 	stabs_to_ast_state.stabs_types = &stabs_types;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
-	LocalSymbolTableAnalyser analyser(symbol_table, stabs_to_ast_state, parser_flags, **source_file);
+	LocalSymbolTableAnalyser analyser(database, stabs_to_ast_state, context, **source_file);
 	for(const ParsedSymbol& symbol : *symbols) {
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
@@ -344,12 +350,12 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
 	const char* name = (*node)->name.c_str();
 	
-	if(m_parser_flags & DONT_DEDUPLICATE_TYPES) {
-		Result<DataType*> data_type = m_symbol_table.data_types.create_symbol(name);
+	if(m_context.parser_flags & DONT_DEDUPLICATE_TYPES) {
+		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
 		m_source_file.stabs_type_number_to_handle[(*node)->stabs_type_number] = (*data_type)->handle();
-		(*data_type)->set_type_and_invalidate_node_handles(std::move(*node));
+		(*data_type)->set_type(std::move(*node));
 	} else {
-		Result<ccc::DataType*> type = m_symbol_table.create_data_type_if_unique(std::move(*node), name, m_source_file);
+		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
 	}
 	
@@ -357,14 +363,14 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 }
 
 Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
-	Result<GlobalVariable*> global = m_symbol_table.global_variables.create_symbol(name, address);
+	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(global);
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
 		node->storage_class = ast::SC_STATIC;
 	}
-	(*global)->set_type_and_invalidate_node_handles(std::move(node));
+	(*global)->set_type(std::move(node));
 	
 	(*global)->variable_class = Variable::Class::GLOBAL;
 	Variable::GlobalStorage global_storage;
@@ -393,7 +399,6 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, Address addre
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	m_current_function->address_range.low = address;
 	if(is_static) {
 		m_current_function->storage_class = ast::SC_STATIC;
 	}
@@ -417,10 +422,8 @@ Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address,
 
 Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
 	if(m_state == IN_FUNCTION_BEGINNING) {
-		if(m_current_function->address_range.low != (u32) -1) {
-			CCC_ASSERT(m_current_function);
-			m_current_function->address_range.high = m_current_function->address_range.low.value + function_size;
-		}
+		CCC_ASSERT(m_current_function);
+		m_current_function->size = function_size;
 		m_state = IN_FUNCTION_END;
 	}
 	
@@ -434,15 +437,15 @@ Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsTyp
 	}
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(return_type, m_stabs_to_ast_state, 0, 0, true, true);;
-	m_current_function->set_type_and_invalidate_node_handles(std::move(node));
+	m_current_function->set_type(std::move(node));
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::function_end() {
 	if(m_current_function) {
-		m_current_function->set_parameter_variables(m_current_parameter_variables, DONT_DELETE_OLD_SYMBOLS, m_symbol_table);
-		m_current_function->set_local_variables(m_current_local_variables, DONT_DELETE_OLD_SYMBOLS, m_symbol_table);
+		m_current_function->set_parameter_variables(m_current_parameter_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
+		m_current_function->set_local_variables(m_current_local_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
 	}
 	
 	m_current_function = nullptr;
@@ -455,11 +458,12 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
 	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
 	
-	Result<ParameterVariable*> parameter_variable = m_symbol_table.parameter_variables.create_symbol(name);
+	Result<ParameterVariable*> parameter_variable = m_database.parameter_variables.create_symbol(name, m_context.symbol_source);
 	CCC_RETURN_IF_ERROR(parameter_variable);
 	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
 	
-	(*parameter_variable)->set_type_and_invalidate_node_handles(stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true));
+	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
+	(*parameter_variable)->set_type(std::move(node));
 	
 	(*parameter_variable)->variable_class = Variable::Class::PARAMETER;
 	if(is_stack_variable) {
@@ -481,7 +485,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 		return Result<void>();
 	}
 	
-	Result<LocalVariable*> local_variable = m_symbol_table.local_variables.create_symbol(name);
+	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(name, m_context.symbol_source);
 	CCC_RETURN_IF_ERROR(local_variable);
 	m_pending_local_variables_begin.emplace_back((*local_variable)->handle());
 	
@@ -489,7 +493,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	if(is_static) {
 		node->storage_class = ast::SC_STATIC;
 	}
-	(*local_variable)->set_type_and_invalidate_node_handles(std::move(node));
+	(*local_variable)->set_type(std::move(node));
 	
 	(*local_variable)->variable_class = Variable::Class::LOCAL;
 	(*local_variable)->storage = storage;
@@ -499,7 +503,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 
 Result<void> LocalSymbolTableAnalyser::lbrac(s32 number, s32 begin_offset) {
 	for(LocalVariableHandle local_variable_handle : m_pending_local_variables_begin) {
-		LocalVariable* local_variable = m_symbol_table.local_variables[local_variable_handle];
+		LocalVariable* local_variable = m_database.local_variables[local_variable_handle];
 		CCC_ASSERT(local_variable);
 		local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
 	}
@@ -516,7 +520,7 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
 	CCC_CHECK(variables != m_pending_local_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
 	
 	for(LocalVariableHandle local_variable_handle : variables->second) {
-		LocalVariable* local_variable = m_symbol_table.local_variables[local_variable_handle];
+		LocalVariable* local_variable = m_database.local_variables[local_variable_handle];
 		CCC_ASSERT(local_variable);
 		local_variable->live_range.high = m_source_file.text_address.value + end_offset;
 	}
@@ -528,13 +532,13 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 	CCC_CHECK(m_state != IN_FUNCTION_BEGINNING,
 		"Unexpected end of symbol table for '%s'.", m_source_file.name().c_str());
 	
-	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_symbol_table);
+	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_database);
 	
 	return Result<void>();
 }
 
 Result<void> LocalSymbolTableAnalyser::create_function(Address address, const char* name) {
-	Result<Function*> function = m_symbol_table.functions.create_symbol(name, address);
+	Result<Function*> function = m_database.functions.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(function);
 	m_current_function = *function;
 	m_functions.expand_to_include(m_current_function->handle());
@@ -565,7 +569,7 @@ static std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_v
 	return location;
 }
 
-void fill_in_pointers_to_member_function_definitions(SymbolTable& symbol_table) {
+void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
 	//// Enumerate data types.
 	//std::map<std::string, ast::StructOrUnion*> type_name_to_node;
 	//for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {

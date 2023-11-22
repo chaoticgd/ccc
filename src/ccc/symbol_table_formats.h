@@ -4,7 +4,7 @@
 #pragma once
 
 #include "elf.h"
-#include "symbol_table.h"
+#include "symbol_database.h"
 
 namespace ccc {
 
@@ -41,6 +41,6 @@ enum ParserFlags {
 
 // The main high-level parsing function for the entire library.
 
-Result<SymbolTable> parse_symbol_table(std::vector<u8> image, u32 parser_flags);
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags);
 
 }

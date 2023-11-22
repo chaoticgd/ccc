@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "symbol_table.h"
+#include "symbol_database.h"
 
 namespace ccc {
 	
@@ -35,7 +35,7 @@ public:
 		, m_config(config) {}
 	
 	void comment_block_beginning(const char* input_file);
-	void comment_block_toolchain_version_info(const SymbolTable& symbol_table);
+	void comment_block_toolchain_version_info(const SymbolDatabase& database);
 	void comment_block_builtin_types(const SymbolList<DataType>& data_types);
 	void comment_block_file(const char* path);
 	void begin_include_guard(const char* macro);
@@ -43,7 +43,7 @@ public:
 	void include_directive(const char* path);
 	
 	bool data_type(const DataType& symbol);
-	void function(const Function& symbol, const SymbolTable& symbol_table);
+	void function(const Function& symbol, const SymbolDatabase& database);
 	void global_variable(const GlobalVariable& symbol);
 
 protected:

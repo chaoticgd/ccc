@@ -32,7 +32,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr);
 static void print_json_variable_storage(JsonPrinter& json, const Variable::Storage& storage);
 static s64 merge_stabs_type_number_parts(const StabsTypeNumber& number);
 
-void print_json(FILE* out, const SymbolTable& symbol_table, bool print_per_file_types) {
+void print_json(FILE* out, const SymbolDatabase& database, bool print_per_file_types) {
 	JsonPrinter json;
 	json.out = out;
 	

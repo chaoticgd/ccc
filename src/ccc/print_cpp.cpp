@@ -40,9 +40,9 @@ void CppPrinter::comment_block_beginning(const char* input_file) {
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_toolchain_version_info(const SymbolTable& symbol_table) {
+void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& database) {
 	std::set<std::string> toolchain_version_info;
-	for(const SourceFile& source_file : symbol_table.source_files) {
+	for(const SourceFile& source_file : database.source_files) {
 		if(!source_file.toolchain_version_info.empty()) {
 			for(const std::string& string : source_file.toolchain_version_info) {
 				toolchain_version_info.emplace(string);
@@ -164,7 +164,7 @@ bool CppPrinter::data_type(const DataType& symbol) {
 	return true;
 }
 
-void CppPrinter::function(const Function& symbol, const SymbolTable& symbol_table) {
+void CppPrinter::function(const Function& symbol, const SymbolDatabase& database) {
 	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
@@ -182,8 +182,8 @@ void CppPrinter::function(const Function& symbol, const SymbolTable& symbol_tabl
 	VariableName name;
 	name.identifier = &symbol.name();
 	
-	if(m_config.print_storage_information && symbol.address_range.valid()) {
-		fprintf(out, "/* %08x %08x */ ", symbol.address_range.low.value, symbol.address_range.high.value);
+	if(m_config.print_storage_information) {
+		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size);
 	}
 	
 	//ast_node(node, name, 0);

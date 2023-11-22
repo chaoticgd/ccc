@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "symbol_table.h"
+#include "symbol_database.h"
 
 namespace ccc {
 
-void print_json(FILE* out, const SymbolTable& symbol_table, bool print_per_file_types);
+void print_json(FILE* out, const SymbolDatabase& database, bool print_per_file_types);
 
 }

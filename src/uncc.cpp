@@ -19,11 +19,11 @@ static std::span<char> eat_line(std::span<char>& input);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
-static void demangle_all(SymbolTable& symbol_table);
-static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file);
-static void write_h_file(const fs::path& path, std::string relative_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files);
-static bool needs_lost_and_found_file(const SymbolTable& symbol_table);
-static void write_lost_and_found_file(const fs::path& path, const SymbolTable& symbol_table);
+static void demangle_all(SymbolDatabase& database);
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file);
+static void write_h_file(const fs::path& path, std::string relative_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files);
+static bool needs_lost_and_found_file(const SymbolDatabase& database);
+static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database);
 static void print_help(int argc, char** argv);
 
 int main(int argc, char** argv) {
@@ -48,24 +48,25 @@ int main(int argc, char** argv) {
 	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<SymbolTable> symbol_table = parse_symbol_table(std::move(*image), NO_PARSER_FLAGS);
-	CCC_EXIT_IF_ERROR(symbol_table);
+	SymbolDatabase database;
+	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), NO_PARSER_FLAGS);
+	CCC_EXIT_IF_ERROR(symbol_source);
 	
-	map_types_to_files_based_on_this_pointers(*symbol_table);
-	map_types_to_files_based_on_reference_count(*symbol_table);
-	demangle_all(*symbol_table);
+	map_types_to_files_based_on_this_pointers(database);
+	map_types_to_files_based_on_reference_count(database);
+	demangle_all(database);
 	
 	// Fish out the values of global variables (and static locals).
 	//std::vector<ElfFile*> modules{&(*elf)};
 	//refine_variables(*symbol_table, modules);
 	
-	fill_in_pointers_to_member_function_definitions(*symbol_table);
+	fill_in_pointers_to_member_function_definitions(database);
 	
 	// Group duplicate source file entries, filter out files not referenced in
 	// the SOURCES.txt file.
 	std::map<std::string, std::vector<SourceFileHandle>> path_to_source_file;
 	size_t path_index = 0;
-	for(SourceFile& source_file : symbol_table->source_files) {
+	for(SourceFile& source_file : database.source_files) {
 		if(path_index >= source_paths.size()) {
 			break;
 		}
@@ -88,13 +89,13 @@ int main(int argc, char** argv) {
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
-				write_c_cpp_file(path, relative_header_path, *symbol_table, sources, functions_file);
+				write_c_cpp_file(path, relative_header_path, database, sources, functions_file);
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
 			// Write .h file.
 			if(should_overwrite_file(header_path)) {
-				write_h_file(header_path, relative_header_path.string(), *symbol_table, sources);
+				write_h_file(header_path, relative_header_path.string(), database, sources);
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
 			}
@@ -105,8 +106,8 @@ int main(int argc, char** argv) {
 	
 	// Write out a lost+found file for types that can't be mapped to a specific
 	// source file if we need it.
-	if(needs_lost_and_found_file(*symbol_table)) {
-		write_lost_and_found_file(output_path/"lost+found.h", *symbol_table);
+	if(needs_lost_and_found_file(database)) {
+		write_lost_and_found_file(output_path/"lost+found.h", database);
 	}
 }
 
@@ -198,7 +199,7 @@ static bool should_overwrite_file(const fs::path& path) {
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void demangle_all(SymbolTable& symbol_table) {
+static void demangle_all(SymbolDatabase& database) {
 	//for(SourceFile& source : symbol_table.source_files) {
 	//	for(Function& function : symbol_table.functions.span(source.functions())) {
 	//		if(!function.name().empty()) {
@@ -221,7 +222,7 @@ static void demangle_all(SymbolTable& symbol_table) {
 	//}
 }
 
-static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file) {
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	CCC_CHECK_FATAL(out, "Failed to open '%s' for writing.", path.string().c_str());
@@ -268,7 +269,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path, std::string relative_path, const SymbolTable& symbol_table, const std::vector<SourceFileHandle>& files) {
+static void write_h_file(const fs::path& path, std::string relative_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
@@ -328,8 +329,8 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	fclose(out);
 }
 
-static bool needs_lost_and_found_file(const SymbolTable& symbol_table) {
-	for(const DataType& data_type : symbol_table.data_types) {
+static bool needs_lost_and_found_file(const SymbolDatabase& database) {
+	for(const DataType& data_type : database.data_types) {
 		if(data_type.files.size() != 1) {
 			return true;
 		}
@@ -337,7 +338,7 @@ static bool needs_lost_and_found_file(const SymbolTable& symbol_table) {
 	return false;
 }
 
-static void write_lost_and_found_file(const fs::path& path, const SymbolTable& symbol_table) {
+static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	CppPrinterConfig config;
@@ -346,7 +347,7 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolTable& s
 	config.substitute_parameter_lists = true;
 	CppPrinter printer(out, config);
 	s32 nodes_printed = 0;
-	for(const DataType& data_type : symbol_table.data_types) {
+	for(const DataType& data_type : database.data_types) {
 		if(data_type.files.size() != 1) {
 			if(printer.data_type(data_type)) {
 				nodes_printed++;

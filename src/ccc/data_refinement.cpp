@@ -7,7 +7,7 @@
 namespace ccc {
 
 struct DataRefinementContext {
-	const SymbolTable& symbol_table;
+	const SymbolDatabase& database;
 	const std::vector<ElfFile*>& elves;
 };
 
@@ -20,16 +20,16 @@ static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
 static std::string stringf(const char* format, ...);
 
-void refine_variables(SymbolTable& symbol_table, const std::vector<ElfFile*>& elves) {
-	DataRefinementContext context{symbol_table, elves};
+void refine_variables(SymbolDatabase& database, const std::vector<ElfFile*>& elves) {
+	DataRefinementContext context{database, elves};
 	
 	// Refine all global variables.
-	for(GlobalVariable& global_variable : symbol_table.global_variables) {
+	for(GlobalVariable& global_variable : database.global_variables) {
 		refine_variable(global_variable, context);
 	}
 	
 	// Refine all static local variables.
-	for(LocalVariable& local_variable : symbol_table.local_variables) {
+	for(LocalVariable& local_variable : database.local_variables) {
 		refine_variable(local_variable, context);
 	}
 }
@@ -130,9 +130,9 @@ static std::unique_ptr<ast::Node> refine_node(u32 virtual_address, const ast::No
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
-			DataTypeHandle resolved_type_handle = context.symbol_table.lookup_type(type_name, false);
+			DataTypeHandle resolved_type_handle = context.database.lookup_type(type_name, false);
 			if(resolved_type_handle.valid()) {
-				const DataType& resolved_type = context.symbol_table.data_types.at(resolved_type_handle);
+				const DataType& resolved_type = context.database.data_types.at(resolved_type_handle);
 				if(!resolved_type.type().is_currently_processing) {
 					resolved_type.type().is_currently_processing = true;
 					std::unique_ptr<ast::Node> result = refine_node(virtual_address, resolved_type.type(), context);
@@ -235,7 +235,7 @@ static std::unique_ptr<ast::Node> refine_pointer_or_reference(u32 virtual_addres
 	u32 address = 0;
 	read_virtual((u8*) &address, virtual_address, 4, context.elves);
 	if(address != 0) {
-		const Function* function_symbol = context.symbol_table.functions[address];
+		const Function* function_symbol = context.database.functions[address];
 		if(function_symbol) {
 			//if(node->second->descriptor == ast::VARIABLE) {
 			//	const ast::Variable& variable = node->second->as<ast::Variable>();

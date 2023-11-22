@@ -1,7 +1,7 @@
 // This file is part of the Chaos Compiler Collection.
 // SPDX-License-Identifier: MIT
 
-#include "symbol_table.h"
+#include "symbol_database.h"
 
 #include <mutex>
 
@@ -99,7 +99,7 @@ typename SymbolList<SymbolType>::NameMapIterators SymbolList<SymbolType>::handle
 }
 
 template <typename SymbolType>
-Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Address address) {
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address) {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::SYMBOL_TYPE_NAME);
 	
 	u32 handle = m_next_handle++;
@@ -120,8 +120,16 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Addr
 	
 	SymbolType& symbol = m_symbols.emplace_back();
 	symbol.m_handle = handle;
-	symbol.m_address = address;
+	if(source.valid()) {
+		symbol.m_source = source;
+	} else {
+		CCC_ASSERT((std::is_same_v<SymbolType, SymbolSource>));
+		symbol.m_source = handle;
+	}
 	symbol.m_name = std::move(name);
+	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
+		symbol.m_address = address;
+	}
 	
 	return &symbol;
 }
@@ -146,10 +154,10 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 	}
 	
 	// Clean up map entries.
-	if(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
+	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
 		for(u32 i = begin_index; i < end_index; i++) {
 			if(m_symbols[i].m_address.valid()) {
-				m_address_to_handle.erase(m_symbols[i].m_address.value);
+				m_address_to_handle.erase(m_symbols[i].address().value);
 			}
 		}
 	}
@@ -231,49 +239,49 @@ const char* Variable::GlobalStorage::location_to_string(Location location) {
 	return "";
 }
 
-void Function::set_parameter_variables(ParameterVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table) {
+void Function::set_parameter_variables(ParameterVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		symbol_table.parameter_variables.destroy_symbols(m_parameter_variables);
+		database.parameter_variables.destroy_symbols(m_parameter_variables);
 	}
 	m_parameter_variables = range;
-	for(ParameterVariable& parameter_variable : symbol_table.parameter_variables.span(range)) {
+	for(ParameterVariable& parameter_variable : database.parameter_variables.span(range)) {
 		parameter_variable.m_function = m_handle;
 	}
 }
 
-void Function::set_local_variables(LocalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table) {
+void Function::set_local_variables(LocalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		symbol_table.local_variables.destroy_symbols(m_local_variables);
+		database.local_variables.destroy_symbols(m_local_variables);
 	}
 	m_local_variables = range;
-	for(LocalVariable& local_variable : symbol_table.local_variables.span(range)) {
+	for(LocalVariable& local_variable : database.local_variables.span(range)) {
 		local_variable.m_function = m_handle;
 	}
 }
 
-void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table) {
+void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		symbol_table.functions.destroy_symbols(m_functions);
+		database.functions.destroy_symbols(m_functions);
 	}
 	m_functions = range;
-	for(Function& function : symbol_table.functions.span(range)) {
+	for(Function& function : database.functions.span(range)) {
 		function.m_source_file = m_handle;
 	}
 }
 
-void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolTable& symbol_table) {
+void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		symbol_table.global_variables.destroy_symbols(m_globals_variables);
+		database.global_variables.destroy_symbols(m_globals_variables);
 	}
 	m_globals_variables = range;
-	for(GlobalVariable& global_variable : symbol_table.global_variables.span(range)) {
+	for(GlobalVariable& global_variable : database.global_variables.span(range)) {
 		global_variable.m_source_file = m_handle;
 	}
 }
 
 // *****************************************************************************
 
-DataTypeHandle SymbolTable::lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const {
+DataTypeHandle SymbolDatabase::lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const {
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
 	if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
@@ -300,12 +308,12 @@ DataTypeHandle SymbolTable::lookup_type(const ast::TypeName& type_name, bool fal
 	return DataTypeHandle();
 }
 
-Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file) {
+Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file, SymbolSourceHandle source) {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
 	if(types_with_same_name.begin() == types_with_same_name.end()) {
 		// No types with this name have previously been processed.
-		Result<DataType*> data_type = data_types.create_symbol(name);
+		Result<DataType*> data_type = data_types.create_symbol(name, source);
 		CCC_RETURN_IF_ERROR(data_type);
 		
 		(*data_type)->files = {source_file.handle()};
@@ -313,7 +321,7 @@ Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::N
 			source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
 		}
 		
-		(*data_type)->set_type_and_invalidate_node_handles(std::move(node));
+		(*data_type)->set_type(std::move(node));
 		
 		return *data_type;
 	} else {
@@ -351,7 +359,7 @@ Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::N
 		if(!match) {
 			// This type doesn't match the others with the same name that have
 			// already been processed.
-			Result<DataType*> data_type = data_types.create_symbol(name);
+			Result<DataType*> data_type = data_types.create_symbol(name, source);
 			CCC_RETURN_IF_ERROR(data_type);
 			
 			(*data_type)->files = {source_file.handle()};
@@ -360,70 +368,13 @@ Result<DataType*> SymbolTable::create_data_type_if_unique(std::unique_ptr<ast::N
 			}
 			(*data_type)->compare_fail_reason = compare_fail_reason;
 			
-			(*data_type)->set_type_and_invalidate_node_handles(std::move(node));
+			(*data_type)->set_type(std::move(node));
 			
 			return *data_type;
 		}
 	}
 	
 	return nullptr;
-}
-
-// *****************************************************************************
-
-SymbolTableGuardian::SymbolTableGuardian() {}
-
-SymbolTableHandle SymbolTableGuardian::create(std::string name) {
-	if(m_symbol_tables.size() > UINT32_MAX) {
-		return SymbolTableHandle();
-	}
-	std::unique_lock lock(m_big_symbol_table_lock);
-	SymbolTableHandle handle = (u32) m_symbol_tables.size();
-	m_symbol_tables.emplace_back();
-	m_small_symbol_table_locks.emplace_back(std::make_unique<std::shared_mutex>());
-	return handle;
-}
-
-bool SymbolTableGuardian::destroy(SymbolTableHandle handle) {
-	std::unique_lock lock(m_big_symbol_table_lock);
-	m_symbol_tables.at(handle.value) = {}; // Free the memory.
-	m_small_symbol_table_locks.at(handle.value) = nullptr; // Mark the slot as dead.
-	return true;
-}
-
-void SymbolTableGuardian::clear() {
-	std::unique_lock lock(m_big_symbol_table_lock);
-	m_symbol_tables.clear();
-}
-
-std::optional<SymbolTableHandle> SymbolTableGuardian::lookup(const std::string& name) const {
-	std::shared_lock lock(m_big_symbol_table_lock);
-	for(u32 i = 0; i < (u32) m_symbol_tables.size(); i++) {
-		if(m_small_symbol_table_locks[i].get() && m_symbol_tables[i].name == name) {
-			return i;
-		}
-	}
-	return std::nullopt;
-}
-
-[[nodiscard]] bool SymbolTableGuardian::read(SymbolTableHandle handle, std::function<void(const SymbolTable&)> callback) const {
-	std::shared_lock big_lock(m_big_symbol_table_lock);
-	if(handle.value >= m_symbol_tables.size() || !m_small_symbol_table_locks[handle.value].get()) {
-		return false;
-	}
-	std::shared_lock small_lock(*m_small_symbol_table_locks[handle.value]);
-	callback(m_symbol_tables[handle.value]);
-	return true;
-}
-
-[[nodiscard]] bool SymbolTableGuardian::write(SymbolTableHandle handle, std::function<void(SymbolTable&)> callback) {
-	std::shared_lock big_lock(m_big_symbol_table_lock);
-	if(handle.value >= m_symbol_tables.size() || !m_small_symbol_table_locks[handle.value].get()) {
-		return false;
-	}
-	std::unique_lock small_lock(*m_small_symbol_table_locks[handle.value]);
-	callback(m_symbol_tables[handle.value]);
-	return true;
 }
 
 }
