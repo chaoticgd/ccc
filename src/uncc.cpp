@@ -48,10 +48,7 @@ int main(int argc, char** argv) {
 	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<ElfFile> elf = parse_elf_file(std::move(*image));
-	CCC_EXIT_IF_ERROR(elf);
-	
-	Result<SymbolTable> symbol_table = parse_symbol_table(*elf);
+	Result<SymbolTable> symbol_table = parse_symbol_table(std::move(*image), NO_PARSER_FLAGS);
 	CCC_EXIT_IF_ERROR(symbol_table);
 	
 	map_types_to_files_based_on_this_pointers(*symbol_table);
@@ -59,8 +56,8 @@ int main(int argc, char** argv) {
 	demangle_all(*symbol_table);
 	
 	// Fish out the values of global variables (and static locals).
-	std::vector<ElfFile*> modules{&(*elf)};
-	refine_variables(*symbol_table, modules);
+	//std::vector<ElfFile*> modules{&(*elf)};
+	//refine_variables(*symbol_table, modules);
 	
 	fill_in_pointers_to_member_function_definitions(*symbol_table);
 	

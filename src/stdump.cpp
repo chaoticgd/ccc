@@ -51,7 +51,7 @@ struct SymbolTableCounts {
 	s32 unknown_count = 0;
 };
 
-static Result<SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file);
+static Result<SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file, u32 parser_flags);
 static void identify_symbol_tables(FILE* out, const fs::path& input_path);
 static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts& totals, const fs::path& file_path);
 static void print_functions(FILE* out, SymbolTable& symbol_table);
@@ -61,7 +61,7 @@ static void print_types_per_file(FILE* out, SymbolTable& symbol_table, const Opt
 static void print_local_symbols(FILE* out, const SymbolTable& symbol_table);
 static void print_external_symbols(FILE* out, const SymbolTable& symbol_table);
 static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
-static u32 build_analysis_flags(u32 flags);
+static u32 command_line_flags_to_parser_flags(u32 flags);
 static void list_files(FILE* out, const SymbolTable& symbol_table);
 static void list_sections(FILE* out, const SymbolTable& symbol_table, const ElfFile& elf);
 static void test(FILE* out, const fs::path& directory);
@@ -70,6 +70,7 @@ static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
+	u32 parser_flags = command_line_flags_to_parser_flags(options.flags);
 	FILE* out = stdout;
 	if(!options.output_file.empty()) {
 		out = fopen(options.output_file.string().c_str(), "w");
@@ -82,7 +83,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::FUNCTIONS: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_functions(out, *symbol_table);
@@ -90,7 +91,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::GLOBALS: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_globals(out, *symbol_table);
@@ -98,7 +99,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::TYPES: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			if(!(options.flags & FLAG_PER_FILE)) {
@@ -109,14 +110,14 @@ int main(int argc, char** argv) {
 			return 0;
 		}
 		case OutputMode::JSON: {
-			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
-			CCC_EXIT_IF_ERROR(symbol_table);
-			
-			u32 analysis_flags = STRIP_GENERATED_FUNCTIONS;
-			if(!(options.flags & FLAG_PER_FILE)) {
-				analysis_flags |= DEDUPLICATE_TYPES;
+			u32 json_parser_flags = STRIP_GENERATED_FUNCTIONS;
+			if(options.flags & FLAG_PER_FILE) {
+				json_parser_flags |= DONT_DEDUPLICATE_TYPES;
 			}
+			
+			ElfFile elf;
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, json_parser_flags);
+			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_json(out, *symbol_table, options.flags & FLAG_PER_FILE);
 			
@@ -132,7 +133,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::SYMBOLS: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_local_symbols(out, *symbol_table);
@@ -140,7 +141,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::EXTERNALS: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			print_external_symbols(out, *symbol_table);
@@ -148,7 +149,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::FILES: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			list_files(out, *symbol_table);
@@ -156,7 +157,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::SECTIONS: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			list_sections(out, *symbol_table, elf);
@@ -164,7 +165,7 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::TYPE_GRAPH: {
 			ElfFile elf;
-			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file);
+			Result<SymbolTable> symbol_table = read_symbol_table(elf, options.input_file, parser_flags);
 			CCC_EXIT_IF_ERROR(symbol_table);
 			
 			TypeDependencyAdjacencyList graph = build_type_dependency_graph(*symbol_table);
@@ -183,15 +184,11 @@ int main(int argc, char** argv) {
 	}
 }
 
-static Result<SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file) {
+static Result<SymbolTable> read_symbol_table(ElfFile& elf, const fs::path& input_file, u32 parser_flags) {
 	Result<std::vector<u8>> image = platform::read_binary_file(input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<ElfFile> elf_result = parse_elf_file(std::move(*image));
-	CCC_RETURN_IF_ERROR(elf_result);
-	elf = std::move(*elf_result);
-	
-	return parse_symbol_table(elf);
+	return parse_symbol_table(std::move(*image), parser_flags);
 }
 
 static void identify_symbol_tables(FILE* out, const fs::path& input_path) {
@@ -240,7 +237,7 @@ static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts& totals,
 			Result<ElfFile> elf = parse_elf_file(std::move(*file));
 			CCC_EXIT_IF_ERROR(elf);
 			
-			u32 formats = identify_symbol_tables(*elf);
+			u32 formats = identify_elf_symbol_tables(*elf);
 		
 			if(formats & SYMTAB) totals.symtab_count++;
 			if(formats & MDEBUG) totals.mdebug_count++;
@@ -248,17 +245,18 @@ static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts& totals,
 			if(formats & DWARF) totals.dwarf_count++;
 			if(formats & SNDATA) totals.sndata_count++;
 			
-			print_symbol_table_formats_to_string(out, formats);
+			std::string string = symbol_table_formats_to_string(formats);
+			fprintf(out, "%s\n", string.c_str());
 			break;
 		}
 		case CCC_FOURCC("SNR2"): { // SN systems DLL file
 			totals.sndll_count++;
-			fprintf(out, "sndll");
+			fprintf(out, "sndll\n");
 			break;
 		}
 		default: {
 			totals.unknown_count++;
-			fprintf(out, "unknown format");
+			fprintf(out, "unknown format\n");
 			break;
 		}
 	}
@@ -293,9 +291,6 @@ static void print_globals(FILE* out, SymbolTable& symbol_table) {
 }
 
 static void print_types_deduplicated(FILE* out, SymbolTable& symbol_table, const Options& options) {
-	u32 analysis_flags = build_analysis_flags(options.flags);
-	analysis_flags |= DEDUPLICATE_TYPES;
-	
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
@@ -374,12 +369,13 @@ static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent) {
 	fprintf(out, "%s\n", symbol.string);
 }
 
-static u32 build_analysis_flags(u32 flags) {
-	u32 analysis_flags = NO_ANALYSIS_FLAGS;
-	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) analysis_flags |= STRIP_ACCESS_SPECIFIERS;
-	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) analysis_flags |= STRIP_MEMBER_FUNCTIONS;
-	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) analysis_flags |= STRIP_GENERATED_FUNCTIONS;
-	return analysis_flags;
+static u32 command_line_flags_to_parser_flags(u32 flags) {
+	u32 parser_flags = NO_PARSER_FLAGS;
+	if(flags & FLAG_PER_FILE) parser_flags |= DONT_DEDUPLICATE_TYPES;
+	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) parser_flags |= STRIP_ACCESS_SPECIFIERS;
+	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) parser_flags |= STRIP_MEMBER_FUNCTIONS;
+	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) parser_flags |= STRIP_GENERATED_FUNCTIONS;
+	return parser_flags;
 }
 
 static void list_files(FILE* out, const SymbolTable& symbol_table) {
@@ -451,7 +447,7 @@ static void test(FILE* out, const fs::path& directory) {
 				Result<void> reader_result = reader.init(elf->image, (s32) mdebug_section->file_offset);
 				CCC_EXIT_IF_ERROR(reader_result);
 				
-				Result<ccc::SymbolTable> symbol_table = analyse(reader, DEDUPLICATE_TYPES);
+				Result<ccc::SymbolTable> symbol_table = analyse(reader, NO_PARSER_FLAGS);
 				CCC_EXIT_IF_ERROR(symbol_table);
 				
 				//CppPrinter printer(out);

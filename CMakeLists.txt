@@ -58,6 +58,8 @@ add_library(ccc STATIC
 	src/ccc/symbols.h
 	src/ccc/symbol_table.cpp
 	src/ccc/symbol_table.h
+	src/ccc/symbol_table_formats.cpp
+	src/ccc/symbol_table_formats.h
 	src/ccc/util.cpp
 	src/ccc/util.h
 )
