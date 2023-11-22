@@ -12,14 +12,16 @@ namespace ccc {
 
 template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::operator[](SymbolHandle<SymbolType> handle) {
-	// If no symbols have been deleted, this will work.
-	if(handle.value < m_symbols.size() && m_symbols[handle.value].m_handle == handle) {
-		return &m_symbols[handle.value];
+	if(!handle.valid()) {
+		return nullptr;
 	}
 	
-	// Otherwise we fallback on doing a binary search.
 	size_t index = binary_search(handle);
-	return m_symbols[index].m_handle == handle ? &m_symbols[index] : nullptr;
+	if(index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
+		return nullptr;
+	}
+	
+	return &m_symbols[index];
 }
 
 template <typename SymbolType>
@@ -64,7 +66,11 @@ std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range
 	if(range.empty()) return std::span<SymbolType>();
 	size_t first = binary_search(range.first);
 	size_t last = binary_search(range.last);
-	return std::span<SymbolType>(m_symbols.begin() + first, m_symbols.begin() + last + 1);
+	if(last >= m_symbols.size() && m_symbols[last].m_handle == range.last) {
+		return std::span<SymbolType>(m_symbols.begin() + first, m_symbols.begin() + last + 1);
+	} else {
+		return std::span<SymbolType>(m_symbols.begin() + first, m_symbols.begin() + last);
+	}
 }
 
 template <typename SymbolType>
@@ -170,9 +176,25 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 }
 
 template <typename SymbolType>
-u32 SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const {
+size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const {
 	size_t begin = 0;
 	size_t end = m_symbols.size();
+	
+	// On the first iteration we use the value of the handle as the mid point.
+	if(handle.value < m_symbols.size()) {
+		if(m_symbols[handle.value].m_handle < handle) {
+			begin = handle.value + 1;
+			end = m_symbols.size();
+		} else if(m_symbols[handle.value].m_handle > handle) {
+			begin = 0;
+			end = handle.value;
+		} else {
+			return handle.value;
+		}
+	} else {
+		begin = 0;
+		end = m_symbols.size();
+	}
 	
 	while(begin < end) {
 		size_t mid = (begin + end) / 2;
@@ -181,11 +203,11 @@ u32 SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const
 		} else if(m_symbols[mid].m_handle > handle) {
 			end = mid;
 		} else {
-			return (u32) mid;
+			return mid;
 		}
 	}
 	
-	return (u32) end;
+	return end;
 }
 
 #define CCC_X(SymbolType, symbol_list) template class SymbolList<SymbolType>;

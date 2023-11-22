@@ -143,7 +143,7 @@ protected:
 	
 	// Do a binary search for a handle, and return either its index, or the
 	// index where it could be inserted.
-	u32 binary_search(SymbolHandle<SymbolType> handle) const;
+	size_t binary_search(SymbolHandle<SymbolType> handle) const;
 	
 	std::vector<SymbolType> m_symbols;
 	u32 m_next_handle = 0;

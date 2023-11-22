@@ -8,7 +8,7 @@
 namespace ccc {
 	
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags);
-static void compute_size_bytes_recursive(ast::Node& node, const SymbolTable& symbol_table);
+static void compute_size_bytes_recursive(ast::Node& node, SymbolTable& symbol_table);
 
 u32 identify_elf_symbol_tables(const ElfFile& elf) {
 	u32 result = 0;
@@ -78,7 +78,7 @@ Result<SymbolTable> parse_symbol_table(std::vector<u8> image, u32 parser_flags) 
 	Result<SymbolTable> symbol_table = analyse(reader, parser_flags);
 	CCC_EXIT_IF_ERROR(symbol_table);
 	
-		// Filter the AST and compute size information for all nodes.
+	// Filter the AST and compute size information for all nodes.
 #define CCC_X(SymbolType, symbol_list) \
 	for(SymbolType& symbol : symbol_table->symbol_list) { \
 		if(symbol.type_ptr()) { \
@@ -144,12 +144,16 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
 	});
 }
 
-static void compute_size_bytes_recursive(ast::Node& node, const SymbolTable& symbol_table) {
+static void compute_size_bytes_recursive(ast::Node& node, SymbolTable& symbol_table) {
 	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
+		// Skip nodes that have already been processed.
 		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
 			return ast::EXPLORE_CHILDREN;
 		}
-		node.cannot_compute_size = 1; // Can't compute size recursively.
+		
+		// Can't compute size recursively.
+		node.cannot_compute_size = true;
+		
 		switch(node.descriptor) {
 			case ast::ARRAY: {
 				ast::Array& array = node.as<ast::Array>();
@@ -191,24 +195,24 @@ static void compute_size_bytes_recursive(ast::Node& node, const SymbolTable& sym
 				break;
 			}
 			case ast::TYPE_NAME: {
-				//ast::TypeName& type_name = node.as<ast::TypeName>();
-				//if(type_name.referenced_file_index > -1 && type_name.referenced_stabs_type_number.type > -1) {
-				//	const ast::SourceFile& source_file = *high.source_files[type_name.referenced_file_index].get();
-				//	auto type_index = source_file.stabs_type_number_to_deduplicated_type_index.find(type_name.referenced_stabs_type_number);
-				//	if(type_index != source_file.stabs_type_number_to_deduplicated_type_index.end()) {
-				//		ast::Node& resolved_type = *high.deduplicated_types.at(type_index->second).get();
-				//		if(resolved_type.computed_size_bytes < 0 && !resolved_type.cannot_compute_size) {
-				//			compute_size_bytes_recursive(resolved_type, high);
-				//		}
-				//		type_name.computed_size_bytes = resolved_type.computed_size_bytes;
-				//	}
-				//}
+				ast::TypeName& type_name = node.as<ast::TypeName>();
+				DataTypeHandle resolved_type_handle = symbol_table.lookup_type(type_name, false);
+				DataType* resolved_type = symbol_table.data_types[resolved_type_handle];
+				if(resolved_type) {
+					ast::Node& resolved_node = resolved_type->type();
+					if(resolved_node.computed_size_bytes < 0 && !resolved_node.cannot_compute_size) {
+						compute_size_bytes_recursive(resolved_node, symbol_table);
+					}
+					type_name.computed_size_bytes = resolved_node.computed_size_bytes;
+				}
 				break;
 			}
 		}
+		
 		if(node.computed_size_bytes > -1) {
-			node.cannot_compute_size = 0;
+			node.cannot_compute_size = false;
 		}
+		
 		return ast::EXPLORE_CHILDREN;
 	});
 }
