@@ -73,10 +73,10 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vec
 	
 	mdebug::SymbolTableReader reader;
 	Result<void> reader_result = reader.init(elf->image, mdebug_section->file_offset);
-	CCC_EXIT_IF_ERROR(reader_result);
+	CCC_RETURN_IF_ERROR(reader_result);
 	
 	Result<SymbolSourceHandle> symbol_source = analyse(database, reader, parser_flags, demangle);
-	CCC_EXIT_IF_ERROR(symbol_source);
+	CCC_RETURN_IF_ERROR(symbol_source);
 	
 	// Filter the AST and compute size information for all nodes.
 #define CCC_X(SymbolType, symbol_list) \
@@ -170,13 +170,7 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& databa
 				built_in.computed_size_bytes = builtin_class_size(built_in.bclass);
 				break;
 			}
-			case ast::DATA: {
-				break;
-			}
 			case ast::FUNCTION_TYPE: {
-				break;
-			}
-			case ast::INITIALIZER_LIST: {
 				break;
 			}
 			case ast::ENUM: {

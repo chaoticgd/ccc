@@ -41,10 +41,8 @@ enum NodeDescriptor : u8 {
 	ARRAY,
 	BITFIELD,
 	BUILTIN,
-	DATA,
 	ENUM,
 	FUNCTION_TYPE,
-	INITIALIZER_LIST,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
 	STRUCT_OR_UNION,
@@ -146,16 +144,6 @@ struct BuiltIn : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
 };
 
-// Used for printing out the values of global variables. Not supported by the
-// JSON format!
-struct Data : Node {
-	std::string field_name;
-	std::string string;
-	
-	Data() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = DATA;
-};
-
 struct Enum : Node {
 	std::vector<std::pair<s32, std::string>> constants;
 	
@@ -179,16 +167,6 @@ struct FunctionType : Node {
 	
 	FunctionType() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;
-};
-
-// Used for printing out the values of global variables. Not supported by the
-// JSON format!
-struct InitializerList : Node {
-	std::vector<std::unique_ptr<Node>> children;
-	std::string field_name;
-	
-	InitializerList() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = INITIALIZER_LIST;
 };
 
 struct PointerOrReference : Node {
@@ -318,9 +296,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 		case BUILTIN: {
 			break;
 		}
-		case DATA: {
-			break;
-		}
 		case ENUM: {
 			break;
 		}
@@ -333,13 +308,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 				for(auto& child : *func.parameters) {
 					for_each_node(*child.get(), order, callback);
 				}
-			}
-			break;
-		}
-		case INITIALIZER_LIST: {
-			auto& init_list = node.template as<InitializerList>();
-			for(auto& child : init_list.children) {
-				for_each_node(*child.get(), order, callback);
 			}
 			break;
 		}

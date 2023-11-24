@@ -88,10 +88,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 			if(lhs.bclass != rhs.bclass) return CompareFailReason::BUILTIN_CLASS;
 			break;
 		}
-		case DATA: {
-			CCC_FATAL("Tried to compare data AST nodes.");
-			break;
-		}
 		case ENUM: {
 			const auto [lhs, rhs] = Node::as<Enum>(node_lhs, node_rhs);
 			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
@@ -113,10 +109,6 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 			}
 			if(lhs.modifier != rhs.modifier) return CompareFailReason::FUNCTION_MODIFIER;
 			if(lhs.is_constructor != rhs.is_constructor) return CompareFailReason::FUNCTION_IS_CONSTRUCTOR;
-			break;
-		}
-		case INITIALIZER_LIST: {
-			CCC_FATAL("Tried to compare initializer list AST nodes.");
 			break;
 		}
 		case POINTER_OR_REFERENCE: {
@@ -263,10 +255,8 @@ const char* node_type_to_string(const Node& node) {
 		case ARRAY: return "array";
 		case BITFIELD: return "bitfield";
 		case BUILTIN: return "builtin";
-		case DATA: return "data";
 		case ENUM: return "enum";
 		case FUNCTION_TYPE: return "function_type";
-		case INITIALIZER_LIST: return "initializer_list";
 		case POINTER_OR_REFERENCE: {
 			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();
 			if(pointer_or_reference.is_pointer) {

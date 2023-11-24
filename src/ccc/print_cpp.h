@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "data_refinement.h"
 #include "symbol_database.h"
 
 namespace ccc {
@@ -43,11 +44,12 @@ public:
 	void include_directive(const char* path);
 	
 	bool data_type(const DataType& symbol);
-	void function(const Function& symbol, const SymbolDatabase& database);
-	void global_variable(const GlobalVariable& symbol);
-
+	void function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
+	void global_variable(const GlobalVariable& symbol, const RefinedData* data);
+	
 protected:
 	void ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
+	void refined_data(const RefinedData& data, s32 indentation_level);
 	void variable_storage_comment(const Variable::Storage& storage);
 	void offset(const ast::Node& node);
 

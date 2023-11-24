@@ -19,7 +19,7 @@ static std::span<char> eat_line(std::span<char>& input);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
-static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file);
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file, const std::vector<ElfFile*>& elves);
 static void write_h_file(const fs::path& path, std::string relative_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files);
 static bool needs_lost_and_found_file(const SymbolDatabase& database);
 static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database);
@@ -47,6 +47,8 @@ int main(int argc, char** argv) {
 	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
+	std::vector<u8> image_copy = *image;
+	
 	SymbolDatabase database;
 	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), NO_PARSER_FLAGS, cplus_demangle);
 	CCC_EXIT_IF_ERROR(symbol_source);
@@ -54,9 +56,10 @@ int main(int argc, char** argv) {
 	map_types_to_files_based_on_this_pointers(database);
 	map_types_to_files_based_on_reference_count(database);
 	
-	// Fish out the values of global variables (and static locals).
-	//std::vector<ElfFile*> modules{&(*elf)};
-	//refine_variables(*symbol_table, modules);
+	Result<ElfFile> elf_copy = parse_elf_file(std::move(image_copy));
+	CCC_EXIT_IF_ERROR(elf_copy);
+	
+	std::vector<ElfFile*> elves{&(*elf_copy)};
 	
 	fill_in_pointers_to_member_function_definitions(database);
 	
@@ -87,7 +90,7 @@ int main(int argc, char** argv) {
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
-				write_c_cpp_file(path, relative_header_path, database, sources, functions_file);
+				write_c_cpp_file(path, relative_header_path, database, sources, functions_file, elves);
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
@@ -197,7 +200,7 @@ static bool should_overwrite_file(const fs::path& path) {
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file) {
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file, const std::vector<ElfFile*>& elves) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	CCC_CHECK_FATAL(out, "Failed to open '%s' for writing.", path.string().c_str());
@@ -224,13 +227,23 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 		}
 	}
 	
+	std::function read_virtual_func = [&](u8 *dest, u32 address, u32 size) -> Result<void> {
+		return read_virtual(dest, address, size, elves);
+	};
+	
 	// Print globals.
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files[file_handle];
 		CCC_ASSERT(source_file);
 		GlobalVariableRange global_variables = source_file->globals_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
-			printer.global_variable(global_variable);
+			if(can_refine_variable(global_variable)) {
+				Result<RefinedData> data = refine_variable(global_variable, database, read_virtual_func);
+				CCC_EXIT_IF_ERROR(data);
+				printer.global_variable(global_variable, &(*data));
+			} else {
+				printer.global_variable(global_variable, nullptr);
+			}
 		}
 	}
 	
@@ -240,7 +253,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 		CCC_ASSERT(source_file);
 		FunctionRange functions = source_file->functions();
 		for(const Function& function : database.functions.span(functions)) {
-			printer.function(function, database);
+			printer.function(function, database, &read_virtual_func);
 		}
 	}
 	
@@ -288,7 +301,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		CCC_ASSERT(source_file);
 		GlobalVariableRange global_variables = source_file->globals_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
-			printer.global_variable(global_variable);
+			printer.global_variable(global_variable, nullptr);
 			has_global = true;
 		}
 	}
@@ -302,7 +315,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		CCC_ASSERT(source_file);
 		FunctionRange functions = source_file->functions();
 		for(const Function& function : database.functions.span(functions)) {
-			printer.function(function, database);
+			printer.function(function, database, nullptr);
 		}
 	}
 	

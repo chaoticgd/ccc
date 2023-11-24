@@ -183,12 +183,6 @@ protected:
 
 class Variable : public Symbol {
 public:
-	enum Class {
-		GLOBAL,
-		LOCAL,
-		PARAMETER
-	};
-	
 	struct GlobalStorage {
 		enum Location {
 			NIL,
@@ -228,10 +222,16 @@ public:
 	
 	using Storage = std::variant<GlobalStorage, RegisterStorage, StackStorage>;
 	
-	Class variable_class;
-	Storage storage;
+	const Storage& storage() const { return m_storage; }
+	void set_storage_once(Storage new_storage);
+	
 	AddressRange live_range;
-	std::unique_ptr<ast::Node> data;
+
+protected:
+	Address& address_ref();
+	
+	// Default to global storage so we can assign an address in create_symbol.
+	Storage m_storage = GlobalStorage();
 };
 
 // All the different types of symbol objects.
@@ -293,12 +293,14 @@ public:
 	ast::StorageClass storage_class;
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
-	u8 is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
+	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 	static constexpr const char* SYMBOL_TYPE_NAME = "function";
 	static constexpr const u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
+	Address& address_ref() { return m_address; }
+	
 	SourceFileHandle m_source_file;
 	std::optional<ParameterVariableRange> m_parameter_variables;
 	std::optional<LocalVariableRange> m_local_variables;
@@ -312,7 +314,7 @@ class GlobalVariable : public Variable {
 	friend SymbolList<GlobalVariable>;
 public:
 	GlobalVariableHandle handle() const { return m_handle; }
-	Address address() const { return m_address; }
+	Address address() const { return const_cast<GlobalVariable*>(this)->address_ref(); }
 	SourceFileHandle source_file() const { return m_source_file; };
 	
 	const std::string& demangled_name() const;
@@ -324,7 +326,6 @@ public:
 	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
-	Address m_address;
 	SourceFileHandle m_source_file;
 	std::string m_demangled_name;
 };
@@ -339,6 +340,8 @@ public:
 	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
+	Address& address_ref() { return m_address; }
+	
 	Address m_address;
 };
 
@@ -350,7 +353,7 @@ public:
 	FunctionHandle function() const { return m_function; };
 	
 	static constexpr const char* SYMBOL_TYPE_NAME = "local variable";
-	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
+	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	FunctionHandle m_function;

@@ -1,11 +1,13 @@
 # Changelog
 
-## v1.3
+## v2.0
 
+- Rewrote core symbol table data structures.
 - Massively reduced memory usage.
 - Reworked error handling.
 - stdump: Removed `--verbose` option.
 - stdump: Fixed issue where the `mdebug` option would display some sizes as counts.
+- uncc: Improve how pointers to global variables in other global variable data is printed.
 
 ## v1.2.1
 

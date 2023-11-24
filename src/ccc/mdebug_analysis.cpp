@@ -77,6 +77,7 @@ protected:
 	AnalysisState m_state = NOT_IN_FUNCTION;
 	SourceFile& m_source_file;
 	FunctionRange m_functions;
+	GlobalVariableRange m_global_variables;
 	Function* m_current_function = nullptr;
 	ParameterVariableRange m_current_parameter_variables;
 	LocalVariableRange m_current_local_variables;
@@ -367,6 +368,8 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address
 	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(global);
 	
+	m_global_variables.expand_to_include((*global)->handle());
+	
 	if(m_context.demangle) {
 		const char* demangled_name = m_context.demangle(name, 0);
 		if(demangled_name) {
@@ -381,11 +384,10 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address
 	}
 	(*global)->set_type(std::move(node));
 	
-	(*global)->variable_class = Variable::Class::GLOBAL;
 	Variable::GlobalStorage global_storage;
 	global_storage.location = location;
 	global_storage.address = address;
-	(*global)->storage = global_storage;
+	(*global)->set_storage_once(global_storage);
 	
 	return Result<void>();
 }
@@ -475,16 +477,15 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
 	(*parameter_variable)->set_type(std::move(node));
 	
-	(*parameter_variable)->variable_class = Variable::Class::PARAMETER;
 	if(is_stack_variable) {
 		Variable::StackStorage stack_storage;
 		stack_storage.stack_pointer_offset = offset_or_register;
-		(*parameter_variable)->storage = stack_storage;
+		(*parameter_variable)->set_storage_once(stack_storage);
 	} else {
 		Variable::RegisterStorage register_storage;
 		register_storage.dbx_register_number = offset_or_register;
 		register_storage.is_by_reference = is_by_reference;
-		(*parameter_variable)->storage = register_storage;
+		(*parameter_variable)->set_storage_once(register_storage);
 	}
 	
 	return Result<void>();
@@ -495,7 +496,9 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 		return Result<void>();
 	}
 	
-	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(name, m_context.symbol_source);
+	const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&storage);
+	Address address = global_storage ? global_storage->address : Address();
+	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(local_variable);
 	m_pending_local_variables_begin.emplace_back((*local_variable)->handle());
 	
@@ -505,8 +508,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	}
 	(*local_variable)->set_type(std::move(node));
 	
-	(*local_variable)->variable_class = Variable::Class::LOCAL;
-	(*local_variable)->storage = storage;
+	(*local_variable)->set_storage_once(storage);
 	
 	return Result<void>();
 }
@@ -543,6 +545,7 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 		"Unexpected end of symbol table for '%s'.", m_source_file.name().c_str());
 	
 	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_database);
+	m_source_file.set_globals_variables(m_global_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
 	
 	return Result<void>();
 }

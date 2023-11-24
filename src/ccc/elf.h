@@ -57,13 +57,14 @@ struct ElfFile {
 // Parse the ELF file header, section headers and program headers.
 Result<ElfFile> parse_elf_file(std::vector<u8> image);
 
-Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves);
+[[nodiscard]] Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves);
 
 template <typename T>
-std::vector<T> read_virtual_vector(u32 address, u32 count, const std::vector<ElfFile*>& elves) {
-	std::vector<T> result(count);
-	read_virtual((u8*) result.data(), address, count * sizeof(T), elves);
-	return result;
+[[nodiscard]] Result<std::vector<T>> read_virtual_vector(u32 address, u32 count, const std::vector<ElfFile*>& elves) {
+	std::vector<T> vector(count);
+	Result<void> result = read_virtual((u8*) vector.data(), address, count * sizeof(T), elves);
+	CCC_RETURN_IF_ERROR(result);
+	return vector;
 }
 
 }

@@ -164,7 +164,7 @@ bool CppPrinter::data_type(const DataType& symbol) {
 	return true;
 }
 
-void CppPrinter::function(const Function& symbol, const SymbolDatabase& database) {
+void CppPrinter::function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual) {
 	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
@@ -233,6 +233,13 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 				for(const LocalVariable& variable : local_variables) {
 					indent(out, 1);
 					ast_node(variable.type(), name, 1);
+					if(read_virtual && can_refine_variable(variable)) {
+						fprintf(out, " = ");
+						Result<RefinedData> data = refine_variable(variable, database, *read_virtual);
+						if(data.success()) {
+							refined_data(*data, 1);
+						}
+					}
 					fprintf(out, ";\n");
 				}
 			}
@@ -258,7 +265,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::global_variable(const GlobalVariable& symbol) {
+void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData* data) {
 	const ast::Node& node = symbol.type();
 	
 	if(m_config.skip_statics && node.storage_class == ast::SC_STATIC) {
@@ -266,17 +273,21 @@ void CppPrinter::global_variable(const GlobalVariable& symbol) {
 	}
 	
 	bool wants_spacing = m_config.print_variable_data
-	;//	&& node.data != nullptr
-	//	&& node.data->descriptor == ast::INITIALIZER_LIST;
+		&& data != nullptr
+		&& std::get_if<std::vector<RefinedData>>(&data->value);
 	if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
 	
-	variable_storage_comment(symbol.storage);
+	variable_storage_comment(symbol.storage());
 	
 	VariableName name;
 	name.identifier = &symbol.demangled_name();
 	ast_node(node, name, 0);
+	if(data) {
+		fprintf(out, " = ");
+		refined_data(*data, 0);
+	}
 	fprintf(out, ";\n");
 	
 	m_last_wants_spacing = wants_spacing;
@@ -329,14 +340,6 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				fprintf(out, "CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
-			break;
-		}
-		case ast::DATA: {
-			const ast::Data& data = node.as<ast::Data>();
-			if(!data.field_name.empty()) {
-				fprintf(out, "/* %s = */ ", data.field_name.c_str());
-			}
-			fprintf(out, "%s", data.string.c_str());
 			break;
 		}
 		case ast::ENUM: {
@@ -410,25 +413,6 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				fprintf(out, "/* parameters unknown */");
 			}
 			fprintf(out, ")");
-			break;
-		}
-		case ast::INITIALIZER_LIST: {
-			const ast::InitializerList& list = node.as<ast::InitializerList>();
-			if(!list.field_name.empty()) {
-				fprintf(out, "/* %s = */ ", list.field_name.c_str());
-			}
-			fprintf(out, "{\n");
-			for(size_t i = 0; i < list.children.size(); i++) {
-				indent(out, indentation_level + 1);
-				VariableName dummy;
-				ast_node(*list.children[i].get(), dummy, indentation_level + 1);
-				if(i != list.children.size() - 1) {
-					fprintf(out, ",");
-				}
-				fprintf(out, "\n");
-			}
-			indent(out, indentation_level);
-			fprintf(out, "}");
 			break;
 		}
 		case ast::POINTER_OR_REFERENCE: {
@@ -535,6 +519,31 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
+	}
+}
+
+void CppPrinter::refined_data(const RefinedData& data, s32 indentation_level) {
+	if(!data.field_name.empty()) {
+		fprintf(out, "/* %s = */ ", data.field_name.c_str());
+	}
+	
+	if(const std::string* string = std::get_if<std::string>(&data.value)) {
+		fprintf(out, "%s", string->c_str());
+	}
+	
+	if(const std::vector<RefinedData>* list = std::get_if<std::vector<RefinedData>>(&data.value)) {
+		fprintf(out, "{\n");
+		for(size_t i = 0; i < list->size(); i++) {
+			indent(out, indentation_level + 1);
+			VariableName dummy;
+			refined_data((*list)[i], indentation_level + 1);
+			if(i != list->size() - 1) {
+				fprintf(out, ",");
+			}
+			fprintf(out, "\n");
+		}
+		indent(out, indentation_level);
+		fprintf(out, "}");
 	}
 }
 

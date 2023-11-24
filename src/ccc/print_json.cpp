@@ -119,10 +119,6 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.string_property("class", builtin_class_to_string(builtin.bclass));
 			break;
 		}
-		case ast::DATA: {
-			CCC_FATAL("Tried to print a data node as JSON (which is not supported)!");
-			break;
-		}
 		case ast::ENUM: {
 			const ast::Enum& enumeration = node.as<ast::Enum>();
 			json.property("constants");
@@ -199,10 +195,6 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.string_property("modifier", modifier);
 			json.number_property("vtable_index", function.vtable_index);
 			json.boolean_property("is_constructor", function.is_constructor);
-			break;
-		}
-		case ast::INITIALIZER_LIST: {
-			CCC_FATAL("Tried to print an initializer list node as JSON (which is not supported)!");
 			break;
 		}
 		case ast::POINTER_OR_REFERENCE: {

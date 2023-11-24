@@ -65,7 +65,7 @@ template <typename SymbolType>
 std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range) {
 	size_t first = binary_search(range.first);
 	size_t last = binary_search(range.last);
-	if(last >= m_symbols.size() && m_symbols[last].m_handle == range.last) {
+	if(last < m_symbols.size() && m_symbols[last].m_handle == range.last) {
 		return std::span<SymbolType>(m_symbols.begin() + first, m_symbols.begin() + last + 1);
 	} else {
 		return std::span<SymbolType>(m_symbols.begin() + first, m_symbols.begin() + last);
@@ -121,14 +121,16 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	
 	u32 handle = m_next_handle++;
 	
-	if((SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) && address.valid()) {
-		auto iterator = m_address_to_handle.find(address.value);
-		if(iterator != m_address_to_handle.end()) {
-			// We're replacing an existing symbol.
-			destroy_symbol(iterator->second);
+	if constexpr((SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP)) {
+		if(address.valid()) {
+			auto iterator = m_address_to_handle.find(address.value);
+			if(iterator != m_address_to_handle.end()) {
+				// We're replacing an existing symbol.
+				destroy_symbol(iterator->second);
+			}
+			
+			m_address_to_handle.emplace(address.value, handle);
 		}
-		
-		m_address_to_handle.emplace(address.value, handle);
 	}
 	
 	if(SymbolType::LIST_FLAGS & WITH_NAME_MAP) {
@@ -145,7 +147,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	}
 	symbol.m_name = std::move(name);
 	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
-		symbol.m_address = address;
+		symbol.address_ref() = address;
 	}
 	
 	return &symbol;
@@ -166,16 +168,17 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 		end_index++;
 	}
 	
-	// Clean up map entries.
+	// Clean up address map entries.
 	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
 		for(u32 i = begin_index; i < end_index; i++) {
-			if(m_symbols[i].m_address.valid()) {
-				m_address_to_handle.erase(m_symbols[i].address().value);
+			if(m_symbols[i].address_ref().valid()) {
+				m_address_to_handle.erase(m_symbols[i].address_ref().value);
 			}
 		}
 	}
 	
-	if(SymbolType::LIST_FLAGS & WITH_NAME_MAP) {
+	// Clean up name map entries.
+	if constexpr(SymbolType::LIST_FLAGS & WITH_NAME_MAP) {
 		for(u32 i = begin_index; i < end_index; i++) {
 			auto iterator = m_name_to_handle.find(m_symbols[i].m_name);
 			while(iterator != m_name_to_handle.end()) {
@@ -251,6 +254,29 @@ const char* Variable::GlobalStorage::location_to_string(Location location) {
 	}
 	return "";
 }
+
+void Variable::set_storage_once(Storage new_storage) {
+	GlobalStorage* old_global_storage = std::get_if<GlobalStorage>(&m_storage);
+	GlobalStorage* new_global_storage = std::get_if<GlobalStorage>(&new_storage);
+	// By default m_storage is set to global storage.
+	CCC_ASSERT(old_global_storage);
+	// Make sure we don't change the address so the address map in the symbol
+	// list doesn't get out of sync.
+	bool no_address = !new_global_storage && !old_global_storage->address.valid();
+	bool same_address = new_global_storage && new_global_storage->address == old_global_storage->address;
+	CCC_ASSERT(no_address || same_address);
+	m_storage = new_storage;
+}
+
+Address& Variable::address_ref() {
+	if(GlobalStorage* global_storage = std::get_if<GlobalStorage>(&m_storage)) {
+		return global_storage->address;
+	} else {
+		CCC_FATAL("Variable::address_ref() called for variable with non-global storage.");
+	}
+}
+
+// *****************************************************************************
 
 void Function::set_parameter_variables(std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS && m_parameter_variables.has_value()) {

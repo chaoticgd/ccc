@@ -25,10 +25,11 @@ int main(int argc, char** argv) {
 	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->file_offset);
 	CCC_CHECK_FATAL(text_address.has_value(), "Failed to translate file offset to virtual address.");
 	
-	std::vector<mips::Insn> insns = read_virtual_vector<mips::Insn>(*text_address, text->size / 4, elves);
+	Result<std::vector<mips::Insn>> insns = read_virtual_vector<mips::Insn>(*text_address, text->size / 4, elves);
+	CCC_EXIT_IF_ERROR(insns);
 	
 	for(u64 i = 0; i < text->size / 4; i++) {
-		mips::Insn insn = insns[i];
+		mips::Insn insn = (*insns)[i];
 		const mips::InsnInfo& info = insn.info();
 		u32 insn_address = *text_address + i;
 		
