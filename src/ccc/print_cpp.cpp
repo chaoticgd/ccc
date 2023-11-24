@@ -169,56 +169,88 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		return;
 	}
 	
-	//if(m_config.skip_member_functions_outside_types && node.is_member_function_ish) {
-	//	return;
-	//}
+	if(m_config.skip_member_functions_outside_types && symbol.is_member_function_ish) {
+		return;
+	}
+	
+	std::span<const ParameterVariable> parameter_variables = database.parameter_variables.span(symbol.parameter_variables());
+	std::span<const LocalVariable> local_variables = database.local_variables.span(symbol.local_variables());
 	
 	bool wants_spacing = m_config.print_function_bodies
-		&& (!symbol.local_variables().empty() || function_bodies);
+		&& (!local_variables.empty() || function_bodies);
 	if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
 	
 	VariableName name;
-	name.identifier = &symbol.name();
+	name.identifier = &symbol.demangled_name();
 	
 	if(m_config.print_storage_information) {
 		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size);
 	}
 	
-	//ast_node(node, name, 0);
-	//if(m_config.print_function_bodies) {
-	//	fprintf(out, " ");
-	//	const std::span<char>* body = nullptr;
-	//	if(function_bodies) {
-	//		auto body_iter = function_bodies->find(symbol.address_range.low);
-	//		if(body_iter != function_bodies->end()) {
-	//			body = &body_iter->second;
-	//		}
-	//	}
-	//	if(!symbol.local_variables.empty() || body) {
-	//		fprintf(out, "{\n");
-	//		for(const LocalVariable& variable : symbol_table.local_variables.iterator(symbol.local_variables)) {
-	//			indent(out, 1);
-	//			CCC_ASSERT(variable.type.get());
-	//			ast_node(*variable.type, name, 1);
-	//			fprintf(out, ";\n");
-	//		}
-	//		if(body) {
-	//			if(!symbol.local_variables.empty()) {
-	//				indent(out, 1);
-	//				fprintf(out, "\n");
-	//			}
-	//			fwrite(body->data(), body->size(), 1, out);
-	//		}
-	//		indent(out, 0);
-	//		fprintf(out, "}");
-	//	} else {
-	//		fprintf(out, "{}");
-	//	}
-	//} else {
-	//	fprintf(out, ";");
-	//}
+	// Print out the storage class, return type and function name.
+	print_cpp_storage_class(out, symbol.storage_class);
+	if(true) {//!function.is_constructor) {
+		if(symbol.type_ptr()) {
+			VariableName dummy;
+			ast_node(symbol.type(), dummy, 0);
+			fprintf(out, " ");
+		}
+	}
+	print_cpp_variable_name(out, name, BRACKETS_IF_POINTER);
+	
+	// Print out the parameter list.
+	fprintf(out, "(");
+	if(symbol.parameter_variables().has_value()) {
+		bool skip_this = m_config.omit_this_parameter && !parameter_variables.empty() && parameter_variables[0].name() == "this";
+		for(size_t i = skip_this ? 1 : 0; i < parameter_variables.size(); i++) {
+			VariableName variable_name;
+			variable_name.identifier = &parameter_variables[i].name();
+			ast_node(parameter_variables[i].type(), variable_name, 0);
+			if(i + 1 != parameter_variables.size()) {
+				fprintf(out, ", ");
+			}
+		}
+	} else {
+		fprintf(out, "/* parameters unknown */");
+	}
+	fprintf(out, ")");
+	
+	// Print out the function body.
+	if(m_config.print_function_bodies) {
+		fprintf(out, " ");
+		const std::span<char>* body = nullptr;
+		if(function_bodies) {
+			auto body_iter = function_bodies->find(symbol.address().value);
+			if(body_iter != function_bodies->end()) {
+				body = &body_iter->second;
+			}
+		}
+		if(!local_variables.empty() || body) {
+			fprintf(out, "{\n");
+			if(!local_variables.empty()) {
+				for(const LocalVariable& variable : local_variables) {
+					indent(out, 1);
+					ast_node(variable.type(), name, 1);
+					fprintf(out, ";\n");
+				}
+			}
+			if(body) {
+				if(!local_variables.empty()) {
+					indent(out, 1);
+					fprintf(out, "\n");
+				}
+				fwrite(body->data(), body->size(), 1, out);
+			}
+			indent(out, 0);
+			fprintf(out, "}");
+		} else {
+			fprintf(out, "{}");
+		}
+	} else {
+		fprintf(out, ";");
+	}
 	
 	fprintf(out, "\n");
 	
@@ -233,34 +265,33 @@ void CppPrinter::global_variable(const GlobalVariable& symbol) {
 		return;
 	}
 	
-	//bool wants_spacing = m_config.print_variable_data
-	//	&& node.data != nullptr
+	bool wants_spacing = m_config.print_variable_data
+	;//	&& node.data != nullptr
 	//	&& node.data->descriptor == ast::INITIALIZER_LIST;
-	//if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
-	//	fprintf(out, "\n");
-	//}
+	if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
+		fprintf(out, "\n");
+	}
+	
+	variable_storage_comment(symbol.storage);
 	
 	VariableName name;
-	name.identifier = &symbol.name();
+	name.identifier = &symbol.demangled_name();
 	ast_node(node, name, 0);
 	fprintf(out, ";\n");
 	
-	//m_last_wants_spacing = wants_spacing;
+	m_last_wants_spacing = wants_spacing;
 }
 
 void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
-	//if(node.descriptor == ast::FUNCTION_TYPE) {
-	//	const ast::FunctionType& func_type = node.as<ast::FunctionType>();
-	//	if(func_type.vtable_index > -1) {
-	//		fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
-	//	}
-	//} else if(node.descriptor == ast::VARIABLE) {
-	//	const ast::Variable& variable = node.as<ast::Variable>();
-	//	print_variable_storage_comment(variable.storage);
-	//}
+	if(node.descriptor == ast::FUNCTION_TYPE) {
+		const ast::FunctionType& func_type = node.as<ast::FunctionType>();
+		if(func_type.vtable_index > -1) {
+			fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
+		}
+	}
 	
 	ast::StorageClass storage_class = (ast::StorageClass) node.storage_class;
 	//if(m_config.make_globals_extern && node.descriptor == ast::VARIABLE && node.as<ast::Variable>().variable_class == ast::VariableClass::GLOBAL) {
@@ -504,15 +535,6 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
-		//case ast::VARIABLE: {
-		//	const ast::Variable& variable = node.as<ast::Variable>();
-		//	ast_node(*variable.type.get(), name, indentation_level);
-		//	if(print_variable_data && variable.data.get()) {
-		//		fprintf(out, " = ");
-		//		ast_node(*variable.data.get(), name, indentation_level);
-		//	}
-		//	break;
-		//}
 	}
 }
 

@@ -41,6 +41,8 @@ enum ParserFlags {
 
 // The main high-level parsing function for the entire library.
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags);
+typedef char* DemanglerFunc(const char* mangled, int options);
+
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags, DemanglerFunc* demangle);
 
 }

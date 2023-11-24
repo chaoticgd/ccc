@@ -63,7 +63,6 @@ typename SymbolList<SymbolType>::ConstIterator SymbolList<SymbolType>::end() con
 
 template <typename SymbolType>
 std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range) {
-	if(range.empty()) return std::span<SymbolType>();
 	size_t first = binary_search(range.first);
 	size_t last = binary_search(range.last);
 	if(last >= m_symbols.size() && m_symbols[last].m_handle == range.last) {
@@ -76,6 +75,24 @@ std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range
 template <typename SymbolType>
 std::span<const SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range) const {
 	return const_cast<SymbolList<SymbolType>*>(this)->span(range);
+}
+
+template <typename SymbolType>
+std::span<SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range) {
+	std::span<SymbolType> result;
+	if(range.has_value()) {
+		result = span(*range);
+	}
+	return result;
+}
+
+template <typename SymbolType>
+std::span<const SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range) const {
+	std::span<const SymbolType> result;
+	if(range.has_value()) {
+		result = span(*range);
+	}
+	return result;
 }
 
 template <typename SymbolType>
@@ -142,10 +159,6 @@ bool SymbolList<SymbolType>::destroy_symbol(SymbolHandle<SymbolType> handle) {
 
 template <typename SymbolType>
 u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
-	if(range.empty()) {
-		return 0;
-	}
-	
 	// Lookup the index of the first symbol, and find how many should be erased.
 	u32 begin_index = binary_search(range.first);
 	u32 end_index = begin_index;
@@ -239,24 +252,52 @@ const char* Variable::GlobalStorage::location_to_string(Location location) {
 	return "";
 }
 
-void Function::set_parameter_variables(ParameterVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
-	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		database.parameter_variables.destroy_symbols(m_parameter_variables);
+void Function::set_parameter_variables(std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
+	if(delete_old_symbols == DELETE_OLD_SYMBOLS && m_parameter_variables.has_value()) {
+		database.parameter_variables.destroy_symbols(*m_parameter_variables);
+	}
+	if(range.has_value()) {
+		for(ParameterVariable& parameter_variable : database.parameter_variables.span(*range)) {
+			parameter_variable.m_function = m_handle;
+		}
 	}
 	m_parameter_variables = range;
-	for(ParameterVariable& parameter_variable : database.parameter_variables.span(range)) {
-		parameter_variable.m_function = m_handle;
+}
+
+void Function::set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
+	if(delete_old_symbols == DELETE_OLD_SYMBOLS && m_local_variables.has_value()) {
+		database.local_variables.destroy_symbols(*m_local_variables);
+	}
+	if(range.has_value()) {
+		for(LocalVariable& local_variable : database.local_variables.span(*range)) {
+			local_variable.m_function = m_handle;
+		}
+	}
+	m_local_variables = range;
+}
+
+const std::string& Function::demangled_name() const {
+	if(!m_demangled_name.empty()) {
+		return m_demangled_name;
+	} else {
+		return name();
 	}
 }
 
-void Function::set_local_variables(LocalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
-	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		database.local_variables.destroy_symbols(m_local_variables);
+const void Function::set_demangled_name(std::string demangled) {
+	m_demangled_name = std::move(demangled);
+}
+
+const std::string& GlobalVariable::demangled_name() const {
+	if(!m_demangled_name.empty()) {
+		return m_demangled_name;
+	} else {
+		return name();
 	}
-	m_local_variables = range;
-	for(LocalVariable& local_variable : database.local_variables.span(range)) {
-		local_variable.m_function = m_handle;
-	}
+}
+
+const void GlobalVariable::set_demangled_name(std::string demangled) {
+	m_demangled_name = std::move(demangled);
 }
 
 void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {

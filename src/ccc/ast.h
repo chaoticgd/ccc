@@ -1,5 +1,4 @@
 // This file is part of the Chaos Compiler Collection.
-//
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -74,7 +73,6 @@ struct Node {
 	u8 is_volatile : 1 = false;
 	u8 is_base_class : 1 = false;
 	u8 cannot_compute_size : 1 = false;
-	u8 is_member_function_ish : 1 = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	u8 storage_class : 4 = SC_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
@@ -177,7 +175,7 @@ struct FunctionType : Node {
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
 	bool is_constructor = false;
-	s32 definition_handle = -1; // Filled in by fill_in_pointers_to_member_function_definitions.
+	u32 definition_handle = (u32) -1; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 	FunctionType() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;

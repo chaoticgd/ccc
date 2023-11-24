@@ -58,14 +58,6 @@ struct SymbolRange {
 	SymbolHandle<SymbolType> first;
 	SymbolHandle<SymbolType> last;
 	
-	bool empty() const {
-		return !first.valid() || !last.valid();
-	}
-	
-	bool single() const {
-		return !empty() && first == last;
-	}
-	
 	void expand_to_include(SymbolHandle<SymbolType> handle) {
 		if(!first.valid()) {
 			first = handle;
@@ -116,6 +108,8 @@ public:
 	// For iterating over a subset of the symbols with a range-based for loop.
 	std::span<SymbolType> span(SymbolRange<SymbolType> range);
 	std::span<const SymbolType> span(SymbolRange<SymbolType> range) const;
+	std::span<SymbolType> span(std::optional<SymbolRange<SymbolType>> range);
+	std::span<const SymbolType> span(std::optional<SymbolRange<SymbolType>> range) const;
 	
 	bool empty() const;
 	
@@ -264,12 +258,15 @@ public:
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
 	
-	ParameterVariableRange parameter_variables() const { return m_parameter_variables; }
-	void set_parameter_variables(ParameterVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
-	LocalVariableRange local_variables() const { return m_local_variables; }
-	void set_local_variables(LocalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
+	std::optional<ParameterVariableRange> parameter_variables() const { return m_parameter_variables; }
+	void set_parameter_variables(std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
+	std::optional<LocalVariableRange> local_variables() const { return m_local_variables; }
+	void set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
 	Address address() const { return m_address; }
+	
+	const std::string& demangled_name() const;
+	const void set_demangled_name(std::string demangled);
 	
 	struct Parameter {
 		std::string name;
@@ -296,16 +293,18 @@ public:
 	ast::StorageClass storage_class;
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
+	u8 is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 	static constexpr const char* SYMBOL_TYPE_NAME = "function";
 	static constexpr const u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	SourceFileHandle m_source_file;
-	ParameterVariableRange m_parameter_variables;
-	LocalVariableRange m_local_variables;
+	std::optional<ParameterVariableRange> m_parameter_variables;
+	std::optional<LocalVariableRange> m_local_variables;
 	
 	Address m_address;
+	std::string m_demangled_name;
 };
 
 class GlobalVariable : public Variable {
@@ -316,12 +315,16 @@ public:
 	Address address() const { return m_address; }
 	SourceFileHandle source_file() const { return m_source_file; };
 	
+	const std::string& demangled_name() const;
+	const void set_demangled_name(std::string demangled);
+	
 	static constexpr const char* SYMBOL_TYPE_NAME = "global variable";
 	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	Address m_address;
 	SourceFileHandle m_source_file;
+	std::string m_demangled_name;
 };
 
 class Label : public Symbol {

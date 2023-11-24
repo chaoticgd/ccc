@@ -4,7 +4,6 @@
 #include "mdebug_analysis.h"
 
 #include "stabs_to_ast.h"
-#include "symbol_table_formats.h"
 
 namespace ccc {
 
@@ -13,6 +12,7 @@ struct AnalysisContext {
 	const std::map<std::string, const mdebug::Symbol*>* globals;
 	SymbolSourceHandle symbol_source;
 	u32 parser_flags;
+	DemanglerFunc* demangle;
 };
 
 static Result<void> analyse_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context, u32 parser_flags);
@@ -85,7 +85,7 @@ protected:
 	std::string m_next_relative_path;
 };
 
-Result<SymbolSourceHandle> analyse(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, s32 file_index) {
+Result<SymbolSourceHandle> analyse(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle, s32 file_index) {
 	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(".mdebug", SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(symbol_source);
 	(*symbol_source)->source_type = SymbolSource::SYMBOL_TABLE;
@@ -109,6 +109,7 @@ Result<SymbolSourceHandle> analyse(SymbolDatabase& database, const mdebug::Symbo
 	context.globals = &globals;
 	context.symbol_source = (*symbol_source)->handle();
 	context.parser_flags = parser_flags;
+	context.demangle = demangle;
 	
 	Result<s32> file_count = reader.file_count();
 	CCC_RETURN_IF_ERROR(file_count);
@@ -366,6 +367,14 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address
 	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(global);
 	
+	if(m_context.demangle) {
+		const char* demangled_name = m_context.demangle(name, 0);
+		if(demangled_name) {
+			(*global)->set_demangled_name(demangled_name);
+			free((void*) demangled_name);
+		}
+	}
+	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
 		node->storage_class = ast::SC_STATIC;
@@ -394,7 +403,8 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address
 }
 
 Result<void> LocalSymbolTableAnalyser::procedure(const char* name, Address address, bool is_static) {
-	if(!m_current_function || strcmp(name, m_current_function->name().c_str())) {
+	/// TODO: DEMANGLING IS BREAKING THE STRCMP CHECK HERE!!!!
+	if(!m_current_function || strcmp(name, m_current_function->name().c_str()) != 0) {
 		Result<void> result = create_function(address, name);
 		CCC_RETURN_IF_ERROR(result);
 	}
@@ -541,9 +551,18 @@ Result<void> LocalSymbolTableAnalyser::create_function(Address address, const ch
 	Result<Function*> function = m_database.functions.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(function);
 	m_current_function = *function;
+	
 	m_functions.expand_to_include(m_current_function->handle());
 	
 	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
+	
+	if(m_context.demangle) {
+		const char* demangled_name = m_context.demangle(name, 0);
+		if(demangled_name) {
+			m_current_function->set_demangled_name(demangled_name);
+			free((void*) demangled_name);
+		}
+	}
 	
 	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_source_file.relative_path) {
 		m_current_function->relative_path = m_next_relative_path;
@@ -570,41 +589,34 @@ static std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_v
 }
 
 void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
-	//// Enumerate data types.
-	//std::map<std::string, ast::StructOrUnion*> type_name_to_node;
-	//for(std::unique_ptr<ast::Node>& type : high.deduplicated_types) {
-	//	if(type->descriptor == ast::STRUCT_OR_UNION && !type->name.empty()) {
-	//		type_name_to_node[type->name] = &type->as<ast::StructOrUnion>();
-	//	}
-	//}
-	//
-	//// Fill in pointers from member function declaration to corresponding definitions.
-	//for(const std::unique_ptr<ast::SourceFile>& source_file : high.source_files) {
-	//	for(const std::unique_ptr<ast::Node>& node : source_file->functions) {
-	//		ast::FunctionDefinition& definition = node->as<ast::FunctionDefinition>();
-	//		std::string::size_type name_separator_pos = definition.name.find_last_of("::");
-	//		if(name_separator_pos != std::string::npos && name_separator_pos > 0) {
-	//			std::string function_name = definition.name.substr(name_separator_pos + 1);
-	//			// This won't work for some template types, and that's okay.
-	//			std::string::size_type type_separator_pos = definition.name.find_last_of("::", name_separator_pos - 2);
-	//			std::string type_name;
-	//			if(type_separator_pos != std::string::npos) {
-	//				type_name = definition.name.substr(type_separator_pos + 1, name_separator_pos - type_separator_pos - 2);
-	//			} else {
-	//				type_name = definition.name.substr(0, name_separator_pos - 1);
-	//			}
-	//			auto type = type_name_to_node.find(type_name);
-	//			if(type != type_name_to_node.end()) {
-	//				for(std::unique_ptr<ast::Node>& declaration : type->second->member_functions) {
-	//					if(declaration->name == function_name) {
-	//						declaration->as<ast::FunctionType>().definition = &definition;
-	//						definition.is_member_function_ish = true;
-	//					}
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
+	// Fill in pointers from member function declaration to corresponding definitions.
+	for(Function& function : database.functions) {
+		const std::string& demangled_name = function.demangled_name();
+		std::string::size_type name_separator_pos = demangled_name.find_last_of("::");
+		if(name_separator_pos != std::string::npos && name_separator_pos > 0) {
+			std::string function_name = demangled_name.substr(name_separator_pos + 1);
+			// This won't work for some template types, and that's okay.
+			std::string::size_type type_separator_pos = demangled_name.find_last_of("::", name_separator_pos - 2);
+			std::string type_name;
+			if(type_separator_pos != std::string::npos) {
+				type_name = demangled_name.substr(type_separator_pos + 1, name_separator_pos - type_separator_pos - 2);
+			} else {
+				type_name = demangled_name.substr(0, name_separator_pos - 1);
+			}
+			for(const auto& name_handle : database.data_types.handles_from_name(type_name.c_str())) {
+				DataType* type = database.data_types[name_handle.second];
+				if(type && type->type().descriptor == ast::STRUCT_OR_UNION) {
+					ast::StructOrUnion& struct_or_union = type->type().as<ast::StructOrUnion>();
+					for(std::unique_ptr<ast::Node>& declaration : struct_or_union.member_functions) {
+						if(declaration->name == function_name) {
+							declaration->as<ast::FunctionType>().definition_handle = function.handle().value;
+							function.is_member_function_ish = true;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 }

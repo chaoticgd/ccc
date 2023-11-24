@@ -19,7 +19,6 @@ static std::span<char> eat_line(std::span<char>& input);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
-static void demangle_all(SymbolDatabase& database);
 static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file);
 static void write_h_file(const fs::path& path, std::string relative_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files);
 static bool needs_lost_and_found_file(const SymbolDatabase& database);
@@ -49,12 +48,11 @@ int main(int argc, char** argv) {
 	CCC_EXIT_IF_ERROR(image);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), NO_PARSER_FLAGS);
+	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), NO_PARSER_FLAGS, cplus_demangle);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	map_types_to_files_based_on_this_pointers(database);
 	map_types_to_files_based_on_reference_count(database);
-	demangle_all(database);
 	
 	// Fish out the values of global variables (and static locals).
 	//std::vector<ElfFile*> modules{&(*elf)};
@@ -199,29 +197,6 @@ static bool should_overwrite_file(const fs::path& path) {
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void demangle_all(SymbolDatabase& database) {
-	//for(SourceFile& source : symbol_table.source_files) {
-	//	for(Function& function : symbol_table.functions.span(source.functions())) {
-	//		if(!function.name().empty()) {
-	//			const char* demangled = cplus_demangle(function.name.c_str(), 0);
-	//			if(demangled) {
-	//				function->name = std::string(demangled);
-	//				free((void*) demangled);
-	//			}
-	//		}
-	//	}
-	//	for(std::unique_ptr<ast::Node>& global : source->globals) {
-	//		if(!global->name.empty()) {
-	//			const char* demangled = cplus_demangle(global->name.c_str(), 0);
-	//			if(demangled) {
-	//				global->name = std::string(demangled);
-	//				free((void*) demangled);
-	//			}
-	//		}
-	//	}
-	//}
-}
-
 static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file) {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
@@ -241,30 +216,33 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	printer.include_directive(header_path.filename().string().c_str());
 	
 	// Print types.
-	//for(s32 file_index : files) {
-	//	for(const DataType& data_type : symbol_table.data_types) {
-	//		CCC_ASSERT(data_type.node.get());
-	//		if(data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_index) {
-	//			printer.data_type(data_type);
-	//		}
-	//	}
-	//}
-	//
-	//// Print globals.
-	//for(s32 file_index : file_indices) {
-	//	const ast::SourceFile& file = *high.source_files[file_index].get();
-	//	for(const std::unique_ptr<ast::Node>& node : file.globals) {
-	//		printer.global_variable(node->as<ast::Variable>());
-	//	}
-	//}
-	//
-	//// Print functions.
-	//for(s32 file_index : file_indices) {
-	//	const ast::SourceFile& file = *high.source_files[file_index].get();
-	//	for(const std::unique_ptr<ast::Node>& node : file.functions) {
-	//		printer.function(node->as<ast::FunctionDefinition>());
-	//	}
-	//}
+	for(SourceFileHandle file_handle : files) {
+		for(const DataType& data_type : database.data_types) {
+			if(data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
+				printer.data_type(data_type);
+			}
+		}
+	}
+	
+	// Print globals.
+	for(SourceFileHandle file_handle : files) {
+		const SourceFile* source_file = database.source_files[file_handle];
+		CCC_ASSERT(source_file);
+		GlobalVariableRange global_variables = source_file->globals_variables();
+		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
+			printer.global_variable(global_variable);
+		}
+	}
+	
+	// Print functions.
+	for(SourceFileHandle file_handle : files) {
+		const SourceFile* source_file = database.source_files[file_handle];
+		CCC_ASSERT(source_file);
+		FunctionRange functions = source_file->functions();
+		for(const Function& function : database.functions.span(functions)) {
+			printer.function(function, database);
+		}
+	}
 	
 	fclose(out);
 }
@@ -295,34 +273,38 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	printer.begin_include_guard(relative_path.c_str());
 	
 	// Print types.
-	//for(s32 file_index : file_indices) {
-	//	for(const std::unique_ptr<ast::Node>& node : high.deduplicated_types) {
-	//		if(!node->probably_defined_in_cpp_file && node->files.size() == 1 && node->files[0] == file_index) {
-	//			printer.data_type(*node);
-	//		}
-	//	}
-	//}
-	//
-	//// Print globals.
-	//bool has_global = false;
-	//for(s32 file_index : file_indices) {
-	//	const ast::SourceFile& file = *high.source_files[file_index].get();
-	//	for(const std::unique_ptr<ast::Node>& node : file.globals) {
-	//		printer.global_variable(node->as<ast::Variable>());
-	//		has_global = true;
-	//	}
-	//}
-	//if(has_global) {
-	//	fprintf(out, "\n");
-	//}
-	//
-	//// Print functions.
-	//for(s32 file_index : file_indices) {
-	//	const ast::SourceFile& file = *high.source_files[file_index].get();
-	//	for(const std::unique_ptr<ast::Node>& node : file.functions) {
-	//		printer.function(node->as<ast::FunctionDefinition>());
-	//	}
-	//}
+	for(SourceFileHandle file_handle : files) {
+		for(const DataType& data_type : database.data_types) {
+			if(!data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
+				printer.data_type(data_type);
+			}
+		}
+	}
+	
+	// Print globals.
+	bool has_global = false;
+	for(SourceFileHandle file_handle : files) {
+		const SourceFile* source_file = database.source_files[file_handle];
+		CCC_ASSERT(source_file);
+		GlobalVariableRange global_variables = source_file->globals_variables();
+		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
+			printer.global_variable(global_variable);
+			has_global = true;
+		}
+	}
+	if(has_global) {
+		fprintf(out, "\n");
+	}
+	
+	// Print functions.
+	for(SourceFileHandle file_handle : files) {
+		const SourceFile* source_file = database.source_files[file_handle];
+		CCC_ASSERT(source_file);
+		FunctionRange functions = source_file->functions();
+		for(const Function& function : database.functions.span(functions)) {
+			printer.function(function, database);
+		}
+	}
 	
 	printer.end_include_guard(relative_path.c_str());
 	

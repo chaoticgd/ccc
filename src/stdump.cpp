@@ -173,7 +173,7 @@ static SymbolDatabase read_symbol_table(ElfFile& elf, const fs::path& input_file
 	CCC_EXIT_IF_ERROR(image);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), parser_flags);
+	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), parser_flags, nullptr);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	return database;
@@ -436,7 +436,7 @@ static void test(FILE* out, const fs::path& directory) {
 				CCC_EXIT_IF_ERROR(reader_result);
 				
 				SymbolDatabase database;
-				Result<SymbolSourceHandle> symbol_source = analyse(database, reader, NO_PARSER_FLAGS);
+				Result<SymbolSourceHandle> symbol_source = analyse(database, reader, NO_PARSER_FLAGS, nullptr);
 				CCC_EXIT_IF_ERROR(symbol_source);
 				
 				//CppPrinter printer(out);

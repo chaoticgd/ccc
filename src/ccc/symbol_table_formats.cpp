@@ -64,7 +64,7 @@ const char* symbol_table_format_to_string(SymbolTableFormat format) {
 	return "";
 }
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags) {
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags, DemanglerFunc* demangle) {
 	Result<ElfFile> elf = parse_elf_file(std::move(image));
 	CCC_RETURN_IF_ERROR(elf);
 	
@@ -75,7 +75,7 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vec
 	Result<void> reader_result = reader.init(elf->image, mdebug_section->file_offset);
 	CCC_EXIT_IF_ERROR(reader_result);
 	
-	Result<SymbolSourceHandle> symbol_source = analyse(database, reader, parser_flags);
+	Result<SymbolSourceHandle> symbol_source = analyse(database, reader, parser_flags, demangle);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	// Filter the AST and compute size information for all nodes.
