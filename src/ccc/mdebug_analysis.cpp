@@ -377,7 +377,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
-		node->storage_class = ast::SC_STATIC;
+		(*global)->storage_class = ast::SC_STATIC;
 	}
 	(*global)->set_type(std::move(node));
 	

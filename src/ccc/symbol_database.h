@@ -318,6 +318,8 @@ public:
 	const std::string& demangled_name() const;
 	const void set_demangled_name(std::string demangled);
 	
+	ast::StorageClass storage_class;
+	
 	static constexpr const char* SYMBOL_TYPE_NAME = "global variable";
 	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
