@@ -3,7 +3,7 @@
 
 #include "ccc/ccc.h"
 #define HAVE_DECL_BASENAME 1
-#include "demanglegnu/demangle.h"
+#include "demangle.h"
 
 using namespace ccc;
 

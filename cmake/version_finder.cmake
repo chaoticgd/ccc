@@ -11,7 +11,7 @@ else()
 	set(GIT_TAG "")
 endif()
 
-add_library(versioninfo STATIC
+add_library(ccc_versioninfo STATIC
 	${CMAKE_SOURCE_DIR}/cmake/git_tag.cpp
 )
-target_compile_definitions(versioninfo PRIVATE -DGIT_TAG="${GIT_TAG}")
+target_compile_definitions(ccc_versioninfo PRIVATE -DGIT_TAG="${GIT_TAG}")

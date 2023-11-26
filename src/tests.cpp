@@ -1,6 +1,8 @@
 // This file is part of the Chaos Compiler Collection.
 // SPDX-License-Identifier: MIT
 
+#include <gtest/gtest.h>
+
 #include "ccc/ccc.h"
 #include "platform/file.h"
 
@@ -9,9 +11,15 @@ using namespace ccc;
 static void main_test(const fs::path& input_directory);
 
 int main(int argc, char** argv) {
-	CCC_CHECK_FATAL(argc == 2, "usage: ./tests <input directory>");
+	testing::InitGoogleTest(&argc, argv);
+	int result = RUN_ALL_TESTS();
+	if(result != 0) {
+		return result;
+	}
 	
-	main_test(std::string(argv[1]));
+	if(argc == 2) {
+		main_test(std::string(argv[1]));
+	}
 }
 
 static void main_test(const fs::path& input_directory) {

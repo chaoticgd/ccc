@@ -13,7 +13,7 @@ add_library(demanglegnu STATIC
 	xmemdup.c
 	xstrdup.c
 )
-include_directories(.)
+target_include_directories(demanglegnu PUBLIC .)
 target_compile_definitions(demanglegnu PRIVATE -DHAVE_STRING_H=1)
 if(APPLE)
 	target_compile_options(demanglegnu PRIVATE -Wno-implicit-function-declaration)

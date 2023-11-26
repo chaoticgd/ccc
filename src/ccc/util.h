@@ -134,12 +134,6 @@ public:
 };
 
 #define CCC_FAILURE(...) ccc::Result<int>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
-#define CCC_RETURN_IF_ERROR(result) if(!(result).success()) return (result);
-#define CCC_EXIT_IF_ERROR(result) \
-	if(!(result).success()) { \
-		ccc::print_error(stderr, (result).error()); \
-		exit(1); \
-	}
 
 #define CCC_CHECK(condition, ...) \
 	if(!(condition)) { \
@@ -150,6 +144,22 @@ public:
 	CCC_CHECK(*(input++) == c, \
 		"Expected '%c' in %s, got '%c' (%02hhx)", \
 		c, context, *(input - 1), *(input - 1))
+
+#define CCC_RETURN_IF_ERROR(result) \
+	if(!(result).success()) { \
+		return (result); \
+	}
+
+#define CCC_EXIT_IF_ERROR(result) \
+	if(!(result).success()) { \
+		ccc::print_error(stderr, (result).error()); \
+		exit(1); \
+	}
+
+#define CCC_GTEST_FAIL_IF_ERROR(result) \
+	if(!(result).success()) { \
+		FAIL() << (result).error().message; \
+	}
 
 template <typename... Args>
 void warn_impl(const char* source_file, int source_line, const char* format, Args... args) {

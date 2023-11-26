@@ -4,7 +4,7 @@
 #include "ccc/ccc.h"
 #include "platform/file.h"
 #define HAVE_DECL_BASENAME 1
-#include "demanglegnu/demangle.h"
+#include "demangle.h"
 
 using namespace ccc;
 

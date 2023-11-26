@@ -77,32 +77,38 @@ add_library(ccc_platform STATIC
 	src/platform/file.h
 )
 
+set(TEST_SOURCES
+	src/test/symbol_database_tests.cpp
+)
+
 add_executable(demangle src/demangle.cpp)
-target_link_libraries(demangle ccc demanglegnu versioninfo)
+target_link_libraries(demangle ccc demanglegnu ccc_versioninfo)
 
 add_executable(objdump src/objdump.cpp)
-target_link_libraries(objdump ccc ccc_mips ccc_platform versioninfo)
+target_link_libraries(objdump ccc ccc_mips ccc_platform ccc_versioninfo)
 
 add_executable(stdump src/stdump.cpp)
-target_link_libraries(stdump ccc ccc_platform versioninfo)
+target_link_libraries(stdump ccc ccc_platform ccc_versioninfo)
 add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
-add_executable(tests src/tests.cpp)
-target_link_libraries(tests ccc ccc_platform versioninfo)
-add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/test)
-
 add_executable(uncc src/uncc.cpp)
-target_link_libraries(uncc ccc ccc_platform demanglegnu versioninfo)
+target_link_libraries(uncc ccc ccc_platform ccc_versioninfo demanglegnu)
+
+add_executable(tests src/tests.cpp ${TEST_SOURCES})
+target_include_directories(tests PUBLIC src/)
+target_link_libraries(tests ccc ccc_platform ccc_versioninfo gtest)
+add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/test)
 
 if(WIN32)
 	target_sources(demangle PUBLIC ccc.manifest)
 	target_sources(objdump PUBLIC ccc.manifest)
 	target_sources(stdump PUBLIC ccc.manifest)
-	target_sources(test PUBLIC ccc.manifest)
 	target_sources(uncc PUBLIC ccc.manifest)
+	target_sources(tests PUBLIC ccc.manifest)
 endif()
 
-add_subdirectory(src/demanglegnu)
+add_subdirectory(thirdparty/demanglegnu)
+add_subdirectory(thirdparty/googletest)
 
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
@@ -113,7 +119,7 @@ set(RELEASE_CONTENTS
 	"${CMAKE_SOURCE_DIR}/ghidra_scripts/CCCDecompileAllFunctions.java"
 	"${CMAKE_SOURCE_DIR}/README.md"
 	"${CMAKE_SOURCE_DIR}/License.txt"
-	"${CMAKE_SOURCE_DIR}/demanglegnu/DemanglerLicense.txt"
-	"${CMAKE_SOURCE_DIR}/demanglegnu/DemanglerLicenseSupplementGPL.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicense.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseSupplementGPL.txt"
 )
 include(cmake/zip_crafter.cmake)
