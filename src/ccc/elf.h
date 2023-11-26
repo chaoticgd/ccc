@@ -31,18 +31,17 @@ enum class ElfSectionType : u32 {
 };
 
 struct ElfSection {
-	u32 file_offset = -1;
-	u32 size = -1;
-	ElfSectionType type;
-	u32 name_offset = -1;
 	std::string name;
-	u32 virtual_address = -1;
+	ElfSectionType type;
+	u32 offset;
+	u32 size;
+	u32 address;
 };
 
 struct ElfSegment {
-	u32 file_offset;
+	u32 offset;
 	u32 size;
-	u32 virtual_address;
+	u32 address;
 };
 
 struct ElfFile {

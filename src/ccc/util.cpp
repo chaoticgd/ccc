@@ -33,13 +33,13 @@ void print_warning(FILE* out, const Error& warning) {
 		warning.source_file, warning.source_line, warning.message.c_str());
 }
 
-Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset) {
+const char* get_string(const std::vector<u8>& bytes, u64 offset) {
 	for(const unsigned char* c = bytes.data() + offset; c < bytes.data() + bytes.size(); c++) {
 		if(*c == '\0') {
 			return (const char*) &bytes[offset];
 		}
 	}
-	return CCC_FAILURE("Unexpected end of buffer while reading string.");
+	return nullptr;
 }
 
 std::string merge_paths(const std::string& base, const std::string& path) {

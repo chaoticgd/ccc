@@ -23,7 +23,7 @@ enum class ElfFileType : u16 {
 };
 
 enum class ElfMachine : u16 {
-	MIPS  = 0x08
+	MIPS = 0x08
 };
 
 CCC_PACKED_STRUCT(ElfIdentHeader,
@@ -36,7 +36,7 @@ CCC_PACKED_STRUCT(ElfIdentHeader,
 	/* 0x9 */ u8 pad[7];
 )
 
-CCC_PACKED_STRUCT(ElfFileHeader32,
+CCC_PACKED_STRUCT(ElfFileHeader,
 	/* 0x10 */ ElfFileType type;
 	/* 0x12 */ ElfMachine machine;
 	/* 0x14 */ u32 version;
@@ -52,7 +52,7 @@ CCC_PACKED_STRUCT(ElfFileHeader32,
 	/* 0x32 */ u16 shstrndx;
 )
 
-CCC_PACKED_STRUCT(ElfProgramHeader32,
+CCC_PACKED_STRUCT(ElfProgramHeader,
 	/* 0x00 */ u32 type;
 	/* 0x04 */ u32 offset;
 	/* 0x08 */ u32 vaddr;
@@ -63,7 +63,7 @@ CCC_PACKED_STRUCT(ElfProgramHeader32,
 	/* 0x1c */ u32 align;
 )
 
-CCC_PACKED_STRUCT(ElfSectionHeader32,
+CCC_PACKED_STRUCT(ElfSectionHeader,
 	/* 0x00 */ u32 name;
 	/* 0x04 */ ElfSectionType type;
 	/* 0x08 */ u32 flags;
@@ -87,8 +87,8 @@ ElfSection* ElfFile::lookup_section(const char* name) {
 
 std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) {
 	for(ElfSegment& segment : segments) {
-		if(file_offset >= segment.file_offset && file_offset < segment.file_offset + segment.size) {
-			return segment.virtual_address + file_offset - segment.file_offset;
+		if(file_offset >= segment.offset && file_offset < segment.offset + segment.size) {
+			return segment.address + file_offset - segment.offset;
 		}
 	}
 	return std::nullopt;
@@ -96,47 +96,45 @@ std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) {
 
 Result<ElfFile> parse_elf_file(std::vector<u8> image) {
 	ElfFile elf;
-	elf.image = std::move(image);
+	elf.image = image;
 	
 	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(elf.image, 0);
-	CCC_CHECK(ident, "ELF ident out of range.");
-	CCC_CHECK(ident->magic == CCC_FOURCC("\x7f\x45\x4c\x46"), "Invalid ELF file.");
+	CCC_CHECK(ident, "ELF ident header out of range.");
+	CCC_CHECK(ident->magic == CCC_FOURCC("\x7f\x45\x4c\x46"), "Not an ELF file.");
 	CCC_CHECK(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
-	const ElfFileHeader32* header = get_packed<ElfFileHeader32>(elf.image, sizeof(ElfIdentHeader));
+	const ElfFileHeader* header = get_packed<ElfFileHeader>(elf.image, sizeof(ElfIdentHeader));
 	CCC_CHECK(ident, "ELF file header out of range.");
 	CCC_CHECK(header->machine == ElfMachine::MIPS, "Wrong architecture.");
 	
+	const ElfSectionHeader* shstr_section_header = get_packed<ElfSectionHeader>(elf.image, header->shoff + header->shstrndx * sizeof(ElfSectionHeader));
+	CCC_CHECK(shstr_section_header, "ELF section name header out of range.");
+	
+	for(u32 i = 0; i < header->shnum; i++) {
+		u64 header_offset = header->shoff + i * sizeof(ElfSectionHeader);
+		const ElfSectionHeader* section_header = get_packed<ElfSectionHeader>(elf.image, header_offset);
+		CCC_CHECK(section_header, "ELF section header out of range.");
+		
+		const char* name = get_string(elf.image, shstr_section_header->offset + section_header->name);
+		CCC_CHECK(section_header, "ELF section name out of range.");
+		
+		ElfSection& section = elf.sections.emplace_back();
+		section.name = name;
+		section.type = section_header->type;
+		section.offset = section_header->offset;
+		section.size = section_header->size;
+		section.address = section_header->addr;
+	}
+	
 	for(u32 i = 0; i < header->phnum; i++) {
-		u64 header_offset = header->phoff + i * sizeof(ElfProgramHeader32);
-		const ElfProgramHeader32* program_header = get_packed<ElfProgramHeader32>(elf.image, header_offset);
+		u64 header_offset = header->phoff + i * sizeof(ElfProgramHeader);
+		const ElfProgramHeader* program_header = get_packed<ElfProgramHeader>(elf.image, header_offset);
 		CCC_CHECK(program_header, "ELF program header out of range.");
 		
 		ElfSegment& segment = elf.segments.emplace_back();
-		segment.file_offset = program_header->offset;
+		segment.offset = program_header->offset;
 		segment.size = program_header->filesz;
-		segment.virtual_address = program_header->vaddr;
-	}
-	
-	for(u32 i = 0; i < header->shnum; i++) {
-		u64 header_offset = header->shoff + i * sizeof(ElfSectionHeader32);
-		const auto& section_header = get_packed<ElfSectionHeader32>(elf.image, header_offset);
-		CCC_CHECK(section_header, "ELF section header out of range.");
-		
-		ElfSection& section = elf.sections.emplace_back();
-		section.file_offset = section_header->offset;
-		section.size = section_header->size;
-		section.type = section_header->type;
-		section.name_offset = section_header->name;
-		section.virtual_address = section_header->addr;
-	}
-	
-	if(header->shstrndx < elf.sections.size()) {
-		for(ElfSection& section : elf.sections) {
-			Result<const char*> name = get_string(elf.image, elf.sections[header->shstrndx].file_offset + section.name_offset);
-			CCC_CHECK(name.success(), "Section name out of bounds.");
-			section.name = *name;
-		}
+		segment.address = program_header->vaddr;
 	}
 	
 	return elf;
@@ -148,11 +146,11 @@ Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<Elf
 		
 		for(const ElfFile* elf : elves) {
 			for(const ElfSegment& segment : elf->segments) {
-				if(address >= segment.virtual_address && address < segment.virtual_address + segment.size) {
-					u32 offset = address - segment.virtual_address;
+				if(address >= segment.address && address < segment.address + segment.size) {
+					u32 offset = address - segment.address;
 					u32 copy_size = std::min(segment.size - offset, size);
-					CCC_CHECK(segment.file_offset + offset + copy_size <= elf->image.size(), "Program header is corrupted or executable file is truncated.");
-					memcpy(dest, &elf->image[segment.file_offset + offset], copy_size);
+					CCC_CHECK(segment.offset + offset + copy_size <= elf->image.size(), "Program header is corrupted or executable file is truncated.");
+					memcpy(dest, &elf->image[segment.offset + offset], copy_size);
 					dest += copy_size;
 					address += copy_size;
 					size -= copy_size;

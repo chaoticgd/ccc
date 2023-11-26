@@ -72,7 +72,7 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vec
 	CCC_CHECK(mdebug_section != nullptr, "No .mdebug section.");
 	
 	mdebug::SymbolTableReader reader;
-	Result<void> reader_result = reader.init(elf->image, mdebug_section->file_offset);
+	Result<void> reader_result = reader.init(elf->image, mdebug_section->offset);
 	CCC_RETURN_IF_ERROR(reader_result);
 	
 	Result<SymbolSourceHandle> symbol_source = analyse(database, reader, parser_flags, demangle);

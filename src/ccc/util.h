@@ -175,7 +175,7 @@ const T* get_packed(const std::vector<u8>& bytes, u64 offset) {
 	return reinterpret_cast<const T*>(&bytes[offset]);
 }
 
-Result<const char*> get_string(const std::vector<u8>& bytes, u64 offset);
+const char* get_string(const std::vector<u8>& bytes, u64 offset);
 
 #define CCC_BEGIN_END(x) (x).begin(), (x).end()
 #define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))

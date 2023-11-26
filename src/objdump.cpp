@@ -19,10 +19,10 @@ int main(int argc, char** argv) {
 	
 	std::vector<ElfFile*> elves{&(*elf)};
 	
-	ElfSection* text = elf->lookup_section(".text");
+	ElfSection* text = elf->lookup_section(".t]ext");
 	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
 	
-	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->file_offset);
+	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->offset);
 	CCC_CHECK_FATAL(text_address.has_value(), "Failed to translate file offset to virtual address.");
 	
 	Result<std::vector<mips::Insn>> insns = read_virtual_vector<mips::Insn>(*text_address, text->size / 4, elves);

@@ -378,12 +378,12 @@ static void list_files(FILE* out, const SymbolDatabase& symbol_database) {
 
 static void list_sections(FILE* out, const SymbolDatabase& symbol_database, const ElfFile& elf) {
 	for(const ElfSection& section : elf.sections) {
-		if(section.virtual_address == 0) {
+		if(section.address == 0) {
 			continue;
 		}
 		
-		u32 section_start = section.virtual_address;
-		u32 section_end = section.virtual_address + section.size;
+		u32 section_start = section.address;
+		u32 section_end = section.address + section.size;
 		
 		fprintf(out, "%s:\n", section.name.c_str());
 		
@@ -432,7 +432,7 @@ static void test(FILE* out, const fs::path& directory) {
 			ElfSection* mdebug_section = elf->lookup_section(".mdebug");
 			if(mdebug_section) {
 				mdebug::SymbolTableReader reader;
-				Result<void> reader_result = reader.init(elf->image, (s32) mdebug_section->file_offset);
+				Result<void> reader_result = reader.init(elf->image, (s32) mdebug_section->offset);
 				CCC_EXIT_IF_ERROR(reader_result);
 				
 				SymbolDatabase database;

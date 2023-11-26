@@ -405,7 +405,6 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address
 }
 
 Result<void> LocalSymbolTableAnalyser::procedure(const char* name, Address address, bool is_static) {
-	/// TODO: DEMANGLING IS BREAKING THE STRCMP CHECK HERE!!!!
 	if(!m_current_function || strcmp(name, m_current_function->name().c_str()) != 0) {
 		Result<void> result = create_function(address, name);
 		CCC_RETURN_IF_ERROR(result);
