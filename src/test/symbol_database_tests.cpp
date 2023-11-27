@@ -6,7 +6,7 @@
 
 using namespace ccc;
 
-TEST(CCCSymbolDatabase, Lookup) {
+TEST(CCCSymbolDatabase, SymbolFromHandle) {
 	SymbolDatabase database;
 	SymbolSourceHandle handles[10];
 	
@@ -25,7 +25,7 @@ TEST(CCCSymbolDatabase, Lookup) {
 	}
 }
 
-TEST(CCCSymbolDatabase, Span) {
+TEST(CCCSymbolDatabase, SymbolListSpan) {
 	struct SpanTestCase {
 		std::vector<u8> symbols;
 		u8 first;
@@ -189,4 +189,28 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource) {
 	}
 	
 	EXPECT_TRUE(user_symbols_remaining == 10);
+}
+
+TEST(CCCSymbolDatabase, NodeHandleLookup) {
+	SymbolDatabase database;
+	
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Symbol Table", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<DataType*> data_type = database.data_types.create_symbol("DataType", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(data_type);
+	
+	std::unique_ptr<ast::BuiltIn> node = std::make_unique<ast::BuiltIn>();
+	(*data_type)->set_type_and_invalidate_node_handles(std::move(node));
+	
+	NodeHandle node_handle((*data_type)->handle(), (*data_type)->type_ptr());
+	
+	// Make sure we can lookup the node from the handle.
+	EXPECT_EQ(database.node_handle_to_pointer(node_handle), (*data_type)->type_ptr());
+	
+	// Destroy the symbol.
+	database.data_types.destroy_symbol((*data_type)->handle());
+	
+	// Make sure we can no longer lookup the node from the handle.
+	EXPECT_EQ(database.node_handle_to_pointer(node_handle), nullptr);
 }

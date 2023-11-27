@@ -23,13 +23,29 @@ namespace ccc {
 	CCC_X(SourceFile, source_files) \
 	CCC_X(SymbolSource, symbol_sources)
 
+// Define an enum for the symbol types.
+
+enum class SymbolDescriptor {
+	DATA_TYPE,
+	FUNCTION,
+	GLOBAL_VARIABLE,
+	LABEL,
+	LOCAL_VARIABLE,
+	PARAMETER_VARIABLE,
+	SOURCE_FILE,
+	SYMBOL_SOURCE
+};
+
 // Forward declare all the different types of symbol table objects.
 
 #define CCC_X(SymbolType, symbol_list) class SymbolType;
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-// Define strongly typed handles for all of the symbol table objects.
+struct SymbolDatabase;
+
+// Define strongly typed handles for all of the symbol table objects. These are
+// here to solve the problem of dangling references to symbols.
 
 template <typename SymbolType>
 struct SymbolHandle {
@@ -49,7 +65,24 @@ struct SymbolHandle {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-struct SymbolDatabase;
+// Define a strongly typed handle to an AST node.
+
+class NodeHandle {
+	friend SymbolDatabase;
+public:
+	template <typename SymbolType>
+	NodeHandle(SymbolHandle<SymbolType> symbol_handle, const ast::Node* node)
+		: m_descriptor(SymbolType::DESCRIPTOR)
+		, m_symbol_handle(symbol_handle.value)
+		, m_node(node) {}
+	
+	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
+	
+protected:
+	SymbolDescriptor m_descriptor;
+	u32 m_symbol_handle;
+	const ast::Node* m_node;
+};
 
 // Define range types for all of the symbol table objects. Note that the last
 // member actually points to the last real element in the range.
@@ -269,6 +302,7 @@ public:
 	bool probably_defined_in_cpp_file : 1 = false;
 	bool conflict : 1 = false;
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::DATA_TYPE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "data type";
 	static constexpr const u32 LIST_FLAGS = WITH_NAME_MAP;
 };
@@ -317,6 +351,7 @@ public:
 	std::vector<SubSourceFile> sub_source_files;
 	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
 	static constexpr const char* SYMBOL_TYPE_NAME = "function";
 	static constexpr const u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
@@ -344,6 +379,7 @@ public:
 	
 	ast::StorageClass storage_class;
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "global variable";
 	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
@@ -358,6 +394,7 @@ public:
 	LabelHandle handle() const { return m_handle; }
 	Address address() const { return m_address; }
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LABEL;
 	static constexpr const char* SYMBOL_TYPE_NAME = "label";
 	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
@@ -374,6 +411,7 @@ public:
 	LocalVariableHandle handle() const { return m_handle; }
 	FunctionHandle function() const { return m_function; };
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LOCAL_VARIABLE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "local variable";
 	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
 	
@@ -388,6 +426,7 @@ public:
 	ParameterVariableHandle handle() const { return m_handle; }
 	FunctionHandle function() const { return m_function; };
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::PARAMETER_VARIABLE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "parameter variable";
 	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
 	
@@ -411,6 +450,7 @@ public:
 	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
 	std::set<std::string> toolchain_version_info;
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SOURCE_FILE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "source file";
 	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
 	
@@ -432,6 +472,7 @@ public:
 	
 	Type source_type;
 	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "symbol source";
 	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
 };
@@ -457,6 +498,10 @@ struct SymbolDatabase {
 	// lookup the type by its name. On success return a handle to the type,
 	// otherwise return an invalid handle.
 	DataTypeHandle lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const;
+	
+	// Check if the symbol referenced by a given node handle still exists. If it
+	// does, return the node pointer stored within, otherwise return nullptr.
+	const ast::Node* node_handle_to_pointer(const NodeHandle& node_handle);
 	
 	[[nodiscard]] Result<DataType*> create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file, SymbolSourceHandle source);
 };

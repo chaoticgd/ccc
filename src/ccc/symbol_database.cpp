@@ -415,6 +415,20 @@ DataTypeHandle SymbolDatabase::lookup_type(const ast::TypeName& type_name, bool 
 	return DataTypeHandle();
 }
 
+const ast::Node* SymbolDatabase::node_handle_to_pointer(const NodeHandle& node_handle) {
+	switch(node_handle.m_descriptor) {
+		#define CCC_X(SymbolType, symbol_list) \
+			case SymbolType::DESCRIPTOR: \
+				if(!symbol_list.symbol_from_handle(node_handle.m_symbol_handle)) { \
+					return nullptr; \
+				} \
+				break;
+		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+		#undef CCC_X
+	}
+	return node_handle.m_node;
+}
+
 Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file, SymbolSourceHandle source) {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
