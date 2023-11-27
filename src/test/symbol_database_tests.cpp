@@ -6,13 +6,32 @@
 
 using namespace ccc;
 
+TEST(CCCSymbolDatabase, Lookup) {
+	SymbolDatabase database;
+	SymbolSourceHandle handles[10];
+	
+	// Create the symbols.
+	for(s32 i = 0; i < 10; i++) {
+		Result<SymbolSource*> source = database.symbol_sources.create_symbol(std::to_string(i), SymbolSourceHandle());
+		CCC_GTEST_FAIL_IF_ERROR(source);
+		handles[i] = (*source)->handle();
+	}
+	
+	// Make sure we can still look them up.
+	for(s32 i = 0; i < 10; i++) {
+		SymbolSource* source = database.symbol_sources[handles[i]];
+		ASSERT_TRUE(source);
+		ASSERT_TRUE(source->name() == std::to_string(i));
+	}
+}
+
 TEST(CCCSymbolDatabase, Span) {
 	struct SpanTestCase {
-		std::vector<char> symbols;
-		char first;
-		char last;
-		std::vector<char> to_destroy;
-		std::vector<char> expected_output;
+		std::vector<u8> symbols;
+		u8 first;
+		u8 last;
+		std::vector<u8> to_destroy;
+		std::vector<u8> expected_output;
 	};
 	
 	static const SpanTestCase test_cases[] = {
@@ -36,24 +55,100 @@ TEST(CCCSymbolDatabase, Span) {
 	
 	for(const SpanTestCase& test_case : test_cases) {
 		SymbolList<SymbolSource> list;
-	
-		std::array<SymbolSourceHandle, 256> handles;
-		for(char c : test_case.symbols) {
-			Result<SymbolSource*> symbol = list.create_symbol(std::string() + c, SymbolSourceHandle());
+		SymbolSourceHandle handles[256];
+		
+		for(u8 c : test_case.symbols) {
+			Result<SymbolSource*> symbol = list.create_symbol(std::string() + (char) c, SymbolSourceHandle());
 			CCC_GTEST_FAIL_IF_ERROR(symbol);
 			handles[c] = (*symbol)->handle();
 		}
 		
-		for(const char destroy : test_case.to_destroy) {
-			EXPECT_TRUE(list.destroy_symbol(handles.at(destroy)));
+		for(const u8 destroy : test_case.to_destroy) {
+			EXPECT_TRUE(list.destroy_symbol(handles[destroy]));
 		}
 		
-		std::vector<char> names;
-		for(SymbolSource& symbol : list.span({handles.at(test_case.first), handles.at(test_case.last)})) {
-			names.emplace_back(symbol.name().at(0));
+		std::vector<u8> names;
+		for(SymbolSource& symbol : list.span({handles[test_case.first], handles[test_case.last]})) {
+			names.emplace_back((u8) symbol.name().at(0));
 		}
 		
 		EXPECT_EQ(test_case.expected_output, names);
+	}
+}
+
+TEST(CCCSymbolDatabase, HandleFromAddress) {
+	SymbolDatabase database;
+	FunctionHandle handles[10];
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	
+	// Create the symbols.
+	for(u32 address = 0; address < 10; address++) {
+		Result<Function*> function = database.functions.create_symbol("", (*source)->handle(), address);
+		CCC_GTEST_FAIL_IF_ERROR(function);
+		handles[address] = (*function)->handle();
+	}
+	
+	// Make sure we can look them up by their address.
+	for(u32 address = 0; address < 10; address++) {
+		ASSERT_TRUE(database.functions.handle_from_address(address) == handles[address]);
+	}
+}
+
+TEST(CCCSymbolDatabase, HandlesFromName) {
+	SymbolDatabase database;
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	
+	// Create the symbols.
+	Result<DataType*> a = database.data_types.create_symbol("A", (*source)->handle());
+	Result<DataType*> b_1 = database.data_types.create_symbol("B", (*source)->handle());
+	Result<DataType*> b_2 = database.data_types.create_symbol("B", (*source)->handle());
+	Result<DataType*> c_1 = database.data_types.create_symbol("C", (*source)->handle());
+	Result<DataType*> c_2 = database.data_types.create_symbol("C", (*source)->handle());
+	Result<DataType*> c_3 = database.data_types.create_symbol("C", (*source)->handle());
+	Result<DataType*> d = database.data_types.create_symbol("D", (*source)->handle());
+	
+	// Destroy D.
+	database.data_types.destroy_symbol((*d)->handle());
+	
+	// Make sure we can look up A, B, and C by their names.
+	auto as = database.data_types.handles_from_name("A");
+	EXPECT_EQ(++as.begin(), as.end());
+	
+	auto bs = database.data_types.handles_from_name("B");
+	EXPECT_EQ(++(++bs.begin()), bs.end());
+	
+	auto cs = database.data_types.handles_from_name("C");
+	EXPECT_EQ(++(++(++(cs.begin()))), cs.end());
+	
+	// Make sure we can't look up D anymore.
+	auto ds = database.data_types.handles_from_name("D");
+	EXPECT_EQ(ds.begin(), ds.end());
+}
+
+TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles) {
+	SymbolDatabase database;
+	SymbolSourceHandle handles[10];
+	
+	// Create the symbols.
+	for(s32 i = 0; i < 10; i++) {
+		Result<SymbolSource*> source = database.symbol_sources.create_symbol(std::to_string(i), SymbolSourceHandle());
+		CCC_GTEST_FAIL_IF_ERROR(source);
+		handles[i] = (*source)->handle();
+	}
+	
+	// Destroy every other symbol.
+	for(s32 i = 0; i < 10; i += 2) {
+		database.symbol_sources.destroy_symbol(handles[i]);
+	}
+	
+	// Make sure we can't look them up anymore.
+	for(s32 i = 0; i < 10; i += 2) {
+		EXPECT_FALSE(database.symbol_sources[handles[i]]);
+	}
+	
+	// Make sure we can still lookup the other ones.
+	for(s32 i = 1; i < 10; i += 2) {
+		EXPECT_TRUE(database.symbol_sources[handles[i]]);
 	}
 }
 

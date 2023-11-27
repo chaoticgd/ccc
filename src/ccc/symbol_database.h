@@ -118,23 +118,23 @@ public:
 	
 	using AddressToHandleMap = std::unordered_map<u32, SymbolHandle<SymbolType>>;
 	using NameToHandleMap = std::unordered_multimap<std::string, SymbolHandle<SymbolType>>;
-	using NameMapIterator = typename NameToHandleMap::const_iterator;
+	using NameToHandleMapIterator = typename NameToHandleMap::const_iterator;
 	
 	// This lets us use range-based for loops to iterate over all symbols with
 	// a given name.
-	class NameMapIterators {
+	class NameToHandleMapIterators {
 	public:
-		NameMapIterators(NameMapIterator b, NameMapIterator e)
+		NameToHandleMapIterators(NameToHandleMapIterator b, NameToHandleMapIterator e)
 			: m_begin(b), m_end(e) {}
-		NameMapIterator begin() const { return m_begin; }
-		NameMapIterator end() const { return m_end; }
+		NameToHandleMapIterator begin() const { return m_begin; }
+		NameToHandleMapIterator end() const { return m_end; }
 	protected:
-		NameMapIterator m_begin;
-		NameMapIterator m_end;
+		NameToHandleMapIterator m_begin;
+		NameToHandleMapIterator m_end;
 	};
 	
 	SymbolHandle<SymbolType> handle_from_address(Address address) const;
-	NameMapIterators handles_from_name(const char* name) const;
+	NameToHandleMapIterators handles_from_name(const char* name) const;
 	
 	bool empty() const;
 	
