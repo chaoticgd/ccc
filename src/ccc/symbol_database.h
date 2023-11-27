@@ -23,7 +23,7 @@ namespace ccc {
 	CCC_X(SourceFile, source_files) \
 	CCC_X(SymbolSource, symbol_sources)
 
-// Define an enum for the symbol types.
+// Define an enum for all the symbol types.
 
 enum class SymbolDescriptor {
 	DATA_TYPE,
@@ -218,7 +218,7 @@ public:
 	ast::Node* type_ptr() { return m_type.get(); }
 	const ast::Node* type_ptr() const { return m_type.get(); }
 	
-	void set_type(std::unique_ptr<ast::Node> type) {
+	void set_type_once(std::unique_ptr<ast::Node> type) {
 		CCC_ASSERT(!m_type.get());
 		m_type = std::move(type);
 	}

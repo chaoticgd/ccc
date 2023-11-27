@@ -442,7 +442,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 			source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
 		}
 		
-		(*data_type)->set_type(std::move(node));
+		(*data_type)->set_type_once(std::move(node));
 		
 		return *data_type;
 	} else {
@@ -489,7 +489,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 			}
 			(*data_type)->compare_fail_reason = compare_fail_reason;
 			
-			(*data_type)->set_type(std::move(node));
+			(*data_type)->set_type_once(std::move(node));
 			
 			return *data_type;
 		}

@@ -355,7 +355,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	if(m_context.parser_flags & DONT_DEDUPLICATE_TYPES) {
 		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
 		m_source_file.stabs_type_number_to_handle[(*node)->stabs_type_number] = (*data_type)->handle();
-		(*data_type)->set_type(std::move(*node));
+		(*data_type)->set_type_once(std::move(*node));
 	} else {
 		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
@@ -382,7 +382,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address
 	if(is_static) {
 		(*global)->storage_class = ast::SC_STATIC;
 	}
-	(*global)->set_type(std::move(node));
+	(*global)->set_type_once(std::move(node));
 	
 	Variable::GlobalStorage global_storage;
 	global_storage.location = location;
@@ -448,7 +448,7 @@ Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsTyp
 	}
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(return_type, m_stabs_to_ast_state, 0, 0, true, true);;
-	m_current_function->set_type(std::move(node));
+	m_current_function->set_type_once(std::move(node));
 	
 	return Result<void>();
 }
@@ -474,7 +474,7 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
-	(*parameter_variable)->set_type(std::move(node));
+	(*parameter_variable)->set_type_once(std::move(node));
 	
 	if(is_stack_variable) {
 		Variable::StackStorage stack_storage;
@@ -505,7 +505,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	if(is_static) {
 		node->storage_class = ast::SC_STATIC;
 	}
-	(*local_variable)->set_type(std::move(node));
+	(*local_variable)->set_type_once(std::move(node));
 	
 	(*local_variable)->set_storage_once(storage);
 	
