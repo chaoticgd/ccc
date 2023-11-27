@@ -96,11 +96,6 @@ std::span<const SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRan
 }
 
 template <typename SymbolType>
-bool SymbolList<SymbolType>::empty() const {
-	return m_symbols.size() == 0;
-}
-
-template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(Address address) const {
 	auto iterator = m_address_to_handle.find(address.value);
 	if(iterator != m_address_to_handle.end()) {
@@ -113,6 +108,11 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(Address add
 template <typename SymbolType>
 typename SymbolList<SymbolType>::NameMapIterators SymbolList<SymbolType>::handles_from_name(const char* name) const {
 	return {m_name_to_handle.find(name), m_name_to_handle.end()};
+}
+
+template <typename SymbolType>
+bool SymbolList<SymbolType>::empty() const {
+	return m_symbols.size() == 0;
 }
 
 template <typename SymbolType>
@@ -138,14 +138,20 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	}
 	
 	SymbolType& symbol = m_symbols.emplace_back();
+	
 	symbol.m_handle = handle;
-	if(source.valid()) {
-		symbol.m_source = source;
-	} else {
-		CCC_ASSERT((std::is_same_v<SymbolType, SymbolSource>));
-		symbol.m_source = handle;
-	}
 	symbol.m_name = std::move(name);
+	
+	if constexpr(std::is_same_v<SymbolType, SymbolSource>) {
+		// It doesn't make sense for the calling code to provide a symbol source
+		// handle as an argument if w're creating a symbol source symbol, so we
+		// set the source of the new symbol to its own handle.
+		symbol.m_source = handle;
+	} else {
+		CCC_ASSERT(source.valid());
+		symbol.m_source = source;
+	}
+	
 	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
 		symbol.address_ref() = address;
 	}
@@ -173,6 +179,34 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 		end_index++;
 	}
 	
+	return destroy_symbols_impl(begin_index, end_index);
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle source) {
+	for(size_t i = 0; i < m_symbols.size(); i++) {
+		if(m_symbols[i].m_source == source) {
+			size_t end;
+			for(end = i + 1; end < m_symbols.size(); end++) {
+				if(m_symbols[end].m_source != source) {
+					break;
+				}
+			}
+			destroy_symbols_impl(i, end);
+			i--;
+		}
+	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::clear() {
+	m_symbols.clear();
+	m_address_to_handle.clear();
+	m_name_to_handle.clear();
+}
+
+template <typename SymbolType>
+u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index) {
 	// Clean up address map entries.
 	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
 		for(u32 i = begin_index; i < end_index; i++) {
@@ -206,8 +240,8 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 
 template <typename SymbolType>
 size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const {
-	size_t begin = 0;
-	size_t end = m_symbols.size();
+	size_t begin;
+	size_t end;
 	
 	// On the first iteration we use the value of the handle as the mid point.
 	if(handle.value < m_symbols.size()) {
@@ -352,6 +386,18 @@ void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOl
 }
 
 // *****************************************************************************
+
+void SymbolDatabase::clear() {
+	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+}
+
+void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source) {
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+}
 
 DataTypeHandle SymbolDatabase::lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const {
 	// Lookup the type by its STABS type number. This path ensures that the

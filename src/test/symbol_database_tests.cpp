@@ -56,3 +56,42 @@ TEST(CCCSymbolDatabase, Span) {
 		EXPECT_EQ(test_case.expected_output, names);
 	}
 }
+
+TEST(CCCSymbolDatabase, DestroySymbolsFromSource) {
+	SymbolDatabase database;
+	
+	Result<SymbolSource*> symbol_table_source = database.symbol_sources.create_symbol("Big Symbol Table", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(symbol_table_source);
+	SymbolSourceHandle symbol_table_handle = (*symbol_table_source)->handle();
+	
+	Result<SymbolSource*> user_defined_source = database.symbol_sources.create_symbol("User Defined", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(user_defined_source);
+	SymbolSourceHandle user_defined_handle = (*user_defined_source)->handle();
+	
+	for(s32 i = 0; i < 5; i++) {
+		database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
+	}
+	
+	for(s32 i = 0; i < 5; i++) {
+		database.data_types.create_symbol("UserDefinedType", user_defined_handle);
+	}
+	
+	for(s32 i = 0; i < 5; i++) {
+		database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
+	}
+	
+	for(s32 i = 0; i < 5; i++) {
+		database.data_types.create_symbol("UserDefinedType", user_defined_handle);
+	}
+	
+	// Simulate freeing a symbol table while retaining user-defined symbols.
+	database.destroy_symbols_from_source(symbol_table_handle);
+	
+	s32 user_symbols_remaining = 0;
+	for(const DataType& data_type : database.data_types) {
+		ASSERT_TRUE(data_type.source() == user_defined_handle);
+		user_symbols_remaining++;
+	}
+	
+	EXPECT_TRUE(user_symbols_remaining == 10);
+}

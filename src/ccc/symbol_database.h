@@ -38,6 +38,8 @@ struct SymbolHandle {
 	SymbolHandle() {}
 	SymbolHandle(u32 v) : value(v) {}
 	
+	// Check if this symbol handle has been initialised. Note that this doesn't
+	// determine whether or not the symbol it points to has been deleted!
 	bool valid() const { return value != (u32) -1; }
 	
 	friend auto operator<=>(const SymbolHandle& lhs, const SymbolHandle& rhs) = default;
@@ -114,28 +116,48 @@ public:
 	std::span<SymbolType> span(std::optional<SymbolRange<SymbolType>> range);
 	std::span<const SymbolType> span(std::optional<SymbolRange<SymbolType>> range) const;
 	
-	bool empty() const;
-	
-	Result<SymbolType*> create_symbol(std::string name, SymbolSourceHandle source, Address address = Address());
-	bool destroy_symbol(SymbolHandle<SymbolType> handle);
-	u32 destroy_symbols(SymbolRange<SymbolType> range);
-	
 	using AddressToHandleMap = std::unordered_map<u32, SymbolHandle<SymbolType>>;
 	using NameToHandleMap = std::unordered_multimap<std::string, SymbolHandle<SymbolType>>;
+	using NameMapIterator = typename NameToHandleMap::const_iterator;
 	
 	// This lets us use range-based for loops to iterate over all symbols with
 	// a given name.
-	struct NameMapIterators {
-		typename NameToHandleMap::const_iterator begin_iterator;
-		typename NameToHandleMap::const_iterator end_iterator;
-		typename NameToHandleMap::const_iterator begin() const { return begin_iterator; }
-		typename NameToHandleMap::const_iterator end() const { return end_iterator; }
+	class NameMapIterators {
+	public:
+		NameMapIterators(NameMapIterator b, NameMapIterator e)
+			: m_begin(b), m_end(e) {}
+		NameMapIterator begin() const { return m_begin; }
+		NameMapIterator end() const { return m_end; }
+	protected:
+		NameMapIterator m_begin;
+		NameMapIterator m_end;
 	};
 	
 	SymbolHandle<SymbolType> handle_from_address(Address address) const;
 	NameMapIterators handles_from_name(const char* name) const;
 	
+	bool empty() const;
+	
+	// Create a new symbol. If it's a SymbolSource symbol, source can be left
+	// empty, otherwise it has to be valid.
+	Result<SymbolType*> create_symbol(std::string name, SymbolSourceHandle source, Address address = Address());
+	
+	// Destroy a single symbol.
+	bool destroy_symbol(SymbolHandle<SymbolType> handle);
+	
+	// Destroy all the symbols in a given range.
+	u32 destroy_symbols(SymbolRange<SymbolType> range);
+	
+	// Destroy all the symbols from a given symbol source. For example, you can
+	// use this to free a symbol table without destroying user-defined symbols.
+	void destroy_symbols_from_source(SymbolSourceHandle source);
+	
+	// Destroy all symbols, but don't reset m_next_handle so we don't have to
+	// worry about dangling handles.
+	void clear();
+	
 protected:
+	u32 destroy_symbols_impl(size_t begin_index, size_t end_index);
 	
 	// Do a binary search for a handle, and return either its index, or the
 	// index where it could be inserted.
@@ -426,6 +448,13 @@ struct SymbolDatabase {
 	SymbolList<ParameterVariable> parameter_variables;
 	SymbolList<SourceFile> source_files;
 	SymbolList<SymbolSource> symbol_sources;
+	
+	// Destroy all the symbols in the symbol database.
+	void clear();
+	
+	// Destroy all the symbols from a given symbol source. For example, you can
+	// use this to free a symbol table without destroying user-defined symbols.
+	void destroy_symbols_from_source(SymbolSourceHandle source);
 	
 	// Lookup a type by its STABS type number. If that fails, optionally try to
 	// lookup the type by its name. On success return a handle to the type,
