@@ -108,11 +108,11 @@ static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& typ
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
 			DataTypeHandle resolved_type_handle = context.database.lookup_type(type_name, false);
 			if(resolved_type_handle.valid()) {
-				const DataType& resolved_type = context.database.data_types.at(resolved_type_handle);
-				if(!resolved_type.type().is_currently_processing) {
-					resolved_type.type().is_currently_processing = true;
-					Result<RefinedData> child = refine_node(virtual_address, resolved_type.type(), context);
-					resolved_type.type().is_currently_processing = false;
+				const DataType* resolved_type = context.database.data_types[resolved_type_handle];
+				if(resolved_type && !resolved_type->type().is_currently_processing) {
+					resolved_type->type().is_currently_processing = true;
+					Result<RefinedData> child = refine_node(virtual_address, resolved_type->type(), context);
+					resolved_type->type().is_currently_processing = false;
 					return child;
 				}
 			}

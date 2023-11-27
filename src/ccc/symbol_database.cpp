@@ -30,18 +30,6 @@ const SymbolType* SymbolList<SymbolType>::operator[](SymbolHandle<SymbolType> ha
 }
 
 template <typename SymbolType>
-SymbolType& SymbolList<SymbolType>::at(SymbolHandle<SymbolType> handle) {
-	SymbolType* symbol = (*this)[handle];
-	CCC_ASSERT(symbol);
-	return *symbol;
-}
-
-template <typename SymbolType>
-const SymbolType& SymbolList<SymbolType>::at(SymbolHandle<SymbolType> handle) const {
-	return const_cast<SymbolList<SymbolType>*>(this)->at(handle);
-}
-
-template <typename SymbolType>
 typename SymbolList<SymbolType>::Iterator SymbolList<SymbolType>::begin() {
 	return m_symbols.begin();
 }
