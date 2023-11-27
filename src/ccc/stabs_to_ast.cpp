@@ -8,7 +8,9 @@
 
 namespace ccc {
 
-static bool detect_bitfield(const StabsField& field, const StabsToAstState& state);
+static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
+static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
+static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstState& state);
 
 Result<std::unique_ptr<ast::Node>> stabs_data_type_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
 	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
@@ -123,10 +125,27 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			CCC_RETURN_IF_ERROR(element_node);
 			array->element_type = std::move(*element_node);
 			
-			const auto& index = stabs_array.index_type->as<StabsRangeType>();
-			// The low and high values are not wrong in this case.
-			CCC_CHECK(index.low_maybe_wrong == 0, "Invalid index type for array.");
-			array->element_count = index.high_maybe_wrong + 1;
+			const StabsRangeType& index = stabs_array.index_type->as<StabsRangeType>();
+			
+			char* end = nullptr;
+			
+			const char* low = index.low.c_str();
+			s64 low_value = strtoll(low, &end, 10);
+			CCC_CHECK(end != low, "Failed to parse low part of range as integer.");
+			CCC_CHECK(low_value == 0, "Invalid index type for array.");
+			
+			const char* high = index.high.c_str();
+			s64 high_value = strtoll(high, &end, 10);
+			CCC_CHECK(end != high, "Failed to parse low part of range as integer.");
+			
+			if(high_value == 4294967295) {
+				// Some compilers wrote out a wrapped around value here for zero
+				// (or variable?) length arrays.
+				array->element_count = 0;
+			} else {
+				array->element_count = high_value + 1;
+			}
+			
 			result = std::move(array);
 			break;
 		}
@@ -168,7 +187,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		}
 		case StabsTypeDescriptor::RANGE: {
 			auto builtin = std::make_unique<ast::BuiltIn>();
-			builtin->bclass = type.as<StabsRangeType>().range_class;
+			Result<ast::BuiltInClass> bclass = classify_range(type.as<StabsRangeType>());
+			CCC_RETURN_IF_ERROR(bclass);
+			builtin->bclass = *bclass;
 			result = std::move(builtin);
 			break;
 		}
@@ -195,7 +216,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			}
 			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
 			for(const StabsField& field : stabs_struct_or_union->fields) {
-				auto node = stabs_field_to_ast(field, state, abs_parent_offset_bytes, depth);
+				auto node = field_to_ast(field, state, abs_parent_offset_bytes, depth);
 				CCC_RETURN_IF_ERROR(node);
 				struct_or_union->fields.emplace_back(std::move(*node));
 			}
@@ -331,10 +352,68 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 	return result;
 }
 
-Result<std::unique_ptr<ast::Node>> stabs_field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
+static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type) {
+	const char* low = type.low.c_str();
+	const char* high = type.high.c_str();
+	
+	// Handle some special cases and values that are too large to easily store
+	// in a 64-bit integer.
+	static const struct { const char* low; const char* high; ast::BuiltInClass classification; } strings[] = {
+		{"4", "0", ast::BuiltInClass::FLOAT_32},
+		{"000000000000000000000000", "001777777777777777777777", ast::BuiltInClass::UNSIGNED_64},
+		{"00000000000000000000000000000000000000000000", "00000000000000000000001777777777777777777777", ast::BuiltInClass::UNSIGNED_64},
+		{"0000000000000", "01777777777777777777777", ast::BuiltInClass::UNSIGNED_64}, // IOP
+		{"0", "18446744073709551615", ast::BuiltInClass::UNSIGNED_64},
+		{"001000000000000000000000", "000777777777777777777777", ast::BuiltInClass::SIGNED_64},
+		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", ast::BuiltInClass::SIGNED_64},
+		{"01000000000000000000000", "0777777777777777777777", ast::BuiltInClass::SIGNED_64}, // IOP
+		{"-9223372036854775808", "9223372036854775807", ast::BuiltInClass::SIGNED_64},
+		{"8", "0", ast::BuiltInClass::FLOAT_64},
+		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", ast::BuiltInClass::UNSIGNED_128},
+		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", ast::BuiltInClass::SIGNED_128},
+		{"000000000000000000000000", "0377777777777777777777777777777777", ast::BuiltInClass::UNQUALIFIED_128},
+		{"16", "0", ast::BuiltInClass::FLOAT_128},
+		{"0", "-1", ast::BuiltInClass::UNQUALIFIED_128} // Old homebrew toolchain
+	};
+	
+	for(const auto& range : strings) {
+		if(strcmp(range.low, low) == 0 && strcmp(range.high, high) == 0) {
+			return range.classification;
+		}
+	}
+	
+	// For smaller values we actually parse the bounds as integers.
+	char* end = nullptr;
+	s64 low_value = strtoll(type.low.c_str(), &end, low[0] == '0' ? 8 : 10);
+	CCC_CHECK(end != low, "Failed to parse low part of range as integer.");
+	s64 high_value = strtoll(type.high.c_str(), &end, high[0] == '0' ? 8 : 10);
+	CCC_CHECK(end != high, "Failed to parse high part of range as integer.");
+	
+	static const struct { s64 low; s64 high; ast::BuiltInClass classification; } integers[] = {
+		{0, 255, ast::BuiltInClass::UNSIGNED_8},
+		{-128, 127, ast::BuiltInClass::SIGNED_8},
+		{0, 127, ast::BuiltInClass::UNQUALIFIED_8},
+		{0, 65535, ast::BuiltInClass::UNSIGNED_16},
+		{-32768, 32767, ast::BuiltInClass::SIGNED_16},
+		{0, 4294967295, ast::BuiltInClass::UNSIGNED_32},
+		{-2147483648, 2147483647, ast::BuiltInClass::SIGNED_32},
+	};
+	
+	for(const auto& range : integers) {
+		if((range.low == low_value || range.low == -low_value) && range.high == high_value) {
+			return range.classification;
+		}
+	}
+	
+	return CCC_FAILURE("Failed to classify range.");
+}
+
+static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
-	if(detect_bitfield(field, state)) {
+	Result<bool> is_bitfield = detect_bitfield(field, state);
+	CCC_RETURN_IF_ERROR(is_bitfield);
+	if(*is_bitfield) {
 		// Process bitfields.
 		s32 relative_offset_bytes = field.offset_bits / 8;
 		s32 absolute_offset_bytes = abs_parent_offset_bytes + relative_offset_bytes;
@@ -350,34 +429,34 @@ Result<std::unique_ptr<ast::Node>> stabs_field_to_ast(const StabsField& field, c
 		bitfield->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 		
 		return std::unique_ptr<ast::Node>(std::move(bitfield));
+	} else {
+		// Process a normal field.
+		s32 relative_offset_bytes = field.offset_bits / 8;
+		s32 absolute_offset_bytes = abs_parent_offset_bytes + relative_offset_bytes;
+		
+		Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*field.type, state, absolute_offset_bytes, depth + 1, true, false);
+		CCC_RETURN_IF_ERROR(node);
+		
+		(*node)->relative_offset_bytes = relative_offset_bytes;
+		(*node)->absolute_offset_bytes = absolute_offset_bytes;
+		(*node)->size_bits = field.size_bits;
+		(*node)->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
+		
+		if(field.name.starts_with("$vf")) {
+			(*node)->name = "__vtable";
+		} else if(field.name != " ") {
+			(*node)->name = field.name;
+		}
+		
+		if(field.is_static) {
+			(*node)->storage_class = ast::SC_STATIC;
+		}
+		
+		return node;
 	}
-	
-	// Process a normal field.
-	s32 relative_offset_bytes = field.offset_bits / 8;
-	s32 absolute_offset_bytes = abs_parent_offset_bytes + relative_offset_bytes;
-	
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*field.type, state, absolute_offset_bytes, depth + 1, true, false);
-	CCC_RETURN_IF_ERROR(node);
-	
-	(*node)->relative_offset_bytes = relative_offset_bytes;
-	(*node)->absolute_offset_bytes = absolute_offset_bytes;
-	(*node)->size_bits = field.size_bits;
-	(*node)->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
-	
-	if(field.name.starts_with("$vf")) {
-		(*node)->name = "__vtable";
-	} else if(field.name != " ") {
-		(*node)->name = field.name;
-	}
-	
-	if(field.is_static) {
-		(*node)->storage_class = ast::SC_STATIC;
-	}
-	
-	return node;
 }
 
-static bool detect_bitfield(const StabsField& field, const StabsToAstState& state) {
+static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstState& state) {
 	// Static fields can't be bitfields.
 	if(field.is_static) {
 		return false;
@@ -415,7 +494,9 @@ static bool detect_bitfield(const StabsField& field, const StabsToAstState& stat
 	s32 underlying_type_size_bits = 0;
 	switch(type->descriptor) {
 		case ccc::StabsTypeDescriptor::RANGE: {
-			underlying_type_size_bits = builtin_class_size(type->as<StabsRangeType>().range_class) * 8;
+			Result<ast::BuiltInClass> bclass = classify_range(type->as<StabsRangeType>());
+			CCC_RETURN_IF_ERROR(bclass);
+			underlying_type_size_bits = builtin_class_size(*bclass) * 8;
 			break;
 		}
 		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {

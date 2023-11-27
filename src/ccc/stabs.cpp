@@ -10,7 +10,6 @@ namespace ccc {
 
 static Result<std::vector<StabsField>> parse_field_list(const char*& input);
 static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const char*& input);
-static ast::BuiltInClass classify_range(const std::string& low, const std::string& high);
 STABS_DEBUG(static void print_field(const StabsField& field);)
 
 Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
@@ -166,9 +165,9 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			CCC_CHECK(high.has_value(), "Cannot parse high part of range.");
 			CCC_EXPECT_CHAR(input, ';', "high range value");
 			
-			range->low_maybe_wrong = strtoll(low->c_str(), nullptr, 10);
-			range->high_maybe_wrong = strtoll(high->c_str(), nullptr, 10);
-			range->range_class = classify_range(*low, *high);
+			range->low = std::move(*low);
+			range->high = std::move(*high);
+			
 			out_type = std::move(range);
 			break;
 		}
@@ -588,62 +587,6 @@ static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const 
 		member_functions.emplace_back(std::move(member_function_set));
 	}
 	return member_functions;
-}
-
-static ast::BuiltInClass classify_range(const std::string& low, const std::string& high) {
-	// Handle some special cases and values that are too large to easily store
-	// in a 64-bit integer.
-	static const struct { const char* low; const char* high; ast::BuiltInClass classification; } strings[] = {
-		{"4", "0", ast::BuiltInClass::FLOAT_32},
-		{"000000000000000000000000", "001777777777777777777777", ast::BuiltInClass::UNSIGNED_64},
-		{"00000000000000000000000000000000000000000000", "00000000000000000000001777777777777777777777", ast::BuiltInClass::UNSIGNED_64},
-		{"0000000000000", "01777777777777777777777", ast::BuiltInClass::UNSIGNED_64}, // IOP
-		{"0", "18446744073709551615", ast::BuiltInClass::UNSIGNED_64},
-		{"001000000000000000000000", "000777777777777777777777", ast::BuiltInClass::SIGNED_64},
-		{"00000000000000000000001000000000000000000000", "00000000000000000000000777777777777777777777", ast::BuiltInClass::SIGNED_64},
-		{"01000000000000000000000", "0777777777777777777777", ast::BuiltInClass::SIGNED_64}, // IOP
-		{"-9223372036854775808", "9223372036854775807", ast::BuiltInClass::SIGNED_64},
-		{"8", "0", ast::BuiltInClass::FLOAT_64},
-		{"00000000000000000000000000000000000000000000", "03777777777777777777777777777777777777777777", ast::BuiltInClass::UNSIGNED_128},
-		{"02000000000000000000000000000000000000000000", "01777777777777777777777777777777777777777777", ast::BuiltInClass::SIGNED_128},
-		{"000000000000000000000000", "0377777777777777777777777777777777", ast::BuiltInClass::UNQUALIFIED_128},
-		{"16", "0", ast::BuiltInClass::FLOAT_128},
-		{"0", "-1", ast::BuiltInClass::UNQUALIFIED_128} // Old homebrew toolchain
-	};
-	
-	for(const auto& range : strings) {
-		if(strcmp(range.low, low.c_str()) == 0 && strcmp(range.high, high.c_str()) == 0) {
-			return range.classification;
-		}
-	}
-	
-	// For smaller values we actually parse the bounds as integers.
-	char* end = nullptr;
-	const char* low_str = low.c_str();
-	const char* high_str = high.c_str();
-	s64 low_value = strtoll(low_str, &end, low[0] == '0' ? 8 : 10);
-	if(end == low_str) return ast::BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
-	s64 high_value = strtoll(high_str, &end, high[0] == '0' ? 8 : 10);
-	if(end == high_str) return ast::BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
-	
-	static const struct { s64 low; s64 high; ast::BuiltInClass classification; } integers[] = {
-		{0, 255, ast::BuiltInClass::UNSIGNED_8},
-		{-128, 127, ast::BuiltInClass::SIGNED_8},
-		{0, 127, ast::BuiltInClass::UNQUALIFIED_8},
-		{0, 65535, ast::BuiltInClass::UNSIGNED_16},
-		{-32768, 32767, ast::BuiltInClass::SIGNED_16},
-		{0, 4294967295, ast::BuiltInClass::UNSIGNED_32},
-		{-2147483648, 2147483647, ast::BuiltInClass::SIGNED_32},
-	};
-	
-	// Then compare those integers.
-	for(const auto& range : integers) {
-		if((range.low == low_value || range.low == -low_value) && range.high == high_value) {
-			return range.classification;
-		}
-	}
-	
-	return ast::BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
 }
 
 std::optional<char> eat_char(const char*& input) {

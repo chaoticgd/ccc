@@ -184,9 +184,8 @@ struct StabsConstQualifierType : StabsType {
 
 struct StabsRangeType : StabsType {
 	std::unique_ptr<StabsType> type;
-	s64 low_maybe_wrong = 0;
-	s64 high_maybe_wrong = -1; // For some zero-length arrays gcc writes out a malformed range, in which case these defaults are used.
-	ast::BuiltInClass range_class = ast::BuiltInClass::UNKNOWN_PROBABLY_ARRAY;
+	std::string low;
+	std::string high; // Some compilers wrote out a wrapped around value here for zero (or variable?) length arrays.
 	
 	StabsRangeType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::RANGE;

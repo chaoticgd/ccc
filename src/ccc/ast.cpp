@@ -319,7 +319,6 @@ const char* builtin_class_to_string(BuiltInClass bclass) {
 		case BuiltInClass::SIGNED_128: return "128-bit signed integer";
 		case BuiltInClass::UNQUALIFIED_128: return "128-bit integer";
 		case BuiltInClass::FLOAT_128: return "128-bit floating point";
-		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return "error";
 	}
 	return "";
 }
@@ -343,7 +342,6 @@ s32 builtin_class_size(BuiltInClass bclass) {
 		case BuiltInClass::SIGNED_128: return 16;
 		case BuiltInClass::UNQUALIFIED_128: return 16;
 		case BuiltInClass::FLOAT_128: return 16;
-		case BuiltInClass::UNKNOWN_PROBABLY_ARRAY: return 0;
 	}
 	return 0;
 }

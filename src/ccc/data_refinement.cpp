@@ -198,9 +198,6 @@ static Result<RefinedData> refine_builtin(u32 virtual_address, ast::BuiltInClass
 				single_precision_float_to_string(value[3]).c_str());
 			break;
 		}
-		case ast::BuiltInClass::UNKNOWN_PROBABLY_ARRAY: {
-			break;
-		}
 	}
 	
 	return data;
