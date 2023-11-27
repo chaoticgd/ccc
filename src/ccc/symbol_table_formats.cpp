@@ -191,7 +191,7 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& databa
 			case ast::TYPE_NAME: {
 				ast::TypeName& type_name = node.as<ast::TypeName>();
 				DataTypeHandle resolved_type_handle = database.lookup_type(type_name, false);
-				DataType* resolved_type = database.data_types[resolved_type_handle];
+				DataType* resolved_type = database.data_types.symbol_from_handle(resolved_type_handle);
 				if(resolved_type) {
 					ast::Node& resolved_node = resolved_type->type();
 					if(resolved_node.computed_size_bytes < 0 && !resolved_node.cannot_compute_size) {

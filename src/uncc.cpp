@@ -233,7 +233,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	
 	// Print globals.
 	for(SourceFileHandle file_handle : files) {
-		const SourceFile* source_file = database.source_files[file_handle];
+		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		GlobalVariableRange global_variables = source_file->globals_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
@@ -249,7 +249,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	
 	// Print functions.
 	for(SourceFileHandle file_handle : files) {
-		const SourceFile* source_file = database.source_files[file_handle];
+		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		FunctionRange functions = source_file->functions();
 		for(const Function& function : database.functions.span(functions)) {
@@ -297,7 +297,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	// Print globals.
 	bool has_global = false;
 	for(SourceFileHandle file_handle : files) {
-		const SourceFile* source_file = database.source_files[file_handle];
+		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		GlobalVariableRange global_variables = source_file->globals_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
@@ -311,7 +311,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	
 	// Print functions.
 	for(SourceFileHandle file_handle : files) {
-		const SourceFile* source_file = database.source_files[file_handle];
+		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		FunctionRange functions = source_file->functions();
 		for(const Function& function : database.functions.span(functions)) {

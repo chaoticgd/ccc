@@ -514,7 +514,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 
 Result<void> LocalSymbolTableAnalyser::lbrac(s32 number, s32 begin_offset) {
 	for(LocalVariableHandle local_variable_handle : m_pending_local_variables_begin) {
-		LocalVariable* local_variable = m_database.local_variables[local_variable_handle];
+		LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle);
 		CCC_ASSERT(local_variable);
 		local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
 	}
@@ -531,7 +531,7 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
 	CCC_CHECK(variables != m_pending_local_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
 	
 	for(LocalVariableHandle local_variable_handle : variables->second) {
-		LocalVariable* local_variable = m_database.local_variables[local_variable_handle];
+		LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle);
 		CCC_ASSERT(local_variable);
 		local_variable->live_range.high = m_source_file.text_address.value + end_offset;
 	}
@@ -606,7 +606,7 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
 				type_name = demangled_name.substr(0, name_separator_pos - 1);
 			}
 			for(const auto& name_handle : database.data_types.handles_from_name(type_name.c_str())) {
-				DataType* type = database.data_types[name_handle.second];
+				DataType* type = database.data_types.symbol_from_handle(name_handle.second);
 				if(type && type->type().descriptor == ast::STRUCT_OR_UNION) {
 					ast::StructOrUnion& struct_or_union = type->type().as<ast::StructOrUnion>();
 					for(std::unique_ptr<ast::Node>& declaration : struct_or_union.member_functions) {

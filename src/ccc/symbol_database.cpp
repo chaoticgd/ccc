@@ -11,7 +11,7 @@
 namespace ccc {
 
 template <typename SymbolType>
-SymbolType* SymbolList<SymbolType>::operator[](SymbolHandle<SymbolType> handle) {
+SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> handle) {
 	if(!handle.valid()) {
 		return nullptr;
 	}
@@ -25,8 +25,8 @@ SymbolType* SymbolList<SymbolType>::operator[](SymbolHandle<SymbolType> handle) 
 }
 
 template <typename SymbolType>
-const SymbolType* SymbolList<SymbolType>::operator[](SymbolHandle<SymbolType> handle) const {
-	return (*const_cast<SymbolList<SymbolType>*>(this))[handle];
+const SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> handle) const {
+	return const_cast<SymbolList<SymbolType>*>(this)->symbol_from_handle(handle);
 }
 
 template <typename SymbolType>
@@ -391,7 +391,7 @@ DataTypeHandle SymbolDatabase::lookup_type(const ast::TypeName& type_name, bool 
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
 	if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
-		const SourceFile* source_file = source_files[type_name.referenced_file_handle];
+		const SourceFile* source_file = source_files.symbol_from_handle(type_name.referenced_file_handle);
 		CCC_ASSERT(source_file);
 		auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
@@ -435,7 +435,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 		// figure out if this one matches any of the previous ones.
 		bool match = false;
 		for(auto [key, existing_type_handle] : types_with_same_name) {
-			DataType* existing_type = data_types[existing_type_handle];
+			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
 			ast::CompareResult compare_result = compare_nodes(existing_type->type(), *node.get(), *this, true);

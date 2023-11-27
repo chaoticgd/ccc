@@ -198,11 +198,11 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 		if(type_name_node->descriptor == TYPE_NAME) {
 			const TypeName& type_name = type_name_node->as<TypeName>();
 			if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
-				const SourceFile* source_file = database.source_files[type_name.referenced_file_handle];
+				const SourceFile* source_file = database.source_files.symbol_from_handle(type_name.referenced_file_handle);
 				CCC_ASSERT(source_file);
 				auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);
 				if(handle != source_file->stabs_type_number_to_handle.end()) {
-					const DataType* referenced_type = database.data_types[handle->second];
+					const DataType* referenced_type = database.data_types.symbol_from_handle(handle->second);
 					CCC_ASSERT(referenced_type);
 					// Don't compare 'intrusive' fields e.g. the offset.
 					CompareResult new_result = compare_nodes(referenced_type->type(), *raw_node, database, false);

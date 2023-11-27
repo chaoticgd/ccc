@@ -43,7 +43,7 @@ void map_types_to_files_based_on_this_pointers(SymbolDatabase& database) {
 					const ast::TypeName& type_name = class_node.as<ast::TypeName>();
 					// Lookup the type pointed to by the this pointer.
 					const DataTypeHandle class_type_handle = database.lookup_type(type_name, false);
-					DataType* class_type = database.data_types[class_type_handle];
+					DataType* class_type = database.data_types.symbol_from_handle(class_type_handle);
 					if(class_type) {
 						// Assume the type belongs to the file the function is from.
 						class_type->files = {function.source_file()};
@@ -68,7 +68,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 		SourceFileHandle most_referenced_file;
 		s32 most_references = 0;
 		for(SourceFileHandle file_handle : type.files) {
-			SourceFile* file = database.source_files[file_handle];
+			SourceFile* file = database.source_files.symbol_from_handle(file_handle);
 			if(!file) {
 				continue;
 			}
@@ -154,14 +154,14 @@ void print_type_dependency_graph(FILE* out, const SymbolDatabase& database, cons
 		}
 	}
 	for(const auto& [handle, dependencies] : graph) {
-		const DataType* out_node = database.data_types[handle];
+		const DataType* out_node = database.data_types.symbol_from_handle(handle);
 		if(!out_node) {
 			continue;
 		}
 		
 		if(!out_node->name().empty() && out_node->type().descriptor != ast::BUILTIN && out_node->name() != "void") {
 			for(DataTypeHandle in : dependencies) {
-				const DataType* in_node = database.data_types[in];
+				const DataType* in_node = database.data_types.symbol_from_handle(in);
 				if(!in_node->name().empty() && in_node->type().descriptor != ast::BUILTIN && in_node->name() != "void") {
 					printer.edge(out_node->name().c_str(), in_node->name().c_str());
 				}

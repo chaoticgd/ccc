@@ -19,7 +19,7 @@ TEST(CCCSymbolDatabase, Lookup) {
 	
 	// Make sure we can still look them up.
 	for(s32 i = 0; i < 10; i++) {
-		SymbolSource* source = database.symbol_sources[handles[i]];
+		SymbolSource* source = database.symbol_sources.symbol_from_handle(handles[i]);
 		ASSERT_TRUE(source);
 		ASSERT_TRUE(source->name() == std::to_string(i));
 	}
@@ -143,12 +143,12 @@ TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles) {
 	
 	// Make sure we can't look them up anymore.
 	for(s32 i = 0; i < 10; i += 2) {
-		EXPECT_FALSE(database.symbol_sources[handles[i]]);
+		EXPECT_FALSE(database.symbol_sources.symbol_from_handle(handles[i]));
 	}
 	
 	// Make sure we can still lookup the other ones.
 	for(s32 i = 1; i < 10; i += 2) {
-		EXPECT_TRUE(database.symbol_sources[handles[i]]);
+		EXPECT_TRUE(database.symbol_sources.symbol_from_handle(handles[i]));
 	}
 }
 

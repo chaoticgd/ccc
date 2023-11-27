@@ -96,8 +96,8 @@ template <typename SymbolType>
 class SymbolList {
 public:
 	// Lookup symbols from their handles using binary search.
-	SymbolType* operator[](SymbolHandle<SymbolType> handle);
-	const SymbolType* operator[](SymbolHandle<SymbolType> handle) const;
+	SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle);
+	const SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle) const;
 	
 	using Iterator = typename std::vector<SymbolType>::iterator;
 	using ConstIterator = typename std::vector<SymbolType>::const_iterator;
