@@ -100,13 +100,6 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
 		}
 		if(node.descriptor == ast::STRUCT_OR_UNION) {
 			auto& struct_or_union = node.as<ast::StructOrUnion>();
-			for(std::unique_ptr<ast::Node>& node : struct_or_union.fields) {
-				// This allows us to deduplicate types with vtables.
-				if(node->name.starts_with("$vf")) {
-					node->name = "__vtable";
-				}
-				filter_ast_by_flags(*node.get(), parser_flags);
-			}
 			if(parser_flags & STRIP_MEMBER_FUNCTIONS) {
 				struct_or_union.member_functions.clear();
 			} else if(parser_flags & STRIP_GENERATED_FUNCTIONS) {
