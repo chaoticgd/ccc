@@ -7,7 +7,7 @@
 #include "mdebug.h"
 #include "symbols.h"
 #include "symbol_database.h"
-#include "symbol_table_formats.h"
+#include "symbol_table.h"
 
 namespace ccc {
 

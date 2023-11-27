@@ -1,9 +1,10 @@
 // This file is part of the Chaos Compiler Collection.
 // SPDX-License-Identifier: MIT
 
+#include "symbol_table.h"
+
 #include "mdebug.h"
 #include "mdebug_analysis.h"
-#include "symbol_table_formats.h"
 
 namespace ccc {
 	
