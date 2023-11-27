@@ -161,10 +161,15 @@ bool SymbolList<SymbolType>::destroy_symbol(SymbolHandle<SymbolType> handle) {
 
 template <typename SymbolType>
 u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
+	// Reject invalid ranges so that the <= comparison below works.
+	if(!range.valid()) {
+		return 0;
+	}
+	
 	// Lookup the index of the first symbol, and find how many should be erased.
 	u32 begin_index = binary_search(range.first);
 	u32 end_index = begin_index;
-	while(m_symbols[end_index].m_handle <= range.last.value) {
+	while(end_index < m_symbols.size() && m_symbols[end_index].m_handle <= range.last.value) {
 		end_index++;
 	}
 	

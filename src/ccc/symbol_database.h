@@ -50,13 +50,16 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 struct SymbolDatabase;
 
 // Define range types for all of the symbol table objects. Note that the last
-// member actually points to the last real element in the range. To represent an
-// empty range, both symbol handles should be invalid.
+// member actually points to the last real element in the range.
 
 template <typename SymbolType>
 struct SymbolRange {
 	SymbolHandle<SymbolType> first;
 	SymbolHandle<SymbolType> last;
+	
+	bool valid() const {
+		return first.valid() && last.valid();
+	}
 	
 	void expand_to_include(SymbolHandle<SymbolType> handle) {
 		if(!first.valid()) {
