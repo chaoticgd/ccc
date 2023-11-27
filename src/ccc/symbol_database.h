@@ -102,13 +102,13 @@ public:
 	using Iterator = typename std::vector<SymbolType>::iterator;
 	using ConstIterator = typename std::vector<SymbolType>::const_iterator;
 	
-	// For iterating over all the symbols with a range-based for loop.
+	// For iterating over all the symbols.
 	Iterator begin();
 	ConstIterator begin() const;
 	Iterator end();
 	ConstIterator end() const;
 	
-	// For iterating over a subset of the symbols with a range-based for loop.
+	// For iterating over a subset of the symbols.
 	std::span<SymbolType> span(SymbolRange<SymbolType> range);
 	std::span<const SymbolType> span(SymbolRange<SymbolType> range) const;
 	std::span<SymbolType> span(std::optional<SymbolRange<SymbolType>> range);
@@ -118,8 +118,7 @@ public:
 	using NameToHandleMap = std::unordered_multimap<std::string, SymbolHandle<SymbolType>>;
 	using NameToHandleMapIterator = typename NameToHandleMap::const_iterator;
 	
-	// This lets us use range-based for loops to iterate over all symbols with
-	// a given name.
+	// For iterating over all the symbols with a given name.
 	class NameToHandleMapIterators {
 	public:
 		NameToHandleMapIterators(NameToHandleMapIterator b, NameToHandleMapIterator e)

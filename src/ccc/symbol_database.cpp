@@ -95,7 +95,8 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(Address add
 
 template <typename SymbolType>
 typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>::handles_from_name(const char* name) const {
-	return {m_name_to_handle.find(name), m_name_to_handle.end()};
+	auto iterators = m_name_to_handle.equal_range(name);
+	return {iterators.first, iterators.second};
 }
 
 template <typename SymbolType>
