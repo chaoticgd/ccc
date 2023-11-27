@@ -49,7 +49,7 @@ struct SymbolTableCounts {
 	s32 unknown_count = 0;
 };
 
-static SymbolDatabase read_symbol_table(ElfFile& elf, const fs::path& input_file, u32 parser_flags);
+static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const fs::path& input_file, u32 parser_flags);
 static void identify_symbol_databases(FILE* out, const fs::path& input_path);
 static void identify_symbol_databases_in_file(FILE* out, SymbolTableCounts& totals, const fs::path& file_path);
 static void print_functions(FILE* out, SymbolDatabase& symbol_database);
@@ -80,22 +80,25 @@ int main(int argc, char** argv) {
 			return 0;
 		}
 		case OutputMode::FUNCTIONS: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			
 			print_functions(out, symbol_database);
 			return 0;
 		}
 		case OutputMode::GLOBALS: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			
 			print_globals(out, symbol_database);
 			return 0;
 		}
 		case OutputMode::TYPES: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			
 			if(!(options.flags & FLAG_PER_FILE)) {
 				print_types_deduplicated(out, symbol_database, options);
@@ -110,8 +113,9 @@ int main(int argc, char** argv) {
 				json_parser_flags |= DONT_DEDUPLICATE_TYPES;
 			}
 			
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, json_parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, json_parser_flags);
 			print_json(out, symbol_database, options.flags & FLAG_PER_FILE);
 			
 			break;
@@ -125,33 +129,38 @@ int main(int argc, char** argv) {
 			break;
 		}
 		case OutputMode::SYMBOLS: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			print_local_symbols(out, symbol_database);
 			
 			return 0;
 		}
 		case OutputMode::EXTERNALS: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			print_external_symbols(out, symbol_database);
 			return 0;
 		}
 		case OutputMode::FILES: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			list_files(out, symbol_database);
 			return 0;
 		}
 		case OutputMode::SECTIONS: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			list_sections(out, symbol_database, elf);
 			return 0;
 		}
 		case OutputMode::TYPE_GRAPH: {
+			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(elf, options.input_file, parser_flags);
+			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			TypeDependencyAdjacencyList graph = build_type_dependency_graph(symbol_database);
 			print_type_dependency_graph(out, symbol_database, graph);
 			return 0;
@@ -168,12 +177,17 @@ int main(int argc, char** argv) {
 	}
 }
 
-static SymbolDatabase read_symbol_table(ElfFile& elf, const fs::path& input_file, u32 parser_flags) {
-	Result<std::vector<u8>> image = platform::read_binary_file(input_file);
-	CCC_EXIT_IF_ERROR(image);
+static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const fs::path& input_file, u32 parser_flags) {
+	Result<std::vector<u8>> image_result = platform::read_binary_file(input_file);
+	CCC_EXIT_IF_ERROR(image_result);
+	image = std::move(*image_result);
+	
+	Result<ElfFile> elf_result = parse_elf_file(image);
+	CCC_EXIT_IF_ERROR(elf_result);
+	elf = std::move(*elf_result);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), parser_flags, nullptr);
+	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, elf, parser_flags, nullptr);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	return database;
@@ -429,7 +443,7 @@ static void test(FILE* out, const fs::path& directory) {
 			Result<ElfFile> elf = parse_elf_file(std::move(*binary));
 			CCC_EXIT_IF_ERROR(elf);
 			
-			ElfSection* mdebug_section = elf->lookup_section(".mdebug");
+			const ElfSection* mdebug_section = elf->lookup_section(".mdebug");
 			if(mdebug_section) {
 				mdebug::SymbolTableReader reader;
 				Result<void> reader_result = reader.init(elf->image, (s32) mdebug_section->offset);

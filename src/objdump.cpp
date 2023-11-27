@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
 	
 	std::vector<ElfFile*> elves{&(*elf)};
 	
-	ElfSection* text = elf->lookup_section(".t]ext");
+	const ElfSection* text = elf->lookup_section(".text");
 	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
 	
 	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->offset);

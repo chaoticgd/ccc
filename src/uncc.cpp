@@ -47,19 +47,17 @@ int main(int argc, char** argv) {
 	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
-	std::vector<u8> image_copy = *image;
+	Result<ElfFile> elf = parse_elf_file(*image);
+	CCC_EXIT_IF_ERROR(elf);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, std::move(*image), NO_PARSER_FLAGS, cplus_demangle);
+	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, *elf, NO_PARSER_FLAGS, cplus_demangle);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	map_types_to_files_based_on_this_pointers(database);
 	map_types_to_files_based_on_reference_count(database);
 	
-	Result<ElfFile> elf_copy = parse_elf_file(std::move(image_copy));
-	CCC_EXIT_IF_ERROR(elf_copy);
-	
-	std::vector<ElfFile*> elves{&(*elf_copy)};
+	std::vector<ElfFile*> elves{&(*elf)};
 	
 	fill_in_pointers_to_member_function_definitions(database);
 	

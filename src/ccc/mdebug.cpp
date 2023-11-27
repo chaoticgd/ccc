@@ -94,13 +94,13 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 )
 
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
-static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector<u8>& elf, s32 strings_offset);
+static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
 
-Result<void> SymbolTableReader::init(const std::vector<u8>& elf, s32 section_offset) {
-	m_elf = &elf;
+Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset) {
+	m_elf = elf;
 	m_section_offset = section_offset;
 	
-	m_hdrr = get_packed<SymbolicHeader>(*m_elf, m_section_offset);
+	m_hdrr = get_packed<SymbolicHeader>(m_elf, m_section_offset);
 	CCC_CHECK(m_hdrr != nullptr, "MIPS debug section header out of bounds.");
 	CCC_CHECK(m_hdrr->magic == 0x7009, "Invalid symbolic header.");
 	
@@ -122,12 +122,12 @@ Result<File> SymbolTableReader::parse_file(s32 index) const {
 	File file;
 	
 	u64 fd_offset = m_hdrr->file_descriptors_offset + index * sizeof(FileDescriptor);
-	const FileDescriptor* fd_header = get_packed<FileDescriptor>(*m_elf, fd_offset + m_fudge_offset);
+	const FileDescriptor* fd_header = get_packed<FileDescriptor>(m_elf, fd_offset + m_fudge_offset);
 	CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
 	CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
 	
 	s32 raw_path_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + m_fudge_offset;
-	Result<const char*> raw_path = get_string(*m_elf, raw_path_offset);
+	Result<const char*> raw_path = get_string(m_elf, raw_path_offset);
 	CCC_RETURN_IF_ERROR(raw_path);
 	file.raw_path = *raw_path;
 	
@@ -145,11 +145,11 @@ Result<File> SymbolTableReader::parse_file(s32 index) const {
 	// Parse local symbols.
 	for(s64 j = 0; j < fd_header->symbol_count; j++) {
 		u64 symbol_offset = m_hdrr->local_symbols_offset + (fd_header->isym_base + j) * sizeof(SymbolHeader) + m_fudge_offset;
-		const SymbolHeader* symbol_header = get_packed<SymbolHeader>(*m_elf, symbol_offset);
+		const SymbolHeader* symbol_header = get_packed<SymbolHeader>(m_elf, symbol_offset);
 		CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
 		
 		s32 strings_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + m_fudge_offset;
-		Result<Symbol> sym = parse_symbol(*symbol_header, *m_elf, strings_offset);
+		Result<Symbol> sym = parse_symbol(*symbol_header, m_elf, strings_offset);
 		CCC_RETURN_IF_ERROR(sym);
 		
 		bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
@@ -174,9 +174,9 @@ Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const {
 	std::vector<Symbol> external_symbols;
 	for(s64 i = 0; i < m_hdrr->external_symbols_count; i++) {
 		u64 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
-		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(*m_elf, sym_offset + m_fudge_offset);
+		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(m_elf, sym_offset + m_fudge_offset);
 		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
-		Result<Symbol> sym = parse_symbol(external_header->symbol, *m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
+		Result<Symbol> sym = parse_symbol(external_header->symbol, m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
 		CCC_RETURN_IF_ERROR(sym);
 		external_symbols.emplace_back(std::move(*sym));
 	}
@@ -267,7 +267,7 @@ static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const Symbolic
 	return fudge_offset;
 }
 
-static Result<Symbol> parse_symbol(const SymbolHeader& header, const std::vector<u8>& elf, s32 strings_offset) {
+static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset) {
 	Symbol symbol;
 	
 	Result<const char*> string = get_string(elf, strings_offset + header.iss);

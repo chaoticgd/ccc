@@ -43,6 +43,6 @@ enum ParserFlags {
 
 typedef char* DemanglerFunc(const char* mangled, int options);
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags, DemanglerFunc* demangle);
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, u32 parser_flags, DemanglerFunc* demangle);
 
 }

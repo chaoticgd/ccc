@@ -65,15 +65,12 @@ const char* symbol_table_format_to_string(SymbolTableFormat format) {
 	return "";
 }
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, std::vector<u8> image, u32 parser_flags, DemanglerFunc* demangle) {
-	Result<ElfFile> elf = parse_elf_file(std::move(image));
-	CCC_RETURN_IF_ERROR(elf);
-	
-	ElfSection* mdebug_section = elf->lookup_section(".mdebug");
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, u32 parser_flags, DemanglerFunc* demangle) {
+	const ElfSection* mdebug_section = elf.lookup_section(".mdebug");
 	CCC_CHECK(mdebug_section != nullptr, "No .mdebug section.");
 	
 	mdebug::SymbolTableReader reader;
-	Result<void> reader_result = reader.init(elf->image, mdebug_section->offset);
+	Result<void> reader_result = reader.init(elf.image, mdebug_section->offset);
 	CCC_RETURN_IF_ERROR(reader_result);
 	
 	Result<SymbolSourceHandle> symbol_source = analyse(database, reader, parser_flags, demangle);

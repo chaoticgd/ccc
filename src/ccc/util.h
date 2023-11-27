@@ -178,14 +178,15 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 #endif
 
 template <typename T>
-const T* get_packed(const std::vector<u8>& bytes, u64 offset) {
-	if(bytes.size() < offset + sizeof(T)) {
+const T* get_packed(std::span<const u8> bytes, u64 offset) {
+	if(offset + sizeof(T) <= bytes.size()) {
+		return reinterpret_cast<const T*>(&bytes[offset]);
+	} else {
 		return nullptr;
 	}
-	return reinterpret_cast<const T*>(&bytes[offset]);
 }
 
-const char* get_string(const std::vector<u8>& bytes, u64 offset);
+const char* get_string(std::span<const u8> bytes, u64 offset);
 
 #define CCC_BEGIN_END(x) (x).begin(), (x).end()
 #define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))

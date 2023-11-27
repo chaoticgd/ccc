@@ -129,7 +129,7 @@ struct File {
 
 class SymbolTableReader {
 public:
-	[[nodiscard]] Result<void> init(const std::vector<u8>& elf, s32 section_offset);
+	[[nodiscard]] Result<void> init(std::span<const u8> elf, s32 section_offset);
 	
 	s32 file_count() const;
 	Result<File> parse_file(s32 index) const;
@@ -140,7 +140,7 @@ public:
 protected:
 	bool m_ready = false;
 	
-	const std::vector<u8>* m_elf;
+	std::span<const u8> m_elf;
 	s32 m_section_offset;
 	
 	// If the .mdebug section was moved without updating its contents all the

@@ -45,16 +45,16 @@ struct ElfSegment {
 };
 
 struct ElfFile {
-	std::vector<u8> image;
+	std::span<const u8> image;
 	std::vector<ElfSection> sections;
 	std::vector<ElfSegment> segments;
 	
-	ElfSection* lookup_section(const char* name);
-	std::optional<u32> file_offset_to_virtual_address(u32 file_offset);
+	const ElfSection* lookup_section(const char* name) const;
+	std::optional<u32> file_offset_to_virtual_address(u32 file_offset) const;
 };
 
 // Parse the ELF file header, section headers and program headers.
-Result<ElfFile> parse_elf_file(std::vector<u8> image);
+Result<ElfFile> parse_elf_file(std::span<const u8> image);
 
 [[nodiscard]] Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves);
 
