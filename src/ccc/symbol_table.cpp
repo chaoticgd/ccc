@@ -79,9 +79,9 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const El
 	// Filter the AST and compute size information for all nodes.
 #define CCC_X(SymbolType, symbol_list) \
 	for(SymbolType& symbol : database.symbol_list) { \
-		if(symbol.type_ptr()) { \
-			filter_ast_by_flags(*symbol.type_ptr(), parser_flags); \
-			compute_size_bytes_recursive(*symbol.type_ptr(), database); \
+		if(symbol.type()) { \
+			filter_ast_by_flags(*symbol.type(), parser_flags); \
+			compute_size_bytes_recursive(*symbol.type(), database); \
 		} \
 	}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
@@ -184,11 +184,12 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& databa
 				DataTypeHandle resolved_type_handle = database.lookup_type(type_name, false);
 				DataType* resolved_type = database.data_types.symbol_from_handle(resolved_type_handle);
 				if(resolved_type) {
-					ast::Node& resolved_node = resolved_type->type();
-					if(resolved_node.computed_size_bytes < 0 && !resolved_node.cannot_compute_size) {
-						compute_size_bytes_recursive(resolved_node, database);
+					ast::Node* resolved_node = resolved_type->type();
+					CCC_ASSERT(resolved_node);
+					if(resolved_node->computed_size_bytes < 0 && !resolved_node->cannot_compute_size) {
+						compute_size_bytes_recursive(*resolved_node, database);
 					}
-					type_name.computed_size_bytes = resolved_node.computed_size_bytes;
+					type_name.computed_size_bytes = resolved_node->computed_size_bytes;
 				}
 				break;
 			}

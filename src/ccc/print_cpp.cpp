@@ -64,8 +64,9 @@ void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& data
 void CppPrinter::comment_block_builtin_types(const SymbolList<DataType>& data_types) {
 	std::set<std::pair<std::string, ast::BuiltInClass>> builtins;
 	for(const DataType& data_type : data_types) {
-		if(data_type.type().descriptor == ast::BUILTIN) {
-			builtins.emplace(data_type.type().name, data_type.type().as<ast::BuiltIn>().bclass);
+		CCC_ASSERT(data_type.type());
+		if(data_type.type()->descriptor == ast::BUILTIN) {
+			builtins.emplace(data_type.type()->name, data_type.type()->as<ast::BuiltIn>().bclass);
 		}
 	}
 	
@@ -130,7 +131,8 @@ void CppPrinter::include_directive(const char* path) {
 }
 
 bool CppPrinter::data_type(const DataType& symbol) {
-	const ast::Node& node = symbol.type();
+	CCC_ASSERT(symbol.type());
+	const ast::Node& node = *symbol.type();
 	
 	if(node.descriptor == ast::BUILTIN) {
 		return false;
@@ -192,9 +194,9 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	// Print out the storage class, return type and function name.
 	print_cpp_storage_class(out, symbol.storage_class);
 	if(true) {//!function.is_constructor) {
-		if(symbol.type_ptr()) {
+		if(symbol.type()) {
 			VariableName dummy;
-			ast_node(symbol.type(), dummy, 0);
+			ast_node(*symbol.type(), dummy, 0);
 			fprintf(out, " ");
 		}
 	}
@@ -207,7 +209,11 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		for(size_t i = skip_this ? 1 : 0; i < parameter_variables.size(); i++) {
 			VariableName variable_name;
 			variable_name.identifier = &parameter_variables[i].name();
-			ast_node(parameter_variables[i].type(), variable_name, 0);
+			if(parameter_variables[i].type()) {
+				ast_node(*parameter_variables[i].type(), variable_name, 0);
+			} else {
+				print_cpp_variable_name(out, variable_name, NO_VAR_PRINT_FLAGS);
+			}
 			if(i + 1 != parameter_variables.size()) {
 				fprintf(out, ", ");
 			}
@@ -232,7 +238,17 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 			if(!local_variables.empty()) {
 				for(const LocalVariable& variable : local_variables) {
 					indent(out, 1);
-					ast_node(variable.type(), name, 1);
+					if(variable.type()) {
+						VariableName local_name;
+						local_name.identifier = &variable.name();
+						if(variable.type()) {
+							ast_node(*variable.type(), local_name, 1);
+						} else {
+							print_cpp_variable_name(out, local_name, NO_VAR_PRINT_FLAGS);
+						}
+					} else {
+						
+					}
 					if(read_virtual && can_refine_variable(variable)) {
 						fprintf(out, " = ");
 						Result<RefinedData> data = refine_variable(variable, database, *read_virtual);
@@ -266,9 +282,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 }
 
 void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData* data) {
-	const ast::Node& node = symbol.type();
-	
-	if(m_config.skip_statics && node.storage_class == ast::SC_STATIC) {
+	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
 	
@@ -283,7 +297,11 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData
 	
 	VariableName name;
 	name.identifier = &symbol.demangled_name();
-	ast_node(node, name, 0);
+	if(symbol.type()) {
+		ast_node(*symbol.type(), name, 0);
+	} else {
+		print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
+	}
 	if(data) {
 		fprintf(out, " = ");
 		refined_data(*data, 0);

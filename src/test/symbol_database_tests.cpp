@@ -203,10 +203,10 @@ TEST(CCCSymbolDatabase, NodeHandleLookup) {
 	std::unique_ptr<ast::BuiltIn> node = std::make_unique<ast::BuiltIn>();
 	(*data_type)->set_type_and_invalidate_node_handles(std::move(node));
 	
-	NodeHandle node_handle((*data_type)->handle(), (*data_type)->type_ptr());
+	NodeHandle node_handle((*data_type)->handle(), (*data_type)->type());
 	
 	// Make sure we can lookup the node from the handle.
-	EXPECT_EQ(database.node_handle_to_pointer(node_handle), (*data_type)->type_ptr());
+	EXPECT_EQ(database.node_handle_to_pointer(node_handle), (*data_type)->type());
 	
 	// Destroy the symbol.
 	database.data_types.destroy_symbol((*data_type)->handle());

@@ -203,9 +203,9 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 				auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);
 				if(handle != source_file->stabs_type_number_to_handle.end()) {
 					const DataType* referenced_type = database.data_types.symbol_from_handle(handle->second);
-					CCC_ASSERT(referenced_type);
+					CCC_ASSERT(referenced_type && referenced_type->type());
 					// Don't compare 'intrusive' fields e.g. the offset.
-					CompareResult new_result = compare_nodes(referenced_type->type(), *raw_node, database, false);
+					CompareResult new_result = compare_nodes(*referenced_type->type(), *raw_node, database, false);
 					if(new_result.type != CompareResultType::DIFFERS) {
 						result.type = (i == 0)
 							? CompareResultType::MATCHES_FAVOUR_LHS

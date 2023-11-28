@@ -453,10 +453,11 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
-			ast::CompareResult compare_result = compare_nodes(existing_type->type(), *node.get(), *this, true);
+			CCC_ASSERT(existing_type->type());
+			ast::CompareResult compare_result = compare_nodes(*existing_type->type(), *node.get(), *this, true);
 			if(compare_result.type == ast::CompareResultType::DIFFERS) {
 				// The new node doesn't match this existing node.
-				bool is_anonymous_enum = existing_type->type().descriptor == ast::ENUM
+				bool is_anonymous_enum = existing_type->type()->descriptor == ast::ENUM
 					&& existing_type->name().empty();
 				if(!is_anonymous_enum) {
 					existing_type->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);

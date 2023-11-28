@@ -213,16 +213,16 @@ public:
 	SymbolSourceHandle source() const { return m_source; }
 	const std::string& name() const { return m_name; }
 	
-	ast::Node& type() { CCC_ASSERT(m_type.get()); return *m_type; }
-	const ast::Node& type() const { CCC_ASSERT(m_type.get()); return *m_type; }
-	ast::Node* type_ptr() { return m_type.get(); }
-	const ast::Node* type_ptr() const { return m_type.get(); }
+	ast::Node* type() { return m_type.get(); }
+	const ast::Node* type() const { return m_type.get(); }
 	
 	void set_type_once(std::unique_ptr<ast::Node> type) {
 		CCC_ASSERT(!m_type.get());
 		m_type = std::move(type);
 	}
 	
+	// DANGER: Accessing a node handle that was pointing into this symbol after
+	// this call is a crash.
 	void set_type_and_invalidate_node_handles(std::unique_ptr<ast::Node> type) {
 		m_type = std::move(type);
 	}
@@ -477,6 +477,8 @@ public:
 	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
 };
 
+// The symbol database itself. This owns all the symbols.
+
 struct SymbolDatabase {
 	SymbolList<DataType> data_types;
 	SymbolList<Function> functions;
@@ -503,6 +505,10 @@ struct SymbolDatabase {
 	// does, return the node pointer stored within, otherwise return nullptr.
 	const ast::Node* node_handle_to_pointer(const NodeHandle& node_handle);
 	
+	// Deduplicate matching data types with the same name. May replace the
+	// existing data type with the new one if the new one is better.
+	// DANGER: Accessing a node handle that was pointing into a replaced data
+	// type after calling this function is a crash!
 	[[nodiscard]] Result<DataType*> create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file, SymbolSourceHandle source);
 };
 

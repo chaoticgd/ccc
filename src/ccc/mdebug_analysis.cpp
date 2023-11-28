@@ -606,9 +606,9 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
 				type_name = demangled_name.substr(0, name_separator_pos - 1);
 			}
 			for(const auto& name_handle : database.data_types.handles_from_name(type_name.c_str())) {
-				DataType* type = database.data_types.symbol_from_handle(name_handle.second);
-				if(type && type->type().descriptor == ast::STRUCT_OR_UNION) {
-					ast::StructOrUnion& struct_or_union = type->type().as<ast::StructOrUnion>();
+				DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
+				if(data_type && data_type->type() && data_type->type()->descriptor == ast::STRUCT_OR_UNION) {
+					ast::StructOrUnion& struct_or_union = data_type->type()->as<ast::StructOrUnion>();
 					for(std::unique_ptr<ast::Node>& declaration : struct_or_union.member_functions) {
 						if(declaration->name == function_name) {
 							declaration->as<ast::FunctionType>().definition_handle = function.handle().value;

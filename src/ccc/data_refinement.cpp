@@ -24,6 +24,7 @@ bool can_refine_variable(const Variable& variable) {
 	if(global_storage->location == Variable::GlobalStorage::Location::BSS) return false;
 	if(global_storage->location == Variable::GlobalStorage::Location::SBSS) return false;
 	if(!global_storage->address.valid()) return false;
+	if(!variable.type()) return false;
 	return true;
 }
 
@@ -31,7 +32,8 @@ Result<RefinedData> refine_variable(const Variable& variable, const SymbolDataba
 	const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&variable.storage());
 	CCC_ASSERT(global_storage);
 	DataRefinementContext context{database, read_virtual};
-	return refine_node(global_storage->address.value, variable.type(), context);
+	CCC_ASSERT(variable.type());
+	return refine_node(global_storage->address.value, *variable.type(), context);
 }
 
 static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
@@ -109,10 +111,10 @@ static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& typ
 			DataTypeHandle resolved_type_handle = context.database.lookup_type(type_name, false);
 			if(resolved_type_handle.valid()) {
 				const DataType* resolved_type = context.database.data_types.symbol_from_handle(resolved_type_handle);
-				if(resolved_type && !resolved_type->type().is_currently_processing) {
-					resolved_type->type().is_currently_processing = true;
-					Result<RefinedData> child = refine_node(virtual_address, resolved_type->type(), context);
-					resolved_type->type().is_currently_processing = false;
+				if(resolved_type && resolved_type->type() && !resolved_type->type()->is_currently_processing) {
+					resolved_type->type()->is_currently_processing = true;
+					Result<RefinedData> child = refine_node(virtual_address, *resolved_type->type(), context);
+					resolved_type->type()->is_currently_processing = false;
 					return child;
 				}
 			}
@@ -227,8 +229,8 @@ static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, cons
 		} else if(global_variable_symbol) {
 			bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
 				&& type.as<ast::PointerOrReference>().is_pointer;
-			bool pointing_at_array = global_variable_symbol->type_ptr()
-				&& global_variable_symbol->type().descriptor == ast::ARRAY;
+			bool pointing_at_array = global_variable_symbol->type()
+				&& global_variable_symbol->type()->descriptor == ast::ARRAY;
 			if(is_pointer && !pointing_at_array) {
 				string += "&";
 			}
