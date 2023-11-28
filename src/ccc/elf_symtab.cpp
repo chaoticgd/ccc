@@ -50,13 +50,11 @@ static const char* symbol_type_to_string(SymbolType type);
 static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 
 Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf) {
+	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
+	
 	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(symbol_source);
 	(*symbol_source)->source_type = SymbolSource::SYMBOL_TABLE;
-	
-	SourceFile* source_file = nullptr;
-	FunctionRange functions;
-	GlobalVariableRange global_variables;
 	
 	for(u32 i = 0; i < section.size / sizeof(Symbol); i++) {
 		const Symbol* symbol = get_packed<Symbol>(elf.image, section.offset + i * sizeof(Symbol));
@@ -80,43 +78,24 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const El
 				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(string, (*symbol_source)->handle(), address);
 				CCC_RETURN_IF_ERROR(global_variable);
 				
-				if(source_file) {
-					global_variables.expand_to_include((*global_variable)->handle());
-				}
-				
 				break;
 			}
 			case SymbolType::FUNC: {
 				Result<Function*> function = database.functions.create_symbol(string, (*symbol_source)->handle(), address);
 				CCC_RETURN_IF_ERROR(function);
 				
-				if(source_file) {
-					functions.expand_to_include((*function)->handle());
-				}
-				
 				(*function)->size = symbol->size;
 				
 				break;
 			}
 			case SymbolType::FILE: {
-				if(source_file) {
-					source_file->set_functions(functions, DONT_DELETE_OLD_SYMBOLS, database);
-					source_file->set_globals_variables(global_variables, DONT_DELETE_OLD_SYMBOLS, database);
-				}
-				
-				Result<SourceFile*> source_file_result = database.source_files.create_symbol(string, (*symbol_source)->handle());
-				CCC_RETURN_IF_ERROR(source_file_result);
-				source_file = *source_file_result;
+				Result<SourceFile*> source_file = database.source_files.create_symbol(string, (*symbol_source)->handle());
+				CCC_RETURN_IF_ERROR(source_file);
 				
 				break;
 			}
 			default: {}
 		}
-	}
-	
-	if(source_file) {
-		source_file->set_functions(functions, DONT_DELETE_OLD_SYMBOLS, database);
-		source_file->set_globals_variables(global_variables, DONT_DELETE_OLD_SYMBOLS, database);
 	}
 	
 	return (*symbol_source)->handle();
