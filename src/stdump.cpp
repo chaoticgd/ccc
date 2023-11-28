@@ -277,17 +277,19 @@ static void print_functions(FILE* out, SymbolDatabase& database) {
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	
+	bool first_iteration = true;
 	SourceFileHandle source_file_handle;
 	for(const Function& function : database.functions) {
-		if(function.source_file() != source_file_handle) {
+		if(function.source_file() != source_file_handle || first_iteration) {
 			SourceFile* source_file = database.source_files.symbol_from_handle(function.source_file());
 			if(source_file) {
 				printer.comment_block_file(source_file->full_path().c_str());
 				source_file_handle = source_file->handle();
 			} else {
-				printer.comment_block_file("(no source file)");
+				printer.comment_block_file("(unknown)");
 				source_file_handle = SourceFileHandle();
 			}
+			first_iteration = false;
 		}
 		
 		printer.function(function, database, nullptr);
@@ -298,17 +300,19 @@ static void print_globals(FILE* out, SymbolDatabase& database) {
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	
+	bool first_iteration = true;
 	SourceFileHandle source_file_handle;
 	for(const GlobalVariable& global_variable : database.global_variables) {
-		if(global_variable.source_file() != source_file_handle) {
+		if(global_variable.source_file() != source_file_handle || first_iteration) {
 			SourceFile* source_file = database.source_files.symbol_from_handle(global_variable.source_file());
 			if(source_file) {
 				printer.comment_block_file(source_file->full_path().c_str());
 				source_file_handle = source_file->handle();
 			} else {
-				printer.comment_block_file("(no source file)");
+				printer.comment_block_file("(unknown)");
 				source_file_handle = SourceFileHandle();
 			}
+			first_iteration = false;
 		}
 		
 		printer.global_variable(global_variable, nullptr);
