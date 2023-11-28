@@ -39,22 +39,13 @@ struct Options {
 	fs::path input_file;
 	fs::path output_file;
 	u32 flags = NO_FLAGS;
+	std::optional<std::string> section;
+	std::optional<SymbolTableFormat> format;
 };
 
-struct SymbolTableCounts {
-	s32 symtab_count = 0;
-	s32 map_count = 0;
-	s32 mdebug_count = 0;
-	s32 stab_count = 0;
-	s32 dwarf_count = 0;
-	s32 sndata_count = 0;
-	s32 sndll_count = 0;
-	s32 unknown_count = 0;
-};
-
-static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const fs::path& input_file, u32 parser_flags);
+static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const Options& options);
 static void identify_symbol_tables(FILE* out, const fs::path& input_path);
-static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts* totals, const fs::path& file_path);
+static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_total, const fs::path& file_path);
 static void print_functions(FILE* out, SymbolDatabase& database);
 static void print_globals(FILE* out, SymbolDatabase& database);
 static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options);
@@ -73,12 +64,13 @@ static void print_help();
 
 int main(int argc, char** argv) {
 	Options options = parse_args(argc, argv);
-	u32 parser_flags = command_line_flags_to_parser_flags(options.flags);
+	
 	FILE* out = stdout;
 	if(!options.output_file.empty()) {
 		out = fopen(options.output_file.string().c_str(), "w");
 		CCC_CHECK_FATAL(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
 	}
+	
 	switch(options.mode) {
 		case OutputMode::IDENTIFY: {
 			identify_symbol_tables(out, options.input_file);
@@ -87,7 +79,7 @@ int main(int argc, char** argv) {
 		case OutputMode::FUNCTIONS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			
 			print_functions(out, database);
 			return 0;
@@ -95,7 +87,7 @@ int main(int argc, char** argv) {
 		case OutputMode::GLOBALS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			
 			print_globals(out, database);
 			return 0;
@@ -103,7 +95,7 @@ int main(int argc, char** argv) {
 		case OutputMode::TYPES: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			
 			if(!(options.flags & FLAG_PER_FILE)) {
 				print_types_deduplicated(out, database, options);
@@ -120,7 +112,7 @@ int main(int argc, char** argv) {
 			
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, json_parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			print_json(out, database, options.flags & FLAG_PER_FILE);
 			
 			break;
@@ -140,7 +132,7 @@ int main(int argc, char** argv) {
 		case OutputMode::SYMBOLS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			print_local_symbols(out, database);
 			
 			return 0;
@@ -148,28 +140,28 @@ int main(int argc, char** argv) {
 		case OutputMode::EXTERNALS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			print_external_symbols(out, database);
 			return 0;
 		}
 		case OutputMode::FILES: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			list_files(out, database);
 			return 0;
 		}
 		case OutputMode::SECTIONS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			list_sections(out, database, elf);
 			return 0;
 		}
 		case OutputMode::TYPE_GRAPH: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options);
 			TypeDependencyAdjacencyList graph = build_type_dependency_graph(database);
 			print_type_dependency_graph(out, database, graph);
 			return 0;
@@ -182,8 +174,8 @@ int main(int argc, char** argv) {
 	}
 }
 
-static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const fs::path& input_file, u32 parser_flags) {
-	Result<std::vector<u8>> image_result = platform::read_binary_file(input_file);
+static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const Options& options) {
+	Result<std::vector<u8>> image_result = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image_result);
 	image = std::move(*image_result);
 	
@@ -191,9 +183,10 @@ static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, co
 	CCC_EXIT_IF_ERROR(elf_result);
 	elf = std::move(*elf_result);
 	
-	ParserConfig config;
-	config.parser_flags = parser_flags;
-	config.demangle = nullptr;
+	SymbolTableParserConfig config;
+	config.section = options.section;
+	config.format = options.format;
+	config.parser_flags = command_line_flags_to_parser_flags(options.flags);
 	
 	SymbolDatabase database;
 	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, elf, config);
@@ -204,40 +197,37 @@ static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, co
 
 static void identify_symbol_tables(FILE* out, const fs::path& input_path) {
 	if(fs::is_regular_file(input_path)) {
-		identify_symbol_tables_in_file(out, nullptr, input_path);
+		identify_symbol_tables_in_file(out, nullptr, nullptr, input_path);
 	} else if(fs::is_directory(input_path)) {
-		SymbolTableCounts totals;
+		std::vector<u32> totals(SYMBOL_TABLE_FORMAT_COUNT, 0);
+		u32 unknown_total = 0;
 		
 		for(auto entry : fs::recursive_directory_iterator(input_path)) {
 			if(entry.is_regular_file()) {
-				identify_symbol_tables_in_file(out, &totals, entry.path());
+				identify_symbol_tables_in_file(out, totals.data(), &unknown_total, entry.path());
 			}
 		}
 		
 		fprintf(out, "\n");
 		fprintf(out, "Totals:\n");
-		fprintf(out, "  %4d .symtab sections\n", totals.symtab_count);
-		fprintf(out, "  %4d .map files\n", totals.map_count);
-		fprintf(out, "  %4d .mdebug sections\n", totals.mdebug_count);
-		fprintf(out, "  %4d .stab sections\n", totals.stab_count);
-		fprintf(out, "  %4d .debug sections (dwarf)\n", totals.dwarf_count);
-		fprintf(out, "  %4d .sndata sections\n", totals.sndata_count);
-		fprintf(out, "  %4d .rel files (sndll)\n", totals.sndll_count);
-		fprintf(out, "  %4d unknown\n", totals.unknown_count);
+		for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+			fprintf(out, "  %4d %s sections\n", totals[i], SYMBOL_TABLE_FORMATS[i].section_name);
+		}
+		fprintf(out, "  %4d unknown\n", unknown_total);
 	} else {
 		CCC_FATAL("Input path '%s' is neither a regular file nor a directory.", input_path.string().c_str());
 	}
 }
 
-static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts* totals, const fs::path& file_path) {
-	fprintf(out, "%s ", file_path.string().c_str());
+static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_total, const fs::path& file_path) {
+	fprintf(out, "%100s:", file_path.string().c_str());
 	
 	Result<std::vector<u8>> file = platform::read_binary_file(file_path);
 	CCC_EXIT_IF_ERROR(file);
 	
 	const u32* fourcc = get_packed<u32>(*file, 0);
 	if(!fourcc) {
-		fprintf(out, "file too small");
+		fprintf(out, " file too small\n");
 		return;
 	}
 	
@@ -246,27 +236,38 @@ static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts* totals,
 			Result<ElfFile> elf = parse_elf_file(std::move(*file));
 			CCC_EXIT_IF_ERROR(elf);
 			
-			u32 formats = identify_elf_symbol_tables(*elf);
-		
-			if(totals && formats & SYMTAB) totals->symtab_count++;
-			if(totals && formats & MDEBUG) totals->mdebug_count++;
-			if(totals && formats & STAB) totals->stab_count++;
-			if(totals && formats & DWARF) totals->dwarf_count++;
-			if(totals && formats & SNDATA) totals->sndata_count++;
+			bool print_none = true;
+			for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+				if(elf->lookup_section(SYMBOL_TABLE_FORMATS[i].section_name)) {
+					fprintf(out, " %s", SYMBOL_TABLE_FORMATS[i].section_name);
+					if(totals) {
+						totals[i]++;
+					}
+					print_none = false;
+				}
+			}
 			
-			std::string string = symbol_table_formats_to_string(formats);
-			fprintf(out, "%s\n", string.c_str());
+			if(print_none) {
+				fprintf(out, " none");
+			}
+			
+			fprintf(out, "\n");
+			
 			break;
 		}
 		case CCC_FOURCC("SNR1"):
 		case CCC_FOURCC("SNR2"): {
-			totals->sndll_count++;
-			fprintf(out, "sndll\n");
+			if(totals) {
+				totals[SNDLL]++;
+			}
+			fprintf(out, " sndll\n");
 			break;
 		}
 		default: {
-			totals->unknown_count++;
-			fprintf(out, "unknown format\n");
+			if(unknown_total) {
+				(*unknown_total)++;
+			}
+			fprintf(out, " unknown format\n");
 			break;
 		}
 	}
@@ -528,6 +529,25 @@ static Options parse_args(int argc, char** argv) {
 				options.mode = OutputMode::BAD_COMMAND;
 				return options;
 			}
+		} else if(strcmp(arg, "--section") == 0) {
+			if(i + 1 < argc) {
+				options.section = argv[++i];
+			} else {
+				CCC_FATAL("No section name specified.");
+				options.mode = OutputMode::BAD_COMMAND;
+				return options;
+			}
+		} else if(strcmp(arg, "--format") == 0) {
+			if(i + 1 < argc) {
+				std::string format = argv[++i];
+				const SymbolTableFormatInfo* info = symbol_table_format_from_name(format.c_str());
+				CCC_CHECK_FATAL(info, "Invalid symbol table format specified.");
+				options.format = info->format;
+			} else {
+				CCC_FATAL("No section name specified.");
+				options.mode = OutputMode::BAD_COMMAND;
+				return options;
+			}
 		} else if(strncmp(arg, "--", 2) == 0) {
 			CCC_FATAL("Unknown option '%s'.", arg);
 		} else if(input_path_provided) {
@@ -607,4 +627,12 @@ static void print_help() {
 	puts("");
 	puts("  --output <output file>        Write the output to the file specified instead");
 	puts("                                of to the standard output.");
+	puts("");
+	puts("  --section <section name>      Choose which symbol table you want to read from.");
+	puts("                                Common section names are: .symtab, .mdebug,");
+	puts("                                .stab, .debug, .sndll.");
+	puts("");
+	puts("  --format <format name>        Explicitly specify the symbol table format.");
+	puts("                                Possible options are: symtab, mdebug, stab,");
+	puts("                                dwarf, sndll.");
 }

@@ -11,25 +11,26 @@ namespace ccc {
 // Determine which symbol tables are present in a given file.
 
 enum SymbolTableFormat {
-	SYMTAB = 1 << 0, // Standard ELF symbol table
-	MAP    = 1 << 1, // Text-based (.map) symbol table
-	MDEBUG = 1 << 2, // The infamous Third Eye symbol table
-	STAB   = 1 << 3, // Simpler container format for STABS symbols
-	DWARF  = 1 << 4, // DWARF 1 symbol table
-	SNDATA = 1 << 5, // SNDLL linker symbols from an executable (.elf)
-	SNDLL  = 1 << 6  // SNDLL linker symbols from a dynamic library (.rel)
+	SYMTAB = 0, // Standard ELF symbol table
+	MDEBUG = 1, // The infamous Third Eye symbol table
+	STAB   = 2, // Simpler container format for STABS symbols
+	DWARF  = 3, // DWARF 1 symbol table
+	SNDLL  = 4  // SNDLL linker symbols from a dynamic library (.rel)
 };
 
-const char* symbol_table_format_to_string(SymbolTableFormat format);
-
-enum {
-	NO_SYMBOL_TABLE = 0,      // No symbol table present
-	MAX_SYMBOL_TABLE = 1 << 7 // End marker
+struct SymbolTableFormatInfo {
+	SymbolTableFormat format;
+	const char* format_name;
+	const char* section_name;
+	u32 utility;
 };
 
-u32 identify_elf_symbol_tables(const ElfFile& elf);
-std::optional<SymbolTableFormat> get_preferred_symbol_table(u32 symbol_tables);
-std::string symbol_table_formats_to_string(u32 formats);
+extern const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[];
+extern const u32 SYMBOL_TABLE_FORMAT_COUNT;
+
+const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format);
+const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name);
+const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name);
 
 enum ParserFlags {
 	NO_PARSER_FLAGS = 0,
@@ -40,16 +41,18 @@ enum ParserFlags {
 	STRIP_GENERATED_FUNCTIONS = (1 << 4)
 };
 
-// The main high-level parsing function for the entire library.
-
 typedef char* DemanglerFunc(const char* mangled, int options);
 
-struct ParserConfig {
+struct SymbolTableParserConfig {
+	std::optional<std::string> section;
 	std::optional<SymbolTableFormat> format;
 	u32 parser_flags = NO_PARSER_FLAGS;
 	DemanglerFunc* demangle = nullptr;
 };
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, const ParserConfig& config);
+// The main high-level parsing function for the entire library. Return the
+// handle of the newly created symbol source on success, or an invalid handle if
+// no symbol table was found.
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableParserConfig& config);
 
 }

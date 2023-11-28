@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 	Result<ElfFile> elf = parse_elf_file(*image);
 	CCC_EXIT_IF_ERROR(elf);
 	
-	ParserConfig config;
+	SymbolTableParserConfig config;
 	config.demangle = cplus_demangle;
 	
 	SymbolDatabase database;

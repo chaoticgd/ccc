@@ -12,96 +12,95 @@ namespace ccc {
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags);
 static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database);
 
-u32 identify_elf_symbol_tables(const ElfFile& elf) {
-	u32 result = 0;
-	for(const ElfSection& section : elf.sections) {
-		if(section.name == ".symtab" && section.size > 0) {
-			result |= SYMTAB;
-		}
-		if(section.name == ".mdebug" && section.size > 0) {
-			result |= MDEBUG;
-		}
-		if(section.name == ".stab" && section.size > 0) {
-			result |= STAB;
-		}
-		if(section.name == ".debug" && section.size > 0) {
-			result |= DWARF;
-		}
-		if(section.name == ".sndata" && section.size > 0) {
-			result |= SNDATA;
+extern const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
+	{SYMTAB, "symtab", ".symtab", 1},
+	{MDEBUG, "mdebug", ".mdebug", 2},
+	{STAB, "stab", ".stab", 0},
+	{DWARF, "dwarf", ".debug", 0},
+	{SNDLL, "sndll", ".sndata", 0}
+};
+extern const u32 SYMBOL_TABLE_FORMAT_COUNT = CCC_ARRAY_SIZE(SYMBOL_TABLE_FORMATS);
+
+const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format) {
+	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+		if(SYMBOL_TABLE_FORMATS[i].format == format) {
+			return &SYMBOL_TABLE_FORMATS[i];
 		}
 	}
-	return result;
+	return nullptr;
 }
 
-std::optional<SymbolTableFormat> get_preferred_symbol_table(u32 symbol_tables) {
-	if(symbol_tables & MDEBUG) return MDEBUG;
-	if(symbol_tables & SYMTAB) return SYMTAB;
-	return std::nullopt;
-}
-
-std::string symbol_table_formats_to_string(u32 formats) {
-	std::string output;
-	bool printed = false;
-	for(u32 bit = 1; bit < MAX_SYMBOL_TABLE; bit <<= 1) {
-		u32 format = formats & bit;
-		if(format != 0) {
-			if(printed) {
-				output += " ";
-			}
-			output += symbol_table_format_to_string((SymbolTableFormat) format);
-			printed = true;
+const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name) {
+	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+		if(strcmp(SYMBOL_TABLE_FORMATS[i].format_name, format_name) == 0) {
+			return &SYMBOL_TABLE_FORMATS[i];
 		}
 	}
-	if(!printed) {
-		output += "none";
-	}
-	return output;
+	return nullptr;
 }
 
-const char* symbol_table_format_to_string(SymbolTableFormat format) {
-	switch(format) {
-		case SYMTAB: return "symtab";
-		case MAP: return "map";
-		case MDEBUG: return "mdebug";
-		case STAB: return "stab";
-		case DWARF: return "dwarf";
-		case SNDATA: return "sndata";
-		case SNDLL: return "sndll";
+const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name) {
+	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+		if(strcmp(SYMBOL_TABLE_FORMATS[i].section_name, section_name) == 0) {
+			return &SYMBOL_TABLE_FORMATS[i];
+		}
 	}
-	return "";
+	return nullptr;
 }
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, const ParserConfig& config) {
-	SymbolTableFormat symbol_table;
-	if(config.format.has_value()) {
-		symbol_table = *config.format;
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableParserConfig& config) {
+	const ElfSection* section = nullptr;
+	SymbolTableFormat format;
+	
+	if(config.section.has_value()) {
+		section = elf.lookup_section(config.section->c_str());
+		CCC_CHECK(section, "No '%s' section found.", config.section->c_str());
+		
+		if(config.format.has_value()) {
+			format = *config.format;
+		} else {
+			const SymbolTableFormatInfo* format_info = symbol_table_format_from_section(section->name.c_str());
+			CCC_CHECK(format_info, "Cannot determine symbol table format from section name.");
+			
+			format = format_info->format;
+		}
 	} else {
-		u32 symbol_tables = identify_elf_symbol_tables(elf);
-		std::optional<SymbolTableFormat> preferred_symbol_table = get_preferred_symbol_table(symbol_tables);
-		CCC_CHECK(preferred_symbol_table.has_value(), "No supported symbol tables detected.");
-		symbol_table = *preferred_symbol_table;
+		// Find the most useful symbol table.
+		u32 current_utility = 0;
+		for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+			if(SYMBOL_TABLE_FORMATS[i].utility > current_utility) {
+				const ElfSection* current_section = elf.lookup_section(SYMBOL_TABLE_FORMATS[i].section_name);
+				if(current_section) {
+					section = current_section;
+					format = SYMBOL_TABLE_FORMATS[i].format;
+					current_utility = SYMBOL_TABLE_FORMATS[i].utility;
+				}
+			}
+		}
+		
+		if(!section) {
+			// No symbol table found.
+			return SymbolSourceHandle();
+		}
+		
+		if(config.format.has_value()) {
+			format = *config.format;
+		}
 	}
 	
 	SymbolSourceHandle source;
 	
-	switch(symbol_table) {
+	switch(format) {
 		case SYMTAB: {
-			const ElfSection* symtab_section = elf.lookup_section(".symtab");
-			CCC_CHECK(symtab_section, "No .symtab section.");
-			
-			Result<SymbolSourceHandle> source_result = elf::parse_symbol_table(database, *symtab_section, elf);
+			Result<SymbolSourceHandle> source_result = elf::parse_symbol_table(database, *section, elf);
 			CCC_RETURN_IF_ERROR(source_result);
 			source = *source_result;
 			
 			break;
 		}
 		case MDEBUG: {
-			const ElfSection* mdebug_section = elf.lookup_section(".mdebug");
-			CCC_CHECK(mdebug_section, "No .mdebug section.");
-			
 			mdebug::SymbolTableReader reader;
-			Result<void> reader_result = reader.init(elf.image, mdebug_section->offset);
+			Result<void> reader_result = reader.init(elf.image, section->offset);
 			CCC_RETURN_IF_ERROR(reader_result);
 			
 			Result<SymbolSourceHandle> source_result = analyse(database, reader, config.parser_flags, config.demangle);
@@ -122,7 +121,7 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const El
 			break;
 		}
 		default: {
-			return CCC_FAILURE("Selected symbol table format %s isn't supported.", symbol_table_format_to_string(symbol_table));
+			return CCC_FAILURE("The selected symbol table format isn't supported.");
 		}
 	}
 	
