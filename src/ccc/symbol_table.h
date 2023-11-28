@@ -28,6 +28,7 @@ enum {
 };
 
 u32 identify_elf_symbol_tables(const ElfFile& elf);
+std::optional<SymbolTableFormat> get_preferred_symbol_table(u32 symbol_tables);
 std::string symbol_table_formats_to_string(u32 formats);
 
 enum ParserFlags {
@@ -43,6 +44,12 @@ enum ParserFlags {
 
 typedef char* DemanglerFunc(const char* mangled, int options);
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, u32 parser_flags, DemanglerFunc* demangle);
+struct ParserConfig {
+	std::optional<SymbolTableFormat> format;
+	u32 parser_flags = NO_PARSER_FLAGS;
+	DemanglerFunc* demangle = nullptr;
+};
+
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, const ParserConfig& config);
 
 }

@@ -7,6 +7,7 @@
 #include "data_refinement.h"
 #include "dependency.h"
 #include "elf.h"
+#include "elf_symtab.h"
 #include "mdebug.h"
 #include "mdebug_analysis.h"
 #include "print_cpp.h"

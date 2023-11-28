@@ -50,8 +50,11 @@ int main(int argc, char** argv) {
 	Result<ElfFile> elf = parse_elf_file(*image);
 	CCC_EXIT_IF_ERROR(elf);
 	
+	ParserConfig config;
+	config.demangle = cplus_demangle;
+	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, *elf, NO_PARSER_FLAGS, cplus_demangle);
+	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, *elf, config);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	map_types_to_files_based_on_this_pointers(database);

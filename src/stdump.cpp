@@ -7,19 +7,22 @@
 using namespace ccc;
 
 enum class OutputMode {
+	// Common Commands
 	IDENTIFY,
 	FUNCTIONS,
 	GLOBALS,
 	TYPES,
 	JSON,
+	HELP,
+	// ELF Symbol Table Commands
+	SYMTAB,
+	// MIPS Symbol Table commands
 	MDEBUG,
 	SYMBOLS,
 	EXTERNALS,
 	FILES,
 	SECTIONS,
 	TYPE_GRAPH,
-	TEST,
-	HELP,
 	BAD_COMMAND
 };
 
@@ -50,19 +53,21 @@ struct SymbolTableCounts {
 };
 
 static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const fs::path& input_file, u32 parser_flags);
-static void identify_symbol_databases(FILE* out, const fs::path& input_path);
-static void identify_symbol_databases_in_file(FILE* out, SymbolTableCounts& totals, const fs::path& file_path);
-static void print_functions(FILE* out, SymbolDatabase& symbol_database);
-static void print_globals(FILE* out, SymbolDatabase& symbol_database);
-static void print_types_deduplicated(FILE* out, SymbolDatabase& symbol_database, const Options& options);
-static void print_types_per_file(FILE* out, SymbolDatabase& symbol_database, const Options& options);
-static void print_local_symbols(FILE* out, const SymbolDatabase& symbol_database);
-static void print_external_symbols(FILE* out, const SymbolDatabase& symbol_database);
+static void identify_symbol_tables(FILE* out, const fs::path& input_path);
+static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts* totals, const fs::path& file_path);
+static void print_functions(FILE* out, SymbolDatabase& database);
+static void print_globals(FILE* out, SymbolDatabase& database);
+static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options);
+static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options);
+
+static void print_symtab(FILE* out, const Options& options);
+
+static void print_local_symbols(FILE* out, const SymbolDatabase& database);
+static void print_external_symbols(FILE* out, const SymbolDatabase& database);
 static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
 static u32 command_line_flags_to_parser_flags(u32 flags);
-static void list_files(FILE* out, const SymbolDatabase& symbol_database);
-static void list_sections(FILE* out, const SymbolDatabase& symbol_database, const ElfFile& elf);
-static void test(FILE* out, const fs::path& directory);
+static void list_files(FILE* out, const SymbolDatabase& database);
+static void list_sections(FILE* out, const SymbolDatabase& database, const ElfFile& elf);
 static Options parse_args(int argc, char** argv);
 static void print_help();
 
@@ -76,34 +81,34 @@ int main(int argc, char** argv) {
 	}
 	switch(options.mode) {
 		case OutputMode::IDENTIFY: {
-			identify_symbol_databases(out, options.input_file);
+			identify_symbol_tables(out, options.input_file);
 			return 0;
 		}
 		case OutputMode::FUNCTIONS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			
-			print_functions(out, symbol_database);
+			print_functions(out, database);
 			return 0;
 		}
 		case OutputMode::GLOBALS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			
-			print_globals(out, symbol_database);
+			print_globals(out, database);
 			return 0;
 		}
 		case OutputMode::TYPES: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
 			
 			if(!(options.flags & FLAG_PER_FILE)) {
-				print_types_deduplicated(out, symbol_database, options);
+				print_types_deduplicated(out, database, options);
 			} else {
-				print_types_per_file(out, symbol_database, options);
+				print_types_per_file(out, database, options);
 			}
 			return 0;
 		}
@@ -115,58 +120,58 @@ int main(int argc, char** argv) {
 			
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, json_parser_flags);
-			print_json(out, symbol_database, options.flags & FLAG_PER_FILE);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, json_parser_flags);
+			print_json(out, database, options.flags & FLAG_PER_FILE);
 			
+			break;
+		}
+		case OutputMode::SYMTAB: {
+			print_symtab(out, options);
 			break;
 		}
 		case OutputMode::MDEBUG: {
 			//ElfFile elf;
-			//Result<SymbolDatabase> symbol_database = read_symbol_table(elf, options.input_file);
-			//CCC_EXIT_IF_ERROR(symbol_database);
+			//Result<SymbolDatabase> database = read_symbol_table(elf, options.input_file);
+			//CCC_EXIT_IF_ERROR(database);
 			//
-			//symbol_database->print_header(out);
+			//database->print_header(out);
 			break;
 		}
 		case OutputMode::SYMBOLS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
-			print_local_symbols(out, symbol_database);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			print_local_symbols(out, database);
 			
 			return 0;
 		}
 		case OutputMode::EXTERNALS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
-			print_external_symbols(out, symbol_database);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			print_external_symbols(out, database);
 			return 0;
 		}
 		case OutputMode::FILES: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
-			list_files(out, symbol_database);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			list_files(out, database);
 			return 0;
 		}
 		case OutputMode::SECTIONS: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
-			list_sections(out, symbol_database, elf);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			list_sections(out, database, elf);
 			return 0;
 		}
 		case OutputMode::TYPE_GRAPH: {
 			std::vector<u8> image;
 			ElfFile elf;
-			SymbolDatabase symbol_database = read_symbol_table(image, elf, options.input_file, parser_flags);
-			TypeDependencyAdjacencyList graph = build_type_dependency_graph(symbol_database);
-			print_type_dependency_graph(out, symbol_database, graph);
-			return 0;
-		}
-		case OutputMode::TEST: {
-			test(out, options.input_file);
+			SymbolDatabase database = read_symbol_table(image, elf, options.input_file, parser_flags);
+			TypeDependencyAdjacencyList graph = build_type_dependency_graph(database);
+			print_type_dependency_graph(out, database, graph);
 			return 0;
 		}
 		case OutputMode::HELP:
@@ -186,43 +191,45 @@ static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, co
 	CCC_EXIT_IF_ERROR(elf_result);
 	elf = std::move(*elf_result);
 	
+	ParserConfig config;
+	config.parser_flags = parser_flags;
+	config.demangle = nullptr;
+	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, elf, parser_flags, nullptr);
+	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, elf, config);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	return database;
 }
 
-static void identify_symbol_databases(FILE* out, const fs::path& input_path) {
-	SymbolTableCounts totals;
-	
+static void identify_symbol_tables(FILE* out, const fs::path& input_path) {
 	if(fs::is_regular_file(input_path)) {
-		identify_symbol_databases_in_file(out, totals, input_path);
-		fprintf(out, "\n");
+		identify_symbol_tables_in_file(out, nullptr, input_path);
 	} else if(fs::is_directory(input_path)) {
+		SymbolTableCounts totals;
+		
 		for(auto entry : fs::recursive_directory_iterator(input_path)) {
 			if(entry.is_regular_file()) {
-				identify_symbol_databases_in_file(out, totals, entry.path());
-				fprintf(out, "\n");
+				identify_symbol_tables_in_file(out, &totals, entry.path());
 			}
 		}
+		
+		fprintf(out, "\n");
+		fprintf(out, "Totals:\n");
+		fprintf(out, "  %4d .symtab sections\n", totals.symtab_count);
+		fprintf(out, "  %4d .map files\n", totals.map_count);
+		fprintf(out, "  %4d .mdebug sections\n", totals.mdebug_count);
+		fprintf(out, "  %4d .stab sections\n", totals.stab_count);
+		fprintf(out, "  %4d .debug sections (dwarf)\n", totals.dwarf_count);
+		fprintf(out, "  %4d .sndata sections\n", totals.sndata_count);
+		fprintf(out, "  %4d .rel files (sndll)\n", totals.sndll_count);
+		fprintf(out, "  %4d unknown\n", totals.unknown_count);
 	} else {
-		CCC_FATAL("Input file '%s' is neither a regular file nor a directory.", input_path.string().c_str());
+		CCC_FATAL("Input path '%s' is neither a regular file nor a directory.", input_path.string().c_str());
 	}
-	
-	fprintf(out, "\n");
-	fprintf(out, "Totals:\n");
-	fprintf(out, "  %4d .symtab sections\n", totals.symtab_count);
-	fprintf(out, "  %4d .map files\n", totals.map_count);
-	fprintf(out, "  %4d .mdebug sections\n", totals.mdebug_count);
-	fprintf(out, "  %4d .stab sections\n", totals.stab_count);
-	fprintf(out, "  %4d .debug sections (dwarf)\n", totals.dwarf_count);
-	fprintf(out, "  %4d .sndata sections\n", totals.sndata_count);
-	fprintf(out, "  %4d .rel files (sndll)\n", totals.sndll_count);
-	fprintf(out, "  %4d unknown\n", totals.unknown_count);
 }
 
-static void identify_symbol_databases_in_file(FILE* out, SymbolTableCounts& totals, const fs::path& file_path) {
+static void identify_symbol_tables_in_file(FILE* out, SymbolTableCounts* totals, const fs::path& file_path) {
 	fprintf(out, "%s ", file_path.string().c_str());
 	
 	Result<std::vector<u8>> file = platform::read_binary_file(file_path);
@@ -235,86 +242,101 @@ static void identify_symbol_databases_in_file(FILE* out, SymbolTableCounts& tota
 	}
 	
 	switch(*fourcc) {
-		case CCC_FOURCC("\x7f\x45\x4c\x46"): {// ELF
+		case CCC_FOURCC("\x7f""ELF"): {
 			Result<ElfFile> elf = parse_elf_file(std::move(*file));
 			CCC_EXIT_IF_ERROR(elf);
 			
 			u32 formats = identify_elf_symbol_tables(*elf);
 		
-			if(formats & SYMTAB) totals.symtab_count++;
-			if(formats & MDEBUG) totals.mdebug_count++;
-			if(formats & STAB) totals.stab_count++;
-			if(formats & DWARF) totals.dwarf_count++;
-			if(formats & SNDATA) totals.sndata_count++;
+			if(totals && formats & SYMTAB) totals->symtab_count++;
+			if(totals && formats & MDEBUG) totals->mdebug_count++;
+			if(totals && formats & STAB) totals->stab_count++;
+			if(totals && formats & DWARF) totals->dwarf_count++;
+			if(totals && formats & SNDATA) totals->sndata_count++;
 			
 			std::string string = symbol_table_formats_to_string(formats);
 			fprintf(out, "%s\n", string.c_str());
 			break;
 		}
-		case CCC_FOURCC("SNR2"): { // SN systems DLL file
-			totals.sndll_count++;
+		case CCC_FOURCC("SNR1"):
+		case CCC_FOURCC("SNR2"): {
+			totals->sndll_count++;
 			fprintf(out, "sndll\n");
 			break;
 		}
 		default: {
-			totals.unknown_count++;
+			totals->unknown_count++;
 			fprintf(out, "unknown format\n");
 			break;
 		}
 	}
 }
 
-static void print_functions(FILE* out, SymbolDatabase& symbol_database) {
-	//CppPrinter printer(out);
-	//s32 file_count = symbol_database.file_count();
-	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<SymbolDatabase> symbol_database = analyse(symbol_database, NO_ANALYSIS_FLAGS, i);
-	//	CCC_EXIT_IF_ERROR(symbol_database);
-	//	ast::SourceFile& source_file = *symbol_database->source_files.at(0);
-	//	printer.comment_block_file(source_file.full_path.c_str());
-	//	for(const std::unique_ptr<ast::Node>& node : source_file.functions) {
-	//		printer.function(node->as<ast::FunctionDefinition>());
-	//	}
-	//}
+static void print_functions(FILE* out, SymbolDatabase& database) {
+	CppPrinterConfig config;
+	CppPrinter printer(out, config);
+	
+	SourceFileHandle source_file_handle;
+	for(const Function& function : database.functions) {
+		if(function.source_file() != source_file_handle) {
+			SourceFile* source_file = database.source_files.symbol_from_handle(function.source_file());
+			if(source_file) {
+				printer.comment_block_file(source_file->full_path().c_str());
+				source_file_handle = source_file->handle();
+			} else {
+				printer.comment_block_file("(no source file)");
+				source_file_handle = SourceFileHandle();
+			}
+		}
+		
+		printer.function(function, database, nullptr);
+	}
 }
 
-static void print_globals(FILE* out, SymbolDatabase& symbol_database) {
-	//CppPrinter printer(out);
-	//s32 file_count = symbol_database.file_count();
-	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<SymbolDatabase> symbol_database = analyse(symbol_database, NO_ANALYSIS_FLAGS, i);
-	//	CCC_EXIT_IF_ERROR(symbol_database);
-	//	ast::SourceFile& source_file = *symbol_database->source_files.at(0);
-	//	printer.comment_block_file(source_file.full_path.c_str());
-	//	for(const std::unique_ptr<ast::Node>& node : source_file.globals) {
-	//		printer.global_variable(node->as<ast::Variable>());
-	//	}
-	//}
+static void print_globals(FILE* out, SymbolDatabase& database) {
+	CppPrinterConfig config;
+	CppPrinter printer(out, config);
+	
+	SourceFileHandle source_file_handle;
+	for(const GlobalVariable& global_variable : database.global_variables) {
+		if(global_variable.source_file() != source_file_handle) {
+			SourceFile* source_file = database.source_files.symbol_from_handle(global_variable.source_file());
+			if(source_file) {
+				printer.comment_block_file(source_file->full_path().c_str());
+				source_file_handle = source_file->handle();
+			} else {
+				printer.comment_block_file("(no source file)");
+				source_file_handle = SourceFileHandle();
+			}
+		}
+		
+		printer.global_variable(global_variable, nullptr);
+	}
 }
 
-static void print_types_deduplicated(FILE* out, SymbolDatabase& symbol_database, const Options& options) {
+static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options) {
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
-	printer.comment_block_toolchain_version_info(symbol_database);
-	printer.comment_block_builtin_types(symbol_database.data_types);
-	for(const DataType& data_type : symbol_database.data_types) {
+	printer.comment_block_toolchain_version_info(database);
+	printer.comment_block_builtin_types(database.data_types);
+	for(const DataType& data_type : database.data_types) {
 		printer.data_type(data_type);
 	}
 }
 
-static void print_types_per_file(FILE* out, SymbolDatabase& symbol_database, const Options& options) {
+static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options) {
 	//u32 analysis_flags = build_analysis_flags(options.flags);
 	//CppPrinter printer(out);
 	//printer.comment_block_beginning(options.input_file.filename().string().c_str());
 	//
-	//s32 file_count = symbol_database.file_count();
+	//s32 file_count = database.file_count();
 	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<SymbolDatabase> symbol_database = analyse(symbol_database, analysis_flags, i);
-	//	CCC_EXIT_IF_ERROR(symbol_database);
-	//	ast::SourceFile& source_file = *symbol_database->source_files.at(0);
+	//	Result<SymbolDatabase> database = analyse(database, analysis_flags, i);
+	//	CCC_EXIT_IF_ERROR(database);
+	//	ast::SourceFile& source_file = *database->source_files.at(0);
 	//	printer.comment_block_file(source_file.full_path.c_str());
-	//	printer.comment_block_toolchain_version_info(*symbol_database);
+	//	printer.comment_block_toolchain_version_info(*database);
 	//	printer.comment_block_builtin_types(source_file.data_types);
 	//	for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
 	//		printer.data_type(*type);
@@ -322,10 +344,24 @@ static void print_types_per_file(FILE* out, SymbolDatabase& symbol_database, con
 	//}
 }
 
-static void print_local_symbols(FILE* out, const SymbolDatabase& symbol_database) {
-	//s32 file_count = symbol_database.file_count();
+static void print_symtab(FILE* out, const Options& options) {
+	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
+	CCC_EXIT_IF_ERROR(image);
+	
+	Result<ElfFile> elf = parse_elf_file(*image);
+	CCC_EXIT_IF_ERROR(elf);
+	
+	const ElfSection* symtab_section = elf->lookup_section(".symtab");
+	CCC_CHECK_FATAL(symtab_section, "No .symtab section.");
+	
+	Result<void> print_result = elf::print_symbol_table(out, *symtab_section, *elf);
+	CCC_EXIT_IF_ERROR(print_result)
+}
+
+static void print_local_symbols(FILE* out, const SymbolDatabase& database) {
+	//s32 file_count = database.file_count();
 	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<mdebug::File> file = symbol_database.parse_file(i);
+	//	Result<mdebug::File> file = database.parse_file(i);
 	//	CCC_EXIT_IF_ERROR(file);
 	//	
 	//	fprintf(out, "FILE %s:\n", file->raw_path.c_str());
@@ -335,8 +371,8 @@ static void print_local_symbols(FILE* out, const SymbolDatabase& symbol_database
 	//}
 }//
 
-static void print_external_symbols(FILE* out, const SymbolDatabase& symbol_database) {
-	//Result<std::vector<mdebug::Symbol>> external_symbols = symbol_database.parse_external_symbols();
+static void print_external_symbols(FILE* out, const SymbolDatabase& database) {
+	//Result<std::vector<mdebug::Symbol>> external_symbols = database.parse_external_symbols();
 	//CCC_EXIT_IF_ERROR(external_symbols);
 	//
 	//for(const mdebug::Symbol& symbol : *external_symbols) {
@@ -380,17 +416,17 @@ static u32 command_line_flags_to_parser_flags(u32 flags) {
 	return parser_flags;
 }
 
-static void list_files(FILE* out, const SymbolDatabase& symbol_database) {
-	//s32 file_count = symbol_database.file_count();
+static void list_files(FILE* out, const SymbolDatabase& database) {
+	//s32 file_count = database.file_count();
 	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<mdebug::File> file = symbol_database.parse_file(i);
+	//	Result<mdebug::File> file = database.parse_file(i);
 	//	CCC_EXIT_IF_ERROR(file);
 	//	
 	//	fprintf(out, "%s\n", file->full_path.c_str());
 	//}
 }
 
-static void list_sections(FILE* out, const SymbolDatabase& symbol_database, const ElfFile& elf) {
+static void list_sections(FILE* out, const SymbolDatabase& database, const ElfFile& elf) {
 	for(const ElfSection& section : elf.sections) {
 		if(section.address == 0) {
 			continue;
@@ -401,9 +437,9 @@ static void list_sections(FILE* out, const SymbolDatabase& symbol_database, cons
 		
 		fprintf(out, "%s:\n", section.name.c_str());
 		
-		//s32 file_count = symbol_database.file_count();
+		//s32 file_count = database.file_count();
 		//for(s32 i = 0; i < file_count; i++) {
-		//	Result<mdebug::File> file = symbol_database.parse_file(i);
+		//	Result<mdebug::File> file = database.parse_file(i);
 		//	CCC_EXIT_IF_ERROR(file);
 		//	
 		//	// Find the text address without running the whole analysis process.
@@ -428,56 +464,6 @@ static void list_sections(FILE* out, const SymbolDatabase& symbol_database, cons
 	}
 }
 
-static void test(FILE* out, const fs::path& directory) {
-	CCC_CHECK_FATAL(fs::is_directory(directory), "Input path is not a directory.");
-	s32 passed = 0;
-	s32 skipped = 0;
-	for(auto entry : fs::directory_iterator(directory)) {
-		fs::path filename = entry.path().filename();
-		if(filename.extension() != ".c" && filename.extension() != ".cpp" && filename.extension() != ".md") {
-			printf("%s ", entry.path().filename().string().c_str());
-			
-			Result<std::vector<u8>> binary = platform::read_binary_file(entry.path());
-			CCC_EXIT_IF_ERROR(binary);
-			
-			Result<ElfFile> elf = parse_elf_file(std::move(*binary));
-			CCC_EXIT_IF_ERROR(elf);
-			
-			const ElfSection* mdebug_section = elf->lookup_section(".mdebug");
-			if(mdebug_section) {
-				mdebug::SymbolTableReader reader;
-				Result<void> reader_result = reader.init(elf->image, (s32) mdebug_section->offset);
-				CCC_EXIT_IF_ERROR(reader_result);
-				
-				SymbolDatabase database;
-				Result<SymbolSourceHandle> symbol_source = analyse(database, reader, NO_PARSER_FLAGS, nullptr);
-				CCC_EXIT_IF_ERROR(symbol_source);
-				
-				//CppPrinter printer(out);
-				//for(const std::unique_ptr<ast::Node>& type : symbol_database->deduplicated_types) {
-				//	printer.data_type(*type);
-				//}
-				//for(const std::unique_ptr<ast::SourceFile>& file : symbol_database->source_files) {
-				//	for(const std::unique_ptr<ast::Node>& node : file->functions) {
-				//		printer.function(node->as<ast::FunctionDefinition>());
-				//	}
-				//	for(const std::unique_ptr<ast::Node>& node : file->globals) {
-				//		printer.global_variable(node->as<ast::Variable>());
-				//	}
-				//}
-				print_json(out, database, false);
-				printf("pass\n");
-				passed++;
-			} else {
-				printf("no .mdebug section\n");
-				skipped++;
-			}
-		}
-	}
-	// If it gets to this point it means all of the tests succeded.
-	printf("%d test cases passed, %d skipped, 0 failed\n", passed, skipped);
-}
-
 static Options parse_args(int argc, char** argv) {
 	Options options;
 	if(argc < 2) {
@@ -490,18 +476,21 @@ static Options parse_args(int argc, char** argv) {
 		const char* argument;
 		const char* legacy_argument = nullptr;
 	} commands[] = {
+		// Common Commands
 		{OutputMode::IDENTIFY, "identify"},
 		{OutputMode::FUNCTIONS, "functions", "print_functions"},
 		{OutputMode::GLOBALS, "globals", "print_globals"},
 		{OutputMode::TYPES, "types", "print_types"},
 		{OutputMode::JSON, "json", "print_json"},
+		// ELF Symbol Table Commands
+		{OutputMode::SYMTAB, "symtab"},
+		// MIPS Symbol Table Commands
 		{OutputMode::MDEBUG, "mdebug", "print_mdebug"},
 		{OutputMode::SYMBOLS, "symbols", "print_symbols"},
 		{OutputMode::EXTERNALS, "externals", "print_external_symbols"},
 		{OutputMode::FILES, "files", "list_files"},
 		{OutputMode::SECTIONS, "sections"},
-		{OutputMode::TYPE_GRAPH, "type_graph"},
-		{OutputMode::TEST, "test"}
+		{OutputMode::TYPE_GRAPH, "type_graph"}
 	};
 	for(auto& cmd : commands) {
 		if(strcmp(command, cmd.argument) == 0 || (cmd.legacy_argument && (strcmp(command, cmd.legacy_argument) == 0))) {
@@ -511,10 +500,7 @@ static Options parse_args(int argc, char** argv) {
 		}
 	}
 	if(options.mode == OutputMode::BAD_COMMAND) {
-		if(strcmp(command, "test") == 0) {
-			options.mode = OutputMode::TEST;
-			require_input_path = true;
-		} else if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
+		if(strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
 			options.mode = OutputMode::HELP;
 			require_input_path = false;
 		} else {
@@ -561,9 +547,10 @@ static void print_help() {
 	const char* tag = git_tag();
 	printf("stdump %s -- https://github.com/chaoticgd/ccc\n",
 		(strlen(tag) > 0) ? tag : "development version");
-	puts("  Mdebug/STABS symbol table parser and dumper.");
+	puts("  MDebug/STABS symbol table parser and dumper.");
 	puts("");
-	puts("Commands:");
+	puts("Common Commands:");
+	puts("");
 	puts("  identify <input path>");
 	puts("    Identify the symbol tables present in the input file(s). If the input path");
 	puts("    is a directory, it will be walked recursively.");
@@ -588,6 +575,13 @@ static void print_help() {
 	puts("");
 	puts("    --per-file                    Do not deduplicate types from files.");
 	puts("");
+	puts("ELF Symbol Table Commands:");
+	puts("");
+	puts("  symtab <input file>");
+	puts("    Print all of the symbols from the .symtab section.");
+	puts("");
+	puts("MIPS Symbol Table Commands:");
+	puts("");
 	puts("  mdebug <input file>");
 	puts("    Print mdebug header information.");
 	puts("");
@@ -605,10 +599,6 @@ static void print_help() {
 	puts("");
 	puts("  type_graph <input_file>");
 	puts("    Print out a dependency graph of all the types in graphviz DOT format.");
-	puts("");
-	puts("  test <input directory>");
-	puts("    Parse and print all the ELF files in a directory.");
-	puts("    Use '--output /dev/null' to reduce spam.");
 	puts("");
 	puts("  help | --help | -h");
 	puts("    Print this help message.");

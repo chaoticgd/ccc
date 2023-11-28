@@ -124,6 +124,7 @@ Result<ElfFile> parse_elf_file(std::span<const u8> image) {
 		section.offset = section_header->offset;
 		section.size = section_header->size;
 		section.address = section_header->addr;
+		section.link = section_header->link;
 	}
 	
 	for(u32 i = 0; i < header->phnum; i++) {

@@ -36,6 +36,7 @@ struct ElfSection {
 	u32 offset;
 	u32 size;
 	u32 address;
+	u32 link;
 };
 
 struct ElfSegment {

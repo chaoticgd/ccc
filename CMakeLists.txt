@@ -40,6 +40,8 @@ add_library(ccc STATIC
 	src/ccc/dependency.h
 	src/ccc/elf.cpp
 	src/ccc/elf.h
+	src/ccc/elf_symtab.cpp
+	src/ccc/elf_symtab.h
 	src/ccc/mdebug.cpp
 	src/ccc/mdebug.h
 	src/ccc/mdebug_analysis.cpp

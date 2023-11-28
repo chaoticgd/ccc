@@ -3,6 +3,7 @@
 
 #include "symbol_table.h"
 
+#include "elf_symtab.h"
 #include "mdebug.h"
 #include "mdebug_analysis.h"
 
@@ -31,6 +32,12 @@ u32 identify_elf_symbol_tables(const ElfFile& elf) {
 		}
 	}
 	return result;
+}
+
+std::optional<SymbolTableFormat> get_preferred_symbol_table(u32 symbol_tables) {
+	if(symbol_tables & MDEBUG) return MDEBUG;
+	if(symbol_tables & SYMTAB) return SYMTAB;
+	return std::nullopt;
 }
 
 std::string symbol_table_formats_to_string(u32 formats) {
@@ -65,29 +72,61 @@ const char* symbol_table_format_to_string(SymbolTableFormat format) {
 	return "";
 }
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, u32 parser_flags, DemanglerFunc* demangle) {
-	const ElfSection* mdebug_section = elf.lookup_section(".mdebug");
-	CCC_CHECK(mdebug_section != nullptr, "No .mdebug section.");
-	
-	mdebug::SymbolTableReader reader;
-	Result<void> reader_result = reader.init(elf.image, mdebug_section->offset);
-	CCC_RETURN_IF_ERROR(reader_result);
-	
-	Result<SymbolSourceHandle> symbol_source = analyse(database, reader, parser_flags, demangle);
-	CCC_RETURN_IF_ERROR(symbol_source);
-	
-	// Filter the AST and compute size information for all nodes.
-#define CCC_X(SymbolType, symbol_list) \
-	for(SymbolType& symbol : database.symbol_list) { \
-		if(symbol.type()) { \
-			filter_ast_by_flags(*symbol.type(), parser_flags); \
-			compute_size_bytes_recursive(*symbol.type(), database); \
-		} \
+Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, const ParserConfig& config) {
+	SymbolTableFormat symbol_table;
+	if(config.format.has_value()) {
+		symbol_table = *config.format;
+	} else {
+		u32 symbol_tables = identify_elf_symbol_tables(elf);
+		std::optional<SymbolTableFormat> preferred_symbol_table = get_preferred_symbol_table(symbol_tables);
+		CCC_CHECK(preferred_symbol_table.has_value(), "No supported symbol tables detected.");
+		symbol_table = *preferred_symbol_table;
 	}
-	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-#undef CCC_X
 	
-	return symbol_source;
+	SymbolSourceHandle source;
+	
+	switch(symbol_table) {
+		case SYMTAB: {
+			const ElfSection* symtab_section = elf.lookup_section(".symtab");
+			CCC_CHECK(symtab_section, "No .symtab section.");
+			
+			Result<SymbolSourceHandle> source_result = elf::parse_symbol_table(database, *symtab_section, elf);
+			CCC_RETURN_IF_ERROR(source_result);
+			source = *source_result;
+			
+			break;
+		}
+		case MDEBUG: {
+			const ElfSection* mdebug_section = elf.lookup_section(".mdebug");
+			CCC_CHECK(mdebug_section, "No .mdebug section.");
+			
+			mdebug::SymbolTableReader reader;
+			Result<void> reader_result = reader.init(elf.image, mdebug_section->offset);
+			CCC_RETURN_IF_ERROR(reader_result);
+			
+			Result<SymbolSourceHandle> source_result = analyse(database, reader, config.parser_flags, config.demangle);
+			CCC_RETURN_IF_ERROR(source_result);
+			source = *source_result;
+			
+			// Filter the AST and compute size information for all nodes.
+			#define CCC_X(SymbolType, symbol_list) \
+				for(SymbolType& symbol : database.symbol_list) { \
+					if(symbol.type()) { \
+						filter_ast_by_flags(*symbol.type(), config.parser_flags); \
+						compute_size_bytes_recursive(*symbol.type(), database); \
+					} \
+				}
+				CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+			#undef CCC_X
+			
+			break;
+		}
+		default: {
+			return CCC_FAILURE("Selected symbol table format %s isn't supported.", symbol_table_format_to_string(symbol_table));
+		}
+	}
+	
+	return source;
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
