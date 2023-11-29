@@ -11,6 +11,7 @@ namespace ccc {
 
 Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config);
 static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(const ElfFile& elf, const SymbolTableConfig& config);
+static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config);
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags);
 static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database);
 
@@ -56,6 +57,9 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const S
 	}
 	
 	if(const SNDLLFile* sndll = std::get_if<SNDLLFile>(&file)) {
+		Result<void> result = check_sndll_config_is_valid(config);
+		CCC_RETURN_IF_ERROR(result);
+		
 		return import_sndll_symbol_table(database, *sndll);
 	}
 	
@@ -135,6 +139,9 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 	}
 	
 	if(const SNDLLFile* sndll = std::get_if<SNDLLFile>(&file)) {
+		Result<void> result = check_sndll_config_is_valid(config);
+		CCC_RETURN_IF_ERROR(result);
+		
 		print_sndll_symbols(out, *sndll);
 	}
 	
@@ -177,6 +184,13 @@ static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_f
 	}
 	
 	return std::make_pair(section, format);
+}
+
+static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config) {
+	CCC_CHECK(!config.section.has_value(), "ELF section specified for SNDLL file.");
+	CCC_CHECK(!config.format.has_value() || *config.format == SNDLL,
+		"Symbol table format specified for SNDLL file is not 'sndll'.");
+	return Result<void>();
 }
 
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
