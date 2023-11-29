@@ -4,6 +4,7 @@
 #pragma once
 
 #include "elf.h"
+#include "symbol_file.h"
 #include "symbol_database.h"
 
 namespace ccc {
@@ -43,7 +44,7 @@ enum ParserFlags {
 
 typedef char* DemanglerFunc(const char* mangled, int options);
 
-struct SymbolTableParserConfig {
+struct SymbolTableConfig {
 	std::optional<std::string> section;
 	std::optional<SymbolTableFormat> format;
 	u32 parser_flags = NO_PARSER_FLAGS;
@@ -53,6 +54,8 @@ struct SymbolTableParserConfig {
 // The main high-level parsing function for the entire library. Return the
 // handle of the newly created symbol source on success, or an invalid handle if
 // no symbol table was found.
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableParserConfig& config);
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config);
+
+Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolTableConfig& config);
 
 }

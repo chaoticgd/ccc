@@ -22,7 +22,7 @@ struct StabsTypeNumber {
 	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
 };
 
-struct SymbolDatabase;
+class SymbolDatabase;
 
 }
 

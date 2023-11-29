@@ -88,7 +88,7 @@ const ElfSection* ElfFile::lookup_section(const char* name) const {
 std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) const {
 	for(const ElfSegment& segment : segments) {
 		if(file_offset >= segment.offset && file_offset < segment.offset + segment.size) {
-			return segment.address + file_offset - segment.offset;
+			return segment.address.get_or_zero() + file_offset - segment.offset;
 		}
 	}
 	return std::nullopt;
@@ -123,7 +123,9 @@ Result<ElfFile> parse_elf_file(std::span<const u8> image) {
 		section.type = section_header->type;
 		section.offset = section_header->offset;
 		section.size = section_header->size;
-		section.address = section_header->addr;
+		if(section.address != 0) {
+			section.address = section_header->addr;
+		}
 		section.link = section_header->link;
 	}
 	
@@ -135,7 +137,9 @@ Result<ElfFile> parse_elf_file(std::span<const u8> image) {
 		ElfSegment& segment = elf.segments.emplace_back();
 		segment.offset = program_header->offset;
 		segment.size = program_header->filesz;
-		segment.address = program_header->vaddr;
+		if(program_header->vaddr != 0) {
+			segment.address = program_header->vaddr;
+		}
 	}
 	
 	return elf;
@@ -147,8 +151,8 @@ Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<Elf
 		
 		for(const ElfFile* elf : elves) {
 			for(const ElfSegment& segment : elf->segments) {
-				if(address >= segment.address && address < segment.address + segment.size) {
-					u32 offset = address - segment.address;
+				if(address >= segment.address && address < segment.address.get_or_zero() + segment.size) {
+					u32 offset = address - segment.address.get_or_zero();
 					u32 copy_size = std::min(segment.size - offset, size);
 					CCC_CHECK(segment.offset + offset + copy_size <= elf->image.size(), "Program header is corrupted or executable file is truncated.");
 					memcpy(dest, &elf->image[segment.offset + offset], copy_size);

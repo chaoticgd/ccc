@@ -199,7 +199,17 @@ struct Address {
 	Address() {}
 	Address(u32 v) : value(v) {}
 	
-	bool valid() const { return value != (u32) -1; }
+	bool valid() const {
+		return value != (u32) -1;
+	}
+	
+	u32 get_or_zero() const {
+		if(valid()) {
+			return value;
+		} else {
+			return 0;
+		}
+	}
 	
 	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;
 };

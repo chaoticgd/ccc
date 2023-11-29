@@ -7,7 +7,6 @@
 #include <unordered_map>
 
 #include "ast.h"
-#include "elf.h"
 
 namespace ccc {
 
@@ -42,7 +41,7 @@ enum class SymbolDescriptor {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-struct SymbolDatabase;
+class SymbolDatabase;
 
 // Define strongly typed handles for all of the symbol table objects. These are
 // here to solve the problem of dangling references to symbols.
@@ -479,7 +478,8 @@ public:
 
 // The symbol database itself. This owns all the symbols.
 
-struct SymbolDatabase {
+class SymbolDatabase {
+public:
 	SymbolList<DataType> data_types;
 	SymbolList<Function> functions;
 	SymbolList<GlobalVariable> global_variables;

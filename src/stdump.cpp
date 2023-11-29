@@ -43,7 +43,7 @@ struct Options {
 	std::optional<SymbolTableFormat> format;
 };
 
-static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const Options& options);
+static SymbolDatabase read_symbol_table(std::vector<u8>& image, SymbolFile& symbol_file, const Options& options);
 static void identify_symbol_tables(FILE* out, const fs::path& input_path);
 static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_total, const fs::path& file_path);
 static void print_functions(FILE* out, SymbolDatabase& database);
@@ -53,7 +53,7 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 
 static void print_symtab(FILE* out, const Options& options);
 
-static void print_local_symbols(FILE* out, const SymbolDatabase& database);
+static void print_local_symbols(FILE* out, const Options& options);
 static void print_external_symbols(FILE* out, const SymbolDatabase& database);
 static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
 static u32 command_line_flags_to_parser_flags(u32 flags);
@@ -78,24 +78,24 @@ int main(int argc, char** argv) {
 		}
 		case OutputMode::FUNCTIONS: {
 			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
+			SymbolFile symbol_file;
+			SymbolDatabase database = read_symbol_table(image, symbol_file, options);
 			
 			print_functions(out, database);
 			return 0;
 		}
 		case OutputMode::GLOBALS: {
 			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
+			SymbolFile symbol_file;
+			SymbolDatabase database = read_symbol_table(image, symbol_file, options);
 			
 			print_globals(out, database);
 			return 0;
 		}
 		case OutputMode::TYPES: {
 			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
+			SymbolFile symbol_file;
+			SymbolDatabase database = read_symbol_table(image, symbol_file, options);
 			
 			if(!(options.flags & FLAG_PER_FILE)) {
 				print_types_deduplicated(out, database, options);
@@ -111,8 +111,8 @@ int main(int argc, char** argv) {
 			}
 			
 			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
+			SymbolFile symbol_file;
+			SymbolDatabase database = read_symbol_table(image, symbol_file, options);
 			print_json(out, database, options.flags & FLAG_PER_FILE);
 			
 			break;
@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
 			break;
 		}
 		case OutputMode::MDEBUG: {
-			//ElfFile elf;
+			//SymbolFile symbol_file;
 			//Result<SymbolDatabase> database = read_symbol_table(elf, options.input_file);
 			//CCC_EXIT_IF_ERROR(database);
 			//
@@ -130,38 +130,34 @@ int main(int argc, char** argv) {
 			break;
 		}
 		case OutputMode::SYMBOLS: {
-			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
-			print_local_symbols(out, database);
-			
+			print_local_symbols(out, options);
 			return 0;
 		}
 		case OutputMode::EXTERNALS: {
 			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
+			SymbolFile symbol_file;
+			SymbolDatabase database = read_symbol_table(image, symbol_file, options);
 			print_external_symbols(out, database);
 			return 0;
 		}
 		case OutputMode::FILES: {
 			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
+			SymbolFile symbol_file;
+			SymbolDatabase database = read_symbol_table(image, symbol_file, options);
 			list_files(out, database);
 			return 0;
 		}
 		case OutputMode::SECTIONS: {
-			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
-			list_sections(out, database, elf);
+			//std::vector<u8> image;
+			//SymbolFile symbol_file;
+			//SymbolDatabase database = read_symbol_table(image, symbol_file, options);
+			//list_sections(out, database, symbol_file);
 			return 0;
 		}
 		case OutputMode::TYPE_GRAPH: {
 			std::vector<u8> image;
-			ElfFile elf;
-			SymbolDatabase database = read_symbol_table(image, elf, options);
+			SymbolFile symbol_file;
+			SymbolDatabase database = read_symbol_table(image, symbol_file, options);
 			TypeDependencyAdjacencyList graph = build_type_dependency_graph(database);
 			print_type_dependency_graph(out, database, graph);
 			return 0;
@@ -174,22 +170,22 @@ int main(int argc, char** argv) {
 	}
 }
 
-static SymbolDatabase read_symbol_table(std::vector<u8>& image, ElfFile& elf, const Options& options) {
+static SymbolDatabase read_symbol_table(std::vector<u8>& image, SymbolFile& symbol_file, const Options& options) {
 	Result<std::vector<u8>> image_result = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image_result);
 	image = std::move(*image_result);
 	
-	Result<ElfFile> elf_result = parse_elf_file(image);
-	CCC_EXIT_IF_ERROR(elf_result);
-	elf = std::move(*elf_result);
+	Result<SymbolFile> symbol_file_result = parse_symbol_file(image);
+	CCC_EXIT_IF_ERROR(symbol_file_result);
+	symbol_file = std::move(*symbol_file_result);
 	
-	SymbolTableParserConfig config;
+	SymbolTableConfig config;
 	config.section = options.section;
 	config.format = options.format;
 	config.parser_flags = command_line_flags_to_parser_flags(options.flags);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = parse_symbol_table(database, elf, config);
+	Result<SymbolSourceHandle> symbol_source = import_symbol_table(database, symbol_file, config);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	return database;
@@ -363,7 +359,19 @@ static void print_symtab(FILE* out, const Options& options) {
 	CCC_EXIT_IF_ERROR(print_result)
 }
 
-static void print_local_symbols(FILE* out, const SymbolDatabase& database) {
+static void print_local_symbols(FILE* out, const Options& options) {
+	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
+	CCC_EXIT_IF_ERROR(image);
+	
+	Result<SymbolFile> symbol_file = parse_symbol_file(*image);
+	CCC_EXIT_IF_ERROR(symbol_file);
+	
+	SymbolTableConfig config;
+	config.section = options.section;
+	config.format = options.format;
+	Result<void> print_result = print_symbol_table(out, *symbol_file, config);
+	CCC_EXIT_IF_ERROR(print_result);
+	
 	//s32 file_count = database.file_count();
 	//for(s32 i = 0; i < file_count; i++) {
 	//	Result<mdebug::File> file = database.parse_file(i);
@@ -374,7 +382,7 @@ static void print_local_symbols(FILE* out, const SymbolDatabase& database) {
 	//		print_symbol(out, symbol, true);
 	//	}
 	//}
-}//
+}
 
 static void print_external_symbols(FILE* out, const SymbolDatabase& database) {
 	//Result<std::vector<mdebug::Symbol>> external_symbols = database.parse_external_symbols();
@@ -433,12 +441,12 @@ static void list_files(FILE* out, const SymbolDatabase& database) {
 
 static void list_sections(FILE* out, const SymbolDatabase& database, const ElfFile& elf) {
 	for(const ElfSection& section : elf.sections) {
-		if(section.address == 0) {
+		if(!section.address.valid()) {
 			continue;
 		}
 		
-		u32 section_start = section.address;
-		u32 section_end = section.address + section.size;
+		u32 section_start = section.address.value;
+		u32 section_end = section.address.value + section.size;
 		
 		fprintf(out, "%s:\n", section.name.c_str());
 		

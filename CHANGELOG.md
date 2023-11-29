@@ -2,10 +2,11 @@
 
 ## v2.0
 
+- Added support for ELF and SNDLL symbol tables.
 - Rewrote core symbol table data structures.
 - Massively reduced memory usage.
 - Reworked error handling.
-- stdump: Removed `--verbose` option.
+- stdump: Removed `--verbose` option (no one actually used that, right?).
 - stdump: Fixed issue where the `mdebug` option would display some sizes as counts.
 - uncc: Improve how pointers to global variables in other global variable data is printed.
 

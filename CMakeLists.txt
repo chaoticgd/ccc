@@ -52,6 +52,8 @@ add_library(ccc STATIC
 	src/ccc/print_json.h
 	src/ccc/registers.cpp
 	src/ccc/registers.h
+	src/ccc/sndll.cpp
+	src/ccc/sndll.h
 	src/ccc/stabs.cpp
 	src/ccc/stabs.h
 	src/ccc/stabs_to_ast.cpp
@@ -60,6 +62,8 @@ add_library(ccc STATIC
 	src/ccc/symbols.h
 	src/ccc/symbol_database.cpp
 	src/ccc/symbol_database.h
+	src/ccc/symbol_file.cpp
+	src/ccc/symbol_file.h
 	src/ccc/symbol_table.cpp
 	src/ccc/symbol_table.h
 	src/ccc/util.cpp

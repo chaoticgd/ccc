@@ -35,14 +35,14 @@ struct ElfSection {
 	ElfSectionType type;
 	u32 offset;
 	u32 size;
-	u32 address;
+	Address address;
 	u32 link;
 };
 
 struct ElfSegment {
 	u32 offset;
 	u32 size;
-	u32 address;
+	Address address;
 };
 
 struct ElfFile {

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "elf.h"
 #include "symbol_database.h"
 
 namespace ccc::elf {
