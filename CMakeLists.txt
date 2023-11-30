@@ -84,7 +84,7 @@ add_library(ccc_platform STATIC
 )
 
 set(TEST_SOURCES
-	src/test/symbol_database_tests.cpp
+	test/ccc/symbol_database_tests.cpp
 )
 
 add_executable(demangle src/demangle.cpp)
@@ -103,7 +103,7 @@ target_link_libraries(uncc ccc ccc_platform ccc_versioninfo demanglegnu)
 add_executable(tests src/tests.cpp ${TEST_SOURCES})
 target_include_directories(tests PUBLIC src/)
 target_link_libraries(tests ccc ccc_platform ccc_versioninfo gtest)
-add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/test)
+add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/testdata)
 
 if(WIN32)
 	target_sources(demangle PUBLIC ccc.manifest)
