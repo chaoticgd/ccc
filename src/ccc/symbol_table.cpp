@@ -109,6 +109,24 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 			
 			break;
 		}
+		case SNDLL: {
+			std::span<const u8> section_data = elf.image.subspan(section->offset, section->size);
+			
+			const u32* magic = get_packed<u32>(section_data, 0);
+			if(!magic || *magic == 0) {
+				CCC_WARN("Section '%s' is empty.", section->name.c_str());
+				break;
+			}
+			
+			Result<SNDLLFile> sndll = parse_sndll_file(section_data, section->address);
+			CCC_RETURN_IF_ERROR(sndll);
+			
+			Result<SymbolSourceHandle> source_result = import_sndll_symbol_table(database, *sndll);
+			CCC_RETURN_IF_ERROR(source_result);
+			source = *source_result;
+			
+			break;
+		}
 		default: {
 			return CCC_FAILURE("The selected symbol table format isn't supported.");
 		}
