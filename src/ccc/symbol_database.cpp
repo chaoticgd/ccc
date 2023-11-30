@@ -229,24 +229,8 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 
 template <typename SymbolType>
 size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const {
-	size_t begin;
-	size_t end;
-	
-	// On the first iteration we use the value of the handle as the mid point.
-	if(handle.value < m_symbols.size()) {
-		if(m_symbols[handle.value].m_handle < handle) {
-			begin = handle.value + 1;
-			end = m_symbols.size();
-		} else if(m_symbols[handle.value].m_handle > handle) {
-			begin = 0;
-			end = handle.value;
-		} else {
-			return handle.value;
-		}
-	} else {
-		begin = 0;
-		end = m_symbols.size();
-	}
+	size_t begin = 0;
+	size_t end = m_symbols.size();
 	
 	while(begin < end) {
 		size_t mid = (begin + end) / 2;
