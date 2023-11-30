@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <gtest/gtest.h>
-#include <ccc/symbol_database.h>
+#include "ccc/symbol_database.h"
 
 using namespace ccc;
 
@@ -21,7 +21,7 @@ TEST(CCCSymbolDatabase, SymbolFromHandle) {
 	for(s32 i = 0; i < 10; i++) {
 		SymbolSource* source = database.symbol_sources.symbol_from_handle(handles[i]);
 		ASSERT_TRUE(source);
-		ASSERT_TRUE(source->name() == std::to_string(i));
+		EXPECT_EQ(source->name(), std::to_string(i));
 	}
 }
 
@@ -90,7 +90,7 @@ TEST(CCCSymbolDatabase, HandleFromAddress) {
 	
 	// Make sure we can look them up by their address.
 	for(u32 address = 0; address < 10; address++) {
-		ASSERT_TRUE(database.functions.handle_from_address(address) == handles[address]);
+		EXPECT_EQ(database.functions.handle_from_address(address), handles[address]);
 	}
 }
 
@@ -123,6 +123,33 @@ TEST(CCCSymbolDatabase, HandlesFromName) {
 	// Make sure we can't look up D anymore.
 	auto ds = database.data_types.handles_from_name("D");
 	EXPECT_EQ(ds.begin(), ds.end());
+}
+
+TEST(CCCSymbolDatabase, MoveSymbol) {
+	SymbolDatabase database;
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<Function*> function = database.functions.create_symbol("func", (*source)->handle(), 0x1000);
+	EXPECT_TRUE(database.functions.move_symbol((*function)->handle(), 0x2000));
+	
+	EXPECT_TRUE(database.functions.handle_from_address(0x2000).valid());
+	EXPECT_FALSE(database.functions.handle_from_address(0x1000).valid());
+}
+
+TEST(CCCSymbolDatabase, RenameSymbol) {
+	SymbolDatabase database;
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<DataType*> data_type = database.data_types.create_symbol("Type1", (*source)->handle(), 0x1000);
+	EXPECT_TRUE(database.data_types.rename_symbol((*data_type)->handle(), "Type2"));
+	
+	auto old_handles = database.data_types.handles_from_name("Type1");
+	EXPECT_EQ(old_handles.begin(), old_handles.end());
+	
+	auto new_handles = database.data_types.handles_from_name("Type2");
+	EXPECT_NE(new_handles.begin(), new_handles.end());
 }
 
 TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles) {

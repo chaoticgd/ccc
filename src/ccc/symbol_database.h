@@ -118,8 +118,8 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 // A container base class for symbols of a given type that maintains maps of
 // their names.
 
-enum SymbolListFlags {
-	NO_LIST_FLAGS = 0,
+enum SymbolFlags {
+	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
 	WITH_NAME_MAP = 1 << 1
 };
@@ -171,6 +171,12 @@ public:
 	// empty, otherwise it has to be valid.
 	Result<SymbolType*> create_symbol(std::string name, SymbolSourceHandle source, Address address = Address());
 	
+	// Update the address of a symbol without changing its handle.
+	bool move_symbol(SymbolHandle<SymbolType> handle, Address new_address);
+	
+	// Update the name of a symbol without changing its handle.
+	bool rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name);
+	
 	// Destroy a single symbol.
 	bool destroy_symbol(SymbolHandle<SymbolType> handle);
 	
@@ -186,11 +192,20 @@ public:
 	void clear();
 	
 protected:
-	u32 destroy_symbols_impl(size_t begin_index, size_t end_index);
-	
 	// Do a binary search for a handle, and return either its index, or the
 	// index where it could be inserted.
 	size_t binary_search(SymbolHandle<SymbolType> handle) const;
+	
+	// Destroy a range of symbols given indices.
+	u32 destroy_symbols_impl(size_t begin_index, size_t end_index);
+	
+	// Keep the address map in sync with the symbol list.
+	void link_address_map(SymbolType& symbol);
+	void unlink_address_map(SymbolType& symbol);
+	
+	// Keep the name map in sync with the symbol list.
+	void link_name_map(SymbolType& symbol);
+	void unlink_name_map(SymbolType& symbol);
 	
 	std::vector<SymbolType> m_symbols;
 	u32 m_next_handle = 0;
@@ -303,7 +318,7 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::DATA_TYPE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "data type";
-	static constexpr const u32 LIST_FLAGS = WITH_NAME_MAP;
+	static constexpr const u32 SYMBOL_TYPE_FLAGS = WITH_NAME_MAP;
 };
 
 class Function : public Symbol {
@@ -352,7 +367,7 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
 	static constexpr const char* SYMBOL_TYPE_NAME = "function";
-	static constexpr const u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	static constexpr const u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	Address& address_ref() { return m_address; }
@@ -380,7 +395,7 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "global variable";
-	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	SourceFileHandle m_source_file;
@@ -395,7 +410,7 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LABEL;
 	static constexpr const char* SYMBOL_TYPE_NAME = "label";
-	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	Address& address_ref() { return m_address; }
@@ -412,7 +427,7 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LOCAL_VARIABLE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "local variable";
-	static constexpr u32 LIST_FLAGS = WITH_ADDRESS_MAP;
+	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	FunctionHandle m_function;
@@ -427,7 +442,7 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::PARAMETER_VARIABLE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "parameter variable";
-	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
+	static constexpr u32 SYMBOL_TYPE_FLAGS = NO_SYMBOL_FLAGS;
 	
 protected:
 	FunctionHandle m_function;
@@ -451,7 +466,7 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SOURCE_FILE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "source file";
-	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
+	static constexpr u32 SYMBOL_TYPE_FLAGS = NO_SYMBOL_FLAGS;
 	
 protected:
 	FunctionRange m_functions;
@@ -473,7 +488,12 @@ public:
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "symbol source";
-	static constexpr u32 LIST_FLAGS = NO_LIST_FLAGS;
+	static constexpr u32 SYMBOL_TYPE_FLAGS = NO_SYMBOL_FLAGS;
+
+protected:
+	Address& address_ref() { return m_address; }
+
+	Address m_address;
 };
 
 // The symbol database itself. This owns all the symbols.

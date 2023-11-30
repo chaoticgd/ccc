@@ -110,22 +110,6 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	
 	u32 handle = m_next_handle++;
 	
-	if constexpr((SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP)) {
-		if(address.valid()) {
-			auto iterator = m_address_to_handle.find(address.value);
-			if(iterator != m_address_to_handle.end()) {
-				// We're replacing an existing symbol.
-				destroy_symbol(iterator->second);
-			}
-			
-			m_address_to_handle.emplace(address.value, handle);
-		}
-	}
-	
-	if(SymbolType::LIST_FLAGS & WITH_NAME_MAP) {
-		m_name_to_handle.emplace(name, handle);
-	}
-	
 	SymbolType& symbol = m_symbols.emplace_back();
 	
 	symbol.m_handle = handle;
@@ -141,11 +125,54 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 		symbol.m_source = source;
 	}
 	
-	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
+	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP) {
 		symbol.address_ref() = address;
 	}
 	
+	link_address_map(symbol);
+	link_name_map(symbol);
+	
 	return &symbol;
+}
+
+template <typename SymbolType>
+bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Address new_address) {
+	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP) {
+		SymbolType* symbol = symbol_from_handle(handle);
+		if(!symbol) {
+			return false;
+		}
+		
+		if(symbol->address_ref() != new_address) {
+			unlink_address_map(*symbol);
+			symbol->address_ref() = new_address;
+			link_address_map(*symbol);
+		}
+		
+		return true;
+	} else {
+		CCC_FATAL("move_symbol called on SymbolList with no address map!");
+	}
+}
+
+template <typename SymbolType>
+bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name) {
+	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
+		SymbolType* symbol = symbol_from_handle(handle);
+		if(!symbol) {
+			return false;
+		}
+		
+		if(symbol->m_name != new_name) {
+			unlink_name_map(*symbol);
+			symbol->m_name = std::move(new_name);
+			link_name_map(*symbol);
+		}
+		
+		return true;
+	} else {
+		CCC_FATAL("rename_symbol called on SymbolList with no name map!");
+	}
 }
 
 template <typename SymbolType>
@@ -195,39 +222,6 @@ void SymbolList<SymbolType>::clear() {
 }
 
 template <typename SymbolType>
-u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index) {
-	// Clean up address map entries.
-	if constexpr(SymbolType::LIST_FLAGS & WITH_ADDRESS_MAP) {
-		for(u32 i = begin_index; i < end_index; i++) {
-			if(m_symbols[i].address_ref().valid()) {
-				m_address_to_handle.erase(m_symbols[i].address_ref().value);
-			}
-		}
-	}
-	
-	// Clean up name map entries.
-	if constexpr(SymbolType::LIST_FLAGS & WITH_NAME_MAP) {
-		for(u32 i = begin_index; i < end_index; i++) {
-			auto iterator = m_name_to_handle.find(m_symbols[i].m_name);
-			while(iterator != m_name_to_handle.end()) {
-				if(iterator->second == m_symbols[i].m_handle) {
-					auto to_delete = iterator;
-					iterator++;
-					m_name_to_handle.erase(to_delete);
-				} else {
-					iterator++;
-				}
-			}
-		}
-	}
-	
-	// Delete the symbols.
-	m_symbols.erase(m_symbols.begin() + begin_index, m_symbols.begin() + end_index);
-	
-	return end_index - begin_index;
-}
-
-template <typename SymbolType>
 size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const {
 	size_t begin = 0;
 	size_t end = m_symbols.size();
@@ -244,6 +238,70 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 	}
 	
 	return end;
+}
+
+template <typename SymbolType>
+u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index) {
+	for(u32 i = begin_index; i < end_index; i++) {
+		unlink_address_map(m_symbols[i]);
+	}
+	
+	for(u32 i = begin_index; i < end_index; i++) {
+		unlink_name_map(m_symbols[i]);
+	}
+	
+	// Delete the symbols.
+	m_symbols.erase(m_symbols.begin() + begin_index, m_symbols.begin() + end_index);
+	
+	return end_index - begin_index;
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::link_address_map(SymbolType& symbol) {
+	if constexpr((SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP)) {
+		Address address = symbol.address_ref();
+		if(address.valid()) {
+			auto iterator = m_address_to_handle.find(address.value);
+			if(iterator != m_address_to_handle.end()) {
+				// We're replacing an existing symbol.
+				destroy_symbol(iterator->second);
+			}
+			
+			m_address_to_handle.emplace(address.value, symbol.m_handle);
+		}
+	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
+	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP) {
+		if(symbol.address_ref().valid()) {
+			m_address_to_handle.erase(symbol.address_ref().value);
+		}
+	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::link_name_map(SymbolType& symbol) {
+	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
+		m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
+	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol) {
+	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
+		auto iterator = m_name_to_handle.find(symbol.m_name);
+		while(iterator != m_name_to_handle.end()) {
+			if(iterator->second == symbol.m_handle) {
+				auto to_delete = iterator;
+				iterator++;
+				m_name_to_handle.erase(to_delete);
+			} else {
+				iterator++;
+			}
+		}
+	}
 }
 
 #define CCC_X(SymbolType, symbol_list) template class SymbolList<SymbolType>;
