@@ -59,7 +59,7 @@ static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
 static u32 command_line_flags_to_parser_flags(u32 flags);
 static void print_files(FILE* out, const Options& options);
 static void print_sections(FILE* out, const Options& options);
-static SymbolDatabase read_symbol_table(std::vector<u8>& image, SymbolFile& symbol_file, const Options& options);
+static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options);
 static Options parse_command_line_arguments(int argc, char** argv);
 static void print_help(FILE* out);
 
@@ -210,9 +210,8 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 }
 
 static void print_functions(FILE* out, const Options& options) {
-	std::vector<u8> image;
 	SymbolFile symbol_file;
-	SymbolDatabase database = read_symbol_table(image, symbol_file, options);
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
@@ -237,9 +236,8 @@ static void print_functions(FILE* out, const Options& options) {
 }
 
 static void print_globals(FILE* out, const Options& options) {
-	std::vector<u8> image;
 	SymbolFile symbol_file;
-	SymbolDatabase database = read_symbol_table(image, symbol_file, options);
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
@@ -264,9 +262,8 @@ static void print_globals(FILE* out, const Options& options) {
 }
 
 static void print_types(FILE* out, const Options& options) {
-	std::vector<u8> image;
 	SymbolFile symbol_file;
-	SymbolDatabase database = read_symbol_table(image, symbol_file, options);
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	if((options.flags & FLAG_PER_FILE) == 0) {
 		print_types_deduplicated(out, database, options);
@@ -306,9 +303,8 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 }
 
 static void print_type_graph(FILE* out, const Options& options) {
-	std::vector<u8> image;
 	SymbolFile symbol_file;
-	SymbolDatabase database = read_symbol_table(image, symbol_file, options);
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	TypeDependencyAdjacencyList graph = build_type_dependency_graph(database);
 	print_type_dependency_graph(out, database, graph);
@@ -441,12 +437,11 @@ static void print_sections(FILE* out, const Options& options) {
 	//}
 }
 
-static SymbolDatabase read_symbol_table(std::vector<u8>& image, SymbolFile& symbol_file, const Options& options) {
-	Result<std::vector<u8>> image_result = platform::read_binary_file(options.input_file);
-	CCC_EXIT_IF_ERROR(image_result);
-	image = std::move(*image_result);
+static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options) {
+	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
+	CCC_EXIT_IF_ERROR(image);
 	
-	Result<SymbolFile> symbol_file_result = parse_symbol_file(image);
+	Result<SymbolFile> symbol_file_result = parse_symbol_file(*image);
 	CCC_EXIT_IF_ERROR(symbol_file_result);
 	symbol_file = std::move(*symbol_file_result);
 	

@@ -75,7 +75,7 @@ static Result<SNDLLFile> parse_sndll_common(std::span<const u8> image, Address a
 	
 	CCC_CHECK(common.file_size < 32 * 1024 * 1024, "SNDLL file too big!");
 	CCC_CHECK(image.size() >= common.file_size, "SNDLL file truncated.");
-	sndll.image = image.subspan(0, common.file_size);
+	sndll.image = std::vector<u8>(image.begin(), image.begin() + common.file_size);
 	
 	sndll.version = version;
 	

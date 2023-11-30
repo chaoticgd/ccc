@@ -46,7 +46,7 @@ struct ElfSegment {
 };
 
 struct ElfFile {
-	std::span<const u8> image;
+	std::vector<u8> image;
 	std::vector<ElfSection> sections;
 	std::vector<ElfSegment> segments;
 	

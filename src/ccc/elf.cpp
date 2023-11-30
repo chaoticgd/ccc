@@ -96,7 +96,7 @@ std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) cons
 
 Result<ElfFile> parse_elf_file(std::span<const u8> image) {
 	ElfFile elf;
-	elf.image = image;
+	elf.image = std::vector<u8>(CCC_BEGIN_END(image));
 	
 	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(image, 0);
 	CCC_CHECK(ident, "ELF ident header out of range.");

@@ -50,6 +50,9 @@ int main(int argc, char** argv) {
 	Result<ElfFile> elf = parse_elf_file(*image);
 	CCC_EXIT_IF_ERROR(elf);
 	
+	// The ELF parser copies the data.
+	image->clear();
+	
 	SymbolTableConfig config;
 	config.demangle = cplus_demangle;
 	

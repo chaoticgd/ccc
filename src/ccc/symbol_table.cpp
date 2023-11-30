@@ -110,7 +110,7 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 			break;
 		}
 		case SNDLL: {
-			std::span<const u8> section_data = elf.image.subspan(section->offset, section->size);
+			std::span<const u8> section_data = std::span(elf.image).subspan(section->offset, section->size);
 			
 			const u32* magic = get_packed<u32>(section_data, 0);
 			if(!magic || *magic == 0) {
@@ -148,7 +148,8 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 		
 		switch(format) {
 			case SNDLL: {
-				Result<SNDLLFile> sndll = parse_sndll_file(elf->image.subspan(section->offset, section->size), section->address);
+				std::span<const u8> section_data = std::span(elf->image).subspan(section->offset, section->size);
+				Result<SNDLLFile> sndll = parse_sndll_file(section_data, section->address);
 				CCC_RETURN_IF_ERROR(sndll);
 				print_sndll_symbols(out, *sndll);
 				break;
