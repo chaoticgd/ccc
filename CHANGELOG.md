@@ -6,9 +6,12 @@
 - Rewrote core symbol table data structures.
 - Massively reduced memory usage.
 - Reworked error handling.
+- stdump: Added `identify` command.
 - stdump: Removed `--verbose` option (no one actually used that, right?).
+- stdump: Dropped support for legacy command aliases (e.g. `print_types` instead of `types`).
 - stdump: Fixed issue where the `mdebug` option would display some sizes as counts.
 - uncc: Improve how pointers to global variables in other global variable data is printed.
+- Probably lots more I'm forgetting!
 
 ## v1.2.1
 
