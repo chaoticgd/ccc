@@ -421,8 +421,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, Address addre
 }
 
 Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address, s32 line_number) {
-	if(address != (u32) -1 && m_current_function && label[0] == '$') {
-		CCC_CHECK(address < 256 * 1024 * 1024, "Address too big.");
+	if(address.valid() && m_current_function && label[0] == '$') {
 		Function::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
 		pair.address = address;
 		pair.line_number = line_number;
