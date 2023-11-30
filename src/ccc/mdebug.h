@@ -135,7 +135,8 @@ public:
 	Result<File> parse_file(s32 index) const;
 	Result<std::vector<Symbol>> parse_external_symbols() const;
 	
-	void print_header(FILE* dest) const;
+	void print_header(FILE* out) const;
+	void print_symbols(FILE* out) const;
 
 protected:
 	bool m_ready = false;

@@ -147,11 +147,27 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 		}
 		
 		switch(format) {
+			case SYMTAB: {
+				Result<void> symbtab_result = elf::print_symbol_table(out, *section, *elf);
+				CCC_RETURN_IF_ERROR(symbtab_result);
+				break;
+			}
+			case MDEBUG: {
+				mdebug::SymbolTableReader reader;
+				Result<void> reader_result = reader.init(elf->image, section->offset);
+				CCC_RETURN_IF_ERROR(reader_result);
+				
+				reader.print_symbols(out);
+				
+				break;
+			}
 			case SNDLL: {
 				std::span<const u8> section_data = std::span(elf->image).subspan(section->offset, section->size);
 				Result<SNDLLFile> sndll = parse_sndll_file(section_data, section->address);
 				CCC_RETURN_IF_ERROR(sndll);
+				
 				print_sndll_symbols(out, *sndll);
+				
 				break;
 			}
 		}
@@ -187,12 +203,13 @@ static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_f
 		// Find the most useful symbol table.
 		u32 current_utility = 0;
 		for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
-			if(SYMBOL_TABLE_FORMATS[i].utility > current_utility) {
-				const ElfSection* current_section = elf.lookup_section(SYMBOL_TABLE_FORMATS[i].section_name);
+			const SymbolTableFormatInfo& info = SYMBOL_TABLE_FORMATS[i];
+			if((!config.format.has_value() || info.format == *config.format) && info.utility > current_utility) {
+				const ElfSection* current_section = elf.lookup_section(info.section_name);
 				if(current_section) {
 					section = current_section;
-					format = SYMBOL_TABLE_FORMATS[i].format;
-					current_utility = SYMBOL_TABLE_FORMATS[i].utility;
+					format = info.format;
+					current_utility = info.utility;
 				}
 			}
 		}

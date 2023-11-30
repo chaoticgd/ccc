@@ -93,6 +93,7 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 	/* 0x4 */ SymbolHeader symbol;
 )
 
+static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
 static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
 
@@ -233,6 +234,46 @@ void SymbolTableReader::print_header(FILE* dest) const {
 		(u32) m_hdrr->external_symbols_offset,
 		(u32) m_hdrr->external_symbols_count * 16,
 		m_hdrr->external_symbols_count);
+}
+
+void SymbolTableReader::print_symbols(FILE* out) const {
+	s32 count = file_count();
+	for(s32 i = 0; i < count; i++) {
+		Result<mdebug::File> file = parse_file(i);
+		CCC_EXIT_IF_ERROR(file);
+		
+		fprintf(out, "FILE %s:\n", file->raw_path.c_str());
+		for(const mdebug::Symbol& symbol : file->symbols) {
+			print_symbol(out, symbol, true);
+		}
+	}
+}
+
+static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent) {
+	if(indent) {
+		fprintf(out, "    ");
+	}
+	fprintf(out, "%8x ", symbol.value);
+	const char* symbol_type_str = symbol_type(symbol.storage_type);
+	if(symbol_type_str) {
+		fprintf(out, "%-11s ", symbol_type_str);
+	} else {
+		fprintf(out, "ST(%7d) ", (u32) symbol.storage_type);
+	}
+	const char* symbol_class_str = symbol_class(symbol.storage_class);
+	if(symbol_class_str) {
+		fprintf(out, "%-4s ", symbol_class_str);
+	} else if ((u32) symbol.storage_class == 0) {
+		fprintf(out, "         ");
+	} else {
+		fprintf(out, "SC(%4d) ", (u32) symbol.storage_class);
+	}
+	if(symbol.is_stabs) {
+		fprintf(out, "%-8s ", mdebug::stabs_code(symbol.code));
+	} else {
+		fprintf(out, "SI(%4d) ", symbol.index);
+	}
+	fprintf(out, "%s\n", symbol.string);
 }
 
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr) {

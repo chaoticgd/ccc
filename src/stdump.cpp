@@ -55,7 +55,6 @@ static void print_json(FILE* out, const Options& options);
 static void print_symbols(FILE* out, const Options& options);
 static void print_external_symbols(FILE* out, const SymbolDatabase& database);
 static void print_headers(FILE* out, const Options& options);
-static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
 static u32 command_line_flags_to_parser_flags(u32 flags);
 static void print_files(FILE* out, const Options& options);
 static void print_sections(FILE* out, const Options& options);
@@ -350,33 +349,6 @@ static void print_external_symbols(FILE* out, const SymbolDatabase& database) {
 
 static void print_headers(FILE* out, const Options& options) {
 	
-}
-
-static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent) {
-	if(indent) {
-		fprintf(out, "    ");
-	}
-	fprintf(out, "%8x ", symbol.value);
-	const char* symbol_type_str = symbol_type(symbol.storage_type);
-	if(symbol_type_str) {
-		fprintf(out, "%-11s ", symbol_type_str);
-	} else {
-		fprintf(out, "ST(%7d) ", (u32) symbol.storage_type);
-	}
-	const char* symbol_class_str = symbol_class(symbol.storage_class);
-	if(symbol_class_str) {
-		fprintf(out, "%-4s ", symbol_class_str);
-	} else if ((u32) symbol.storage_class == 0) {
-		fprintf(out, "         ");
-	} else {
-		fprintf(out, "SC(%4d) ", (u32) symbol.storage_class);
-	}
-	if(symbol.is_stabs) {
-		fprintf(out, "%-8s ", mdebug::stabs_code(symbol.code));
-	} else {
-		fprintf(out, "SI(%4d) ", symbol.index);
-	}
-	fprintf(out, "%s\n", symbol.string);
 }
 
 static u32 command_line_flags_to_parser_flags(u32 flags) {
