@@ -15,14 +15,14 @@ static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config)
 static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags);
 static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database);
 
-extern const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
+const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
 	{SYMTAB, "symtab", ".symtab", 2},
 	{MDEBUG, "mdebug", ".mdebug", 3},
 	{STAB, "stab", ".stab", 0},
 	{DWARF, "dwarf", ".debug", 0},
 	{SNDLL, "sndll", ".sndata", 1}
 };
-extern const u32 SYMBOL_TABLE_FORMAT_COUNT = CCC_ARRAY_SIZE(SYMBOL_TABLE_FORMATS);
+const u32 SYMBOL_TABLE_FORMAT_COUNT = CCC_ARRAY_SIZE(SYMBOL_TABLE_FORMATS);
 
 const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format) {
 	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {

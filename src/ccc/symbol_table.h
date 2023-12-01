@@ -16,7 +16,7 @@ enum SymbolTableFormat {
 	MDEBUG = 1, // The infamous Third Eye symbol table
 	STAB   = 2, // Simpler container format for STABS symbols
 	DWARF  = 3, // DWARF 1 symbol table
-	SNDLL  = 4  // SNDLL linker symbols from a dynamic library (.rel)
+	SNDLL  = 4  // SNDLL linker symbols
 };
 
 struct SymbolTableFormatInfo {

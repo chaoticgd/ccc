@@ -29,21 +29,22 @@ public:
 	// Functions for processing individual symbols.
 	//
 	// In most cases these symbols will appear in the following order:
-	//   proc
-	//   ... line numbers ...
-	//   end
-	//   func
+	//   PROC TEXT
+	//   ... line numbers ... ($LM<N>)
+	//   END TEXT
+	//   LABEL TEXT FUN
 	//   ... parameters ...
-	//   ... blocks ...
-	//   
+	//   ... blocks ... (... local variables ... LBRAC ... subblocks ... RBRAC)
+	//   NIL NIL FUN
+	//
 	// For some compiler versions the symbols can appear in this order:
-	//   func
+	//   LABEL TEXT FUN
 	//   ... parameters ...
-	//   $LM1
-	//   proc
-	//   ... line numbers ...
-	//   end
-	//   ... blocks ...
+	//   first line number ($LM1)
+	//   PROC TEXT
+	//   ... line numbers ... ($LM<N>)
+	//   END TEXT
+	//   ... blocks ... (... local variables ... LBRAC ... subblocks ... RBRAC)
 	[[nodiscard]] Result<void> stab_magic(const char* magic);
 	[[nodiscard]] Result<void> source_file(const char* path, Address text_address);
 	[[nodiscard]] Result<void> data_type(const ParsedSymbol& symbol);
@@ -461,6 +462,8 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 	m_current_function = nullptr;
 	m_current_parameter_variables.clear();
 	m_current_local_variables.clear();
+	
+	m_state = NOT_IN_FUNCTION;
 	
 	return Result<void>();
 }
