@@ -6,6 +6,7 @@
 - Rewrote core symbol table data structures.
 - Massively reduced memory usage.
 - Reworked error handling.
+- Improved compatibility with software built using the old homebrew toolchain.
 - stdump: Added `identify` command.
 - stdump: Removed `--verbose` option (no one actually used that, right?).
 - stdump: Dropped support for legacy command aliases (e.g. `print_types` instead of `types`).

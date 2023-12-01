@@ -42,10 +42,12 @@ add_library(ccc STATIC
 	src/ccc/elf.h
 	src/ccc/elf_symtab.cpp
 	src/ccc/elf_symtab.h
-	src/ccc/mdebug.cpp
-	src/ccc/mdebug.h
 	src/ccc/mdebug_analysis.cpp
 	src/ccc/mdebug_analysis.h
+	src/ccc/mdebug_importer.cpp
+	src/ccc/mdebug_importer.h
+	src/ccc/mdebug_section.cpp
+	src/ccc/mdebug_section.h
 	src/ccc/print_cpp.cpp
 	src/ccc/print_cpp.h
 	src/ccc/print_json.cpp

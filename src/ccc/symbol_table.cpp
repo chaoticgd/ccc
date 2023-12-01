@@ -4,8 +4,8 @@
 #include "symbol_table.h"
 
 #include "elf_symtab.h"
-#include "mdebug.h"
-#include "mdebug_analysis.h"
+#include "mdebug_importer.h"
+#include "mdebug_section.h"
 
 namespace ccc {
 
@@ -92,7 +92,7 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 			Result<void> reader_result = reader.init(elf.image, section->offset);
 			CCC_RETURN_IF_ERROR(reader_result);
 			
-			Result<SymbolSourceHandle> source_result = analyse(database, reader, config.parser_flags, config.demangle);
+			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(database, reader, config.parser_flags, config.demangle);
 			CCC_RETURN_IF_ERROR(source_result);
 			source = *source_result;
 			

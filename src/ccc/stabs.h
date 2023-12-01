@@ -5,7 +5,6 @@
 
 #include "ast.h"
 #include "util.h"
-#include "mdebug.h"
 
 namespace ccc {
 

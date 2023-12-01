@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
 	
 	std::vector<ElfFile*> elves{&(*elf)};
 	
-	fill_in_pointers_to_member_function_definitions(database);
+	mdebug::fill_in_pointers_to_member_function_definitions(database);
 	
 	// Group duplicate source file entries, filter out files not referenced in
 	// the SOURCES.txt file.

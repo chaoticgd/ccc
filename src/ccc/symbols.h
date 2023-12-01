@@ -5,7 +5,7 @@
 
 #include "util.h"
 #include "stabs.h"
-#include "mdebug.h"
+#include "mdebug_section.h"
 
 namespace ccc {
 
