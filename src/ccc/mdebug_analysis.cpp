@@ -545,6 +545,11 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 	CCC_CHECK(m_state != IN_FUNCTION_BEGINNING,
 		"Unexpected end of symbol table for '%s'.", m_source_file.name().c_str());
 	
+	if(m_current_function) {
+		Result<void> result = function_end();
+		CCC_RETURN_IF_ERROR(result);
+	}
+	
 	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_database);
 	m_source_file.set_globals_variables(m_global_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
 	
@@ -552,6 +557,11 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 }
 
 Result<void> LocalSymbolTableAnalyser::create_function(Address address, const char* name) {
+	if(m_current_function) {
+		Result<void> result = function_end();
+		CCC_RETURN_IF_ERROR(result);
+	}
+	
 	Result<Function*> function = m_database.functions.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(function);
 	m_current_function = *function;
