@@ -19,6 +19,7 @@ namespace ccc {
 	CCC_X(Label, labels) \
 	CCC_X(LocalVariable, local_variables) \
 	CCC_X(ParameterVariable, parameter_variables) \
+	CCC_X(Section, sections) \
 	CCC_X(SourceFile, source_files) \
 	CCC_X(SymbolSource, symbol_sources)
 
@@ -31,6 +32,7 @@ enum class SymbolDescriptor {
 	LABEL,
 	LOCAL_VARIABLE,
 	PARAMETER_VARIABLE,
+	SECTION,
 	SOURCE_FILE,
 	SYMBOL_SOURCE
 };
@@ -455,6 +457,24 @@ protected:
 	FunctionHandle m_function;
 };
 
+class Section : public Symbol {
+	friend SymbolList<Section>;
+public:
+	SectionHandle handle() const { return m_handle; }
+	Address address() const { return m_address; }
+	
+	u32 size = 0;
+	
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SECTION;
+	static constexpr const char* SYMBOL_TYPE_NAME = "section";
+	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
+
+protected:
+	Address& address_ref() { return m_address; }
+	
+	Address m_address;
+};
+
 class SourceFile : public Symbol {
 	friend SymbolList<SourceFile>;
 public:
@@ -513,6 +533,7 @@ public:
 	SymbolList<Label> labels;
 	SymbolList<LocalVariable> local_variables;
 	SymbolList<ParameterVariable> parameter_variables;
+	SymbolList<Section> sections;
 	SymbolList<SourceFile> source_files;
 	SymbolList<SymbolSource> symbol_sources;
 	

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "util.h"
+#include "symbol_database.h"
 
 namespace ccc {
 
@@ -56,6 +56,8 @@ struct ElfFile {
 
 // Parse the ELF file header, section headers and program headers.
 Result<ElfFile> parse_elf_file(std::span<const u8> image);
+
+Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf);
 
 [[nodiscard]] Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves);
 

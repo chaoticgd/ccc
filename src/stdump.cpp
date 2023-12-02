@@ -372,41 +372,25 @@ static void print_files(FILE* out, const Options& options) {
 }
 
 static void print_sections(FILE* out, const Options& options) {
-	//for(const ElfSection& section : elf.sections) {
-	//	if(!section.address.valid()) {
-	//		continue;
-	//	}
-	//	
-	//	u32 section_start = section.address.value;
-	//	u32 section_end = section.address.value + section.size;
-	//	
-	//	fprintf(out, "%s:\n", section.name.c_str());
-	//	
-	//	s32 file_count = database.file_count();
-	//	for(s32 i = 0; i < file_count; i++) {
-	//		Result<mdebug::File> file = database.parse_file(i);
-	//		CCC_EXIT_IF_ERROR(file);
-	//		
-	//		// Find the text address without running the whole analysis process.
-	//		u32 text_address = UINT32_MAX;
-	//		for(const mdebug::Symbol& symbol : file->symbols) {
-	//			if(symbol.is_stabs && symbol.code == mdebug::N_SO) {
-	//				text_address = symbol.value;
-	//				break;
-	//			}
-	//		}
-	//		if(text_address == UINT32_MAX) {
-	//			for(const mdebug::Symbol& symbol : file->symbols) {
-	//				if(symbol.storage_type == mdebug::SymbolType::PROC && symbol.storage_class == mdebug::SymbolClass::TEXT && symbol.value != -1) {
-	//					text_address = std::min(text_address, (u32) symbol.value);
-	//				}
-	//			}
-	//		}
-	//		if(text_address != UINT32_MAX && text_address >= section_start && text_address < section_end) {
-	//			fprintf(out, "\t%s\n", file->full_path.c_str());
-	//		}
-	//	}
-	//}
+	SymbolFile symbol_file;
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
+	
+	for(const Section& section : database.sections) {
+		if(!section.address().valid()) {
+			continue;
+		}
+		
+		u32 section_start = section.address().value;
+		u32 section_end = section.address().value + section.size;
+		
+		fprintf(out, "%s:\n", section.name().c_str());
+		
+		for(const SourceFile& source_file : database.source_files) {
+			if(source_file.text_address.valid() && source_file.text_address >= section_start && source_file.text_address < section_end) {
+				fprintf(out, "\t%s\n", source_file.full_path().c_str());
+			}
+		}
+	}
 }
 
 static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options) {
@@ -417,12 +401,18 @@ static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& 
 	CCC_EXIT_IF_ERROR(symbol_file_result);
 	symbol_file = std::move(*symbol_file_result);
 	
+	SymbolDatabase database;
+	
+	if(ElfFile* elf = std::get_if<ElfFile>(&symbol_file)) {
+		Result<SymbolSourceHandle> sections_source = import_elf_section_headers(database, *elf);
+		CCC_EXIT_IF_ERROR(sections_source);
+	}
+	
 	SymbolTableConfig config;
 	config.section = options.section;
 	config.format = options.format;
 	config.parser_flags = command_line_flags_to_parser_flags(options.flags);
 	
-	SymbolDatabase database;
 	Result<SymbolSourceHandle> symbol_source = import_symbol_table(database, symbol_file, config);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
