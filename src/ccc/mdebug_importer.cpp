@@ -202,12 +202,12 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 				break;
 			}
 			case ParsedSymbolType::LBRAC: {
-				Result<void> result = analyser.lbrac(symbol.lrbrac.number, symbol.raw->value);
+				Result<void> result = analyser.lbrac(symbol.raw->value);
 				CCC_RETURN_IF_ERROR(result);
 				break;
 			}
 			case ParsedSymbolType::RBRAC: {
-				Result<void> result = analyser.rbrac(symbol.lrbrac.number, symbol.raw->value);
+				Result<void> result = analyser.rbrac(symbol.raw->value);
 				CCC_RETURN_IF_ERROR(result);
 				break;
 			}

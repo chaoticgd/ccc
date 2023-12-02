@@ -59,8 +59,8 @@ public:
 	[[nodiscard]] Result<void> function_end();
 	[[nodiscard]] Result<void> parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
 	[[nodiscard]] Result<void> local_variable(const char* name, const StabsType& type, const Variable::Storage& storage, bool is_static);
-	[[nodiscard]] Result<void> lbrac(s32 number, s32 begin_offset);
-	[[nodiscard]] Result<void> rbrac(s32 number, s32 end_offset);
+	[[nodiscard]] Result<void> lbrac(s32 begin_offset);
+	[[nodiscard]] Result<void> rbrac(s32 end_offset);
 	
 	[[nodiscard]] Result<void> finish();
 	
@@ -84,8 +84,8 @@ protected:
 	Function* m_current_function = nullptr;
 	ParameterVariableRange m_current_parameter_variables;
 	LocalVariableRange m_current_local_variables;
-	std::vector<LocalVariableHandle> m_pending_local_variables_begin;
-	std::map<s32, std::vector<LocalVariableHandle>> m_pending_local_variables_end;
+	std::vector<std::vector<LocalVariableHandle>> m_blocks;
+	std::vector<LocalVariableHandle> m_pending_local_variables;
 	std::string m_next_relative_path;
 };
 

@@ -45,9 +45,6 @@ struct ParsedSymbol {
 		std::string name;
 		std::unique_ptr<StabsType> type;
 	} name_colon_type;
-	struct {
-		s32 number = -1;
-	} lrbrac;
 };
 
 Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);

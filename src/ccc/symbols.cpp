@@ -51,22 +51,16 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 					sub.raw = &symbol;
 					break;
 				}
-				case mdebug::N_LBRAC: { // Begin scope
-					ParsedSymbol& begin_scope = output.emplace_back();
-					begin_scope.type = ParsedSymbolType::LBRAC;
-					begin_scope.raw = &symbol;
-					if(strlen(symbol.string) >= 4) {
-						begin_scope.lrbrac.number = atoi(&symbol.string[4]);
-					}
+				case mdebug::N_LBRAC: { // Begin block
+					ParsedSymbol& begin_block = output.emplace_back();
+					begin_block.type = ParsedSymbolType::LBRAC;
+					begin_block.raw = &symbol;
 					break;
 				}
-				case mdebug::N_RBRAC: { // End scope
-					ParsedSymbol& end_scope = output.emplace_back();;
-					end_scope.type = ParsedSymbolType::RBRAC;
-					end_scope.raw = &symbol;
-					if(strlen(symbol.string) >= 4) {
-						end_scope.lrbrac.number = atoi(&symbol.string[4]);
-					}
+				case mdebug::N_RBRAC: { // End block
+					ParsedSymbol& end_block = output.emplace_back();
+					end_block.type = ParsedSymbolType::RBRAC;
+					end_block.raw = &symbol;
 					break;
 				}
 				case mdebug::N_SO: { // Source filename

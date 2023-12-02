@@ -89,9 +89,6 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* name, Address addre
 		m_current_function->storage_class = ast::SC_STATIC;
 	}
 	
-	m_pending_local_variables_begin.clear();
-	m_pending_local_variables_end.clear();
-	
 	return Result<void>();
 }
 
@@ -107,7 +104,7 @@ Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address,
 
 Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
 	if(m_state == IN_FUNCTION_BEGINNING) {
-		CCC_ASSERT(m_current_function);
+		CCC_CHECK(m_current_function, "END TEXT symbol outside of function.");
 		m_current_function->size = function_size;
 		m_state = IN_FUNCTION_END;
 	}
@@ -136,6 +133,9 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 	m_current_function = nullptr;
 	m_current_parameter_variables.clear();
 	m_current_local_variables.clear();
+	
+	m_blocks.clear();
+	m_pending_local_variables.clear();
 	
 	m_state = NOT_IN_FUNCTION;
 	
@@ -175,7 +175,8 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	Address address = global_storage ? global_storage->address : Address();
 	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(local_variable);
-	m_pending_local_variables_begin.emplace_back((*local_variable)->handle());
+	m_current_local_variables.expand_to_include((*local_variable)->handle());
+	m_pending_local_variables.emplace_back((*local_variable)->handle());
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
@@ -188,29 +189,30 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::lbrac(s32 number, s32 begin_offset) {
-	for(LocalVariableHandle local_variable_handle : m_pending_local_variables_begin) {
-		LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle);
-		CCC_ASSERT(local_variable);
-		local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
+Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset) {
+	for(LocalVariableHandle local_variable_handle : m_pending_local_variables) {
+		if(LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
+			local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
+		}
 	}
 	
-	auto& pending_end = m_pending_local_variables_end[number];
-	pending_end.insert(pending_end.end(), CCC_BEGIN_END(m_pending_local_variables_begin));
-	m_pending_local_variables_begin.clear();
+	m_blocks.emplace_back(std::move(m_pending_local_variables));
+	m_pending_local_variables = {};
 	
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::rbrac(s32 number, s32 end_offset) {
-	auto variables = m_pending_local_variables_end.find(number);
-	CCC_CHECK(variables != m_pending_local_variables_end.end(), "N_RBRAC symbol without a matching N_LBRAC symbol.");
+Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset) {
+	CCC_CHECK(!m_blocks.empty(), "RBRAC symbol without a matching LBRAC symbol.");
 	
-	for(LocalVariableHandle local_variable_handle : variables->second) {
-		LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle);
-		CCC_ASSERT(local_variable);
-		local_variable->live_range.high = m_source_file.text_address.value + end_offset;
+	std::vector<LocalVariableHandle>& variables = m_blocks.back();
+	for(LocalVariableHandle local_variable_handle : variables) {
+		if(LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
+			local_variable->live_range.high = m_source_file.text_address.value + end_offset;
+		}
 	}
+	
+	m_blocks.pop_back();
 	
 	return Result<void>();
 }
