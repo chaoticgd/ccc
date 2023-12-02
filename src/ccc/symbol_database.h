@@ -91,6 +91,12 @@ struct SymbolRange {
 	SymbolHandle<SymbolType> first;
 	SymbolHandle<SymbolType> last;
 	
+	SymbolRange() {}
+	SymbolRange(SymbolHandle<SymbolType> handle)
+		: first(handle), last(handle) {}
+	SymbolRange(SymbolHandle<SymbolType> f, SymbolHandle<SymbolType> l)
+		: first(f), last(l) {}
+	
 	bool valid() const {
 		return first.valid() && last.valid();
 	}
@@ -523,13 +529,17 @@ public:
 	
 	// Check if the symbol referenced by a given node handle still exists. If it
 	// does, return the node pointer stored within, otherwise return nullptr.
-	const ast::Node* node_handle_to_pointer(const NodeHandle& node_handle);
+	const ast::Node* node_pointer_from_handle(const NodeHandle& node_handle);
 	
 	// Deduplicate matching data types with the same name. May replace the
 	// existing data type with the new one if the new one is better.
 	// DANGER: Accessing a node handle that was pointing into a replaced data
 	// type after calling this function is a crash!
 	[[nodiscard]] Result<DataType*> create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file, SymbolSourceHandle source);
+	
+	// Destroy a function handle as well as all parameter variables and local
+	// variables it associated with it.
+	bool destroy_function(FunctionHandle handle);
 };
 
 }

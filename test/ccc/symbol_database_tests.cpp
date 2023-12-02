@@ -218,7 +218,7 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource) {
 	EXPECT_TRUE(user_symbols_remaining == 10);
 }
 
-TEST(CCCSymbolDatabase, NodeHandleLookup) {
+TEST(CCCSymbolDatabase, NodePointerFromHandle) {
 	SymbolDatabase database;
 	
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Symbol Table", SymbolSourceHandle());
@@ -233,11 +233,39 @@ TEST(CCCSymbolDatabase, NodeHandleLookup) {
 	NodeHandle node_handle((*data_type)->handle(), (*data_type)->type());
 	
 	// Make sure we can lookup the node from the handle.
-	EXPECT_EQ(database.node_handle_to_pointer(node_handle), (*data_type)->type());
+	EXPECT_EQ(database.node_pointer_from_handle(node_handle), (*data_type)->type());
 	
 	// Destroy the symbol.
 	database.data_types.destroy_symbol((*data_type)->handle());
 	
 	// Make sure we can no longer lookup the node from the handle.
-	EXPECT_EQ(database.node_handle_to_pointer(node_handle), nullptr);
+	EXPECT_EQ(database.node_pointer_from_handle(node_handle), nullptr);
+}
+
+TEST(CCCSymbolDatabase, DestroyFunction) {
+	SymbolDatabase database;
+	
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Symbol Table", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<Function*> function = database.functions.create_symbol("func", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(function);
+	FunctionHandle function_handle = (*function)->handle();
+	
+	// Attach a parameter to the function.
+	Result<ParameterVariable*> parameter_variable = database.parameter_variables.create_symbol("param", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(parameter_variable);
+	ParameterVariableHandle parameter_handle = (*parameter_variable)->handle();
+	(*function)->set_parameter_variables(ParameterVariableRange(parameter_handle), DONT_DELETE_OLD_SYMBOLS, database);
+	
+	// Attach a local variable to the function.
+	Result<LocalVariable*> local_variable = database.local_variables.create_symbol("local", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(local_variable);
+	LocalVariableHandle local_handle = (*local_variable)->handle();
+	(*function)->set_local_variables(LocalVariableRange(local_handle), DONT_DELETE_OLD_SYMBOLS, database);
+	
+	// Make sure that when the function is destroyed, the variables are too.
+	EXPECT_TRUE(database.destroy_function(function_handle));
+	EXPECT_FALSE(database.parameter_variables.symbol_from_handle(parameter_handle));
+	EXPECT_FALSE(database.local_variables.symbol_from_handle(local_handle));
 }

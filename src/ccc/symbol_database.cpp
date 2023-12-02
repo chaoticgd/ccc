@@ -454,7 +454,7 @@ DataTypeHandle SymbolDatabase::lookup_type(const ast::TypeName& type_name, bool 
 	return DataTypeHandle();
 }
 
-const ast::Node* SymbolDatabase::node_handle_to_pointer(const NodeHandle& node_handle) {
+const ast::Node* SymbolDatabase::node_pointer_from_handle(const NodeHandle& node_handle) {
 	switch(node_handle.m_descriptor) {
 		#define CCC_X(SymbolType, symbol_list) \
 			case SymbolType::DESCRIPTOR: \
@@ -536,6 +536,20 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 	}
 	
 	return nullptr;
+}
+
+bool SymbolDatabase::destroy_function(FunctionHandle handle) {
+	Function* function = functions.symbol_from_handle(handle);
+	if(!function) {
+		return false;
+	}
+	if(function->parameter_variables().has_value()) {
+		parameter_variables.destroy_symbols(*function->parameter_variables());
+	}
+	if(function->local_variables().has_value()) {
+		local_variables.destroy_symbols(*function->local_variables());
+	}
+	return functions.destroy_symbol(handle);
 }
 
 }
