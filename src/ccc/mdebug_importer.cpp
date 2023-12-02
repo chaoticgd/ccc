@@ -135,7 +135,9 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 							Variable::GlobalStorage global_storage;
 							std::optional<Variable::GlobalStorage::Location> location_opt =
 								symbol_class_to_global_variable_location(symbol.raw->storage_class);
-							CCC_CHECK(location_opt.has_value(), "Invalid static local variable location.");
+							CCC_CHECK(location_opt.has_value(),
+								"Invalid static local variable location %s.",
+								symbol_class(symbol.raw->storage_class));
 							global_storage.location = *location_opt;
 							global_storage.address = symbol.raw->value;
 							storage = global_storage;

@@ -268,7 +268,8 @@ public:
 			SBSS,
 			RDATA,
 			COMMON,
-			SCOMMON
+			SCOMMON,
+			SUNDEFINED
 		};
 		
 		Location location = Location::NIL;

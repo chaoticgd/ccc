@@ -261,18 +261,19 @@ Result<void> LocalSymbolTableAnalyser::create_function(Address address, const ch
 	return Result<void>();
 }
 
-std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class) {
+std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(SymbolClass symbol_class) {
 	std::optional<Variable::GlobalStorage::Location> location;
 	switch(symbol_class) {
-		case mdebug::SymbolClass::NIL: location = Variable::GlobalStorage::Location::NIL; break;
-		case mdebug::SymbolClass::DATA: location = Variable::GlobalStorage::Location::DATA; break;
-		case mdebug::SymbolClass::BSS: location = Variable::GlobalStorage::Location::BSS; break;
-		case mdebug::SymbolClass::ABS: location = Variable::GlobalStorage::Location::ABS; break;
-		case mdebug::SymbolClass::SDATA: location = Variable::GlobalStorage::Location::SDATA; break;
-		case mdebug::SymbolClass::SBSS: location = Variable::GlobalStorage::Location::SBSS; break;
-		case mdebug::SymbolClass::RDATA: location = Variable::GlobalStorage::Location::RDATA; break;
-		case mdebug::SymbolClass::COMMON: location = Variable::GlobalStorage::Location::COMMON; break;
-		case mdebug::SymbolClass::SCOMMON: location = Variable::GlobalStorage::Location::SCOMMON; break;
+		case SymbolClass::NIL: location = Variable::GlobalStorage::Location::NIL; break;
+		case SymbolClass::DATA: location = Variable::GlobalStorage::Location::DATA; break;
+		case SymbolClass::BSS: location = Variable::GlobalStorage::Location::BSS; break;
+		case SymbolClass::ABS: location = Variable::GlobalStorage::Location::ABS; break;
+		case SymbolClass::SDATA: location = Variable::GlobalStorage::Location::SDATA; break;
+		case SymbolClass::SBSS: location = Variable::GlobalStorage::Location::SBSS; break;
+		case SymbolClass::RDATA: location = Variable::GlobalStorage::Location::RDATA; break;
+		case SymbolClass::COMMON: location = Variable::GlobalStorage::Location::COMMON; break;
+		case SymbolClass::SCOMMON: location = Variable::GlobalStorage::Location::SCOMMON; break;
+		case SymbolClass::SUNDEFINED: location = Variable::GlobalStorage::Location::SUNDEFINED; break;
 		default: {}
 	}
 	return location;

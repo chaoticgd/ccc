@@ -318,6 +318,7 @@ const char* Variable::GlobalStorage::location_to_string(Location location) {
 		case RDATA: return "rdata";
 		case COMMON: return "common";
 		case SCOMMON: return "scommon";
+		case SUNDEFINED: return "sundefined";
 	}
 	return "";
 }

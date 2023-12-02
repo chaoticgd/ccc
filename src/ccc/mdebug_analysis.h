@@ -89,6 +89,6 @@ protected:
 	std::string m_next_relative_path;
 };
 
-std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(mdebug::SymbolClass symbol_class);
+std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(SymbolClass symbol_class);
 
 };
