@@ -171,7 +171,7 @@ public:
 	};
 	
 	SymbolHandle<SymbolType> handle_from_address(Address address) const;
-	NameToHandleMapIterators handles_from_name(const char* name) const;
+	NameToHandleMapIterators handles_from_name(const std::string& name) const;
 	
 	bool empty() const;
 	
@@ -544,11 +544,6 @@ public:
 	// use this to free a symbol table without destroying user-defined symbols.
 	void destroy_symbols_from_source(SymbolSourceHandle source);
 	
-	// Lookup a type by its STABS type number. If that fails, optionally try to
-	// lookup the type by its name. On success return a handle to the type,
-	// otherwise return an invalid handle.
-	DataTypeHandle lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const;
-	
 	// Check if the symbol referenced by a given node handle still exists. If it
 	// does, return the node pointer stored within, otherwise return nullptr.
 	const ast::Node* node_pointer_from_handle(const NodeHandle& node_handle);
@@ -562,6 +557,16 @@ public:
 	// Destroy a function handle as well as all parameter variables and local
 	// variables it associated with it.
 	bool destroy_function(FunctionHandle handle);
+	
+	template <typename Callback>
+	void for_each_symbol(Callback callback) {
+		#define CCC_X(SymbolType, symbol_list) \
+			for(SymbolType& symbol : symbol_list) { \
+				callback(symbol); \
+			}
+		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+		#undef CCC_X
+	}
 };
 
 }

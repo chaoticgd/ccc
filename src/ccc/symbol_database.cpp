@@ -91,7 +91,7 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(Address add
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>::handles_from_name(const char* name) const {
+typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>::handles_from_name(const std::string& name) const {
 	auto iterators = m_name_to_handle.equal_range(name);
 	return {iterators.first, iterators.second};
 }
@@ -426,33 +426,6 @@ void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source) {
 	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
-}
-
-DataTypeHandle SymbolDatabase::lookup_type(const ast::TypeName& type_name, bool fallback_on_name_lookup) const {
-	// Lookup the type by its STABS type number. This path ensures that the
-	// correct type is found even if multiple types have the same name.
-	if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
-		const SourceFile* source_file = source_files.symbol_from_handle(type_name.referenced_file_handle);
-		CCC_ASSERT(source_file);
-		auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);
-		if(handle != source_file->stabs_type_number_to_handle.end()) {
-			return handle->second;
-		}
-	}
-	
-	// Looking up the type by its STABS type number failed, so look for it by
-	// its name instead. This happens when a type is forward declared but not
-	// defined in a given translation unit.
-	if(fallback_on_name_lookup) {
-		auto types_with_name = data_types.handles_from_name(type_name.type_name.c_str());
-		if(types_with_name.begin() != types_with_name.end()) {
-			return types_with_name.begin()->second;
-		}
-	}
-	
-	// Type lookup failed. This happens when a type is forward declared in a
-	// translation unit with symbols but is not defined in one.
-	return DataTypeHandle();
 }
 
 const ast::Node* SymbolDatabase::node_pointer_from_handle(const NodeHandle& node_handle) {

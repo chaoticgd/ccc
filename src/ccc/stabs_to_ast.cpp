@@ -27,7 +27,7 @@ std::unique_ptr<ast::Node> stabs_type_to_ast_and_handle_errors(const StabsType& 
 	if(!node.success()) {
 		auto error = std::make_unique<ast::TypeName>();
 		error->source = ast::TypeNameSource::ERROR;
-		error->type_name = std::string("/* ERROR: ") + node.error().message + " */";
+		//error->type_name = std::string("/* ERROR: ") + node.error().message + " */";
 		return std::unique_ptr<ast::Node>(std::move(error));
 	}
 	return std::move(*node);
@@ -57,9 +57,10 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
-			type_name->type_name = *type.name;
-			type_name->referenced_file_handle = state.file_handle;
-			type_name->referenced_stabs_type_number = type.type_number;
+			type_name->stabs_read_state.type_name = *type.name;
+			type_name->stabs_read_state.referenced_file_handle = state.file_handle;
+			type_name->stabs_read_state.stabs_type_number_file = type.type_number.file;
+			type_name->stabs_read_state.stabs_type_number_type = type.type_number.type;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 	}
@@ -74,9 +75,10 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		if(type_string) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
-			type_name->type_name = type_string;
-			type_name->referenced_file_handle = state.file_handle;
-			type_name->referenced_stabs_type_number = type.type_number;
+			type_name->stabs_read_state.type_name = type_string;
+			type_name->stabs_read_state.referenced_file_handle = state.file_handle;
+			type_name->stabs_read_state.stabs_type_number_file = type.type_number.file;
+			type_name->stabs_read_state.stabs_type_number_type = type.type_number.type;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 	}
@@ -88,11 +90,11 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		if(type.anonymous || stabs_type == state.stabs_types->end()) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::ERROR;
-			type_name->type_name += "CCC_BADTYPELOOKUP(";
-			type_name->type_name += std::to_string(type.type_number.file);
-			type_name->type_name += ",";
-			type_name->type_name += std::to_string(type.type_number.type);
-			type_name->type_name += ")";
+			//type_name->type_name += "CCC_BADTYPELOOKUP(";
+			//type_name->type_name += std::to_string(type.type_number.file);
+			//type_name->type_name += ",";
+			//type_name->type_name += std::to_string(type.type_number.type);
+			//type_name->type_name += ")";
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 		return stabs_type_to_ast(*stabs_type->second, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
@@ -112,7 +114,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 				// itself, maybe because I'm not a philosopher.
 				auto type_name = std::make_unique<ast::TypeName>();
 				type_name->source = ast::TypeNameSource::REFERENCE;
-				type_name->type_name = "void";
+				type_name->stabs_read_state.type_name = "void";
 				result = std::move(type_name);
 			}
 			break;
@@ -257,7 +259,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::CROSS_REFERENCE;
-			type_name->type_name = type.as<StabsCrossReferenceType>().identifier;
+			type_name->stabs_read_state.type_name = type.as<StabsCrossReferenceType>().identifier;
 			result = std::move(type_name);
 			break;
 		}

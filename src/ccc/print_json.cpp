@@ -132,6 +132,10 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 			json.end_array();
 			break;
 		}
+		case ast::FORWARD_DECLARED: {
+			// TODO
+			break;
+		}
 		//case ast::FUNCTION_DEFINITION: {
 		//	const ast::FunctionDefinition& function = node.as<ast::FunctionDefinition>();
 		//	if(function.address_range.valid()) {
@@ -278,13 +282,7 @@ static void print_json_ast_node(JsonPrinter& json, const ast::Node* ptr) {
 				case ast::TypeNameSource::ERROR: source = "error"; break;
 			}
 			json.string_property("source", source);
-			json.string_property("type_name", type_name.type_name.c_str());
-			if(type_name.referenced_file_handle != (u32) -1) {
-				json.number_property("referenced_file_handle", type_name.referenced_file_handle);
-			}
-			if(type_name.referenced_stabs_type_number.type > -1) {
-				json.number_property("referenced_stabs_type_number", merge_stabs_type_number_parts(type_name.referenced_stabs_type_number));
-			}
+			json.number_property("data_type_handle", type_name.data_type_handle);
 			break;
 		}
 		//case ast::VARIABLE: {

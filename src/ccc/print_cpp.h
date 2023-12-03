@@ -43,12 +43,12 @@ public:
 	void end_include_guard(const char* macro);
 	void include_directive(const char* path);
 	
-	bool data_type(const DataType& symbol);
+	bool data_type(const DataType& symbol, const SymbolDatabase& database);
 	void function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
-	void global_variable(const GlobalVariable& symbol, const RefinedData* data);
+	void global_variable(const GlobalVariable& symbol, const RefinedData* data, const SymbolDatabase& database);
 	
 protected:
-	void ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level);
+	void ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database);
 	void refined_data(const RefinedData& data, s32 indentation_level);
 	void variable_storage_comment(const Variable::Storage& storage);
 	void offset(const ast::Node& node);

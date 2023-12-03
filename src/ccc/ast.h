@@ -42,6 +42,7 @@ enum NodeDescriptor : u8 {
 	BITFIELD,
 	BUILTIN,
 	ENUM,
+	FORWARD_DECLARED,
 	FUNCTION_TYPE,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
@@ -150,6 +151,19 @@ struct Enum : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = ENUM;
 };
 
+enum class ForwardDeclaredType {
+	STRUCT,
+	UNION,
+	ENUM // Should be illegal but STABS supports cross references to enums so it's here.
+};
+
+struct ForwardDeclared : Node {
+	std::optional<ForwardDeclaredType> type;
+	
+	ForwardDeclared() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = FORWARD_DECLARED;
+};
+
 enum class MemberFunctionModifier {
 	NONE,
 	STATIC,
@@ -194,7 +208,7 @@ struct StructOrUnion : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = STRUCT_OR_UNION;
 };
 
-enum class TypeNameSource {
+enum class TypeNameSource : u8 {
 	REFERENCE,
 	CROSS_REFERENCE,
 	ANONYMOUS_REFERENCE,
@@ -202,10 +216,19 @@ enum class TypeNameSource {
 };
 
 struct TypeName : Node {
+	u32 data_type_handle = (u32) -1;
 	TypeNameSource source = TypeNameSource::ERROR;
-	std::string type_name;
-	u32 referenced_file_handle = (u32) -1;
-	StabsTypeNumber referenced_stabs_type_number;
+	bool is_forward_declared = false;
+	
+	struct StabsReadState {
+		std::string type_name;
+		u32 referenced_file_handle = (u32) -1;
+		s32 stabs_type_number_file = -1;
+		s32 stabs_type_number_type = -1;
+		std::optional<ForwardDeclaredType> type;
+	};
+	
+	StabsReadState stabs_read_state;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
@@ -296,6 +319,9 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 			break;
 		}
 		case ENUM: {
+			break;
+		}
+		case FORWARD_DECLARED: {
 			break;
 		}
 		case FUNCTION_TYPE: {

@@ -130,7 +130,7 @@ void CppPrinter::include_directive(const char* path) {
 	m_has_anything_been_printed = true;
 }
 
-bool CppPrinter::data_type(const DataType& symbol) {
+bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& database) {
 	CCC_ASSERT(symbol.type());
 	const ast::Node& node = *symbol.type();
 	
@@ -157,7 +157,7 @@ bool CppPrinter::data_type(const DataType& symbol) {
 	if(node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
 		m_digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
 	}
-	ast_node(node, name, 0);
+	ast_node(node, name, 0, database);
 	fprintf(out, ";\n");
 	
 	m_last_wants_spacing = wants_spacing;
@@ -196,7 +196,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	if(true) {//!function.is_constructor) {
 		if(symbol.type()) {
 			VariableName dummy;
-			ast_node(*symbol.type(), dummy, 0);
+			ast_node(*symbol.type(), dummy, 0, database);
 			fprintf(out, " ");
 		}
 	}
@@ -210,7 +210,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 			VariableName variable_name;
 			variable_name.identifier = &parameter_variables[i].name();
 			if(parameter_variables[i].type()) {
-				ast_node(*parameter_variables[i].type(), variable_name, 0);
+				ast_node(*parameter_variables[i].type(), variable_name, 0, database);
 			} else {
 				print_cpp_variable_name(out, variable_name, NO_VAR_PRINT_FLAGS);
 			}
@@ -242,7 +242,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 						VariableName local_name;
 						local_name.identifier = &variable.name();
 						if(variable.type()) {
-							ast_node(*variable.type(), local_name, 1);
+							ast_node(*variable.type(), local_name, 1, database);
 						} else {
 							print_cpp_variable_name(out, local_name, NO_VAR_PRINT_FLAGS);
 						}
@@ -281,7 +281,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData* data) {
+void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData* data, const SymbolDatabase& database) {
 	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
@@ -298,7 +298,7 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData
 	VariableName name;
 	name.identifier = &symbol.name();
 	if(symbol.type()) {
-		ast_node(*symbol.type(), name, 0);
+		ast_node(*symbol.type(), name, 0, database);
 	} else {
 		print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
 	}
@@ -311,7 +311,7 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData
 	m_last_wants_spacing = wants_spacing;
 }
 
-void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level) {
+void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database) {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
@@ -340,13 +340,13 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			const ast::Array& array = node.as<ast::Array>();
 			CCC_ASSERT(array.element_type.get());
 			name.array_indices.emplace_back(array.element_count);
-			ast_node(*array.element_type.get(), name, indentation_level);
+			ast_node(*array.element_type.get(), name, indentation_level, database);
 			break;
 		}
 		case ast::BITFIELD: {
 			const ast::BitField& bit_field = node.as<ast::BitField>();
 			CCC_ASSERT(bit_field.underlying_type.get());
-			ast_node(*bit_field.underlying_type.get(), name, indentation_level);
+			ast_node(*bit_field.underlying_type.get(), name, indentation_level, database);
 			fprintf(out, " : %d", bit_field.size_bits);
 			break;
 		}
@@ -386,6 +386,18 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			}
 			break;
 		}
+		case ast::FORWARD_DECLARED: {
+			const ast::ForwardDeclared& forward_declared = node.as<ast::ForwardDeclared>();
+			if(forward_declared.type.has_value()) {
+				switch(*forward_declared.type) {
+					case ast::ForwardDeclaredType::STRUCT: fprintf(out, "struct ");
+					case ast::ForwardDeclaredType::UNION: fprintf(out, "union ");
+					case ast::ForwardDeclaredType::ENUM: fprintf(out, "enum ");
+				}
+			}
+			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
+			break;
+		}
 		case ast::FUNCTION_TYPE: {
 			const ast::FunctionType& function = node.as<ast::FunctionType>();
 			if(function.modifier == ast::MemberFunctionModifier::STATIC) {
@@ -396,7 +408,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			if(!function.is_constructor) {
 				if(function.return_type.has_value()) {
 					VariableName dummy;
-					ast_node(*function.return_type->get(), dummy, indentation_level);
+					ast_node(*function.return_type->get(), dummy, indentation_level, database);
 					fprintf(out, " ");
 				}
 			}
@@ -422,7 +434,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				}
 				for(size_t i = start; i < parameters->size(); i++) {
 					VariableName dummy;
-					ast_node(*(*parameters)[i].get(), dummy, indentation_level);
+					ast_node(*(*parameters)[i].get(), dummy, indentation_level, database);
 					if(i != parameters->size() - 1) {
 						fprintf(out, ", ");
 					}
@@ -441,7 +453,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			} else {
 				name.pointer_chars.emplace_back('&');
 			}
-			ast_node(*pointer_or_reference.value_type.get(), name, indentation_level);
+			ast_node(*pointer_or_reference.value_type.get(), name, indentation_level, database);
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
@@ -450,9 +462,9 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			// but for now lets not think about that.
 			const ast::PointerToDataMember& member_pointer = node.as<ast::PointerToDataMember>();
 			VariableName dummy;
-			ast_node(*member_pointer.member_type.get(), dummy, indentation_level);
+			ast_node(*member_pointer.member_type.get(), dummy, indentation_level, database);
 			fprintf(out, " ");
-			ast_node(*member_pointer.class_type.get(), dummy, indentation_level);
+			ast_node(*member_pointer.class_type.get(), dummy, indentation_level, database);
 			fprintf(out, "::");
 			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
 			break;
@@ -469,6 +481,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			if(name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}
+			
 			// Print base classes.
 			if(!struct_or_union.base_classes.empty()) {
 				fprintf(out, " : ");
@@ -480,7 +493,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
 					}
 					VariableName dummy;
-					ast_node(base_class, dummy, indentation_level + 1);
+					ast_node(base_class, dummy, indentation_level + 1, database);
 					if(i != struct_or_union.base_classes.size() - 1) {
 						fprintf(out, ", ");
 					}
@@ -503,9 +516,10 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 				}
 				indent(out, indentation_level + 1);
 				offset(*field.get());
-				ast_node(*field.get(), name, indentation_level + 1);
+				ast_node(*field.get(), name, indentation_level + 1, database);
 				fprintf(out, ";\n");
 			}
+			
 			// Print member functions.
 			if(!struct_or_union.member_functions.empty()) {
 				if(!struct_or_union.fields.empty()) {
@@ -520,20 +534,23 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 						access_specifier = member_func.access_specifier;
 					}
 					indent(out, indentation_level + 1);
-					ast_node(*struct_or_union.member_functions[i].get(), name, indentation_level + 1);
+					ast_node(*struct_or_union.member_functions[i].get(), name, indentation_level + 1, database);
 					fprintf(out, ";\n");
 				}
 			}
+			
 			indent(out, indentation_level);
 			fprintf(out, "}");
 			if(!name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}
+			
 			break;
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
-			fprintf(out, "%s", type_name.type_name.c_str());
+			const DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
+			fprintf(out, "%s", data_type ? data_type->name().c_str() : "CCC_BAD_TYPE_NAME");
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}

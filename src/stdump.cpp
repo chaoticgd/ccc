@@ -256,7 +256,7 @@ static void print_globals(FILE* out, const Options& options) {
 			first_iteration = false;
 		}
 		
-		printer.global_variable(global_variable, nullptr);
+		printer.global_variable(global_variable, nullptr, database);
 	}
 }
 
@@ -278,7 +278,7 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 	printer.comment_block_toolchain_version_info(database);
 	printer.comment_block_builtin_types(database.data_types);
 	for(const DataType& data_type : database.data_types) {
-		printer.data_type(data_type);
+		printer.data_type(data_type, database);
 	}
 }
 

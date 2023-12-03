@@ -36,26 +36,26 @@ void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
 }
 
 void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes) {
-	for(size_t i = 0; i < ast_nodes.size(); i++) {
-		Node& node = *ast_nodes[i].get();
-		if(node.descriptor == TYPE_NAME && node.as<TypeName>().type_name == node.name) {
-			bool match = false;
-			for(std::unique_ptr<Node>& other : ast_nodes) {
-				bool is_match = other.get() != &node
-					&& (other->descriptor == ENUM
-						|| other->descriptor == STRUCT_OR_UNION)
-					&& other->name == node.name;
-				if(is_match) {
-					match = true;
-					break;
-				}
-			}
-			if(match) {
-				ast_nodes.erase(ast_nodes.begin() + i);
-				i--;
-			}
-		}
-	}
+	//for(size_t i = 0; i < ast_nodes.size(); i++) {
+	//	Node& node = *ast_nodes[i].get();
+	//	if(node.descriptor == TYPE_NAME && node.as<TypeName>().type_name == node.name) {
+	//		bool match = false;
+	//		for(std::unique_ptr<Node>& other : ast_nodes) {
+	//			bool is_match = other.get() != &node
+	//				&& (other->descriptor == ENUM
+	//					|| other->descriptor == STRUCT_OR_UNION)
+	//				&& other->name == node.name;
+	//			if(is_match) {
+	//				match = true;
+	//				break;
+	//			}
+	//		}
+	//		if(match) {
+	//			ast_nodes.erase(ast_nodes.begin() + i);
+	//			i--;
+	//		}
+	//	}
+	//}
 }
 
 CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields) {
@@ -91,6 +91,11 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 		case ENUM: {
 			const auto [lhs, rhs] = Node::as<Enum>(node_lhs, node_rhs);
 			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
+			break;
+		}
+		case FORWARD_DECLARED: {
+			const auto [lhs, rhs] = Node::as<ForwardDeclared>(node_lhs, node_rhs);
+			if(lhs.type != rhs.type) return CompareFailReason::DESCRIPTOR;
 			break;
 		}
 		case FUNCTION_TYPE: {
@@ -144,11 +149,11 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
 			// Don't check the source so that REFERENCE and CROSS_REFERENCE are
 			// treated as the same.
-			if(lhs.type_name != rhs.type_name) return CompareFailReason::TYPE_NAME;
-			// The whole point of comparing nodes is to merge matching nodes
-			// from different translation units, so we don't check the file
-			// index or the STABS type number, since those vary between
-			// different files.
+			if(lhs.data_type_handle != (u32) -1) {
+				if(lhs.data_type_handle != rhs.data_type_handle) return CompareFailReason::TYPE_NAME;
+			} else {
+				if(lhs.stabs_read_state.type_name != rhs.stabs_read_state.type_name) return CompareFailReason::TYPE_NAME;
+			}
 			break;
 		}
 	}
@@ -197,10 +202,15 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 	for(s32 i = 0; result.type == CompareResultType::DIFFERS && i < 2; i++) {
 		if(type_name_node->descriptor == TYPE_NAME) {
 			const TypeName& type_name = type_name_node->as<TypeName>();
-			if(type_name.referenced_file_handle != (u32) -1 && type_name.referenced_stabs_type_number.type > -1) {
-				const SourceFile* source_file = database.source_files.symbol_from_handle(type_name.referenced_file_handle);
+			const TypeName::StabsReadState& read_state = type_name.stabs_read_state;
+			if(read_state.referenced_file_handle != (u32) -1 && read_state.stabs_type_number_type > -1) {
+				const SourceFile* source_file = database.source_files.symbol_from_handle(read_state.referenced_file_handle);
 				CCC_ASSERT(source_file);
-				auto handle = source_file->stabs_type_number_to_handle.find(type_name.referenced_stabs_type_number);
+				StabsTypeNumber stabs_type_number = {
+					read_state.stabs_type_number_file,
+					read_state.stabs_type_number_type
+				};
+				auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
 				if(handle != source_file->stabs_type_number_to_handle.end()) {
 					const DataType* referenced_type = database.data_types.symbol_from_handle(handle->second);
 					CCC_ASSERT(referenced_type && referenced_type->type());
@@ -256,6 +266,7 @@ const char* node_type_to_string(const Node& node) {
 		case BITFIELD: return "bitfield";
 		case BUILTIN: return "builtin";
 		case ENUM: return "enum";
+		case FORWARD_DECLARED: return "forward_declared";
 		case FUNCTION_TYPE: return "function_type";
 		case POINTER_OR_REFERENCE: {
 			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();

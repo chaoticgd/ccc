@@ -8,6 +8,8 @@
 namespace ccc::mdebug {
 
 static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context, u32 parser_flags);
+static void resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source);
+static void resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source);
 
 Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle, s32 file_index) {
 	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(".mdebug", SymbolSourceHandle());
@@ -57,7 +59,9 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const m
 			data_type.probably_defined_in_cpp_file = true;
 		}
 	}
-
+	
+	// Lookup data types and store data type handles in type names.
+	resolve_type_names(database, context.symbol_source);
 	
 	return context.symbol_source;
 }
@@ -257,6 +261,59 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	return Result<void>();
 }
 
+static void resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source) {
+	database.for_each_symbol([&](ccc::Symbol& symbol) {
+		if(symbol.source() == source && symbol.type()) {
+			ast::for_each_node(*symbol.type(), ast::PREORDER_TRAVERSAL, [&](ast::Node& node) {
+				if(node.descriptor == ast::TYPE_NAME) {
+					resolve_type_name(node.as<ast::TypeName>(), database, source);
+				}
+				return ast::EXPLORE_CHILDREN;
+			});
+		}
+	});
+}
+
+static void resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source) {
+	// Lookup the type by its STABS type number. This path ensures that the
+	// correct type is found even if multiple types have the same name.
+	if(type_name.stabs_read_state.referenced_file_handle != (u32) -1 && type_name.stabs_read_state.stabs_type_number_type > -1) {
+		const SourceFile* source_file = database.source_files.symbol_from_handle(type_name.stabs_read_state.referenced_file_handle);
+		CCC_ASSERT(source_file);
+		StabsTypeNumber stabs_type_number = {
+			type_name.stabs_read_state.stabs_type_number_file,
+			type_name.stabs_read_state.stabs_type_number_type
+		};
+		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
+		if(handle != source_file->stabs_type_number_to_handle.end()) {
+			type_name.data_type_handle = handle->second.value;
+		}
+	}
+	
+	type_name.is_forward_declared = true;
+	
+	// Looking up the type by its STABS type number failed, so look for it by
+	// its name instead. This happens when a type is forward declared but not
+	// defined in a given translation unit.
+	for(auto& name_handle : database.data_types.handles_from_name(type_name.stabs_read_state.type_name)) {
+		DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
+		if(data_type->source() == source) {
+			type_name.data_type_handle = name_handle.second.value;
+			return;
+		}
+	}
+	
+	// Type lookup failed. This happens when a type is forward declared in a
+	// translation unit with symbols but is not defined in one. We haven't
+	// already created a forward declared type, so we create one now.
+	Result<DataType*> forward_declared_type = database.data_types.create_symbol(type_name.stabs_read_state.type_name, source);
+	type_name.data_type_handle = (*forward_declared_type)->handle().value;
+	
+	std::unique_ptr<ast::ForwardDeclared> forward_declared_node = std::make_unique<ast::ForwardDeclared>();
+	forward_declared_node->type = type_name.stabs_read_state.type;
+	(*forward_declared_type)->set_type_once(std::move(forward_declared_node));
+}
+
 void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
 	// Fill in pointers from member function declaration to corresponding definitions.
 	for(Function& function : database.functions) {
@@ -272,7 +329,7 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
 			} else {
 				type_name = demangled_name.substr(0, name_separator_pos - 1);
 			}
-			for(const auto& name_handle : database.data_types.handles_from_name(type_name.c_str())) {
+			for(const auto& name_handle : database.data_types.handles_from_name(type_name)) {
 				DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
 				if(data_type && data_type->type() && data_type->type()->descriptor == ast::STRUCT_OR_UNION) {
 					ast::StructOrUnion& struct_or_union = data_type->type()->as<ast::StructOrUnion>();

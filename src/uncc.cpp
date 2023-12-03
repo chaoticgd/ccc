@@ -226,7 +226,7 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	for(SourceFileHandle file_handle : files) {
 		for(const DataType& data_type : database.data_types) {
 			if(data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
-				printer.data_type(data_type);
+				printer.data_type(data_type, database);
 			}
 		}
 	}
@@ -244,9 +244,9 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 			if(can_refine_variable(global_variable)) {
 				Result<RefinedData> data = refine_variable(global_variable, database, read_virtual_func);
 				CCC_EXIT_IF_ERROR(data);
-				printer.global_variable(global_variable, &(*data));
+				printer.global_variable(global_variable, &(*data), database);
 			} else {
-				printer.global_variable(global_variable, nullptr);
+				printer.global_variable(global_variable, nullptr, database);
 			}
 		}
 	}
@@ -293,7 +293,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	for(SourceFileHandle file_handle : files) {
 		for(const DataType& data_type : database.data_types) {
 			if(!data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
-				printer.data_type(data_type);
+				printer.data_type(data_type, database);
 			}
 		}
 	}
@@ -305,7 +305,7 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 		CCC_ASSERT(source_file);
 		GlobalVariableRange global_variables = source_file->globals_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
-			printer.global_variable(global_variable, nullptr);
+			printer.global_variable(global_variable, nullptr, database);
 			has_global = true;
 		}
 	}
@@ -348,7 +348,7 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 	s32 nodes_printed = 0;
 	for(const DataType& data_type : database.data_types) {
 		if(data_type.files.size() != 1) {
-			if(printer.data_type(data_type)) {
+			if(printer.data_type(data_type, database)) {
 				nodes_printed++;
 			}
 		}
