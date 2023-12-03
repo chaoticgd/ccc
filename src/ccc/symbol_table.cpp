@@ -135,7 +135,7 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 	return source;
 }
 
-Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolTableConfig& config) {
+Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals) {
 	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
 		auto section_and_format = get_section_and_format(*elf, config);
 		CCC_RETURN_IF_ERROR(section_and_format);
@@ -150,6 +150,7 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 			case SYMTAB: {
 				Result<void> symbtab_result = elf::print_symbol_table(out, *section, *elf);
 				CCC_RETURN_IF_ERROR(symbtab_result);
+				
 				break;
 			}
 			case MDEBUG: {
@@ -157,7 +158,8 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 				Result<void> reader_result = reader.init(elf->image, section->offset);
 				CCC_RETURN_IF_ERROR(reader_result);
 				
-				reader.print_symbols(out);
+				Result<void> print_result = reader.print_symbols(out, print_locals, print_externals);
+				CCC_RETURN_IF_ERROR(print_result);
 				
 				break;
 			}

@@ -136,7 +136,7 @@ public:
 	Result<std::vector<Symbol>> parse_external_symbols() const;
 	
 	void print_header(FILE* out) const;
-	void print_symbols(FILE* out) const;
+	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const;
 
 protected:
 	bool m_ready = false;

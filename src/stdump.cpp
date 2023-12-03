@@ -6,32 +6,14 @@
 
 using namespace ccc;
 
-enum class OutputMode {
-	// Common Commands
-	IDENTIFY,
-	FUNCTIONS,
-	GLOBALS,
-	TYPES,
-	JSON,
-	HELP,
-	// ELF Symbol Table Commands
-	SYMTAB,
-	// MIPS Symbol Table commands
-	MDEBUG,
-	SYMBOLS,
-	EXTERNALS,
-	FILES,
-	SECTIONS,
-	TYPE_GRAPH,
-	BAD_COMMAND
-};
-
 enum Flags {
 	NO_FLAGS = 0,
-	FLAG_PER_FILE = (1 << 0),
-	FLAG_OMIT_ACCESS_SPECIFIERS = (1 << 1),
-	FLAG_OMIT_MEMBER_FUNCTIONS = (1 << 2),
-	FLAG_INCLUDE_GENERATED_FUNCTIONS = (1 << 3)
+	FLAG_PER_FILE = 1 << 0,
+	FLAG_OMIT_ACCESS_SPECIFIERS = 1 << 1,
+	FLAG_OMIT_MEMBER_FUNCTIONS = 1 << 2,
+	FLAG_INCLUDE_GENERATED_FUNCTIONS = 1 << 3,
+	FLAG_LOCAL_SYMBOLS = 1 << 4,
+	FLAG_EXTERNAL_SYMBOLS = 1 << 5
 };
 
 struct Options {
@@ -53,7 +35,6 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 static void print_type_graph(FILE* out, const Options& options);
 static void print_json(FILE* out, const Options& options);
 static void print_symbols(FILE* out, const Options& options);
-static void print_external_symbols(FILE* out, const SymbolDatabase& database);
 static void print_headers(FILE* out, const Options& options);
 static u32 command_line_flags_to_parser_flags(u32 flags);
 static void print_files(FILE* out, const Options& options);
@@ -99,8 +80,8 @@ static const StdumpCommand commands[] = {
 	{print_symbols, "symbols", {
 		"Print all of the symbols in a given symbol table.",
 		"",
-		"--externals                   Print external symbols instead of local",
-		"                              symbols. Only relevant for .mdebug symbols."
+		"--locals                      Only print local .mdebug symbols.",
+		"--externals                   Only print external .mdebug symbols."
 	}},
 	{print_headers, "headers", {
 		"Print out the contents of the file headers."
@@ -323,28 +304,16 @@ static void print_symbols(FILE* out, const Options& options) {
 	SymbolTableConfig config;
 	config.section = options.section;
 	config.format = options.format;
-	Result<void> print_result = print_symbol_table(out, *symbol_file, config);
-	CCC_EXIT_IF_ERROR(print_result);
 	
-	//s32 file_count = database.file_count();
-	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<mdebug::File> file = database.parse_file(i);
-	//	CCC_EXIT_IF_ERROR(file);
-	//	
-	//	fprintf(out, "FILE %s:\n", file->raw_path.c_str());
-	//	for(const mdebug::Symbol& symbol : file->symbols) {
-	//		print_symbol(out, symbol, true);
-	//	}
-	//}
-}
-
-static void print_external_symbols(FILE* out, const SymbolDatabase& database) {
-	//Result<std::vector<mdebug::Symbol>> external_symbols = database.parse_external_symbols();
-	//CCC_EXIT_IF_ERROR(external_symbols);
-	//
-	//for(const mdebug::Symbol& symbol : *external_symbols) {
-	//	print_symbol(out, symbol, false);
-	//}
+	bool print_locals = options.flags & FLAG_LOCAL_SYMBOLS;
+	bool print_externals = options.flags & FLAG_EXTERNAL_SYMBOLS;
+	if(!print_locals && ! print_externals) {
+		print_locals = true;
+		print_externals = true;
+	}
+	
+	Result<void> print_result = print_symbol_table(out, *symbol_file, config, print_locals, print_externals);
+	CCC_EXIT_IF_ERROR(print_result);
 }
 
 static void print_headers(FILE* out, const Options& options) {
@@ -361,14 +330,12 @@ static u32 command_line_flags_to_parser_flags(u32 flags) {
 }
 
 static void print_files(FILE* out, const Options& options) {
+	SymbolFile symbol_file;
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
-	//s32 file_count = database.file_count();
-	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<mdebug::File> file = database.parse_file(i);
-	//	CCC_EXIT_IF_ERROR(file);
-	//	
-	//	fprintf(out, "%s\n", file->full_path.c_str());
-	//}
+	for(const SourceFile& source_file : database.source_files) {
+		fprintf(out, "%s\n", source_file.name().c_str());
+	}
 }
 
 static void print_sections(FILE* out, const Options& options) {
@@ -446,6 +413,10 @@ static Options parse_command_line_arguments(int argc, char** argv) {
 			options.flags |= FLAG_OMIT_MEMBER_FUNCTIONS;
 		} else if(strcmp(arg, "--include-generated-functions") == 0) {
 			options.flags |= FLAG_INCLUDE_GENERATED_FUNCTIONS;
+		} else if(strcmp(arg, "--locals") == 0) {
+			options.flags |= FLAG_LOCAL_SYMBOLS;
+		} else if(strcmp(arg, "--externals") == 0) {
+			options.flags |= FLAG_EXTERNAL_SYMBOLS;
 		} else if(strcmp(arg, "--output") == 0) {
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];

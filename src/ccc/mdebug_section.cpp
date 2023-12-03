@@ -93,7 +93,7 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 	/* 0x4 */ SymbolHeader symbol;
 )
 
-static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent);
+static void print_symbol(FILE* out, const Symbol& symbol);
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
 static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
 
@@ -236,24 +236,32 @@ void SymbolTableReader::print_header(FILE* dest) const {
 		m_hdrr->external_symbols_count);
 }
 
-void SymbolTableReader::print_symbols(FILE* out) const {
-	s32 count = file_count();
-	for(s32 i = 0; i < count; i++) {
-		Result<mdebug::File> file = parse_file(i);
-		CCC_EXIT_IF_ERROR(file);
-		
-		fprintf(out, "FILE %s:\n", file->raw_path.c_str());
-		for(const mdebug::Symbol& symbol : file->symbols) {
-			print_symbol(out, symbol, true);
+Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool print_externals) const {
+	if(print_locals) {
+		s32 count = file_count();
+		for(s32 i = 0; i < count; i++) {
+			Result<File> file = parse_file(i);
+			CCC_RETURN_IF_ERROR(file);
+			
+			fprintf(out, "FILE %s:\n", file->raw_path.c_str());
+			for(const Symbol& symbol : file->symbols) {
+				print_symbol(out, symbol);
+			}
 		}
 	}
+	if(print_externals) {
+		fprintf(out, "EXTERNAL SYMBOLS:\n");
+		Result<std::vector<Symbol>> external_symbols = parse_external_symbols();
+		CCC_RETURN_IF_ERROR(external_symbols);
+		for(const Symbol& symbol : *external_symbols) {
+			print_symbol(out, symbol);
+		}
+	}
+	return Result<void>();
 }
 
-static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent) {
-	if(indent) {
-		fprintf(out, "    ");
-	}
-	fprintf(out, "%8x ", symbol.value);
+static void print_symbol(FILE* out, const Symbol& symbol) {
+	fprintf(out, "    %8x ", symbol.value);
 	const char* symbol_type_str = symbol_type(symbol.storage_type);
 	if(symbol_type_str) {
 		fprintf(out, "%-11s ", symbol_type_str);
@@ -269,7 +277,7 @@ static void print_symbol(FILE* out, const mdebug::Symbol& symbol, bool indent) {
 		fprintf(out, "SC(%4d) ", (u32) symbol.storage_class);
 	}
 	if(symbol.is_stabs) {
-		fprintf(out, "%-8s ", mdebug::stabs_code(symbol.code));
+		fprintf(out, "%-8s ", stabs_code(symbol.code));
 	} else {
 		fprintf(out, "SI(%4d) ", symbol.index);
 	}
