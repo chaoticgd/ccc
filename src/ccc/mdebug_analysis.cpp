@@ -39,19 +39,25 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::global_variable(const char* name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
+Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
+	std::optional<std::string> demangled_name = demangle_name(mangled_name);
+	std::string name;
+	if(demangled_name.has_value()) {
+		name = std::move(*demangled_name);
+	} else {
+		name = std::move(mangled_name);
+	}
+	
 	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(global);
 	
+	if(demangled_name.has_value()) {
+		(*global)->set_mangled_name(mangled_name);
+	}
+	
 	m_global_variables.expand_to_include((*global)->handle());
 	
-	if(m_context.demangle) {
-		const char* demangled_name = m_context.demangle(name, 0);
-		if(demangled_name) {
-			(*global)->set_demangled_name(demangled_name);
-			free((void*) demangled_name);
-		}
-	}
+	
 	
 	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
@@ -79,9 +85,9 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::procedure(const char* name, Address address, bool is_static) {
-	if(!m_current_function || strcmp(name, m_current_function->name().c_str()) != 0) {
-		Result<void> result = create_function(address, name);
+Result<void> LocalSymbolTableAnalyser::procedure(const char* mangled_name, Address address, bool is_static) {
+	if(!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str()) != 0) {
+		Result<void> result = create_function(mangled_name, address);
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
@@ -112,9 +118,9 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::function(const char* name, const StabsType& return_type, Address address) {
-	if(!m_current_function || strcmp(name, m_current_function->name().c_str())) {
-		Result<void> result = create_function(address, name);
+Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const StabsType& return_type, Address address) {
+	if(!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str())) {
+		Result<void> result = create_function(mangled_name, address);
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
@@ -232,33 +238,49 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::create_function(Address address, const char* name) {
+Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name, Address address) {
 	if(m_current_function) {
 		Result<void> result = function_end();
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	Result<Function*> function = m_database.functions.create_symbol(name, m_context.symbol_source, address);
+	std::optional<std::string> demangled_name = demangle_name(mangled_name);
+	std::string name;
+	if(demangled_name.has_value()) {
+		name = std::move(*demangled_name);
+	} else {
+		name = std::move(mangled_name);
+	}
+	
+	Result<Function*> function = m_database.functions.create_symbol(std::move(name), m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(function);
 	m_current_function = *function;
+	
+	if(demangled_name.has_value()) {
+		m_current_function->set_mangled_name(std::move(mangled_name));
+	}
 	
 	m_functions.expand_to_include(m_current_function->handle());
 	
 	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
-	
-	if(m_context.demangle) {
-		const char* demangled_name = m_context.demangle(name, 0);
-		if(demangled_name) {
-			m_current_function->set_demangled_name(demangled_name);
-			free((void*) demangled_name);
-		}
-	}
 	
 	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_source_file.relative_path) {
 		m_current_function->relative_path = m_next_relative_path;
 	}
 	
 	return Result<void>();
+}
+
+std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* mangled_name) {
+	if(m_context.demangle) {
+		const char* demangled_name = m_context.demangle(mangled_name, 0);
+		if(demangled_name) {
+			std::string name = demangled_name;
+			free((void*) demangled_name);
+			return name;
+		}
+	}
+	return std::nullopt;
 }
 
 std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(SymbolClass symbol_class) {

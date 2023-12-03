@@ -370,28 +370,28 @@ void Function::set_local_variables(std::optional<LocalVariableRange> range, Shou
 	m_local_variables = range;
 }
 
-const std::string& Function::demangled_name() const {
-	if(!m_demangled_name.empty()) {
-		return m_demangled_name;
+const std::string& Function::mangled_name() const {
+	if(!m_mangled_name.empty()) {
+		return m_mangled_name;
 	} else {
 		return name();
 	}
 }
 
-const void Function::set_demangled_name(std::string demangled) {
-	m_demangled_name = std::move(demangled);
+const void Function::set_mangled_name(std::string mangled) {
+	m_mangled_name = std::move(mangled);
 }
 
-const std::string& GlobalVariable::demangled_name() const {
-	if(!m_demangled_name.empty()) {
-		return m_demangled_name;
+const std::string& GlobalVariable::mangled_name() const {
+	if(!m_mangled_name.empty()) {
+		return m_mangled_name;
 	} else {
 		return name();
 	}
 }
 
-const void GlobalVariable::set_demangled_name(std::string demangled) {
-	m_demangled_name = std::move(demangled);
+const void GlobalVariable::set_mangled_name(std::string mangled) {
+	m_mangled_name = std::move(mangled);
 }
 
 void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {

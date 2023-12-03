@@ -185,7 +185,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	}
 	
 	VariableName name;
-	name.identifier = &symbol.demangled_name();
+	name.identifier = &symbol.name();
 	
 	if(m_config.print_storage_information) {
 		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size);
@@ -296,7 +296,7 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData
 	variable_storage_comment(symbol.storage());
 	
 	VariableName name;
-	name.identifier = &symbol.demangled_name();
+	name.identifier = &symbol.name();
 	if(symbol.type()) {
 		ast_node(*symbol.type(), name, 0);
 	} else {

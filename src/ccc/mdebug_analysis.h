@@ -50,12 +50,12 @@ public:
 	[[nodiscard]] Result<void> stab_magic(const char* magic);
 	[[nodiscard]] Result<void> source_file(const char* path, Address text_address);
 	[[nodiscard]] Result<void> data_type(const ParsedSymbol& symbol);
-	[[nodiscard]] Result<void> global_variable(const char* name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location);
+	[[nodiscard]] Result<void> global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location);
 	[[nodiscard]] Result<void> sub_source_file(const char* name, Address text_address);
-	[[nodiscard]] Result<void> procedure(const char* name, Address address, bool is_static);
+	[[nodiscard]] Result<void> procedure(const char* mangled_name, Address address, bool is_static);
 	[[nodiscard]] Result<void> label(const char* label, Address address, s32 line_number);
 	[[nodiscard]] Result<void> text_end(const char* name, s32 function_size);
-	[[nodiscard]] Result<void> function(const char* name, const StabsType& return_type, Address address);
+	[[nodiscard]] Result<void> function(const char* mangled_name, const StabsType& return_type, Address address);
 	[[nodiscard]] Result<void> function_end();
 	[[nodiscard]] Result<void> parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference);
 	[[nodiscard]] Result<void> local_variable(const char* name, const StabsType& type, const Variable::Storage& storage, bool is_static);
@@ -64,7 +64,9 @@ public:
 	
 	[[nodiscard]] Result<void> finish();
 	
-	[[nodiscard]] Result<void> create_function(Address address, const char* name);
+	[[nodiscard]] Result<void> create_function(const char* mangled_name, Address address);
+	
+	std::optional<std::string> demangle_name(const char* name);
 	
 protected:
 	enum AnalysisState {

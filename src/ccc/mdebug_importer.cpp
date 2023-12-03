@@ -260,7 +260,7 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
 	// Fill in pointers from member function declaration to corresponding definitions.
 	for(Function& function : database.functions) {
-		const std::string& demangled_name = function.demangled_name();
+		const std::string& demangled_name = function.name();
 		std::string::size_type name_separator_pos = demangled_name.find_last_of("::");
 		if(name_separator_pos != std::string::npos && name_separator_pos > 0) {
 			std::string function_name = demangled_name.substr(name_separator_pos + 1);

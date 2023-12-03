@@ -225,7 +225,7 @@ static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, cons
 			if(is_pointer) {
 				string += "&";
 			}
-			string += function_symbol->demangled_name();
+			string += function_symbol->name();
 		} else if(global_variable_symbol) {
 			bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
 				&& type.as<ast::PointerOrReference>().is_pointer;
@@ -234,7 +234,7 @@ static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, cons
 			if(is_pointer && !pointing_at_array) {
 				string += "&";
 			}
-			string += global_variable_symbol->demangled_name();
+			string += global_variable_symbol->name();
 		} else {
 			string = stringf("0x%x", address);
 		}

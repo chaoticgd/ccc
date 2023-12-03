@@ -344,8 +344,8 @@ public:
 	
 	Address address() const { return m_address; }
 	
-	const std::string& demangled_name() const;
-	const void set_demangled_name(std::string demangled);
+	const std::string& mangled_name() const;
+	const void set_mangled_name(std::string mangled);
 	
 	struct Parameter {
 		std::string name;
@@ -386,7 +386,7 @@ protected:
 	std::optional<LocalVariableRange> m_local_variables;
 	
 	Address m_address;
-	std::string m_demangled_name;
+	std::string m_mangled_name;
 };
 
 class GlobalVariable : public Variable {
@@ -397,8 +397,8 @@ public:
 	Address address() const { return const_cast<GlobalVariable*>(this)->address_ref(); }
 	SourceFileHandle source_file() const { return m_source_file; };
 	
-	const std::string& demangled_name() const;
-	const void set_demangled_name(std::string demangled);
+	const std::string& mangled_name() const;
+	const void set_mangled_name(std::string mangled);
 	
 	ast::StorageClass storage_class;
 	
@@ -408,7 +408,7 @@ public:
 	
 protected:
 	SourceFileHandle m_source_file;
-	std::string m_demangled_name;
+	std::string m_mangled_name;
 };
 
 class Label : public Symbol {
