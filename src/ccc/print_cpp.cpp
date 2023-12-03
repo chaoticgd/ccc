@@ -61,7 +61,7 @@ void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& data
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_builtin_types(const SymbolList<DataType>& data_types) {
+void CppPrinter::comment_block_builtin_types(std::span<DataType> data_types) {
 	std::set<std::pair<std::string, ast::BuiltInClass>> builtins;
 	for(const DataType& data_type : data_types) {
 		CCC_ASSERT(data_type.type());

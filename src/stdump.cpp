@@ -264,22 +264,19 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 }
 
 static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options) {
-	//u32 analysis_flags = build_analysis_flags(options.flags);
-	//CppPrinter printer(out);
-	//printer.comment_block_beginning(options.input_file.filename().string().c_str());
-	//
-	//s32 file_count = database.file_count();
-	//for(s32 i = 0; i < file_count; i++) {
-	//	Result<SymbolDatabase> database = analyse(database, analysis_flags, i);
-	//	CCC_EXIT_IF_ERROR(database);
-	//	ast::SourceFile& source_file = *database->source_files.at(0);
-	//	printer.comment_block_file(source_file.full_path.c_str());
-	//	printer.comment_block_toolchain_version_info(*database);
-	//	printer.comment_block_builtin_types(source_file.data_types);
-	//	for(const std::unique_ptr<ast::Node>& type : source_file.data_types) {
-	//		printer.data_type(*type);
-	//	}
-	//}
+	CppPrinterConfig config;
+	CppPrinter printer(out, config);
+	printer.comment_block_beginning(options.input_file.filename().string().c_str());
+	
+	for(const SourceFile& source_file : database.source_files) {
+		std::span<DataType> data_types = database.data_types.span(source_file.data_types());
+		printer.comment_block_file(source_file.full_path().c_str());
+		printer.comment_block_toolchain_version_info(database);
+		printer.comment_block_builtin_types(data_types);
+		for(const DataType& data_type : data_types) {
+			printer.data_type(data_type, database);
+		}
+	}
 }
 
 static void print_type_graph(FILE* out, const Options& options) {

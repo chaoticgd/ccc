@@ -81,6 +81,7 @@ protected:
 	
 	AnalysisState m_state = NOT_IN_FUNCTION;
 	SourceFile& m_source_file;
+	DataTypeRange m_data_types;
 	FunctionRange m_functions;
 	GlobalVariableRange m_global_variables;
 	Function* m_current_function = nullptr;
