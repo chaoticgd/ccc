@@ -477,12 +477,44 @@ static void print_help(FILE* out) {
 	fprintf(out, "\n");
 	fprintf(out, "  --output <output file>        Write the output to the file specified instead\n");
 	fprintf(out, "                                of to the standard output.\n");
-	fprintf(out, "\n");
+	
+	s32 column;
+	
 	fprintf(out, "  --section <section name>      Choose which symbol table you want to read from.\n");
-	fprintf(out, "                                Common section names are: .symtab, .mdebug,\n");
-	fprintf(out, "                                .stab, .debug, .sndll.\n");
-	fprintf(out, "\n");
+	const char* common_section_names_are = "Common section names are: ";
+	fprintf(out, "                                %s", common_section_names_are);
+	column = 32 + strlen(common_section_names_are);
+	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
+		if(column + strlen(format.section_name) + 2 > 80) {
+			fprintf(out, "\n                                ");
+			column = 32;
+		}
+		fprintf(out, "%s", format.section_name);
+		if(i + 1 == SYMBOL_TABLE_FORMAT_COUNT) {
+			fprintf(out, ".\n");
+		} else {
+			fprintf(out, ", ");
+		}
+		column += strlen(format.section_name) + 2;
+	}
+	
 	fprintf(out, "  --format <format name>        Explicitly specify the symbol table format.\n");
-	fprintf(out, "                                Possible options are: symtab, mdebug, stab,\n");
-	fprintf(out, "                                dwarf, sndll.\n");
+	const char* possible_options_are = "Possible options are: ";
+	fprintf(out, "                                %s", possible_options_are);
+	column = 32 + strlen(possible_options_are);
+	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
+		if(column + strlen(format.format_name) + 2 > 80) {
+			fprintf(out, "\n                                ");
+			column = 32;
+		}
+		fprintf(out, "%s", format.format_name);
+		if(i + 1 == SYMBOL_TABLE_FORMAT_COUNT) {
+			fprintf(out, ".\n");
+		} else {
+			fprintf(out, ", ");
+		}
+		column += strlen(format.format_name) + 2;
+	}
 }
