@@ -81,7 +81,7 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 	
 	switch(format) {
 		case SYMTAB: {
-			Result<SymbolSourceHandle> source_result = elf::parse_symbol_table(database, *section, elf);
+			Result<SymbolSourceHandle> source_result = elf::import_symbol_table(database, *section, elf);
 			CCC_RETURN_IF_ERROR(source_result);
 			source = *source_result;
 			

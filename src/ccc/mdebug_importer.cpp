@@ -7,17 +7,18 @@
 
 namespace ccc::mdebug {
 
-static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context, u32 parser_flags);
+static Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context);
+static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context);
 static void resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source);
 static void resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source);
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle, s32 file_index) {
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle) {
+	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
+	CCC_RETURN_IF_ERROR(external_symbols);
+	
 	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(".mdebug", SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(symbol_source);
 	(*symbol_source)->source_type = SymbolSource::SYMBOL_TABLE;
-	
-	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
-	CCC_RETURN_IF_ERROR(external_symbols);
 	
 	// The addresses of the global variables aren't present in the local symbol
 	// table, so here we extract them from the external table.
@@ -29,7 +30,7 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const m
 		}
 	}
 	
-	// Bundle together some unchanging state to pass to analyse_file.
+	// Bundle together some unchanging state to pass to import_files.
 	AnalysisContext context;
 	context.reader = &reader;
 	context.globals = &globals;
@@ -37,19 +38,22 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const m
 	context.parser_flags = parser_flags;
 	context.demangle = demangle;
 	
-	Result<s32> file_count = reader.file_count();
+	Result<void> result = import_files(database, context);
+	if(!result.success()) {
+		database.destroy_symbols_from_source((*symbol_source)->handle());
+		return result;
+	}
+	
+	return (*symbol_source)->handle();
+}
+
+static Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context) {
+	Result<s32> file_count = context.reader->file_count();
 	CCC_RETURN_IF_ERROR(file_count);
 	
-	// Either analyse a specific file descriptor, or all of them.
-	if(file_index > -1) {
-		CCC_CHECK_FATAL(file_index < *file_count, "File index out of range.");
-		Result<void> result = import_file(database, file_index, context, parser_flags);
+	for(s32 i = 0; i < *file_count; i++) {
+		Result<void> result = import_file(database, i, context);
 		CCC_RETURN_IF_ERROR(result);
-	} else {
-		for(s32 i = 0; i < *file_count; i++) {
-			Result<void> result = import_file(database, i, context, parser_flags);
-			CCC_RETURN_IF_ERROR(result);
-		}
 	}
 	
 	// The files field may be modified by further analysis passes, so we
@@ -63,10 +67,10 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const m
 	// Lookup data types and store data type handles in type names.
 	resolve_type_names(database, context.symbol_source);
 	
-	return context.symbol_source;
+	return Result<void>();
 }
 
-static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context, u32 parser_flags) {
+static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context) {
 	Result<mdebug::File> input = context.reader->parse_file(file_index);
 	CCC_RETURN_IF_ERROR(input);
 	

@@ -45,16 +45,28 @@ CCC_PACKED_STRUCT(Symbol,
 	SymbolVisibility visibility() const { return (SymbolVisibility) (other & 0x3); }
 )
 
+static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf);
+
 static const char* symbol_bind_to_string(SymbolBind bind);
 static const char* symbol_type_to_string(SymbolType type);
 static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf) {
-	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf) {
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
+	CCC_RETURN_IF_ERROR(source);
+	(*source)->source_type = SymbolSource::SYMBOL_TABLE;
 	
-	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
-	CCC_RETURN_IF_ERROR(symbol_source);
-	(*symbol_source)->source_type = SymbolSource::SYMBOL_TABLE;
+	Result<void> result = import_symbols(database, (*source)->handle(), section, elf);
+	if(!result.success()) {
+		database.destroy_symbols_from_source((*source)->handle());
+		return result;
+	}
+	
+	return (*source)->handle();
+}
+
+static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf) {
+	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
 	
 	for(u32 i = 0; i < section.size / sizeof(Symbol); i++) {
 		const Symbol* symbol = get_packed<Symbol>(elf.image, section.offset + i * sizeof(Symbol));
@@ -70,18 +82,18 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const El
 		
 		switch(symbol->type()) {
 			case SymbolType::NOTYPE: {
-				Result<Label*> label = database.labels.create_symbol(string, (*symbol_source)->handle(), address);
+				Result<Label*> label = database.labels.create_symbol(string, source, address);
 				CCC_RETURN_IF_ERROR(label);
 				break;
 			}
 			case SymbolType::OBJECT: {
-				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(string, (*symbol_source)->handle(), address);
+				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(string, source, address);
 				CCC_RETURN_IF_ERROR(global_variable);
 				
 				break;
 			}
 			case SymbolType::FUNC: {
-				Result<Function*> function = database.functions.create_symbol(string, (*symbol_source)->handle(), address);
+				Result<Function*> function = database.functions.create_symbol(string, source, address);
 				CCC_RETURN_IF_ERROR(function);
 				
 				(*function)->size = symbol->size;
@@ -89,7 +101,7 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const El
 				break;
 			}
 			case SymbolType::FILE: {
-				Result<SourceFile*> source_file = database.source_files.create_symbol(string, (*symbol_source)->handle());
+				Result<SourceFile*> source_file = database.source_files.create_symbol(string, source);
 				CCC_RETURN_IF_ERROR(source_file);
 				
 				break;
@@ -98,7 +110,7 @@ Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const El
 		}
 	}
 	
-	return (*symbol_source)->handle();
+	return Result<void>();
 }
 
 Result<void> print_symbol_table(FILE* out, const ElfSection& section, const ElfFile& elf) {

@@ -8,7 +8,7 @@
 
 namespace ccc::elf {
 
-Result<SymbolSourceHandle> parse_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf);
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf);
 [[nodiscard]] Result<void> print_symbol_table(FILE* out, const ElfSection& section, const ElfFile& elf);
 
 }
