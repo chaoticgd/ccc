@@ -115,6 +115,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			}
 			input++;
 			STABS_DEBUG_PRINTF("}\n");
+			
 			out_type = std::move(enum_type);
 			break;
 		}
@@ -216,6 +217,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			struct_type->member_functions = std::move(*member_functions);
 			
 			STABS_DEBUG_PRINTF("}\n");
+			
 			out_type = std::move(struct_type);
 			break;
 		}
@@ -236,6 +238,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			union_type->member_functions = std::move(*member_functions);
 			
 			STABS_DEBUG_PRINTF("}\n");
+			
 			out_type = std::move(union_type);
 			break;
 		}
@@ -246,9 +249,9 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			CCC_CHECK(c.has_value(), "Cannot parse cross reference type.");
 			
 			switch(*c) {
-				case 'e': cross_reference->type = StabsCrossReferenceType::ENUM; break;
-				case 's': cross_reference->type = StabsCrossReferenceType::STRUCT; break;
-				case 'u': cross_reference->type = StabsCrossReferenceType::UNION; break;
+				case 'e': cross_reference->type = ast::ForwardDeclaredType::ENUM; break;
+				case 's': cross_reference->type = ast::ForwardDeclaredType::STRUCT; break;
+				case 'u': cross_reference->type = ast::ForwardDeclaredType::UNION; break;
 				default:
 					return CCC_FAILURE("Invalid cross reference type '%c'.", cross_reference->type);
 			}
@@ -259,6 +262,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			
 			cross_reference->name = cross_reference->identifier;
 			CCC_EXPECT_CHAR(input, ':', "cross reference");
+			
 			out_type = std::move(cross_reference);
 			break;
 		}
@@ -276,11 +280,13 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			fp_builtin->bytes = *bytes;
 			
 			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
+			
 			out_type = std::move(fp_builtin);
 			break;
 		}
 		case StabsTypeDescriptor::METHOD: { // #
 			auto method = std::make_unique<StabsMethodType>(info);
+			
 			if(*input == '#') {
 				input++;
 				
@@ -314,6 +320,7 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 					method->parameter_types.emplace_back(std::move(*parameter_type));
 				}
 			}
+			
 			out_type = std::move(method);
 			break;
 		}
@@ -372,9 +379,11 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		}
 		case StabsTypeDescriptor::BUILTIN: { // -
 			auto built_in = std::make_unique<StabsBuiltInType>(info);
+			
 			std::optional<s64> type_id = eat_s64_literal(input);
 			CCC_CHECK(type_id.has_value(), "Cannot parse built-in.");
 			built_in->type_id = *type_id;
+			
 			out_type = std::move(built_in);
 			break;
 		}

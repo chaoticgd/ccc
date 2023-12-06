@@ -231,11 +231,7 @@ struct StabsUnionType : StabsStructOrUnionType {
 
 
 struct StabsCrossReferenceType : StabsType {
-	enum {
-		ENUM,
-		STRUCT,
-		UNION
-	} type;
+	ast::ForwardDeclaredType type;
 	std::string identifier;
 	
 	StabsCrossReferenceType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}

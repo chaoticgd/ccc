@@ -9,8 +9,8 @@ namespace ccc::mdebug {
 
 static Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context);
 static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context);
-static void resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source);
-static void resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source);
+static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source);
+static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source);
 
 Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle) {
 	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
@@ -65,7 +65,8 @@ static Result<void> import_files(SymbolDatabase& database, const AnalysisContext
 	}
 	
 	// Lookup data types and store data type handles in type names.
-	resolve_type_names(database, context.symbol_source);
+	Result<void> type_name_result = resolve_type_names(database, context.symbol_source);
+	CCC_RETURN_IF_ERROR(type_name_result);
 	
 	return Result<void>();
 }
@@ -265,20 +266,25 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	return Result<void>();
 }
 
-static void resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source) {
+static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source) {
+	Result<void> result;
 	database.for_each_symbol([&](ccc::Symbol& symbol) {
 		if(symbol.source() == source && symbol.type()) {
 			ast::for_each_node(*symbol.type(), ast::PREORDER_TRAVERSAL, [&](ast::Node& node) {
 				if(node.descriptor == ast::TYPE_NAME) {
-					resolve_type_name(node.as<ast::TypeName>(), database, source);
+					Result<void> type_name_result = resolve_type_name(node.as<ast::TypeName>(), database, source);
+					if(!type_name_result.success()) {
+						result = std::move(type_name_result);
+					}
 				}
 				return ast::EXPLORE_CHILDREN;
 			});
 		}
 	});
+	return result;
 }
 
-static void resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source) {
+static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source) {
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
 	if(type_name.stabs_read_state.referenced_file_handle != (u32) -1 && type_name.stabs_read_state.stabs_type_number_type > -1) {
@@ -303,7 +309,7 @@ static void resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database
 		DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
 		if(data_type->source() == source) {
 			type_name.data_type_handle = name_handle.second.value;
-			return;
+			return Result<void>();
 		}
 	}
 	
@@ -311,11 +317,15 @@ static void resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database
 	// translation unit with symbols but is not defined in one. We haven't
 	// already created a forward declared type, so we create one now.
 	Result<DataType*> forward_declared_type = database.data_types.create_symbol(type_name.stabs_read_state.type_name, source);
+	CCC_RETURN_IF_ERROR(forward_declared_type);
+	
 	type_name.data_type_handle = (*forward_declared_type)->handle().value;
 	
 	std::unique_ptr<ast::ForwardDeclared> forward_declared_node = std::make_unique<ast::ForwardDeclared>();
 	forward_declared_node->type = type_name.stabs_read_state.type;
 	(*forward_declared_type)->set_type_once(std::move(forward_declared_node));
+	
+	return Result<void>();
 }
 
 void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {

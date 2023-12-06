@@ -257,9 +257,11 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: {
+			const auto& cross_reference = type.as<StabsCrossReferenceType>();
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::CROSS_REFERENCE;
-			type_name->stabs_read_state.type_name = type.as<StabsCrossReferenceType>().identifier;
+			type_name->stabs_read_state.type_name = cross_reference.identifier;
+			type_name->stabs_read_state.type = cross_reference.type;
 			result = std::move(type_name);
 			break;
 		}
@@ -502,7 +504,7 @@ static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstSta
 			break;
 		}
 		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {
-			if(type->as<StabsCrossReferenceType>().type == StabsCrossReferenceType::ENUM) {
+			if(type->as<StabsCrossReferenceType>().type == ast::ForwardDeclaredType::ENUM) {
 				underlying_type_size_bits = 32;
 			} else {
 				return false;
