@@ -55,13 +55,13 @@ static const StdumpCommand commands[] = {
 		"is a directory, it will be walked recursively."
 	}},
 	{print_functions, "functions", {
-		"Print all the functions recovered from the STABS symbols as C++."
+		"Print all the functions recovered from the symbol table as C++."
 	}},
 	{print_globals, "globals", {
-		"Print all the global variables recovered from the STABS symbols as C++."
+		"Print all the global variables recovered from the symbol table as C++."
 	}},
 	{print_types, "types", {
-		"Print all the types recovered from the STABS symbols as C++.",
+		"Print all the types recovered from the symbol table as C++.",
 		"",
 		"--per-file                    Do not deduplicate types from files.",
 		"--omit-access-specifiers      Do not print access specifiers.",
@@ -456,7 +456,7 @@ static void print_help(FILE* out) {
 	const char* tag = git_tag();
 	fprintf(out, "stdump %s -- https://github.com/chaoticgd/ccc\n",
 		(strlen(tag) > 0) ? tag : "development version");
-	fprintf(out, "  MDebug/STABS symbol table parser and dumper.\n");
+	fprintf(out, "  PS2 symbol table parser and dumper.\n");
 	fprintf(out, "\n");
 	fprintf(out, "Common Commands:\n");
 	fprintf(out, "\n");
