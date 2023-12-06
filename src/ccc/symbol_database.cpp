@@ -272,9 +272,7 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol) {
 	if constexpr((SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP)) {
-		if(symbol.address_ref().valid()) {
-			m_address_to_handle.emplace(symbol.address_ref().value, symbol.m_handle);
-		}
+		m_address_to_handle.emplace(symbol.address_ref().value, symbol.m_handle);
 	}
 }
 
@@ -294,9 +292,7 @@ void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_name_map(SymbolType& symbol) {
 	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
-		if(!symbol.m_name.empty()) {
-			m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
-		}
+		m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
 	}
 }
 
