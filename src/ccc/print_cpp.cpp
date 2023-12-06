@@ -61,11 +61,11 @@ void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& data
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_builtin_types(std::span<DataType> data_types) {
+void CppPrinter::comment_block_builtin_types(const SymbolDatabase& database, SourceFileHandle file) {
 	std::set<std::pair<std::string, ast::BuiltInClass>> builtins;
-	for(const DataType& data_type : data_types) {
+	for(const DataType& data_type : database.data_types) {
 		CCC_ASSERT(data_type.type());
-		if(data_type.type()->descriptor == ast::BUILTIN) {
+		if(data_type.type()->descriptor == ast::BUILTIN && (!file.valid() || (data_type.files.size() == 0 && data_type.files[0] == file))) {
 			builtins.emplace(data_type.type()->name, data_type.type()->as<ast::BuiltIn>().bclass);
 		}
 	}

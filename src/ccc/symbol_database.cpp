@@ -406,16 +406,6 @@ const void GlobalVariable::set_mangled_name(std::string mangled) {
 	m_mangled_name = std::move(mangled);
 }
 
-void SourceFile::set_data_types(DataTypeRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
-	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		database.data_types.destroy_symbols(m_data_types);
-	}
-	m_data_types = range;
-	for(DataType& data_type : database.data_types.span(range)) {
-		data_type.m_source_file = m_handle;
-	}
-}
-
 void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
 		database.functions.destroy_symbols(m_functions);

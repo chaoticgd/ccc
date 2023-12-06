@@ -257,7 +257,7 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
 	printer.comment_block_toolchain_version_info(database);
-	printer.comment_block_builtin_types(database.data_types);
+	printer.comment_block_builtin_types(database);
 	for(const DataType& data_type : database.data_types) {
 		printer.data_type(data_type, database);
 	}
@@ -269,12 +269,13 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
 	
 	for(const SourceFile& source_file : database.source_files) {
-		std::span<DataType> data_types = database.data_types.span(source_file.data_types());
 		printer.comment_block_file(source_file.full_path().c_str());
 		printer.comment_block_toolchain_version_info(database);
-		printer.comment_block_builtin_types(data_types);
-		for(const DataType& data_type : data_types) {
-			printer.data_type(data_type, database);
+		printer.comment_block_builtin_types(database, source_file.handle());
+		for(const DataType& data_type : database.data_types) {
+			if(data_type.files.size() == 1 && data_type.files[0] == source_file.handle()) {
+				printer.data_type(data_type, database);
+			}
 		}
 	}
 }

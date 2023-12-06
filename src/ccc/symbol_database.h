@@ -326,9 +326,6 @@ class DataType : public Symbol {
 public:
 	DataTypeHandle handle() const { return m_handle; }
 	
-	// Only populated if DONT_DEDUPLICATE_TYPES is set.
-	SourceFileHandle source_file() { return m_source_file; }
-	
 	std::vector<SourceFileHandle> files; // List of files for which a given top-level type is present.
 	const char* compare_fail_reason = "";
 	
@@ -338,9 +335,6 @@ public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::DATA_TYPE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "data type";
 	static constexpr const u32 SYMBOL_TYPE_FLAGS = WITH_NAME_MAP;
-
-protected:
-	SourceFileHandle m_source_file;
 };
 
 class Function : public Symbol {
@@ -495,10 +489,6 @@ public:
 	SourceFileHandle handle() const { return m_handle; }
 	const std::string& full_path() const { return name(); }
 	
-	// Only populated if DONT_DEDUPLICATE_TYPES is set.
-	DataTypeRange data_types() const { return m_data_types; }
-	void set_data_types(DataTypeRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
-	
 	FunctionRange functions() const { return m_functions; }
 	void set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
@@ -515,7 +505,6 @@ public:
 	static constexpr u32 SYMBOL_TYPE_FLAGS = NO_SYMBOL_FLAGS;
 	
 protected:
-	DataTypeRange m_data_types;
 	FunctionRange m_functions;
 	GlobalVariableRange m_globals_variables;
 };

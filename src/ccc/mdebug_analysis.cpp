@@ -32,7 +32,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 		m_source_file.stabs_type_number_to_handle[(*node)->stabs_type_number] = (*data_type)->handle();
 		(*data_type)->set_type_once(std::move(*node));
 		
-		m_data_types.expand_to_include((*data_type)->handle());
+		(*data_type)->files = {m_source_file.handle()};
 	} else {
 		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
@@ -232,10 +232,6 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 	if(m_current_function) {
 		Result<void> result = function_end();
 		CCC_RETURN_IF_ERROR(result);
-	}
-	
-	if(m_context.parser_flags & DONT_DEDUPLICATE_TYPES) {
-		m_source_file.set_data_types(m_data_types, DONT_DELETE_OLD_SYMBOLS, m_database);
 	}
 	
 	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_database);

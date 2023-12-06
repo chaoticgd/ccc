@@ -37,7 +37,7 @@ public:
 	
 	void comment_block_beginning(const char* input_file);
 	void comment_block_toolchain_version_info(const SymbolDatabase& database);
-	void comment_block_builtin_types(std::span<DataType> data_types);
+	void comment_block_builtin_types(const SymbolDatabase& database, SourceFileHandle file = SourceFileHandle());
 	void comment_block_file(const char* path);
 	void begin_include_guard(const char* macro);
 	void end_include_guard(const char* macro);
