@@ -90,7 +90,7 @@ TEST(CCCSymbolDatabase, HandleFromAddress) {
 	
 	// Make sure we can look them up by their address.
 	for(u32 address = 0; address < 10; address++) {
-		EXPECT_EQ(database.functions.handle_from_address(address), handles[address]);
+		EXPECT_EQ(database.functions.first_handle_from_address(address), handles[address]);
 	}
 }
 
@@ -133,8 +133,8 @@ TEST(CCCSymbolDatabase, MoveSymbol) {
 	Result<Function*> function = database.functions.create_symbol("func", (*source)->handle(), 0x1000);
 	EXPECT_TRUE(database.functions.move_symbol((*function)->handle(), 0x2000));
 	
-	EXPECT_TRUE(database.functions.handle_from_address(0x2000).valid());
-	EXPECT_FALSE(database.functions.handle_from_address(0x1000).valid());
+	EXPECT_TRUE(database.functions.first_handle_from_address(0x2000).valid());
+	EXPECT_FALSE(database.functions.first_handle_from_address(0x1000).valid());
 }
 
 TEST(CCCSymbolDatabase, RenameSymbol) {

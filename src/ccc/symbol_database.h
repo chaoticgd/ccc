@@ -154,24 +154,30 @@ public:
 	std::span<SymbolType> span(std::optional<SymbolRange<SymbolType>> range);
 	std::span<const SymbolType> span(std::optional<SymbolRange<SymbolType>> range) const;
 	
-	using AddressToHandleMap = std::unordered_map<u32, SymbolHandle<SymbolType>>;
+	using AddressToHandleMap = std::unordered_multimap<u32, SymbolHandle<SymbolType>>;
 	using NameToHandleMap = std::unordered_multimap<std::string, SymbolHandle<SymbolType>>;
-	using NameToHandleMapIterator = typename NameToHandleMap::const_iterator;
 	
 	// For iterating over all the symbols with a given name.
-	class NameToHandleMapIterators {
+	template <typename Iterator>
+	class Iterators {
 	public:
-		NameToHandleMapIterators(NameToHandleMapIterator b, NameToHandleMapIterator e)
+		Iterators(Iterator b, Iterator e)
 			: m_begin(b), m_end(e) {}
-		NameToHandleMapIterator begin() const { return m_begin; }
-		NameToHandleMapIterator end() const { return m_end; }
+		Iterator begin() const { return m_begin; }
+		Iterator end() const { return m_end; }
 	protected:
-		NameToHandleMapIterator m_begin;
-		NameToHandleMapIterator m_end;
+		Iterator m_begin;
+		Iterator m_end;
 	};
 	
-	SymbolHandle<SymbolType> handle_from_address(Address address) const;
+	using AddressToHandleMapIterators = Iterators<typename AddressToHandleMap::const_iterator>;
+	using NameToHandleMapIterators = Iterators<typename NameToHandleMap::const_iterator>;
+	
+	AddressToHandleMapIterators handles_from_address(Address address) const;
 	NameToHandleMapIterators handles_from_name(const std::string& name) const;
+	
+	SymbolHandle<SymbolType> first_handle_from_address(Address address) const;
+	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
 	
 	bool empty() const;
 	

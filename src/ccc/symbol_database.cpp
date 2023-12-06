@@ -81,19 +81,35 @@ std::span<const SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRan
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::handle_from_address(Address address) const {
-	auto iterator = m_address_to_handle.find(address.value);
-	if(iterator != m_address_to_handle.end()) {
-		return iterator->second;
-	} else {
-		return SymbolHandle<SymbolType>();
-	}
+typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_address(Address address) const {
+	auto iterators = m_address_to_handle.equal_range(address.value);
+	return {iterators.first, iterators.second};
 }
 
 template <typename SymbolType>
 typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>::handles_from_name(const std::string& name) const {
 	auto iterators = m_name_to_handle.equal_range(name);
 	return {iterators.first, iterators.second};
+}
+
+template <typename SymbolType>
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_address(Address address) const {
+	auto handles = handles_from_address(address);
+	if(handles.begin() != handles.end()) {
+		return handles.begin()->second;
+	} else {
+		return SymbolHandle<SymbolType>();
+	}
+}
+
+template <typename SymbolType>
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const {
+	auto handles = handles_from_name(name);
+	if(handles.begin() != handles.end()) {
+		return handles.begin()->second;
+	} else {
+		return SymbolHandle<SymbolType>();
+	}
 }
 
 template <typename SymbolType>
@@ -256,15 +272,8 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol) {
 	if constexpr((SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP)) {
-		Address address = symbol.address_ref();
-		if(address.valid()) {
-			auto iterator = m_address_to_handle.find(address.value);
-			if(iterator != m_address_to_handle.end()) {
-				// We're replacing an existing symbol.
-				destroy_symbol(iterator->second);
-			}
-			
-			m_address_to_handle.emplace(address.value, symbol.m_handle);
+		if(symbol.address_ref().valid()) {
+			m_address_to_handle.emplace(symbol.address_ref().value, symbol.m_handle);
 		}
 	}
 }
@@ -272,8 +281,15 @@ void SymbolList<SymbolType>::link_address_map(SymbolType& symbol) {
 template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
 	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP) {
-		if(symbol.address_ref().valid()) {
-			m_address_to_handle.erase(symbol.address_ref().value);
+		auto iterator = m_address_to_handle.find(symbol.address_ref().value);
+		while(iterator != m_address_to_handle.end()) {
+			if(iterator->second == symbol.m_handle) {
+				auto to_delete = iterator;
+				iterator++;
+				m_address_to_handle.erase(to_delete);
+			} else {
+				iterator++;
+			}
 		}
 	}
 }
@@ -281,7 +297,9 @@ void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_name_map(SymbolType& symbol) {
 	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
-		m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
+		if(!symbol.m_name.empty()) {
+			m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
+		}
 	}
 }
 
