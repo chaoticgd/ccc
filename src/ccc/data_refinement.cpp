@@ -78,7 +78,7 @@ static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& typ
 		case ast::FORWARD_DECLARED: {
 			break;
 		}
-		case ast::FUNCTION_TYPE: {
+		case ast::FUNCTION: {
 			break;
 		}
 		case ast::POINTER_OR_REFERENCE: {

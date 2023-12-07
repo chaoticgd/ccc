@@ -54,7 +54,6 @@ static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf) {
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(source);
-	(*source)->source_type = SymbolSource::SYMBOL_TABLE;
 	
 	Result<void> result = import_symbols(database, (*source)->handle(), section, elf);
 	if(!result.success()) {

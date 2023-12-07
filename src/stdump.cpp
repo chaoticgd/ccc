@@ -289,7 +289,12 @@ static void print_type_graph(FILE* out, const Options& options) {
 }
 
 static void print_json(FILE* out, const Options& options) {
-	//print_json(FILE *out, const SymbolDatabase &database, bool print_per_file_types)
+	SymbolFile symbol_file;
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
+	rapidjson::StringBuffer buffer;
+	JsonWriter writer(buffer);
+	write_json(writer, database);
+	fprintf(out, "%s", buffer.GetString());
 }
 
 static void print_symbols(FILE* out, const Options& options) {

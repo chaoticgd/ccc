@@ -241,7 +241,7 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
 			if(parser_flags & STRIP_MEMBER_FUNCTIONS) {
 				struct_or_union.member_functions.clear();
 			} else if(parser_flags & STRIP_GENERATED_FUNCTIONS) {
-				auto is_special = [](const ast::FunctionType& function, const std::string& name_no_template_args) {
+				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
 					return function.name == "operator="
 						|| function.name.starts_with("$")
 						|| (function.name == name_no_template_args
@@ -252,8 +252,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
 					node.name.substr(0, node.name.find("<"));
 				bool only_special_functions = true;
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION_TYPE) {
-						ast::FunctionType& function = struct_or_union.member_functions[i]->as<ast::FunctionType>();
+					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
+						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
 						if(!is_special(function, name_no_template_args)) {
 							only_special_functions = false;
 						}
@@ -261,8 +261,8 @@ static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
 				}
 				if(only_special_functions) {
 					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION_TYPE) {
-							ast::FunctionType& function = struct_or_union.member_functions[i]->as<ast::FunctionType>();
+						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
+							ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
 							if(is_special(function, name_no_template_args)) {
 								struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
 								i--;
@@ -302,7 +302,7 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& databa
 				built_in.computed_size_bytes = builtin_class_size(built_in.bclass);
 				break;
 			}
-			case ast::FUNCTION_TYPE: {
+			case ast::FUNCTION: {
 				break;
 			}
 			case ast::FORWARD_DECLARED: {

@@ -139,6 +139,8 @@ public:
 	SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle);
 	const SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle) const;
 	
+	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
+	
 	using Iterator = typename std::vector<SymbolType>::iterator;
 	using ConstIterator = typename std::vector<SymbolType>::const_iterator;
 	
@@ -238,8 +240,9 @@ class Symbol {
 	template <typename SymbolType>
 	friend class SymbolList;
 public:
-	SymbolSourceHandle source() const { return m_source; }
 	const std::string& name() const { return m_name; }
+	u32 raw_handle() const { return m_handle; }
+	SymbolSourceHandle source() const { return m_source; }
 	
 	ast::Node* type() { return m_type.get(); }
 	const ast::Node* type() const { return m_type.get(); }
@@ -250,7 +253,7 @@ public:
 	}
 	
 	// DANGER: Accessing a node handle that was pointing into this symbol after
-	// this call is a crash.
+	// this call is a use after free.
 	void set_type_and_invalidate_node_handles(std::unique_ptr<ast::Node> type) {
 		m_type = std::move(type);
 	}
@@ -513,14 +516,7 @@ class SymbolSource : public Symbol {
 	friend SymbolList<SymbolSource>;
 public:
 	SymbolSourceHandle handle() const { return m_handle; }
-	
-	enum Type {
-		ANALYSIS,
-		SYMBOL_TABLE,
-		USER_DEFINED
-	};
-	
-	Type source_type;
+	Address address() const { return m_address; }
 	
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
 	static constexpr const char* SYMBOL_TYPE_NAME = "symbol source";

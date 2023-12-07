@@ -34,6 +34,8 @@ include(cmake/version_finder.cmake)
 add_library(ccc STATIC
 	src/ccc/ast.cpp
 	src/ccc/ast.h
+	src/ccc/ast_json.cpp
+	src/ccc/ast_json.h
 	src/ccc/data_refinement.cpp
 	src/ccc/data_refinement.h
 	src/ccc/dependency.cpp
@@ -50,8 +52,6 @@ add_library(ccc STATIC
 	src/ccc/mdebug_section.h
 	src/ccc/print_cpp.cpp
 	src/ccc/print_cpp.h
-	src/ccc/print_json.cpp
-	src/ccc/print_json.h
 	src/ccc/registers.cpp
 	src/ccc/registers.h
 	src/ccc/sndll.cpp
@@ -66,11 +66,14 @@ add_library(ccc STATIC
 	src/ccc/symbol_database.h
 	src/ccc/symbol_file.cpp
 	src/ccc/symbol_file.h
+	src/ccc/symbol_json.cpp
+	src/ccc/symbol_json.h
 	src/ccc/symbol_table.cpp
 	src/ccc/symbol_table.h
 	src/ccc/util.cpp
 	src/ccc/util.h
 )
+target_link_libraries(ccc rapidjson)
 
 add_library(ccc_mips STATIC
 	src/mips/insn.cpp
@@ -117,6 +120,7 @@ endif()
 
 add_subdirectory(thirdparty/demanglegnu)
 add_subdirectory(thirdparty/googletest)
+add_subdirectory(thirdparty/rapidjson)
 
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
@@ -129,5 +133,7 @@ set(RELEASE_CONTENTS
 	"${CMAKE_SOURCE_DIR}/License.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicense.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseSupplementGPL.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/googletest/GoogleTestLicense.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/rapidjson/RapidJSONLicense.txt"
 )
 include(cmake/zip_crafter.cmake)

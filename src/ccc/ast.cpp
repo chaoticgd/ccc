@@ -98,8 +98,8 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 			if(lhs.type != rhs.type) return CompareFailReason::DESCRIPTOR;
 			break;
 		}
-		case FUNCTION_TYPE: {
-			const auto [lhs, rhs] = Node::as<FunctionType>(node_lhs, node_rhs);
+		case FUNCTION: {
+			const auto [lhs, rhs] = Node::as<Function>(node_lhs, node_rhs);
 			if(lhs.return_type.has_value() != rhs.return_type.has_value()) return CompareFailReason::FUNCTION_RETURN_TYPE_HAS_VALUE;
 			if(lhs.return_type.has_value()) {
 				if(compare_nodes_and_merge(result, *lhs.return_type->get(), *rhs.return_type->get(), database)) return result;
@@ -267,7 +267,7 @@ const char* node_type_to_string(const Node& node) {
 		case BUILTIN: return "builtin";
 		case ENUM: return "enum";
 		case FORWARD_DECLARED: return "forward_declared";
-		case FUNCTION_TYPE: return "function_type";
+		case FUNCTION: return "function";
 		case POINTER_OR_REFERENCE: {
 			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();
 			if(pointer_or_reference.is_pointer) {

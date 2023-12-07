@@ -159,7 +159,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 		case StabsTypeDescriptor::FUNCTION: {
-			auto function = std::make_unique<ast::FunctionType>();
+			auto function = std::make_unique<ast::Function>();
 			
 			auto node = stabs_type_to_ast(*type.as<StabsFunctionType>().return_type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
 			CCC_RETURN_IF_ERROR(node);
@@ -238,8 +238,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 					} else {
 						(*node)->name = function_set.name;
 					}
-					if((*node)->descriptor == ast::FUNCTION_TYPE) {
-						ast::FunctionType& function = (*node)->as<ast::FunctionType>();
+					if((*node)->descriptor == ast::FUNCTION) {
+						ast::Function& function = (*node)->as<ast::Function>();
 						function.modifier = stabs_func.modifier;
 						function.is_constructor = false;
 						if(type.name.has_value()) {
@@ -281,7 +281,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		}
 		case StabsTypeDescriptor::METHOD: {
 			const auto& stabs_method = type.as<StabsMethodType>();
-			auto function = std::make_unique<ast::FunctionType>();
+			auto function = std::make_unique<ast::Function>();
 			
 			auto return_node = stabs_type_to_ast(*stabs_method.return_type.get(), state, abs_parent_offset_bytes, depth + 1, true, true);
 			CCC_RETURN_IF_ERROR(return_node);

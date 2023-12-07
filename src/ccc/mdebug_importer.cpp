@@ -18,7 +18,6 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const m
 	
 	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(".mdebug", SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(symbol_source);
-	(*symbol_source)->source_type = SymbolSource::SYMBOL_TABLE;
 	
 	// The addresses of the global variables aren't present in the local symbol
 	// table, so here we extract them from the external table.
@@ -349,7 +348,7 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
 					ast::StructOrUnion& struct_or_union = data_type->type()->as<ast::StructOrUnion>();
 					for(std::unique_ptr<ast::Node>& declaration : struct_or_union.member_functions) {
 						if(declaration->name == function_name) {
-							declaration->as<ast::FunctionType>().definition_handle = function.handle().value;
+							declaration->as<ast::Function>().definition_handle = function.handle().value;
 							function.is_member_function_ish = true;
 						}
 					}

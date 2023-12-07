@@ -3,10 +3,11 @@
 
 #pragma once
 
+#include "ast_json.h"
 #include "symbol_database.h"
 
 namespace ccc {
 
-void print_json(FILE* out, const SymbolDatabase& database, bool print_per_file_types);
+void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set<SymbolSourceHandle>* sources = nullptr);
 
 }

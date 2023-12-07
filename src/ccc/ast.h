@@ -43,7 +43,7 @@ enum NodeDescriptor : u8 {
 	BUILTIN,
 	ENUM,
 	FORWARD_DECLARED,
-	FUNCTION_TYPE,
+	FUNCTION,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
 	STRUCT_OR_UNION,
@@ -170,7 +170,7 @@ enum class MemberFunctionModifier {
 	VIRTUAL
 };
 
-struct FunctionType : Node {
+struct Function : Node {
 	std::optional<std::unique_ptr<Node>> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
@@ -178,8 +178,8 @@ struct FunctionType : Node {
 	bool is_constructor = false;
 	u32 definition_handle = (u32) -1; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
-	FunctionType() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION_TYPE;
+	Function() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
 };
 
 struct PointerOrReference : Node {
@@ -324,8 +324,8 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
 		case FORWARD_DECLARED: {
 			break;
 		}
-		case FUNCTION_TYPE: {
-			auto& func = node.template as<FunctionType>();
+		case FUNCTION: {
+			auto& func = node.template as<Function>();
 			if(func.return_type.has_value()) {
 				for_each_node(*func.return_type->get(), order, callback);
 			}

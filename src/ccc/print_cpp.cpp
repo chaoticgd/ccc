@@ -315,8 +315,8 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
-	if(node.descriptor == ast::FUNCTION_TYPE) {
-		const ast::FunctionType& func_type = node.as<ast::FunctionType>();
+	if(node.descriptor == ast::FUNCTION) {
+		const ast::Function& func_type = node.as<ast::Function>();
 		if(func_type.vtable_index > -1) {
 			fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
 		}
@@ -398,8 +398,8 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
 			break;
 		}
-		case ast::FUNCTION_TYPE: {
-			const ast::FunctionType& function = node.as<ast::FunctionType>();
+		case ast::FUNCTION: {
+			const ast::Function& function = node.as<ast::Function>();
 			if(function.modifier == ast::MemberFunctionModifier::STATIC) {
 				fprintf(out, "static ");
 			} else if(function.modifier == ast::MemberFunctionModifier::VIRTUAL) {
@@ -527,7 +527,7 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 					fprintf(out, "\n");
 				}
 				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					ast::FunctionType& member_func = struct_or_union.member_functions[i]->as<ast::FunctionType>();
+					ast::Function& member_func = struct_or_union.member_functions[i]->as<ast::Function>();
 					if(access_specifier != member_func.access_specifier) {
 						indent(out, indentation_level);
 						fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) member_func.access_specifier));
