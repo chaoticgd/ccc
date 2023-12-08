@@ -12,17 +12,6 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
 static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstState& state);
 
-std::unique_ptr<ast::Node> stabs_type_to_ast_and_handle_errors(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, state, abs_parent_offset_bytes, depth, substitute_type_name, false);
-	if(!node.success()) {
-		auto error = std::make_unique<ast::TypeName>();
-		error->source = ast::TypeNameSource::ERROR;
-		//error->type_name = std::string("/* ERROR: ") + node.error().message + " */";
-		return std::unique_ptr<ast::Node>(std::move(error));
-	}
-	return std::move(*node);
-}
-
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
 	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=%d name=%s\n",
 		depth * 4, "",

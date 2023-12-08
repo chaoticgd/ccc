@@ -22,23 +22,25 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address tex
 }
 
 Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
-	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(*symbol.name_colon_type.type.get(), m_stabs_to_ast_state, 0, 0, false, false);
-	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*symbol.name_colon_type.type.get(), m_stabs_to_ast_state, 0, 0, false, false);
+	CCC_RETURN_IF_ERROR(node);
+	
+	(*node)->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
 	if(symbol.name_colon_type.descriptor == mdebug::StabsSymbolDescriptor::TYPE_NAME) {
-		node->storage_class = ast::SC_TYPEDEF;
+		(*node)->storage_class = ast::SC_TYPEDEF;
 	}
 	
-	node->stabs_type_number = symbol.name_colon_type.type->type_number;
-	const char* name = node->name.c_str();
+	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
+	const char* name = (*node)->name.c_str();
 	
 	if(m_context.parser_flags & DONT_DEDUPLICATE_TYPES) {
 		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
-		m_source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
-		(*data_type)->set_type_once(std::move(node));
+		m_source_file.stabs_type_number_to_handle[(*node)->stabs_type_number] = (*data_type)->handle();
+		(*data_type)->set_type_once(std::move(*node));
 		
 		(*data_type)->files = {m_source_file.handle()};
 	} else {
-		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(node), name, m_source_file, m_context.symbol_source);
+		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
 	}
 	
@@ -65,11 +67,13 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name,
 	
 	
 	
-	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false);
+	CCC_RETURN_IF_ERROR(node);
+	
 	if(is_static) {
 		(*global)->storage_class = ast::SC_STATIC;
 	}
-	(*global)->set_type_once(std::move(node));
+	(*global)->set_type_once(std::move(*node));
 	
 	Variable::GlobalStorage global_storage;
 	global_storage.location = location;
@@ -130,8 +134,9 @@ Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const 
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(return_type, m_stabs_to_ast_state, 0, 0, true, true);;
-	m_current_function->set_type_once(std::move(node));
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(return_type, m_stabs_to_ast_state, 0, 0, true, true);;
+	CCC_RETURN_IF_ERROR(node);
+	m_current_function->set_type_once(std::move(*node));
 	
 	return Result<void>();
 }
@@ -161,8 +166,8 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	CCC_RETURN_IF_ERROR(parameter_variable);
 	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
 	
-	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, true);
-	(*parameter_variable)->set_type_once(std::move(node));
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, true);
+	(*parameter_variable)->set_type_once(std::move(*node));
 	
 	if(is_stack_variable) {
 		Variable::StackStorage stack_storage;
@@ -190,11 +195,11 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	m_current_local_variables.expand_to_include((*local_variable)->handle());
 	m_pending_local_variables.emplace_back((*local_variable)->handle());
 	
-	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(type, m_stabs_to_ast_state, 0, 0, true, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false);
 	if(is_static) {
-		node->storage_class = ast::SC_STATIC;
+		(*node)->storage_class = ast::SC_STATIC;
 	}
-	(*local_variable)->set_type_once(std::move(node));
+	(*local_variable)->set_type_once(std::move(*node));
 	
 	(*local_variable)->set_storage_once(storage);
 	
