@@ -106,6 +106,7 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	// Convert the parsed stabs symbols to a more standard C AST.
 	LocalSymbolTableAnalyser analyser(database, stabs_to_ast_state, context, **source_file);
 	for(const ParsedSymbol& symbol : *symbols) {
+		printf("%s\n", symbol.raw->string);
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
 				switch(symbol.name_colon_type.descriptor) {

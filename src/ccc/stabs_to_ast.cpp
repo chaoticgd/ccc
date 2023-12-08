@@ -65,17 +65,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 	if(!type.has_body) {
 		// The definition of the type has been defined previously, so we have to
 		// look it up by its type number.
+		CCC_CHECK(!type.anonymous, "Cannot do type lookup (type is anonymous).");
 		auto stabs_type = state.stabs_types->find(type.type_number);
-		if(type.anonymous || stabs_type == state.stabs_types->end()) {
-			auto type_name = std::make_unique<ast::TypeName>();
-			type_name->source = ast::TypeNameSource::ERROR;
-			//type_name->type_name += "CCC_BADTYPELOOKUP(";
-			//type_name->type_name += std::to_string(type.type_number.file);
-			//type_name->type_name += ",";
-			//type_name->type_name += std::to_string(type.type_number.type);
-			//type_name->type_name += ")";
-			return std::unique_ptr<ast::Node>(std::move(type_name));
-		}
+		CCC_CHECK(stabs_type != state.stabs_types->end(), "Bad type lookup.");
 		return stabs_type_to_ast(*stabs_type->second, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
 	}
 	
@@ -331,7 +323,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			break;
 		}
 	}
-	CCC_ASSERT(result);
+	
+	CCC_CHECK(result, "Result of stabs_type_to_ast call is nullptr.");
 	return result;
 }
 

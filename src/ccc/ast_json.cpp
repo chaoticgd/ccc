@@ -175,7 +175,6 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 				case TypeNameSource::REFERENCE: source = "reference"; break;
 				case TypeNameSource::CROSS_REFERENCE: source = "cross_reference"; break;
 				case TypeNameSource::ANONYMOUS_REFERENCE: source = "anonymous_reference"; break;
-				case TypeNameSource::ERROR: source = "error"; break;
 			}
 			json.Key("source");
 			json.String(source);

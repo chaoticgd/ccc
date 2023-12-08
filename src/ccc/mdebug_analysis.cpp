@@ -167,6 +167,7 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, true);
+	CCC_RETURN_IF_ERROR(node);
 	(*parameter_variable)->set_type_once(std::move(*node));
 	
 	if(is_stack_variable) {
@@ -196,6 +197,8 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	m_pending_local_variables.emplace_back((*local_variable)->handle());
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false);
+	CCC_RETURN_IF_ERROR(node);
+	
 	if(is_static) {
 		(*node)->storage_class = ast::SC_STATIC;
 	}

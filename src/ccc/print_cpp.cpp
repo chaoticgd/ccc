@@ -148,9 +148,6 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 	if(symbol.conflict && (node.descriptor != ast::ENUM || !node.name.empty())) {
 		fprintf(out, "// warning: multiple differing types with the same name (%s not equal)\n", symbol.compare_fail_reason);
 	}
-	if(node.descriptor == ast::NodeDescriptor::TYPE_NAME && node.as<ast::TypeName>().source == ast::TypeNameSource::ERROR) {
-		fprintf(out, "// warning: this type name was generated to handle an error\n");
-	}
 	
 	VariableName name;
 	name.identifier = &symbol.name();
