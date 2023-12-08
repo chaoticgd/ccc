@@ -201,6 +201,7 @@ struct StabsStructOrUnionType : StabsType {
 	std::vector<StabsBaseClass> base_classes;
 	std::vector<StabsField> fields;
 	std::vector<StabsMemberFunctionSet> member_functions;
+	std::unique_ptr<StabsType> first_base_class;
 	
 	StabsStructOrUnionType(const StabsTypeInfo& i, StabsTypeDescriptor d) : StabsType(i, d) {}
 	
@@ -219,6 +220,9 @@ struct StabsStructOrUnionType : StabsType {
 					member_function.virtual_type->enumerate_numbered_types(output);
 				}
 			}
+		}
+		if(first_base_class.get()) {
+			first_base_class->enumerate_numbered_types(output);
 		}
 	}
 };
@@ -328,7 +332,7 @@ struct StabsBuiltInType : StabsType {
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILTIN;
 };
 
-Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
+Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input);
 std::optional<char> eat_char(const char*& input);
 std::optional<s32> eat_s32_literal(const char*& input);
 std::optional<s64> eat_s64_literal(const char*& input);

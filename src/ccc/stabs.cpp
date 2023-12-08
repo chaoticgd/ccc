@@ -8,11 +8,42 @@ namespace ccc {
 #define STABS_DEBUG(...) //__VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
+static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
 static Result<std::vector<StabsField>> parse_field_list(const char*& input);
 static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const char*& input);
 STABS_DEBUG(static void print_field(const StabsField& field);)
 
-Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
+Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input) {
+	Result<std::unique_ptr<StabsType>> type = parse_stabs_type(input);
+	CCC_RETURN_IF_ERROR(type);
+	
+	if((*type)->descriptor == StabsTypeDescriptor::STRUCT && input[0] == '~' && input[1] == '%') {
+		input += 2;
+		
+		Result<std::unique_ptr<StabsType>> first_base_class = parse_stabs_type(input);
+		CCC_RETURN_IF_ERROR(first_base_class);
+		(*type)->as<StabsStructType>().first_base_class = std::move(*first_base_class);
+		
+		CCC_EXPECT_CHAR(input, ';', "first base class suffix");
+	}
+	
+	if(input[0] == ';' && input[1] == 'l') {
+		input += 2;
+		CCC_EXPECT_CHAR(input, '(', "live range suffix");
+		CCC_EXPECT_CHAR(input, '#', "live range suffix");
+		std::optional<s32> start = eat_s32_literal(input);
+		CCC_CHECK(start.has_value(), "Failed to parse live range suffix.");
+		CCC_EXPECT_CHAR(input, ',', "live range suffix");
+		CCC_EXPECT_CHAR(input, '#', "live range suffix");
+		std::optional<s32> end = eat_s32_literal(input);
+		CCC_CHECK(end.has_value(), "Failed to parse live range suffix.");
+		CCC_EXPECT_CHAR(input, ')', "live range suffix");
+	}
+	
+	return type;
+}
+
+static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 	StabsTypeInfo info;
 	CCC_CHECK(*input != '\0', "Unexpected end of input.");
 	if(*input == '(') {
@@ -24,12 +55,12 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		std::optional<s32> file_number = eat_s32_literal(input);
 		CCC_CHECK(file_number.has_value(), "Cannot parse file number.");
 		
-		CCC_EXPECT_CHAR(input, ',', "Weird type number.");
+		CCC_EXPECT_CHAR(input, ',', "type number");
 		
 		std::optional<s32> type_number = eat_s32_literal(input);
 		CCC_CHECK(type_number.has_value(), "Cannot parse type number.");
 		
-		CCC_EXPECT_CHAR(input, ')', "Weird type number.");
+		CCC_EXPECT_CHAR(input, ')', "type number");
 		
 		info.anonymous = false;
 		info.type_number.file = *file_number;
@@ -384,6 +415,8 @@ Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			CCC_CHECK(type_id.has_value(), "Cannot parse built-in.");
 			built_in->type_id = *type_id;
 			
+			CCC_EXPECT_CHAR(input, ';', "builtin");
+			
 			out_type = std::move(built_in);
 			break;
 		}
@@ -519,7 +552,8 @@ static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const 
 			function.type = std::move(*type);
 			
 			CCC_EXPECT_CHAR(input, ':', "member function");
-			eat_dodgy_stabs_identifier(input);
+			std::optional<std::string> identifier = eat_dodgy_stabs_identifier(input);
+			CCC_CHECK(identifier.has_value(), "Invalid member function identifier.");
 			CCC_EXPECT_CHAR(input, ';', "member function");
 			
 			std::optional<char> visibility = eat_char(input);

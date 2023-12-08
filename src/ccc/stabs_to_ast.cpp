@@ -65,9 +65,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 	if(!type.has_body) {
 		// The definition of the type has been defined previously, so we have to
 		// look it up by its type number.
-		CCC_CHECK(!type.anonymous, "Cannot do type lookup (type is anonymous).");
+		CCC_CHECK(!type.anonymous, "Cannot lookup type (type is anonymous).");
 		auto stabs_type = state.stabs_types->find(type.type_number);
-		CCC_CHECK(stabs_type != state.stabs_types->end(), "Bad type lookup.");
+		CCC_CHECK(stabs_type != state.stabs_types->end(), "Failed to lookup type (%d,%d).", type.type_number.file, type.type_number.type);
 		return stabs_type_to_ast(*stabs_type->second, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
 	}
 	

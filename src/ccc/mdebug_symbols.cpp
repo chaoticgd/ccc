@@ -122,6 +122,7 @@ Result<ParsedSymbol> parse_stabs_type_symbol(const char* input) {
 	
 	std::optional<std::string> name = eat_dodgy_stabs_identifier(input);
 	CCC_CHECK(name.has_value(), "Cannot parse stabs symbol name.");
+	
 	symbol.name_colon_type.name = *name;
 	
 	CCC_EXPECT_CHAR(input, ':', "identifier");
@@ -141,8 +142,9 @@ Result<ParsedSymbol> parse_stabs_type_symbol(const char* input) {
 		input++;
 	}
 	
-	auto type = parse_stabs_type(input);
+	auto type = parse_top_level_stabs_type(input);
 	CCC_RETURN_IF_ERROR(type);
+	CCC_CHECK(*input == '\0', "Unknown data '%s' at the end of the '%s' stab.", input, name->c_str());
 	symbol.name_colon_type.type = std::move(*type);
 	
 	// Make sure that variable names aren't used as type names e.g. the STABS
