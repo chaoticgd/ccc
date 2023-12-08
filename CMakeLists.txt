@@ -50,6 +50,8 @@ add_library(ccc STATIC
 	src/ccc/mdebug_importer.h
 	src/ccc/mdebug_section.cpp
 	src/ccc/mdebug_section.h
+	src/ccc/mdebug_symbols.cpp
+	src/ccc/mdebug_symbols.h
 	src/ccc/print_cpp.cpp
 	src/ccc/print_cpp.h
 	src/ccc/registers.cpp
@@ -60,8 +62,6 @@ add_library(ccc STATIC
 	src/ccc/stabs.h
 	src/ccc/stabs_to_ast.cpp
 	src/ccc/stabs_to_ast.h
-	src/ccc/symbols.cpp
-	src/ccc/symbols.h
 	src/ccc/symbol_database.cpp
 	src/ccc/symbol_database.h
 	src/ccc/symbol_file.cpp

@@ -103,13 +103,19 @@ enum StabsCode {
 };
 
 struct Symbol {
-	const char* string;
 	s32 value;
 	SymbolType storage_type;
 	SymbolClass storage_class;
 	u32 index;
-	bool is_stabs = false;
-	StabsCode code = STAB;
+	const char* string;
+	
+	bool is_stabs() const {
+		return (index & 0xfff00) == 0x8f300;
+	}
+	
+	StabsCode code() const {
+		return (StabsCode) (index - 0x8f300);
+	}
 };
 
 enum class SourceLanguage {
@@ -153,6 +159,6 @@ protected:
 
 const char* symbol_type(SymbolType type);
 const char* symbol_class(SymbolClass symbol_class);
-const char* stabs_code(StabsCode code);
+const char* stabs_code_to_string(StabsCode code);
 
 }

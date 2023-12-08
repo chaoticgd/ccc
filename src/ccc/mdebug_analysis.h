@@ -4,9 +4,9 @@
 #pragma once
 
 #include "mdebug_section.h"
+#include "mdebug_symbols.h"
 #include "stabs.h"
 #include "stabs_to_ast.h"
-#include "symbols.h"
 #include "symbol_database.h"
 #include "symbol_table.h"
 

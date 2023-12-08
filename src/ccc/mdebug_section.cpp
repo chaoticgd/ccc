@@ -154,9 +154,9 @@ Result<File> SymbolTableReader::parse_file(s32 index) const {
 		CCC_RETURN_IF_ERROR(sym);
 		
 		bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
-		if(file.base_path.empty() && string_offset_equal && sym->is_stabs && sym->code == N_SO && file.symbols.size() > 2) {
+		if(file.base_path.empty() && string_offset_equal && sym->is_stabs() && sym->code() == N_SO && file.symbols.size() > 2) {
 			const Symbol& base_path = file.symbols.back();
-			if(base_path.is_stabs && base_path.code == N_SO) {
+			if(base_path.is_stabs() && base_path.code() == N_SO) {
 				file.base_path = base_path.string;
 			}
 		}
@@ -276,8 +276,8 @@ static void print_symbol(FILE* out, const Symbol& symbol) {
 	} else {
 		fprintf(out, "SC(%4d) ", (u32) symbol.storage_class);
 	}
-	if(symbol.is_stabs) {
-		fprintf(out, "%-8s ", stabs_code(symbol.code));
+	if(symbol.is_stabs()) {
+		fprintf(out, "%-8s ", stabs_code_to_string(symbol.code()));
 	} else {
 		fprintf(out, "SI(%4d) ", symbol.index);
 	}
@@ -327,12 +327,8 @@ static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u
 	symbol.storage_type = (SymbolType) header.st;
 	symbol.storage_class = (SymbolClass) header.sc;
 	symbol.index = header.index;
-	if((symbol.index & 0xfff00) == 0x8f300) {
-		symbol.is_stabs = true;
-		symbol.code = (StabsCode) (symbol.index - 0x8f300);
-		CCC_CHECK(stabs_code(symbol.code) != nullptr, "Bad stabs symbol code '%x'.", symbol.code);
-	} else {
-		symbol.is_stabs = false;
+	if(symbol.is_stabs()) {
+		CCC_CHECK(stabs_code_to_string(symbol.code()) != nullptr, "Bad stabs symbol code '%x'.", symbol.code());
 	}
 	return symbol;
 }
@@ -391,7 +387,7 @@ const char* symbol_class(SymbolClass symbol_class) {
 	return nullptr;
 }
 
-const char* stabs_code(StabsCode code) {
+const char* stabs_code_to_string(StabsCode code) {
 	switch(code) {
 		case STAB: return "STAB";
 		case N_GSYM: return "GSYM";

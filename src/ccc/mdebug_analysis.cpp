@@ -22,19 +22,23 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address tex
 }
 
 Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
-	Result<std::unique_ptr<ast::Node>> node = stabs_data_type_symbol_to_ast(symbol, m_stabs_to_ast_state);
-	CCC_RETURN_IF_ERROR(node);
-	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
-	const char* name = (*node)->name.c_str();
+	std::unique_ptr<ast::Node> node = stabs_type_to_ast_and_handle_errors(*symbol.name_colon_type.type.get(), m_stabs_to_ast_state, 0, 0, false, false);
+	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
+	if(symbol.name_colon_type.descriptor == mdebug::StabsSymbolDescriptor::TYPE_NAME) {
+		node->storage_class = ast::SC_TYPEDEF;
+	}
+	
+	node->stabs_type_number = symbol.name_colon_type.type->type_number;
+	const char* name = node->name.c_str();
 	
 	if(m_context.parser_flags & DONT_DEDUPLICATE_TYPES) {
 		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
-		m_source_file.stabs_type_number_to_handle[(*node)->stabs_type_number] = (*data_type)->handle();
-		(*data_type)->set_type_once(std::move(*node));
+		m_source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
+		(*data_type)->set_type_once(std::move(node));
 		
 		(*data_type)->files = {m_source_file.handle()};
 	} else {
-		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), name, m_source_file, m_context.symbol_source);
+		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(node), name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
 	}
 	

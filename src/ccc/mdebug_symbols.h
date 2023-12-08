@@ -9,6 +9,10 @@
 
 namespace ccc {
 
+struct StabsType;
+
+namespace mdebug {
+
 enum class StabsSymbolDescriptor : u8 {
 	LOCAL_VARIABLE = '_',
 	REFERENCE_PARAMETER_A = 'a',
@@ -24,8 +28,6 @@ enum class StabsSymbolDescriptor : u8 {
 	STATIC_LOCAL_VARIABLE = 'V',
 	REFERENCE_PARAMETER_V = 'v'
 };
-
-struct StabsType;
 
 enum class ParsedSymbolType {
 	NAME_COLON_TYPE,
@@ -50,4 +52,5 @@ struct ParsedSymbol {
 Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);
 Result<ParsedSymbol> parse_stabs_type_symbol(const char* input);
 
+}
 }

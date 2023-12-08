@@ -12,16 +12,6 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
 static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstState& state);
 
-Result<std::unique_ptr<ast::Node>> stabs_data_type_symbol_to_ast(const ParsedSymbol& symbol, const StabsToAstState& state) {
-	AST_DEBUG_PRINTF("ANALYSING %s\n", symbol.raw->string);
-	auto node = stabs_type_to_ast_and_handle_errors(*symbol.name_colon_type.type.get(), state, 0, 0, false, false);
-	node->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
-	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
-		node->storage_class = ast::SC_TYPEDEF;
-	}
-	return node;
-}
-
 std::unique_ptr<ast::Node> stabs_type_to_ast_and_handle_errors(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, state, abs_parent_offset_bytes, depth, substitute_type_name, false);
 	if(!node.success()) {

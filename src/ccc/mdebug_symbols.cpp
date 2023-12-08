@@ -1,9 +1,9 @@
 // This file is part of the Chaos Compiler Collection.
 // SPDX-License-Identifier: MIT
 
-#include "symbols.h"
+#include "mdebug_symbols.h"
 
-namespace ccc {
+namespace ccc::mdebug {
 
 #define SYMBOLS_DEBUG(...) //__VA_ARGS__
 #define SYMBOLS_DEBUG_PRINTF(...) SYMBOLS_DEBUG(printf(__VA_ARGS__);)
@@ -14,8 +14,8 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
 	for(const mdebug::Symbol& symbol : input) {
-		if(symbol.is_stabs) {
-			switch(symbol.code) {
+		if(symbol.is_stabs()) {
+			switch(symbol.code()) {
 				case mdebug::N_GSYM: // Global variable
 				case mdebug::N_FUN: // Function
 				case mdebug::N_STSYM: // Data section static global variable
@@ -37,7 +37,7 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 						}
 					} else {
 						CCC_CHECK(prefix.empty(), "Invalid STABS continuation.");
-						if(symbol.code == mdebug::N_FUN) {
+						if(symbol.code() == mdebug::N_FUN) {
 							ParsedSymbol& func_end = output.emplace_back();
 							func_end.type = ParsedSymbolType::FUNCTION_END;
 							func_end.raw = &symbol;
@@ -101,7 +101,7 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 				case mdebug::N_NBSTS:
 				case mdebug::N_NBLCS:
 				case mdebug::N_LENG: {
-					CCC_WARN("Unhandled N_%s symbol: %s", mdebug::stabs_code(symbol.code), symbol.string);
+					CCC_WARN("Unhandled N_%s symbol: %s", mdebug::stabs_code_to_string(symbol.code()), symbol.string);
 					break;
 				}
 			}
