@@ -582,6 +582,7 @@ static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const 
 					
 					auto virtual_type = parse_stabs_type(input);
 					CCC_RETURN_IF_ERROR(virtual_type);
+					function.virtual_type = std::move(*virtual_type);
 					
 					CCC_EXPECT_CHAR(input, ';', "virtual member function");
 					function.modifier = ast::MemberFunctionModifier::VIRTUAL;

@@ -100,6 +100,7 @@ struct StabsField {
 
 struct StabsMemberFunction {
 	std::unique_ptr<StabsType> type;
+	std::unique_ptr<StabsType> virtual_type;
 	StabsFieldVisibility visibility;
 	bool is_const = false;
 	bool is_volatile = false;
@@ -214,6 +215,9 @@ struct StabsStructOrUnionType : StabsType {
 		for(const StabsMemberFunctionSet& member_function_set : member_functions) {
 			for(const StabsMemberFunction& member_function : member_function_set.overloads) {
 				member_function.type->enumerate_numbered_types(output);
+				if(member_function.virtual_type.get()) {
+					member_function.virtual_type->enumerate_numbered_types(output);
+				}
 			}
 		}
 	}
