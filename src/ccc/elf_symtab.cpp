@@ -76,6 +76,10 @@ static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle 
 			address = symbol->value;
 		}
 		
+		if(!address.valid() || symbol->visibility() != SymbolVisibility::DEFAULT) {
+			continue;
+		}
+		
 		const char* string = get_string(elf.image, elf.sections[section.link].offset + symbol->name);
 		CCC_CHECK(string, "Symbol string out of range.");
 		
