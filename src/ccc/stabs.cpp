@@ -17,6 +17,7 @@ Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input
 	Result<std::unique_ptr<StabsType>> type = parse_stabs_type(input);
 	CCC_RETURN_IF_ERROR(type);
 	
+	// Handle first base class suffixes.
 	if((*type)->descriptor == StabsTypeDescriptor::STRUCT && input[0] == '~' && input[1] == '%') {
 		input += 2;
 		
@@ -27,6 +28,7 @@ Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input
 		CCC_EXPECT_CHAR(input, ';', "first base class suffix");
 	}
 	
+	// Handle extra live range information.
 	if(input[0] == ';' && input[1] == 'l') {
 		input += 2;
 		CCC_EXPECT_CHAR(input, '(', "live range suffix");

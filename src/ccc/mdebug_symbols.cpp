@@ -144,6 +144,18 @@ Result<ParsedSymbol> parse_stabs_type_symbol(const char* input) {
 	
 	auto type = parse_top_level_stabs_type(input);
 	CCC_RETURN_IF_ERROR(type);
+	
+	// Handle nested functions.
+	bool is_function =
+		symbol.name_colon_type.descriptor == StabsSymbolDescriptor::LOCAL_FUNCTION ||
+		symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_FUNCTION;
+	if(is_function && input[0] == ',') {
+		input++;
+		while(*input != ',' && *input != '\0') input++; // enclosing function
+		CCC_EXPECT_CHAR(input, ',', "nested function suffix");
+		while(*input != ',' && *input != '\0') input++; // function
+	}
+	
 	CCC_CHECK(*input == '\0', "Unknown data '%s' at the end of the '%s' stab.", input, name->c_str());
 	symbol.name_colon_type.type = std::move(*type);
 	
