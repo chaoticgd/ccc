@@ -33,6 +33,7 @@ static void print_types(FILE* out, const Options& options);
 static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options);
 static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options);
 static void print_type_graph(FILE* out, const Options& options);
+static void print_labels(FILE* out, const Options& options);
 static void print_json(FILE* out, const Options& options);
 static void print_symbols(FILE* out, const Options& options);
 static void print_headers(FILE* out, const Options& options);
@@ -71,6 +72,10 @@ static const StdumpCommand commands[] = {
 	}},
 	{print_type_graph, "type_graph", {
 		"Print out a dependency graph of all the types in graphviz DOT format."
+	}},
+	{print_labels, "labels", {
+		"Print all the labels recovered from the symbol table. Note that this may",
+		"include other symbols where their type is not recoverable."
 	}},
 	{print_json, "json", {
 		"Print all of the above as JSON.",
@@ -286,6 +291,15 @@ static void print_type_graph(FILE* out, const Options& options) {
 	
 	TypeDependencyAdjacencyList graph = build_type_dependency_graph(database);
 	print_type_dependency_graph(out, database, graph);
+}
+
+static void print_labels(FILE* out, const Options& options) {
+	SymbolFile symbol_file;
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
+	
+	for(const Label& label : database.labels) {
+		fprintf(out, "%08x %s\n", label.address().value, label.name().c_str());
+	}
 }
 
 static void print_json(FILE* out, const Options& options) {

@@ -13,23 +13,23 @@ enum SNDLLVersion {
 };
 
 enum class SNDLLSymbolType : u8 {
-	TYPE_0 = 0,
-	EXTERNAL = 1,
-	GLOBAL_RELATIVE = 2,
-	WEAK = 3,
-	GLOBAL_ABSOLUTE = 4
+	NIL = 0, // I think this is just so that the first real symbol has an index of 1.
+	EXTERNAL = 1, // Symbol with an empty value, to be filled in from another module.
+	RELATIVE = 2, // Global symbol, value is relative to the start of the SNDLL file.
+	WEAK = 3, // Weak symbol, value is relative to the start of the SNDLL file.
+	ABSOLUTE = 4 // Global symbol, value is an absolute address.
 };
 
 struct SNDLLSymbol {
-	SNDLLSymbolType type = SNDLLSymbolType::TYPE_0;
+	SNDLLSymbolType type = SNDLLSymbolType::NIL;
 	u32 value = 0;
-	const char* string = nullptr;
+	std::string string;
 };
 
 struct SNDLLFile {
-	std::vector<u8> image;
+	Address address;
 	SNDLLVersion version;
-	const char* elf_path = nullptr;
+	std::string elf_path;
 	std::vector<SNDLLSymbol> symbols;
 };
 

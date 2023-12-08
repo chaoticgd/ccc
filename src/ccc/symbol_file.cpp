@@ -13,13 +13,13 @@ Result<SymbolFile> parse_symbol_file(std::span<const u8> image) {
 		case CCC_FOURCC("\x7f""ELF"): {
 			Result<ElfFile> elf = parse_elf_file(image);
 			CCC_RETURN_IF_ERROR(elf);
-			return SymbolFile(*elf);
+			return SymbolFile(std::move(*elf));
 		}
 		case CCC_FOURCC("SNR1"):
 		case CCC_FOURCC("SNR2"): {
 			Result<SNDLLFile> sndll = parse_sndll_file(image);
 			CCC_RETURN_IF_ERROR(sndll);
-			return SymbolFile(*sndll);
+			return SymbolFile(std::move(*sndll));
 		}
 	}
 	
