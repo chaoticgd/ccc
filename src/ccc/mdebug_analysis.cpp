@@ -47,7 +47,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, Variable::GlobalStorage::Location location) {
+Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location) {
 	std::optional<std::string> demangled_name = demangle_name(mangled_name);
 	std::string name;
 	if(demangled_name.has_value()) {
@@ -75,10 +75,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name,
 	}
 	(*global)->set_type_once(std::move(*node));
 	
-	Variable::GlobalStorage global_storage;
-	global_storage.location = location;
-	global_storage.address = address;
-	(*global)->set_storage_once(global_storage);
+	(*global)->storage.location = location;
 	
 	return Result<void>();
 }
@@ -159,7 +156,7 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack_variable, s32 offset_or_register, bool is_by_reference) {
+Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference) {
 	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
 	
 	Result<ParameterVariable*> parameter_variable = m_database.parameter_variables.create_symbol(name, m_context.symbol_source);
@@ -170,27 +167,24 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	CCC_RETURN_IF_ERROR(node);
 	(*parameter_variable)->set_type_once(std::move(*node));
 	
-	if(is_stack_variable) {
-		Variable::StackStorage stack_storage;
-		stack_storage.stack_pointer_offset = offset_or_register;
-		(*parameter_variable)->set_storage_once(stack_storage);
+	if(is_stack) {
+		StackStorage& stack_storage = (*parameter_variable)->storage.emplace<StackStorage>();
+		stack_storage.stack_pointer_offset = value;
 	} else {
-		Variable::RegisterStorage register_storage;
-		register_storage.dbx_register_number = offset_or_register;
+		RegisterStorage& register_storage = (*parameter_variable)->storage.emplace<RegisterStorage>();
+		register_storage.dbx_register_number = value;
 		register_storage.is_by_reference = is_by_reference;
-		(*parameter_variable)->set_storage_once(register_storage);
 	}
 	
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, const Variable::Storage& storage, bool is_static) {
+Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass) {
 	if(!m_current_function) {
 		return Result<void>();
 	}
 	
-	const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&storage);
-	Address address = global_storage ? global_storage->address : Address();
+	Address address = (desc == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) ? value : Address();
 	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(name, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(local_variable);
 	m_current_local_variables.expand_to_include((*local_variable)->handle());
@@ -199,12 +193,26 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false);
 	CCC_RETURN_IF_ERROR(node);
 	
-	if(is_static) {
+	if(desc == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
+		GlobalStorage& global_storage = (*local_variable)->storage.emplace<GlobalStorage>();
+		std::optional<GlobalStorageLocation> location_opt =
+			symbol_class_to_global_variable_location(sclass);
+		CCC_CHECK(location_opt.has_value(),
+			"Invalid static local variable location %s.",
+			symbol_class(sclass));
+		global_storage.location = *location_opt;
 		(*node)->storage_class = ast::SC_STATIC;
+	} else if(desc == StabsSymbolDescriptor::REGISTER_VARIABLE) {
+		RegisterStorage& register_storage = (*local_variable)->storage.emplace<RegisterStorage>();
+		register_storage.dbx_register_number = (s32) value;
+	} else if(desc == StabsSymbolDescriptor::LOCAL_VARIABLE) {
+		StackStorage& stack_storage = (*local_variable)->storage.emplace<StackStorage>();
+		stack_storage.stack_pointer_offset = (s32) value;
+	} else {
+		return CCC_FAILURE("LocalSymbolTableAnalyser::local_variable() called with bad symbol descriptor.");
 	}
-	(*local_variable)->set_type_once(std::move(*node));
 	
-	(*local_variable)->set_storage_once(storage);
+	(*local_variable)->set_type_once(std::move(*node));
 	
 	return Result<void>();
 }
@@ -297,19 +305,19 @@ std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* m
 	return std::nullopt;
 }
 
-std::optional<Variable::GlobalStorage::Location> symbol_class_to_global_variable_location(SymbolClass symbol_class) {
-	std::optional<Variable::GlobalStorage::Location> location;
+std::optional<GlobalStorageLocation> symbol_class_to_global_variable_location(SymbolClass symbol_class) {
+	std::optional<GlobalStorageLocation> location;
 	switch(symbol_class) {
-		case SymbolClass::NIL: location = Variable::GlobalStorage::Location::NIL; break;
-		case SymbolClass::DATA: location = Variable::GlobalStorage::Location::DATA; break;
-		case SymbolClass::BSS: location = Variable::GlobalStorage::Location::BSS; break;
-		case SymbolClass::ABS: location = Variable::GlobalStorage::Location::ABS; break;
-		case SymbolClass::SDATA: location = Variable::GlobalStorage::Location::SDATA; break;
-		case SymbolClass::SBSS: location = Variable::GlobalStorage::Location::SBSS; break;
-		case SymbolClass::RDATA: location = Variable::GlobalStorage::Location::RDATA; break;
-		case SymbolClass::COMMON: location = Variable::GlobalStorage::Location::COMMON; break;
-		case SymbolClass::SCOMMON: location = Variable::GlobalStorage::Location::SCOMMON; break;
-		case SymbolClass::SUNDEFINED: location = Variable::GlobalStorage::Location::SUNDEFINED; break;
+		case SymbolClass::NIL: location = GlobalStorageLocation::NIL; break;
+		case SymbolClass::DATA: location = GlobalStorageLocation::DATA; break;
+		case SymbolClass::BSS: location = GlobalStorageLocation::BSS; break;
+		case SymbolClass::ABS: location = GlobalStorageLocation::ABS; break;
+		case SymbolClass::SDATA: location = GlobalStorageLocation::SDATA; break;
+		case SymbolClass::SBSS: location = GlobalStorageLocation::SBSS; break;
+		case SymbolClass::RDATA: location = GlobalStorageLocation::RDATA; break;
+		case SymbolClass::COMMON: location = GlobalStorageLocation::COMMON; break;
+		case SymbolClass::SCOMMON: location = GlobalStorageLocation::SCOMMON; break;
+		case SymbolClass::SUNDEFINED: location = GlobalStorageLocation::SUNDEFINED; break;
 		default: {}
 	}
 	return location;

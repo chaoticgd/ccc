@@ -265,60 +265,45 @@ protected:
 	std::unique_ptr<ast::Node> m_type;
 };
 
-// Base class for variable symbols.
+// Variable storage types. This is different to whether the variable is a
+// global, local or parameter. For example local variables can have global
+// storage (static locals).
 
-class Variable : public Symbol {
-public:
-	struct GlobalStorage {
-		enum Location {
-			NIL,
-			DATA,
-			BSS,
-			ABS,
-			SDATA,
-			SBSS,
-			RDATA,
-			COMMON,
-			SCOMMON,
-			SUNDEFINED
-		};
-		
-		Location location = Location::NIL;
-		Address address;
-		
-		static const char* location_to_string(Location location);
-		
-		GlobalStorage() {}
-		friend auto operator<=>(const GlobalStorage& lhs, const GlobalStorage& rhs) = default;
-	};
+enum GlobalStorageLocation {
+	NIL,
+	DATA,
+	BSS,
+	ABS,
+	SDATA,
+	SBSS,
+	RDATA,
+	COMMON,
+	SCOMMON,
+	SUNDEFINED
+};
 
-	struct RegisterStorage {
-		s32 dbx_register_number = -1;
-		bool is_by_reference;
-		
-		RegisterStorage() {}
-		friend auto operator<=>(const RegisterStorage& lhs, const RegisterStorage& rhs) = default;
-	};
+const char* global_storage_location_to_string(GlobalStorageLocation location);
 
-	struct StackStorage {
-		s32 stack_pointer_offset = -1;
-		
-		StackStorage() {}
-		friend auto operator<=>(const StackStorage& lhs, const StackStorage& rhs) = default;
-	};
+struct GlobalStorage {
+	GlobalStorageLocation location = GlobalStorageLocation::NIL;
 	
-	using Storage = std::variant<GlobalStorage, RegisterStorage, StackStorage>;
-	
-	const Storage& storage() const { return m_storage; }
-	void set_storage_once(Storage new_storage);
-	
-	AddressRange live_range;
+	GlobalStorage() {}
+	friend auto operator<=>(const GlobalStorage& lhs, const GlobalStorage& rhs) = default;
+};
 
-protected:
-	Address& address_ref();
+struct RegisterStorage {
+	s32 dbx_register_number = -1;
+	bool is_by_reference;
 	
-	// Default to global storage so we can assign an address in create_symbol.
-	Storage m_storage = GlobalStorage();
+	RegisterStorage() {}
+	friend auto operator<=>(const RegisterStorage& lhs, const RegisterStorage& rhs) = default;
+};
+
+struct StackStorage {
+	s32 stack_pointer_offset = -1;
+	
+	StackStorage() {}
+	friend auto operator<=>(const StackStorage& lhs, const StackStorage& rhs) = default;
 };
 
 // All the different types of symbol objects.
@@ -327,6 +312,10 @@ class DataType : public Symbol {
 	friend SourceFile;
 	friend SymbolList<DataType>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::DATA_TYPE;
+	static constexpr const char* NAME = "data type";
+	static constexpr const u32 FLAGS = WITH_NAME_MAP;
+	
 	DataTypeHandle handle() const { return m_handle; }
 	
 	std::vector<SourceFileHandle> files; // List of files for which a given top-level type is present.
@@ -334,16 +323,16 @@ public:
 	
 	bool probably_defined_in_cpp_file : 1 = false;
 	bool conflict : 1 = false;
-	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::DATA_TYPE;
-	static constexpr const char* SYMBOL_TYPE_NAME = "data type";
-	static constexpr const u32 SYMBOL_TYPE_FLAGS = WITH_NAME_MAP;
 };
 
 class Function : public Symbol {
 	friend SourceFile;
 	friend SymbolList<Function>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
+	static constexpr const char* NAME = "function";
+	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP;
+	
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
 	
@@ -357,16 +346,6 @@ public:
 	
 	const std::string& mangled_name() const;
 	const void set_mangled_name(std::string mangled);
-	
-	struct Parameter {
-		std::string name;
-		Variable variable;
-	};
-	
-	struct Local {
-		std::string name;
-		Variable variable;
-	};
 	
 	struct LineNumberPair {
 		Address address;
@@ -385,10 +364,6 @@ public:
 	std::vector<SubSourceFile> sub_source_files;
 	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
-	static constexpr const char* SYMBOL_TYPE_NAME = "function";
-	static constexpr const u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
-	
 protected:
 	Address& address_ref() { return m_address; }
 	
@@ -400,24 +375,28 @@ protected:
 	std::string m_mangled_name;
 };
 
-class GlobalVariable : public Variable {
+class GlobalVariable : public Symbol {
 	friend SourceFile;
 	friend SymbolList<GlobalVariable>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
+	static constexpr const char* NAME = "global variable";
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
+	
 	GlobalVariableHandle handle() const { return m_handle; }
-	Address address() const { return const_cast<GlobalVariable*>(this)->address_ref(); }
+	Address address() const { return m_address; }
 	SourceFileHandle source_file() const { return m_source_file; };
 	
 	const std::string& mangled_name() const;
 	const void set_mangled_name(std::string mangled);
 	
+	GlobalStorage storage;
 	ast::StorageClass storage_class;
 	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
-	static constexpr const char* SYMBOL_TYPE_NAME = "global variable";
-	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
-	
 protected:
+	Address& address_ref() { return m_address; }
+	
+	Address m_address;
 	SourceFileHandle m_source_file;
 	std::string m_mangled_name;
 };
@@ -425,12 +404,12 @@ protected:
 class Label : public Symbol {
 	friend SymbolList<Label>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LABEL;
+	static constexpr const char* NAME = "label";
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
+	
 	LabelHandle handle() const { return m_handle; }
 	Address address() const { return m_address; }
-	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LABEL;
-	static constexpr const char* SYMBOL_TYPE_NAME = "label";
-	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
 	
 protected:
 	Address& address_ref() { return m_address; }
@@ -438,31 +417,40 @@ protected:
 	Address m_address;
 };
 
-class LocalVariable : public Variable {
+class LocalVariable : public Symbol {
 	friend Function;
 	friend SymbolList<LocalVariable>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LOCAL_VARIABLE;
+	static constexpr const char* NAME = "local variable";
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
+	
+	Address address() const { return m_address; }
 	LocalVariableHandle handle() const { return m_handle; }
 	FunctionHandle function() const { return m_function; };
 	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LOCAL_VARIABLE;
-	static constexpr const char* SYMBOL_TYPE_NAME = "local variable";
-	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP;
+	std::variant<GlobalStorage, RegisterStorage, StackStorage> storage;
+	AddressRange live_range;
 	
 protected:
+	Address& address_ref() { return m_address; }
+	
+	Address m_address;
 	FunctionHandle m_function;
 };
 
-class ParameterVariable : public Variable {
+class ParameterVariable : public Symbol {
 	friend Function;
 	friend SymbolList<ParameterVariable>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::PARAMETER_VARIABLE;
+	static constexpr const char* NAME = "parameter variable";
+	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
+	
 	ParameterVariableHandle handle() const { return m_handle; }
 	FunctionHandle function() const { return m_function; };
 	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::PARAMETER_VARIABLE;
-	static constexpr const char* SYMBOL_TYPE_NAME = "parameter variable";
-	static constexpr u32 SYMBOL_TYPE_FLAGS = NO_SYMBOL_FLAGS;
+	std::variant<RegisterStorage, StackStorage> storage;
 	
 protected:
 	FunctionHandle m_function;
@@ -471,14 +459,14 @@ protected:
 class Section : public Symbol {
 	friend SymbolList<Section>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SECTION;
+	static constexpr const char* NAME = "section";
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
+	
 	SectionHandle handle() const { return m_handle; }
 	Address address() const { return m_address; }
 	
 	u32 size = 0;
-	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SECTION;
-	static constexpr const char* SYMBOL_TYPE_NAME = "section";
-	static constexpr u32 SYMBOL_TYPE_FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 
 protected:
 	Address& address_ref() { return m_address; }
@@ -489,6 +477,10 @@ protected:
 class SourceFile : public Symbol {
 	friend SymbolList<SourceFile>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SOURCE_FILE;
+	static constexpr const char* NAME = "source file";
+	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
+	
 	SourceFileHandle handle() const { return m_handle; }
 	const std::string& full_path() const { return name(); }
 	
@@ -503,10 +495,6 @@ public:
 	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
 	std::set<std::string> toolchain_version_info;
 	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SOURCE_FILE;
-	static constexpr const char* SYMBOL_TYPE_NAME = "source file";
-	static constexpr u32 SYMBOL_TYPE_FLAGS = NO_SYMBOL_FLAGS;
-	
 protected:
 	FunctionRange m_functions;
 	GlobalVariableRange m_globals_variables;
@@ -515,12 +503,12 @@ protected:
 class SymbolSource : public Symbol {
 	friend SymbolList<SymbolSource>;
 public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
+	static constexpr const char* NAME = "symbol source";
+	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
+	
 	SymbolSourceHandle handle() const { return m_handle; }
 	Address address() const { return m_address; }
-	
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
-	static constexpr const char* SYMBOL_TYPE_NAME = "symbol source";
-	static constexpr u32 SYMBOL_TYPE_FLAGS = NO_SYMBOL_FLAGS;
 
 protected:
 	Address& address_ref() { return m_address; }

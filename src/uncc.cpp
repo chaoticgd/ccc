@@ -241,8 +241,12 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 		CCC_ASSERT(source_file);
 		GlobalVariableRange global_variables = source_file->globals_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
-			if(can_refine_variable(global_variable)) {
-				Result<RefinedData> data = refine_variable(global_variable, database, read_virtual_func);
+			VariableToRefine to_refine;
+			to_refine.address = global_variable.address();
+			to_refine.storage = &global_variable.storage;
+			to_refine.type = global_variable.type();
+			if(can_refine_variable(to_refine)) {
+				Result<RefinedData> data = refine_variable(to_refine, database, read_virtual_func);
 				CCC_EXIT_IF_ERROR(data);
 				printer.global_variable(global_variable, &(*data), database);
 			} else {

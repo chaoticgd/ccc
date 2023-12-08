@@ -17,7 +17,13 @@ struct RefinedData {
 
 using ReadVirtualFunc = std::function<Result<void>(u8* dest, u32 address, u32 size)>;
 
-bool can_refine_variable(const Variable& variable);
-Result<RefinedData> refine_variable(const Variable& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual);
+struct VariableToRefine {
+	Address address;
+	const GlobalStorage* storage = nullptr;
+	const ast::Node* type = nullptr;
+};
+
+bool can_refine_variable(const VariableToRefine& variable);
+Result<RefinedData> refine_variable(const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual);
 
 }

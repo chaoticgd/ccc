@@ -262,19 +262,19 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 
 static void print_symbol(FILE* out, const Symbol& symbol) {
 	fprintf(out, "    %8x ", symbol.value);
-	const char* symbol_type_str = symbol_type(symbol.storage_type);
+	const char* symbol_type_str = symbol_type(symbol.symbol_type);
 	if(symbol_type_str) {
 		fprintf(out, "%-11s ", symbol_type_str);
 	} else {
-		fprintf(out, "ST(%7d) ", (u32) symbol.storage_type);
+		fprintf(out, "ST(%7d) ", (u32) symbol.symbol_type);
 	}
-	const char* symbol_class_str = symbol_class(symbol.storage_class);
+	const char* symbol_class_str = symbol_class(symbol.symbol_class);
 	if(symbol_class_str) {
 		fprintf(out, "%-4s ", symbol_class_str);
-	} else if ((u32) symbol.storage_class == 0) {
+	} else if ((u32) symbol.symbol_class == 0) {
 		fprintf(out, "         ");
 	} else {
-		fprintf(out, "SC(%4d) ", (u32) symbol.storage_class);
+		fprintf(out, "SC(%4d) ", (u32) symbol.symbol_class);
 	}
 	if(symbol.is_stabs()) {
 		fprintf(out, "%-8s ", stabs_code_to_string(symbol.code()));
@@ -324,8 +324,8 @@ static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u
 	symbol.string = *string;
 	
 	symbol.value = header.value;
-	symbol.storage_type = (SymbolType) header.st;
-	symbol.storage_class = (SymbolClass) header.sc;
+	symbol.symbol_type = (SymbolType) header.st;
+	symbol.symbol_class = (SymbolClass) header.sc;
 	symbol.index = header.index;
 	if(symbol.is_stabs()) {
 		CCC_CHECK(stabs_code_to_string(symbol.code()) != nullptr, "Bad stabs symbol code '%x'.", symbol.code());

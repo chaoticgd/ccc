@@ -7,7 +7,9 @@
 
 namespace ccc {
 
-static void write_json(JsonWriter& json, const Variable& symbol, const SymbolDatabase& database);
+static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database);
+static void write_json(JsonWriter& json, const RegisterStorage& storage, const SymbolDatabase& database);
+static void write_json(JsonWriter& json, const StackStorage& storage, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const Function& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database);
@@ -52,49 +54,45 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const Variable& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database) {
 	json.Key("storage");
 	json.StartObject();
-	if(const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&symbol.storage())) {
-		json.Key("type");
-		json.String("global");
-		json.Key("location");
-		json.String(Variable::GlobalStorage::location_to_string(global_storage->location));
-		json.Key("address");
-		json.Uint(global_storage->address.value);
-	}
-	if(const Variable::RegisterStorage* register_storage = std::get_if<Variable::RegisterStorage>(&symbol.storage())) {
-		auto [register_class, register_index_relative] =
-				mips::map_dbx_register_index(register_storage->dbx_register_number);
-			json.Key("type");
-			json.String("register");
-			json.Key("register");
-			json.String(mips::REGISTER_STRING_TABLES[(s32) register_class][register_index_relative]);
-			json.Key("register_class");
-			json.String(mips::REGISTER_CLASSES[(s32) register_class]);
-			json.Key("dbx_register_number");
-			json.Int(register_storage->dbx_register_number);
-			json.Key("register_index");
-			json.Int(register_index_relative);
-			json.Key("is_by_reference");
-			json.Bool(register_storage->is_by_reference);
-	}
-	
-	if(const Variable::StackStorage* stack_storage = std::get_if<Variable::StackStorage>(&symbol.storage())) {
-		json.Key("type");
-		json.String("stack");
-		json.Key("offset");
-		json.Int(stack_storage->stack_pointer_offset);
-	}
+	json.Key("type");
+	json.String("global");
+	json.Key("location");
+	json.String(global_storage_location_to_string(storage.location));
+	json.Key("address");
 	json.EndObject();
-	
-	if(symbol.live_range.valid()) {
-		json.Key("live_range");
-		json.StartArray();
-		json.Uint(symbol.live_range.low.value);
-		json.Uint(symbol.live_range.high.value);
-		json.EndArray();
-	}
+}
+
+static void write_json(JsonWriter& json, const RegisterStorage& storage, const SymbolDatabase& database) {
+	json.Key("storage");
+	json.StartObject();
+	auto [register_class, register_index_relative] =
+		mips::map_dbx_register_index(storage.dbx_register_number);
+	json.Key("type");
+	json.String("register");
+	json.Key("register");
+	json.String(mips::REGISTER_STRING_TABLES[(s32) register_class][register_index_relative]);
+	json.Key("register_class");
+	json.String(mips::REGISTER_CLASSES[(s32) register_class]);
+	json.Key("dbx_register_number");
+	json.Int(storage.dbx_register_number);
+	json.Key("register_index");
+	json.Int(register_index_relative);
+	json.Key("is_by_reference");
+	json.Bool(storage.is_by_reference);
+	json.EndObject();
+}
+
+static void write_json(JsonWriter& json, const StackStorage& storage, const SymbolDatabase& database) {
+	json.Key("storage");
+	json.StartObject();
+	json.Key("type");
+	json.String("stack");
+	json.Key("offset");
+	json.Int(storage.stack_pointer_offset);
+	json.EndObject();
 }
 
 static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDatabase& database) {
@@ -155,7 +153,12 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 }
 
 static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database) {
-	write_json(json, static_cast<const Variable&>(symbol), database);
+	if(symbol.address().valid()) {
+		json.Key("address");
+		json.Uint(symbol.address().value);
+	}
+	
+	write_json(json, symbol.storage, database);
 	
 	if(symbol.storage_class != ast::SC_NONE) {
 		json.Key("storage_class");
@@ -176,16 +179,45 @@ static void write_json(JsonWriter& json, const Label& symbol, const SymbolDataba
 }
 
 static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database) {
-	write_json(json, static_cast<const Variable&>(symbol), database);
-	
 	if(symbol.function().valid()) {
 		json.Key("function");
 		json.Uint(database.functions.index_from_handle(symbol.function()));
 	}
+	
+	if(symbol.address().valid()) {
+		json.Key("address");
+		json.Uint(symbol.address().value);
+	}
+	
+	if(const GlobalStorage* storage = std::get_if<GlobalStorage>(&symbol.storage)) {
+		write_json(json, *storage, database);
+	}
+	
+	if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&symbol.storage)) {
+		write_json(json, *storage, database);
+	}
+	
+	if(const StackStorage* storage = std::get_if<StackStorage>(&symbol.storage)) {
+		write_json(json, *storage, database);
+	}
+	
+	if(symbol.live_range.valid()) {
+		json.Key("live_range");
+		json.StartArray();
+		json.Uint(symbol.live_range.low.value);
+		json.Uint(symbol.live_range.high.value);
+		json.EndArray();
+	}
 }
 
 static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database) {
-	write_json(json, static_cast<const Variable&>(symbol), database);
+	if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&symbol.storage)) {
+		write_json(json, *storage, database);
+	}
+	
+	if(const StackStorage* storage = std::get_if<StackStorage>(&symbol.storage)) {
+		write_json(json, *storage, database);
+	}
 	
 	if(symbol.function().valid()) {
 		json.Key("function");

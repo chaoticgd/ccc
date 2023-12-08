@@ -50,7 +50,9 @@ public:
 protected:
 	void ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database);
 	void refined_data(const RefinedData& data, s32 indentation_level);
-	void variable_storage_comment(const Variable::Storage& storage);
+	void global_storage_comment(const GlobalStorage& storage, Address address);
+	void register_storage_comment(const RegisterStorage& storage);
+	void stack_storage_comment(const StackStorage& storage);
 	void offset(const ast::Node& node);
 
 	CppPrinterConfig m_config;

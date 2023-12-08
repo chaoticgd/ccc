@@ -18,22 +18,19 @@ static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
 static std::string stringf(const char* format, ...);
 
-bool can_refine_variable(const Variable& variable) {
-	const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&variable.storage());
-	if(!global_storage) return false;
-	if(global_storage->location == Variable::GlobalStorage::Location::BSS) return false;
-	if(global_storage->location == Variable::GlobalStorage::Location::SBSS) return false;
-	if(!global_storage->address.valid()) return false;
-	if(!variable.type()) return false;
+bool can_refine_variable(const VariableToRefine& variable) {
+	if(!variable.storage) return false;
+	if(variable.storage->location == GlobalStorageLocation::BSS) return false;
+	if(variable.storage->location == GlobalStorageLocation::SBSS) return false;
+	if(!variable.address.valid()) return false;
+	if(!variable.type) return false;
 	return true;
 }
 
-Result<RefinedData> refine_variable(const Variable& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual) {
-	const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&variable.storage());
-	CCC_ASSERT(global_storage);
+Result<RefinedData> refine_variable(const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual) {
+	CCC_ASSERT(variable.type);
 	DataRefinementContext context{database, read_virtual};
-	CCC_ASSERT(variable.type());
-	return refine_node(global_storage->address.value, *variable.type(), context);
+	return refine_node(variable.address.value, *variable.type, context);
 }
 
 static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {

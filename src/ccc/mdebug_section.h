@@ -104,8 +104,8 @@ enum StabsCode {
 
 struct Symbol {
 	s32 value;
-	SymbolType storage_type;
-	SymbolClass storage_class;
+	SymbolType symbol_type;
+	SymbolClass symbol_class;
 	u32 index;
 	const char* string;
 	

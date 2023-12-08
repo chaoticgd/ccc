@@ -246,11 +246,17 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 					} else {
 						
 					}
-					if(read_virtual && can_refine_variable(variable)) {
-						fprintf(out, " = ");
-						Result<RefinedData> data = refine_variable(variable, database, *read_virtual);
-						if(data.success()) {
-							refined_data(*data, 1);
+					if(read_virtual) {
+						VariableToRefine to_refine;
+						to_refine.address = variable.address();
+						to_refine.storage = std::get_if<GlobalStorage>(&variable.storage);
+						to_refine.type = variable.type();
+						if(can_refine_variable(to_refine)) {
+							fprintf(out, " = ");
+							Result<RefinedData> data = refine_variable(to_refine, database, *read_virtual);
+							if(data.success()) {
+								refined_data(*data, 1);
+							}
 						}
 					}
 					fprintf(out, ";\n");
@@ -290,7 +296,7 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData
 		fprintf(out, "\n");
 	}
 	
-	variable_storage_comment(symbol.storage());
+	global_storage_comment(symbol.storage, symbol.address());
 	
 	VariableName name;
 	name.identifier = &symbol.name();
@@ -616,29 +622,37 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags) {
 	}
 }
 
-void CppPrinter::variable_storage_comment(const Variable::Storage& storage) {
+void CppPrinter::global_storage_comment(const GlobalStorage& storage, Address address) {
 	if(m_config.print_storage_information) {
 		fprintf(out, "/* ");
-		if(const Variable::GlobalStorage* global_storage = std::get_if<Variable::GlobalStorage>(&storage)) {
-			fprintf(out, "%s", Variable::GlobalStorage::location_to_string(global_storage->location));
-			if(global_storage->address.valid()) {
-				fprintf(out, " %x", global_storage->address.value);
-			}
+		fprintf(out, "%s", global_storage_location_to_string(storage.location));
+		if(address.valid()) {
+			fprintf(out, " %x", address.value);
 		}
-		if(const Variable::RegisterStorage* register_storage = std::get_if<Variable::RegisterStorage>(&storage)) {
-			auto [register_class, register_index_relative] =
-				mips::map_dbx_register_index(register_storage->dbx_register_number);
-			const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
-			CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
-			const char* register_name = name_table[register_index_relative];
-			fprintf(out, "%s %d", register_name, register_storage->dbx_register_number);
-		}
-		if(const Variable::StackStorage* stack_storage = std::get_if<Variable::StackStorage>(&storage)) {
-			if(stack_storage->stack_pointer_offset >= 0) {
-				fprintf(out, "0x%x(sp)", stack_storage->stack_pointer_offset);
-			} else {
-				fprintf(out, "-0x%x(sp)", -stack_storage->stack_pointer_offset);
-			}
+		fprintf(out, " */ ");
+	}
+}
+
+void CppPrinter::register_storage_comment(const RegisterStorage& storage) {
+	if(m_config.print_storage_information) {
+		fprintf(out, "/* ");
+		auto [register_class, register_index_relative] =
+			mips::map_dbx_register_index(storage.dbx_register_number);
+		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
+		CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
+		const char* register_name = name_table[register_index_relative];
+		fprintf(out, "%s %d", register_name, storage.dbx_register_number);
+		fprintf(out, " */ ");
+	}
+}
+
+void CppPrinter::stack_storage_comment(const StackStorage& storage) {
+	if(m_config.print_storage_information) {
+		fprintf(out, "/* ");
+		if(storage.stack_pointer_offset >= 0) {
+			fprintf(out, "0x%x(sp)", storage.stack_pointer_offset);
+		} else {
+			fprintf(out, "-0x%x(sp)", -storage.stack_pointer_offset);
 		}
 		fprintf(out, " */ ");
 	}

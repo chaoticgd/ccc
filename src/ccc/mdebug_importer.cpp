@@ -23,8 +23,8 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const m
 	// table, so here we extract them from the external table.
 	std::map<std::string, const mdebug::Symbol*> globals;
 	for(const mdebug::Symbol& external : *external_symbols) {
-		if(external.storage_type == mdebug::SymbolType::GLOBAL
-			&& (external.storage_class != mdebug::SymbolClass::UNDEFINED)) {
+		if(external.symbol_type == mdebug::SymbolType::GLOBAL
+			&& (external.symbol_class != mdebug::SymbolClass::UNDEFINED)) {
 			globals[external.string] = &external;
 		}
 	}
@@ -80,7 +80,7 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	// Sometimes the INFO symbols contain information about what toolchain
 	// version was used for building the executable.
 	for(mdebug::Symbol& symbol : input->symbols) {
-		if(symbol.storage_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
+		if(symbol.symbol_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
 			(*source_file)->toolchain_version_info.emplace(symbol.string);
 		}
 	}
@@ -136,31 +136,8 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 					case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						const StabsType& type = *symbol.name_colon_type.type.get();
-						Variable::Storage storage;
-						bool is_static = false;
-						
-						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
-							Variable::GlobalStorage global_storage;
-							std::optional<Variable::GlobalStorage::Location> location_opt =
-								symbol_class_to_global_variable_location(symbol.raw->storage_class);
-							CCC_CHECK(location_opt.has_value(),
-								"Invalid static local variable location %s.",
-								symbol_class(symbol.raw->storage_class));
-							global_storage.location = *location_opt;
-							global_storage.address = symbol.raw->value;
-							storage = global_storage;
-							is_static = true;
-						} else if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::REGISTER_VARIABLE) {
-							Variable::RegisterStorage register_storage;
-							register_storage.dbx_register_number = symbol.raw->value;
-							storage = register_storage;
-						} else {
-							Variable::StackStorage stack_storage;
-							stack_storage.stack_pointer_offset = symbol.raw->value;
-							storage = stack_storage;
-						}
-						
-						Result<void> result = analyser.local_variable(name, type, storage, is_static);
+						Result<void> result = analyser.local_variable(
+							name, type, symbol.raw->value, symbol.name_colon_type.descriptor, symbol.raw->symbol_class);
 						CCC_RETURN_IF_ERROR(result);
 						break;
 					}
@@ -168,8 +145,8 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
 						u32 address = -1;
-						std::optional<Variable::GlobalStorage::Location> location =
-							symbol_class_to_global_variable_location(symbol.raw->storage_class);
+						std::optional<GlobalStorageLocation> location =
+							symbol_class_to_global_variable_location(symbol.raw->symbol_class);
 						if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
 							// The address for non-static global variables is
 							// only stored in the external symbol table (and
@@ -178,7 +155,7 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 							auto global_symbol = context.globals->find(symbol.name_colon_type.name);
 							if(global_symbol != context.globals->end()) {
 								address = (u32) global_symbol->second->value;
-								location = symbol_class_to_global_variable_location(global_symbol->second->storage_class);
+								location = symbol_class_to_global_variable_location(global_symbol->second->symbol_class);
 							}
 						} else {
 							// And for static global variables it's just stored
@@ -227,17 +204,17 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 				break;
 			}
 			case ParsedSymbolType::NON_STABS: {
-				if(symbol.raw->storage_class == mdebug::SymbolClass::TEXT) {
-					if(symbol.raw->storage_type == mdebug::SymbolType::PROC) {
+				if(symbol.raw->symbol_class == mdebug::SymbolClass::TEXT) {
+					if(symbol.raw->symbol_type == mdebug::SymbolType::PROC) {
 						Result<void> result = analyser.procedure(symbol.raw->string, symbol.raw->value, false);
 						CCC_RETURN_IF_ERROR(result);
-					} else if(symbol.raw->storage_type == mdebug::SymbolType::STATICPROC) {
+					} else if(symbol.raw->symbol_type == mdebug::SymbolType::STATICPROC) {
 						Result<void> result = analyser.procedure(symbol.raw->string, symbol.raw->value, true);
 						CCC_RETURN_IF_ERROR(result);
-					} else if(symbol.raw->storage_type == mdebug::SymbolType::LABEL) {
+					} else if(symbol.raw->symbol_type == mdebug::SymbolType::LABEL) {
 						Result<void> result = analyser.label(symbol.raw->string, symbol.raw->value, symbol.raw->index);
 						CCC_RETURN_IF_ERROR(result);
-					} else if(symbol.raw->storage_type == mdebug::SymbolType::END) {
+					} else if(symbol.raw->symbol_type == mdebug::SymbolType::END) {
 						Result<void> result = analyser.text_end(symbol.raw->string, symbol.raw->value);
 						CCC_RETURN_IF_ERROR(result);
 					}

@@ -133,7 +133,7 @@ bool SymbolList<SymbolType>::empty() const {
 
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address) {
-	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::SYMBOL_TYPE_NAME);
+	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::NAME);
 	
 	u32 handle = m_next_handle++;
 	
@@ -152,7 +152,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 		symbol.m_source = source;
 	}
 	
-	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP) {
+	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
 		symbol.address_ref() = address;
 	}
 	
@@ -164,7 +164,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 
 template <typename SymbolType>
 bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Address new_address) {
-	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP) {
+	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
 		SymbolType* symbol = symbol_from_handle(handle);
 		if(!symbol) {
 			return false;
@@ -184,7 +184,7 @@ bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Addres
 
 template <typename SymbolType>
 bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name) {
-	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
+	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
 		SymbolType* symbol = symbol_from_handle(handle);
 		if(!symbol) {
 			return false;
@@ -285,14 +285,14 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol) {
-	if constexpr((SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP)) {
+	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
 		m_address_to_handle.emplace(symbol.address_ref().value, symbol.m_handle);
 	}
 }
 
 template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
-	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_ADDRESS_MAP) {
+	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
 		auto iterators = m_address_to_handle.equal_range(symbol.address_ref().value);
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
 			if(iterator->second == symbol.m_handle) {
@@ -305,14 +305,14 @@ void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
 
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_name_map(SymbolType& symbol) {
-	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
+	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
 		m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
 	}
 }
 
 template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol) {
-	if constexpr(SymbolType::SYMBOL_TYPE_FLAGS & WITH_NAME_MAP) {
+	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
 		auto iterators = m_name_to_handle.equal_range(symbol.m_name);
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
 			if(iterator->second == symbol.m_handle) {
@@ -329,7 +329,7 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 
 // *****************************************************************************
 
-const char* Variable::GlobalStorage::location_to_string(Location location) {
+const char* global_storage_location_to_string(GlobalStorageLocation location) {
 	switch(location) {
 		case NIL: return "nil";
 		case DATA: return "data";
@@ -343,27 +343,6 @@ const char* Variable::GlobalStorage::location_to_string(Location location) {
 		case SUNDEFINED: return "sundefined";
 	}
 	return "";
-}
-
-void Variable::set_storage_once(Storage new_storage) {
-	GlobalStorage* old_global_storage = std::get_if<GlobalStorage>(&m_storage);
-	GlobalStorage* new_global_storage = std::get_if<GlobalStorage>(&new_storage);
-	// By default m_storage is set to global storage.
-	CCC_ASSERT(old_global_storage);
-	// Make sure we don't change the address so the address map in the symbol
-	// list doesn't get out of sync.
-	bool no_address = !new_global_storage && !old_global_storage->address.valid();
-	bool same_address = new_global_storage && new_global_storage->address == old_global_storage->address;
-	CCC_ASSERT(no_address || same_address);
-	m_storage = new_storage;
-}
-
-Address& Variable::address_ref() {
-	if(GlobalStorage* global_storage = std::get_if<GlobalStorage>(&m_storage)) {
-		return global_storage->address;
-	} else {
-		CCC_FATAL("Variable::address_ref() called for variable with non-global storage.");
-	}
 }
 
 // *****************************************************************************
