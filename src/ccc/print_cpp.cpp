@@ -391,10 +391,23 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		}
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
-			if(builtin.bclass == ast::BuiltInClass::VOID) {
-				fprintf(out, "void");
-			} else {
-				fprintf(out, "CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
+			switch(builtin.bclass) {
+				case ast::BuiltInClass::VOID:
+					fprintf(out, "void");
+					break;
+				case ast::BuiltInClass::UNSIGNED_128:
+					fprintf(out, "unsigned int __attribute__((mode (TI)))");
+					break;
+				case ast::BuiltInClass::SIGNED_128:
+					fprintf(out, "signed int __attribute__((mode (TI)))");
+					break;
+				case ast::BuiltInClass::UNQUALIFIED_128:
+				case ast::BuiltInClass::FLOAT_128:
+					fprintf(out, "int __attribute__((mode (TI)))");
+					break;
+				default:
+					fprintf(out, "CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
+					break;
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
