@@ -83,8 +83,6 @@ struct Node {
 	// should pass the name down.
 	std::string name;
 	
-	StabsTypeNumber stabs_type_number;
-	
 	s32 relative_offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 absolute_offset_bytes = -1; // Offset relative to outermost struct/union.
 	s32 size_bits = -1; // Size stored in the symbol table.

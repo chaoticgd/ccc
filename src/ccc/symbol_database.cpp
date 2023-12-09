@@ -443,7 +443,7 @@ const ast::Node* SymbolDatabase::node_pointer_from_handle(const NodeHandle& node
 	return node_handle.m_node;
 }
 
-Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, const char* name, SourceFile& source_file, SymbolSourceHandle source) {
+Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, StabsTypeNumber number, const char* name, SourceFile& source_file, SymbolSourceHandle source) {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
 	if(types_with_same_name.begin() == types_with_same_name.end()) {
@@ -452,8 +452,8 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 		CCC_RETURN_IF_ERROR(data_type);
 		
 		(*data_type)->files = {source_file.handle()};
-		if(node->stabs_type_number.type > -1) {
-			source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
+		if(number.type > -1) {
+			source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 		}
 		
 		(*data_type)->set_type_once(std::move(node));
@@ -480,8 +480,8 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 			} else {
 				// The new node matches this existing node.
 				existing_type->files.emplace_back(source_file.handle());
-				if(node->stabs_type_number.type > -1) {
-					source_file.stabs_type_number_to_handle[node->stabs_type_number] = existing_type->handle();
+				if(number.type > -1) {
+					source_file.stabs_type_number_to_handle[number] = existing_type->handle();
 				}
 				if(compare_result.type == ast::CompareResultType::MATCHES_FAVOUR_RHS) {
 					// The new node almost matches the old one, but the new one
@@ -499,8 +499,8 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 			CCC_RETURN_IF_ERROR(data_type);
 			
 			(*data_type)->files = {source_file.handle()};
-			if(node->stabs_type_number.type > -1) {
-				source_file.stabs_type_number_to_handle[node->stabs_type_number] = (*data_type)->handle();
+			if(number.type > -1) {
+				source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 			}
 			(*data_type)->compare_fail_reason = compare_fail_reason;
 			

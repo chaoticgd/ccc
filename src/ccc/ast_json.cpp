@@ -48,17 +48,6 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		json.Key("access_specifier");
 		json.String(access_specifier_to_string((AccessSpecifier) node.access_specifier));
 	}
-	if(node.stabs_type_number.type != -1) {
-		json.Key("stabs_type_number");
-		if(node.stabs_type_number.file != -1) {
-			json.StartArray();
-			json.Int(node.stabs_type_number.file);
-			json.Int(node.stabs_type_number.type);
-			json.EndArray();
-		} else {
-			json.Int(node.stabs_type_number.type);
-		}
-	}
 	
 	switch(node.descriptor) {
 		case ARRAY: {

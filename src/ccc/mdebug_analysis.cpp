@@ -30,17 +30,17 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 		(*node)->storage_class = ast::SC_TYPEDEF;
 	}
 	
-	(*node)->stabs_type_number = symbol.name_colon_type.type->type_number;
 	const char* name = (*node)->name.c_str();
+	StabsTypeNumber number = symbol.name_colon_type.type->type_number;
 	
 	if(m_context.parser_flags & DONT_DEDUPLICATE_TYPES) {
 		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
-		m_source_file.stabs_type_number_to_handle[(*node)->stabs_type_number] = (*data_type)->handle();
+		m_source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 		(*data_type)->set_type_once(std::move(*node));
 		
 		(*data_type)->files = {m_source_file.handle()};
 	} else {
-		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), name, m_source_file, m_context.symbol_source);
+		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), number, name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
 	}
 	
