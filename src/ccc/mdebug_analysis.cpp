@@ -26,7 +26,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	CCC_RETURN_IF_ERROR(node);
 	
 	(*node)->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
-	if(symbol.name_colon_type.descriptor == mdebug::StabsSymbolDescriptor::TYPE_NAME) {
+	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
 		(*node)->storage_class = ast::SC_TYPEDEF;
 	}
 	

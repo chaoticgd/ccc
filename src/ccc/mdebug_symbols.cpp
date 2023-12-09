@@ -5,11 +5,6 @@
 
 namespace ccc::mdebug {
 
-#define SYMBOLS_DEBUG(...) //__VA_ARGS__
-#define SYMBOLS_DEBUG_PRINTF(...) SYMBOLS_DEBUG(printf(__VA_ARGS__);)
-
-static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
-
 Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language) {
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
@@ -30,10 +25,14 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 						} else {
 							std::string symbol_string = prefix + symbol.string;
 							prefix.clear();
-							Result<ParsedSymbol> stabs_symbol = parse_stabs_type_symbol(symbol_string.c_str());
-							CCC_RETURN_IF_ERROR(stabs_symbol);
-							(*stabs_symbol).raw = &symbol;
-							output.emplace_back(std::move(*stabs_symbol));
+							
+							ParsedSymbol& parsed = output.emplace_back();
+							parsed.type = ParsedSymbolType::NAME_COLON_TYPE;
+							parsed.raw = &symbol;
+							
+							Result<StabsSymbol> stabs_symbol_result = parse_stabs_symbol(symbol_string.c_str());
+							CCC_RETURN_IF_ERROR(stabs_symbol_result);
+							parsed.name_colon_type = std::move(*stabs_symbol_result);
 						}
 					} else {
 						CCC_CHECK(prefix.empty(), "Invalid STABS continuation.");
@@ -112,91 +111,6 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 		}
 	}
 	return output;
-}
-
-Result<ParsedSymbol> parse_stabs_type_symbol(const char* input) {
-	SYMBOLS_DEBUG_PRINTF("PARSING %s\n", input);
-	
-	ParsedSymbol symbol;
-	symbol.type = ParsedSymbolType::NAME_COLON_TYPE;
-	
-	std::optional<std::string> name = eat_dodgy_stabs_identifier(input);
-	CCC_CHECK(name.has_value(), "Cannot parse stabs symbol name.");
-	
-	symbol.name_colon_type.name = *name;
-	
-	CCC_EXPECT_CHAR(input, ':', "identifier");
-	CCC_CHECK(*input != '\0', "Unexpected end of input.");
-	if((*input >= '0' && *input <= '9') || *input == '(') {
-		symbol.name_colon_type.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
-	} else {
-		std::optional<char> symbol_descriptor = eat_char(input);
-		CCC_CHECK(symbol_descriptor.has_value(), "Cannot parse symbol descriptor.");
-		symbol.name_colon_type.descriptor = (StabsSymbolDescriptor) *symbol_descriptor;
-	}
-	CCC_CHECK(validate_symbol_descriptor(symbol.name_colon_type.descriptor),
-		"Invalid symbol descriptor '%c'.",
-		(char) symbol.name_colon_type.descriptor);
-	CCC_CHECK(*input != '\0', "Unexpected end of input.");
-	if(*input == 't') {
-		input++;
-	}
-	
-	auto type = parse_top_level_stabs_type(input);
-	CCC_RETURN_IF_ERROR(type);
-	
-	// Handle nested functions.
-	bool is_function =
-		symbol.name_colon_type.descriptor == StabsSymbolDescriptor::LOCAL_FUNCTION ||
-		symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_FUNCTION;
-	if(is_function && input[0] == ',') {
-		input++;
-		while(*input != ',' && *input != '\0') input++; // enclosing function
-		CCC_EXPECT_CHAR(input, ',', "nested function suffix");
-		while(*input != ',' && *input != '\0') input++; // function
-	}
-	
-	CCC_CHECK(*input == '\0', "Unknown data '%s' at the end of the '%s' stab.", input, name->c_str());
-	symbol.name_colon_type.type = std::move(*type);
-	
-	// Make sure that variable names aren't used as type names e.g. the STABS
-	// symbol "somevar:P123=*456" may be referenced by the type number 123, but
-	// the type name is not "somevar".
-	bool is_type = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME
-		|| symbol.name_colon_type.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
-	if(is_type) {
-		symbol.name_colon_type.type->name = symbol.name_colon_type.name;
-	}
-	
-	symbol.name_colon_type.type->is_typedef = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME;
-	symbol.name_colon_type.type->is_root = true;
-	
-	return symbol;
-}
-
-static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
-	bool valid;
-	switch(descriptor) {
-		case StabsSymbolDescriptor::LOCAL_VARIABLE:
-		case StabsSymbolDescriptor::REFERENCE_PARAMETER_A:
-		case StabsSymbolDescriptor::LOCAL_FUNCTION:
-		case StabsSymbolDescriptor::GLOBAL_FUNCTION:
-		case StabsSymbolDescriptor::GLOBAL_VARIABLE:
-		case StabsSymbolDescriptor::REGISTER_PARAMETER:
-		case StabsSymbolDescriptor::VALUE_PARAMETER:
-		case StabsSymbolDescriptor::REGISTER_VARIABLE:
-		case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE:
-		case StabsSymbolDescriptor::TYPE_NAME:
-		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
-		case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE:
-		case StabsSymbolDescriptor::REFERENCE_PARAMETER_V:
-			valid = true;
-			break;
-		default:
-			valid = false;
-			break;
-	}
-	return valid;
 }
 
 }

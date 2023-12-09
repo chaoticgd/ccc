@@ -8,10 +8,95 @@ namespace ccc {
 #define STABS_DEBUG(...) //__VA_ARGS__
 #define STABS_DEBUG_PRINTF(...) STABS_DEBUG(printf(__VA_ARGS__);)
 
+static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
 static Result<std::vector<StabsField>> parse_field_list(const char*& input);
 static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const char*& input);
 STABS_DEBUG(static void print_field(const StabsField& field);)
+
+Result<StabsSymbol> parse_stabs_symbol(const char* input) {
+	STABS_DEBUG_PRINTF("PARSING %s\n", input);
+	
+	StabsSymbol symbol;
+	
+	std::optional<std::string> name = eat_dodgy_stabs_identifier(input);
+	CCC_CHECK(name.has_value(), "Cannot parse stabs symbol name.");
+	
+	symbol.name = *name;
+	
+	CCC_EXPECT_CHAR(input, ':', "identifier");
+	CCC_CHECK(*input != '\0', "Unexpected end of input.");
+	if((*input >= '0' && *input <= '9') || *input == '(') {
+		symbol.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
+	} else {
+		std::optional<char> symbol_descriptor = eat_char(input);
+		CCC_CHECK(symbol_descriptor.has_value(), "Cannot parse symbol descriptor.");
+		symbol.descriptor = (StabsSymbolDescriptor) *symbol_descriptor;
+	}
+	CCC_CHECK(validate_symbol_descriptor(symbol.descriptor),
+		"Invalid symbol descriptor '%c'.",
+		(char) symbol.descriptor);
+	CCC_CHECK(*input != '\0', "Unexpected end of input.");
+	if(*input == 't') {
+		input++;
+	}
+	
+	auto type = parse_top_level_stabs_type(input);
+	CCC_RETURN_IF_ERROR(type);
+	
+	// Handle nested functions.
+	bool is_function =
+		symbol.descriptor == StabsSymbolDescriptor::LOCAL_FUNCTION ||
+		symbol.descriptor == StabsSymbolDescriptor::GLOBAL_FUNCTION;
+	if(is_function && input[0] == ',') {
+		input++;
+		while(*input != ',' && *input != '\0') input++; // enclosing function
+		CCC_EXPECT_CHAR(input, ',', "nested function suffix");
+		while(*input != ',' && *input != '\0') input++; // function
+	}
+	
+	CCC_CHECK(*input == '\0', "Unknown data '%s' at the end of the '%s' stab.", input, name->c_str());
+	symbol.type = std::move(*type);
+	
+	// Make sure that variable names aren't used as type names e.g. the STABS
+	// symbol "somevar:P123=*456" may be referenced by the type number 123, but
+	// the type name is not "somevar".
+	bool is_type = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME
+		|| symbol.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG; 
+	if(is_type) {
+		symbol.type->name = symbol.name;
+	}
+	
+	symbol.type->is_typedef = symbol.descriptor == StabsSymbolDescriptor::TYPE_NAME;
+	symbol.type->is_root = true;
+	
+	return symbol;
+}
+
+static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
+	bool valid;
+	switch(descriptor) {
+		case StabsSymbolDescriptor::LOCAL_VARIABLE:
+		case StabsSymbolDescriptor::REFERENCE_PARAMETER_A:
+		case StabsSymbolDescriptor::LOCAL_FUNCTION:
+		case StabsSymbolDescriptor::GLOBAL_FUNCTION:
+		case StabsSymbolDescriptor::GLOBAL_VARIABLE:
+		case StabsSymbolDescriptor::REGISTER_PARAMETER:
+		case StabsSymbolDescriptor::VALUE_PARAMETER:
+		case StabsSymbolDescriptor::REGISTER_VARIABLE:
+		case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE:
+		case StabsSymbolDescriptor::TYPE_NAME:
+		case StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG:
+		case StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE:
+		case StabsSymbolDescriptor::REFERENCE_PARAMETER_V:
+			valid = true;
+			break;
+		default:
+			valid = false;
+			break;
+	}
+	return valid;
+}
 
 Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input) {
 	Result<std::unique_ptr<StabsType>> type = parse_stabs_type(input);
