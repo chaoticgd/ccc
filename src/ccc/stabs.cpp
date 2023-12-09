@@ -299,7 +299,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			out_type = std::move(cross_reference);
 			break;
 		}
-		case StabsTypeDescriptor::FLOATING_POINT_BUILTIN: {
+		case StabsTypeDescriptor::FLOATING_POINT_BUILTIN: { // R
 			auto fp_builtin = std::make_unique<StabsFloatingPointBuiltInType>(info);
 			
 			std::optional<s32> fpclass = eat_s32_literal(input);
@@ -311,6 +311,11 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			std::optional<s32> bytes = eat_s32_literal(input);
 			CCC_CHECK(bytes.has_value(), "Cannot parse floating point built-in.");
 			fp_builtin->bytes = *bytes;
+			
+			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
+			
+			std::optional<s32> value = eat_s32_literal(input);
+			CCC_CHECK(value.has_value(), "Cannot parse floating point built-in.");
 			
 			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
 			
