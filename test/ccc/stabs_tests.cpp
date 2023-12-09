@@ -32,7 +32,7 @@ STABS_TEST(SimpleStruct, "SimpleStruct:T(1,1)=s4a:(0,1),0,32;;") {
 	ASSERT_EQ(struct_type.fields.size(), 1);
 	ASSERT_EQ(struct_type.member_functions.size(), 0);
 	
-	StabsField& field = struct_type.fields.at(0);
+	StabsStructOrUnionType::Field& field = struct_type.fields.at(0);
 	ASSERT_EQ(field.name, "a");
 	ASSERT_EQ(field.offset_bits, 0);
 	ASSERT_EQ(field.size_bits, 32);

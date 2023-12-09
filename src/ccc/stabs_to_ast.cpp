@@ -9,8 +9,8 @@
 namespace ccc {
 
 static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
-static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
-static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstState& state);
+static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
+static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
 
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
 	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=%d name=%s\n",
@@ -177,7 +177,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			auto struct_or_union = std::make_unique<ast::StructOrUnion>();
 			struct_or_union->is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			struct_or_union->size_bits = (s32) stabs_struct_or_union->size * 8;
-			for(const StabsBaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
+			for(const StabsStructOrUnionType::BaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
 				auto base_class = stabs_type_to_ast(*stabs_base_class.type, state, abs_parent_offset_bytes, depth + 1, true, force_substitute);
 				CCC_RETURN_IF_ERROR(base_class);
 				
@@ -188,7 +188,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 				struct_or_union->base_classes.emplace_back(std::move(*base_class));
 			}
 			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
-			for(const StabsField& field : stabs_struct_or_union->fields) {
+			for(const StabsStructOrUnionType::Field& field : stabs_struct_or_union->fields) {
 				auto node = field_to_ast(field, state, abs_parent_offset_bytes, depth);
 				CCC_RETURN_IF_ERROR(node);
 				struct_or_union->fields.emplace_back(std::move(*node));
@@ -200,8 +200,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 				struct_or_union_name_no_template_parameters =
 					type.name->substr(0, type.name->find("<"));
 			}
-			for(const StabsMemberFunctionSet& function_set : stabs_struct_or_union->member_functions) {
-				for(const StabsMemberFunction& stabs_func : function_set.overloads) {
+			for(const StabsStructOrUnionType::MemberFunctionSet& function_set : stabs_struct_or_union->member_functions) {
+				for(const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
 					auto node = stabs_type_to_ast(*stabs_func.type, state, abs_parent_offset_bytes, depth + 1, true, true);
 					CCC_RETURN_IF_ERROR(node);
 					if(function_set.name == "__as") {
@@ -384,7 +384,7 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type) {
 	return CCC_FAILURE("Failed to classify range.");
 }
 
-static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsField& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
+static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
 	Result<bool> is_bitfield = detect_bitfield(field, state);
@@ -432,7 +432,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsField& field, 
 	}
 }
 
-static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstState& state) {
+static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state) {
 	// Static fields can't be bitfields.
 	if(field.is_static) {
 		return false;
@@ -503,14 +503,14 @@ static Result<bool> detect_bitfield(const StabsField& field, const StabsToAstSta
 	return field.size_bits != underlying_type_size_bits;
 }
 
-ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsFieldVisibility visibility) {
+ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility) {
 	ast::AccessSpecifier access_specifier = ast::AS_PUBLIC;
 	switch(visibility) {
-		case ccc::StabsFieldVisibility::NONE: access_specifier = ast::AS_PUBLIC; break;
-		case ccc::StabsFieldVisibility::PUBLIC: access_specifier = ast::AS_PUBLIC; break;
-		case ccc::StabsFieldVisibility::PROTECTED: access_specifier = ast::AS_PROTECTED; break;
-		case ccc::StabsFieldVisibility::PRIVATE: access_specifier = ast::AS_PRIVATE; break;
-		case ccc::StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT: access_specifier = ast::AS_PUBLIC; break;
+		case StabsStructOrUnionType::Visibility::NONE: access_specifier = ast::AS_PUBLIC; break;
+		case StabsStructOrUnionType::Visibility::PUBLIC: access_specifier = ast::AS_PUBLIC; break;
+		case StabsStructOrUnionType::Visibility::PROTECTED: access_specifier = ast::AS_PROTECTED; break;
+		case StabsStructOrUnionType::Visibility::PRIVATE: access_specifier = ast::AS_PRIVATE; break;
+		case StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT: access_specifier = ast::AS_PUBLIC; break;
 	}
 	return access_specifier;
 }

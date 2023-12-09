@@ -10,8 +10,8 @@ namespace ccc {
 
 static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
-static Result<std::vector<StabsField>> parse_field_list(const char*& input);
-static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const char*& input);
+static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input);
+static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input);
 STABS_DEBUG(static void print_field(const StabsField& field);)
 
 Result<StabsSymbol> parse_stabs_symbol(const char* input) {
@@ -304,12 +304,12 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 				CCC_CHECK(base_class_count.has_value(), "Cannot parse base class count.");
 				CCC_EXPECT_CHAR(input, ',', "base class section");
 				for(s64 i = 0; i < *base_class_count; i++) {
-					StabsBaseClass base_class;
+					StabsStructOrUnionType::BaseClass base_class;
 					eat_char(input);
 					
 					std::optional<char> visibility = eat_char(input);
 					CCC_CHECK(visibility.has_value(), "Cannot parse base class visibility.");
-					base_class.visibility = (StabsFieldVisibility) *visibility;
+					base_class.visibility = (StabsStructOrUnionType::Visibility) *visibility;
 					
 					std::optional<s32> offset = eat_s32_literal(input);
 					CCC_CHECK(offset.has_value(), "Cannot parse base class offset.");
@@ -522,8 +522,8 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 	return out_type;
 }
 
-static Result<std::vector<StabsField>> parse_field_list(const char*& input) {
-	std::vector<StabsField> fields;
+static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input) {
+	std::vector<StabsStructOrUnionType::Field> fields;
 	
 	while(*input != '\0') {
 		if(*input == ';') {
@@ -532,7 +532,7 @@ static Result<std::vector<StabsField>> parse_field_list(const char*& input) {
 		}
 		
 		const char* before_field = input;
-		StabsField field;
+		StabsStructOrUnionType::Field field;
 		
 		std::optional<std::string> name = eat_dodgy_stabs_identifier(input);
 		CCC_CHECK(name.has_value(), "Cannot parse field name.");
@@ -544,14 +544,14 @@ static Result<std::vector<StabsField>> parse_field_list(const char*& input) {
 			
 			std::optional<char> visibility = eat_char(input);
 			CCC_CHECK(visibility.has_value(), "Cannot parse field visibility.");
-			field.visibility = (StabsFieldVisibility) *visibility;
+			field.visibility = (StabsStructOrUnionType::Visibility) *visibility;
 			
 			switch(field.visibility) {
-				case StabsFieldVisibility::NONE:
-				case StabsFieldVisibility::PRIVATE:
-				case StabsFieldVisibility::PROTECTED:
-				case StabsFieldVisibility::PUBLIC:
-				case StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT:
+				case StabsStructOrUnionType::Visibility::NONE:
+				case StabsStructOrUnionType::Visibility::PRIVATE:
+				case StabsStructOrUnionType::Visibility::PROTECTED:
+				case StabsStructOrUnionType::Visibility::PUBLIC:
+				case StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT:
 					break;
 				default:
 					return CCC_FAILURE("invalid field visibility");
@@ -609,21 +609,21 @@ static Result<std::vector<StabsField>> parse_field_list(const char*& input) {
 	return fields;
 }
 
-static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const char*& input) {
+static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input) {
 	// Check for if the next character is from an enclosing field list. If this
 	// is the case, the next character will be ',' for normal fields and ':' for
 	// static fields (see above).
 	if(*input == ',' || *input == ':') {
-		return std::vector<StabsMemberFunctionSet>();
+		return std::vector<StabsStructOrUnionType::MemberFunctionSet>();
 	}
 	
-	std::vector<StabsMemberFunctionSet> member_functions;
+	std::vector<StabsStructOrUnionType::MemberFunctionSet> member_functions;
 	while(*input != '\0') {
 		if(*input == ';') {
 			input++;
 			break;
 		}
-		StabsMemberFunctionSet member_function_set;
+		StabsStructOrUnionType::MemberFunctionSet member_function_set;
 		
 		std::optional<std::string> name = eat_stabs_identifier(input);
 		CCC_CHECK(name.has_value(), "Cannot parse member function name.");
@@ -637,7 +637,7 @@ static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const 
 				break;
 			}
 			
-			StabsMemberFunction function;
+			StabsStructOrUnionType::MemberFunction function;
 			
 			auto type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(type);
@@ -650,13 +650,13 @@ static Result<std::vector<StabsMemberFunctionSet>> parse_member_functions(const 
 			
 			std::optional<char> visibility = eat_char(input);
 			CCC_CHECK(visibility.has_value(), "Cannot parse member function visibility.");
-			function.visibility = (StabsFieldVisibility) *visibility;
+			function.visibility = (StabsStructOrUnionType::Visibility) *visibility;
 			
 			switch(function.visibility) {
-				case StabsFieldVisibility::PRIVATE:
-				case StabsFieldVisibility::PROTECTED:
-				case StabsFieldVisibility::PUBLIC:
-				case StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT:
+				case StabsStructOrUnionType::Visibility::PRIVATE:
+				case StabsStructOrUnionType::Visibility::PROTECTED:
+				case StabsStructOrUnionType::Visibility::PUBLIC:
+				case StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT:
 					break;
 				default:
 					return CCC_FAILURE("Invalid visibility for member function.");
@@ -803,12 +803,12 @@ static void print_field(const StabsField& field) {
 
 )
 
-const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility) {
+const char* stabs_field_visibility_to_string(StabsStructOrUnionType::Visibility visibility) {
 	switch(visibility) {
-		case StabsFieldVisibility::PRIVATE: return "private";
-		case StabsFieldVisibility::PROTECTED: return "protected";
-		case StabsFieldVisibility::PUBLIC: return "public";
-		case StabsFieldVisibility::PUBLIC_OPTIMIZED_OUT: return "public_optimizedout";
+		case StabsStructOrUnionType::Visibility::PRIVATE: return "private";
+		case StabsStructOrUnionType::Visibility::PROTECTED: return "protected";
+		case StabsStructOrUnionType::Visibility::PUBLIC: return "public";
+		case StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT: return "public_optimizedout";
 		default: return "none";
 	}
 	return "";

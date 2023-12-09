@@ -100,45 +100,6 @@ struct StabsType : StabsTypeInfo {
 	}
 };
 
-enum class StabsFieldVisibility : u8 {
-	NONE = '\0',
-	PRIVATE = '0',
-	PROTECTED = '1',
-	PUBLIC = '2',
-	PUBLIC_OPTIMIZED_OUT = '9'
-};
-
-struct StabsBaseClass {
-	StabsFieldVisibility visibility;
-	s32 offset = -1;
-	std::unique_ptr<StabsType> type;
-};
-
-struct StabsField {
-	std::string name;
-	StabsFieldVisibility visibility = StabsFieldVisibility::NONE;
-	std::unique_ptr<StabsType> type;
-	bool is_static = false;
-	s32 offset_bits = 0;
-	s32 size_bits = 0;
-	std::string type_name;
-};
-
-struct StabsMemberFunction {
-	std::unique_ptr<StabsType> type;
-	std::unique_ptr<StabsType> virtual_type;
-	StabsFieldVisibility visibility;
-	bool is_const = false;
-	bool is_volatile = false;
-	ast::MemberFunctionModifier modifier = ast::MemberFunctionModifier::NONE;
-	s32 vtable_index = -1;
-};
-
-struct StabsMemberFunctionSet {
-	std::string name;
-	std::vector<StabsMemberFunction> overloads;
-};
-
 struct StabsTypeReferenceType : StabsType {
 	std::unique_ptr<StabsType> type;
 	
@@ -223,24 +184,63 @@ struct StabsRangeType : StabsType {
 };
 
 struct StabsStructOrUnionType : StabsType {
+	enum class Visibility : u8 {
+		NONE = '\0',
+		PRIVATE = '0',
+		PROTECTED = '1',
+		PUBLIC = '2',
+		PUBLIC_OPTIMIZED_OUT = '9'
+	};
+
+	struct BaseClass {
+		Visibility visibility;
+		s32 offset = -1;
+		std::unique_ptr<StabsType> type;
+	};
+
+	struct Field {
+		std::string name;
+		Visibility visibility = Visibility::NONE;
+		std::unique_ptr<StabsType> type;
+		bool is_static = false;
+		s32 offset_bits = 0;
+		s32 size_bits = 0;
+		std::string type_name;
+	};
+
+	struct MemberFunction {
+		std::unique_ptr<StabsType> type;
+		std::unique_ptr<StabsType> virtual_type;
+		Visibility visibility;
+		bool is_const = false;
+		bool is_volatile = false;
+		ast::MemberFunctionModifier modifier = ast::MemberFunctionModifier::NONE;
+		s32 vtable_index = -1;
+	};
+
+	struct MemberFunctionSet {
+		std::string name;
+		std::vector<MemberFunction> overloads;
+	};
+	
 	s64 size = -1;
-	std::vector<StabsBaseClass> base_classes;
-	std::vector<StabsField> fields;
-	std::vector<StabsMemberFunctionSet> member_functions;
+	std::vector<BaseClass> base_classes;
+	std::vector<Field> fields;
+	std::vector<MemberFunctionSet> member_functions;
 	std::unique_ptr<StabsType> first_base_class;
 	
 	StabsStructOrUnionType(const StabsTypeInfo& i, StabsTypeDescriptor d) : StabsType(i, d) {}
 	
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override {
 		StabsType::enumerate_numbered_types(output);
-		for(const StabsBaseClass& base_class : base_classes) {
+		for(const BaseClass& base_class : base_classes) {
 			base_class.type->enumerate_numbered_types(output);
 		}
-		for(const StabsField& field : fields) {
+		for(const Field& field : fields) {
 			field.type->enumerate_numbered_types(output);
 		}
-		for(const StabsMemberFunctionSet& member_function_set : member_functions) {
-			for(const StabsMemberFunction& member_function : member_function_set.overloads) {
+		for(const MemberFunctionSet& member_function_set : member_functions) {
+			for(const MemberFunction& member_function : member_function_set.overloads) {
 				member_function.type->enumerate_numbered_types(output);
 				if(member_function.virtual_type.get()) {
 					member_function.virtual_type->enumerate_numbered_types(output);
@@ -364,6 +364,6 @@ std::optional<s32> eat_s32_literal(const char*& input);
 std::optional<s64> eat_s64_literal(const char*& input);
 std::optional<std::string> eat_stabs_identifier(const char*& input);
 std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input);
-const char* stabs_field_visibility_to_string(StabsFieldVisibility visibility);
+const char* stabs_field_visibility_to_string(StabsStructOrUnionType::Visibility visibility);
 
 }
