@@ -45,7 +45,7 @@ public:
 	
 	bool data_type(const DataType& symbol, const SymbolDatabase& database);
 	void function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
-	void global_variable(const GlobalVariable& symbol, const RefinedData* data, const SymbolDatabase& database);
+	void global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
 	
 protected:
 	void ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database);

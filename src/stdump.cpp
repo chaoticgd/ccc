@@ -242,7 +242,7 @@ static void print_globals(FILE* out, const Options& options) {
 			first_iteration = false;
 		}
 		
-		printer.global_variable(global_variable, nullptr, database);
+		printer.global_variable(global_variable, database, nullptr);
 	}
 }
 

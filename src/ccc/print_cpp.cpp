@@ -284,13 +284,26 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData* data, const SymbolDatabase& database) {
+void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual) {
 	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
 	
+	std::optional<RefinedData> data;
+	if(read_virtual) {
+		VariableToRefine to_refine;
+		to_refine.address = symbol.address();
+		to_refine.storage = &symbol.storage;
+		to_refine.type = symbol.type();
+		if(can_refine_variable(to_refine)) {
+			Result<RefinedData> refine_result = refine_variable(to_refine, database, *read_virtual);
+			CCC_EXIT_IF_ERROR(refine_result);
+			data = std::move(*refine_result);
+		}
+	}
+	
 	bool wants_spacing = m_config.print_variable_data
-		&& data != nullptr
+		&& data.has_value()
 		&& std::get_if<std::vector<RefinedData>>(&data->value);
 	if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
@@ -305,7 +318,7 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const RefinedData
 	} else {
 		print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
 	}
-	if(data) {
+	if(data.has_value()) {
 		fprintf(out, " = ");
 		refined_data(*data, 0);
 	}
