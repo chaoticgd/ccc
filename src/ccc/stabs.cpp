@@ -12,7 +12,7 @@ static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input);
-STABS_DEBUG(static void print_field(const StabsField& field);)
+STABS_DEBUG(static void print_field(const StabsStructOrUnionType::Field& field);)
 
 const char* STAB_TRUNCATED_ERROR_MESSAGE =
 	"STABS symbol truncated. This was probably caused by a GCC bug. "
@@ -801,7 +801,7 @@ Result<std::string> eat_dodgy_stabs_identifier(const char*& input) {
 
 STABS_DEBUG(
 
-static void print_field(const StabsField& field) {
+static void print_field(const StabsStructOrUnionType::Field& field) {
 	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
 }
 
