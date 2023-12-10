@@ -538,8 +538,8 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		const char* before_field = input;
 		StabsStructOrUnionType::Field field;
 		
-		std::optional<std::string> name = eat_stabs_identifier(input);
-		CCC_CHECK(name.has_value(), "Cannot parse field name.");
+		Result<std::string> name = eat_dodgy_stabs_identifier(input);
+		CCC_RETURN_IF_ERROR(name);
 		field.name = std::move(*name);
 		
 		CCC_EXPECT_CHAR(input, ':', "identifier");
@@ -584,6 +584,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			
 			std::optional<std::string> type_name = eat_stabs_identifier(input);
 			CCC_CHECK(type_name.has_value(), "Cannot parse static field type name.");
+
 			field.type_name = std::move(*type_name);
 			
 			CCC_EXPECT_CHAR(input, ';', "identifier");
@@ -650,6 +651,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			CCC_EXPECT_CHAR(input, ':', "member function");
 			std::optional<std::string> identifier = eat_stabs_identifier(input);
 			CCC_CHECK(identifier.has_value(), "Invalid member function identifier.");
+
 			CCC_EXPECT_CHAR(input, ';', "member function");
 			
 			std::optional<char> visibility = eat_char(input);
