@@ -1,3 +1,6 @@
+// This file is part of the Chaos Compiler Collection.
+// SPDX-License-Identifier: MIT
+
 // ee-g++ simple.cpp -o simple.elf -nostdlib -gstabs
 
 typedef int int128 __attribute__((mode(TI)));

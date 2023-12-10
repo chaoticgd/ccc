@@ -12,6 +12,7 @@ namespace ccc {
 struct StabsToAstState {
 	u32 file_handle;
 	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
+	u32 parser_flags;
 };
 
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute);

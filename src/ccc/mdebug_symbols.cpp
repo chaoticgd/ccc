@@ -3,9 +3,11 @@
 
 #include "mdebug_symbols.h"
 
+#include "symbol_table.h"
+
 namespace ccc::mdebug {
 
-Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language) {
+Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags) {
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
 	for(const mdebug::Symbol& symbol : input) {
@@ -26,13 +28,21 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 							std::string symbol_string = prefix + symbol.string;
 							prefix.clear();
 							
-							ParsedSymbol& parsed = output.emplace_back();
-							parsed.type = ParsedSymbolType::NAME_COLON_TYPE;
-							parsed.raw = &symbol;
-							
-							Result<StabsSymbol> stabs_symbol_result = parse_stabs_symbol(symbol_string.c_str());
-							CCC_RETURN_IF_ERROR(stabs_symbol_result);
-							parsed.name_colon_type = std::move(*stabs_symbol_result);
+							Result<StabsSymbol> parse_result = parse_stabs_symbol(symbol_string.c_str());
+							if(parse_result.success()) {
+								ParsedSymbol& parsed = output.emplace_back();
+								parsed.type = ParsedSymbolType::NAME_COLON_TYPE;
+								parsed.raw = &symbol;
+								parsed.name_colon_type = std::move(*parse_result);
+							} else if(parse_result.error().message == STAB_TRUNCATED_ERROR_MESSAGE) {
+								// Symbol truncated due to a GCC bug. Report a
+								// warning and try to tolerate further faults
+								// caused as a result of this.
+								CCC_WARN("%s Symbol string: %s", STAB_TRUNCATED_ERROR_MESSAGE, symbol_string.c_str());
+								parser_flags &= ~STRICT_PARSING;
+							} else {
+								return parse_result;
+							}
 						}
 					} else {
 						CCC_CHECK(prefix.empty(), "Invalid STABS continuation.");

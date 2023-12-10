@@ -172,6 +172,9 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 				
 				break;
 			}
+			default: {
+				return CCC_FAILURE("The selected symbol table format isn't supported.");
+			}
 		}
 	}
 	

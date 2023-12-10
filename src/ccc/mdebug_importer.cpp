@@ -87,7 +87,8 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
-	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(input->symbols, input->detected_language);
+	u32 parser_flags_for_this_file = context.parser_flags;
+	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(input->symbols, parser_flags_for_this_file);
 	CCC_RETURN_IF_ERROR(symbols);
 	
 	// In stabs, types can be referenced by their number from other stabs,
@@ -102,6 +103,7 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	StabsToAstState stabs_to_ast_state;
 	stabs_to_ast_state.file_handle = (*source_file)->handle().value;
 	stabs_to_ast_state.stabs_types = &stabs_types;
+	stabs_to_ast_state.parser_flags = parser_flags_for_this_file;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
 	LocalSymbolTableAnalyser analyser(database, stabs_to_ast_state, context, **source_file);

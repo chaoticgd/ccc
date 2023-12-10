@@ -207,6 +207,7 @@ struct StructOrUnion : Node {
 };
 
 enum class TypeNameSource : u8 {
+	ERROR,
 	REFERENCE,
 	CROSS_REFERENCE,
 	ANONYMOUS_REFERENCE
@@ -214,7 +215,7 @@ enum class TypeNameSource : u8 {
 
 struct TypeName : Node {
 	u32 data_type_handle = (u32) -1;
-	TypeNameSource source = TypeNameSource::REFERENCE;
+	TypeNameSource source = TypeNameSource::ERROR;
 	bool is_forward_declared = false;
 	
 	struct StabsReadState {

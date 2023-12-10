@@ -3,6 +3,8 @@
 
 #include "stabs_to_ast.h"
 
+#include "symbol_table.h"
+
 #define AST_DEBUG(...) //__VA_ARGS__
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
 
@@ -67,7 +69,18 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 		// look it up by its type number.
 		CCC_CHECK(!type.anonymous, "Cannot lookup type (type is anonymous).");
 		auto stabs_type = state.stabs_types->find(type.type_number);
-		CCC_CHECK(stabs_type != state.stabs_types->end(), "Failed to lookup type (%d,%d).", type.type_number.file, type.type_number.type);
+		if(stabs_type == state.stabs_types->end()) {
+			if(state.parser_flags & STRICT_PARSING) {
+				return CCC_FAILURE("Failed to lookup STABS type by its type number (%d,%d).",
+					type.type_number.file, type.type_number.type);
+			} else {
+				CCC_WARN("Failed to lookup STABS type by its type number (%d,%d).",
+					type.type_number.file, type.type_number.type);
+				std::unique_ptr<ast::TypeName> error = std::make_unique<ast::TypeName>();
+				error->source = ast::TypeNameSource::ERROR;
+				return std::unique_ptr<ast::Node>(std::move(error));
+			}
+		}
 		return stabs_type_to_ast(*stabs_type->second, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
 	}
 	

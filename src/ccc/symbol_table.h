@@ -39,7 +39,10 @@ enum ParserFlags {
 	SKIP_FUNCTION_ANALYSIS = (1 << 1),
 	STRIP_ACCESS_SPECIFIERS = (1 << 2),
 	STRIP_MEMBER_FUNCTIONS = (1 << 3),
-	STRIP_GENERATED_FUNCTIONS = (1 << 4)
+	STRIP_GENERATED_FUNCTIONS = (1 << 4),
+	// Make bad STABS type lookups on the type number fatal. This is useful for
+	// running the tests.
+	STRICT_PARSING = (1 << 5)
 };
 
 typedef char* DemanglerFunc(const char* mangled, int options);

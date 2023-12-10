@@ -34,7 +34,7 @@ STABS_TEST(FancyTypeNumber, "s32:t(1,1)=(0,1)") {
 
 // namespace Namespace { struct A; }
 // template <typename T> struct DodgyTypeName {};
-// template class DodgyTypeName<Namespace::A>;
+// template struct DodgyTypeName<Namespace::A>;
 STABS_TEST(DodgyTypeName, "DodgyTypeName<Namespace::A>:T(1,1)=s1;") {
 	ASSERT_EQ(symbol.name, "DodgyTypeName<Namespace::A>");
 }

@@ -14,13 +14,17 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input);
 STABS_DEBUG(static void print_field(const StabsField& field);)
 
+const char* STAB_TRUNCATED_ERROR_MESSAGE =
+	"STABS symbol truncated. This was probably caused by a GCC bug. "
+	"Other symbols from the same translation unit may be invalid.";
+
 Result<StabsSymbol> parse_stabs_symbol(const char* input) {
 	STABS_DEBUG_PRINTF("PARSING %s\n", input);
 	
 	StabsSymbol symbol;
 	
-	std::optional<std::string> name = eat_dodgy_stabs_identifier(input);
-	CCC_CHECK(name.has_value(), "Cannot parse stabs symbol name.");
+	Result<std::string> name = eat_dodgy_stabs_identifier(input);
+	CCC_RETURN_IF_ERROR(name);
 	
 	symbol.name = *name;
 	
@@ -219,7 +223,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			auto enum_type = std::make_unique<StabsEnumType>(info);
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
-				std::optional<std::string> name = eat_dodgy_stabs_identifier(input);
+				std::optional<std::string> name = eat_stabs_identifier(input);
 				CCC_CHECK(name.has_value(), "Cannot parse enum field name.");
 				
 				CCC_EXPECT_CHAR(input, ':', "enum");
@@ -276,11 +280,11 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			
 			CCC_EXPECT_CHAR(input, ';', "range type descriptor");
 			
-			std::optional<std::string> low = eat_dodgy_stabs_identifier(input);
+			std::optional<std::string> low = eat_stabs_identifier(input);
 			CCC_CHECK(low.has_value(), "Cannot parse low part of range.");
 			CCC_EXPECT_CHAR(input, ';', "low range value");
 			
-			std::optional<std::string> high = eat_dodgy_stabs_identifier(input);
+			std::optional<std::string> high = eat_stabs_identifier(input);
 			CCC_CHECK(high.has_value(), "Cannot parse high part of range.");
 			CCC_EXPECT_CHAR(input, ';', "high range value");
 			
@@ -374,8 +378,8 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 					return CCC_FAILURE("Invalid cross reference type '%c'.", cross_reference->type);
 			}
 			
-			std::optional<std::string> identifier = eat_dodgy_stabs_identifier(input);
-			CCC_CHECK(identifier.has_value(), "Cannot parse cross reference identifier.");
+			Result<std::string> identifier = eat_dodgy_stabs_identifier(input);
+			CCC_RETURN_IF_ERROR(identifier);
 			cross_reference->identifier = std::move(*identifier);
 			
 			cross_reference->name = cross_reference->identifier;
@@ -534,7 +538,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		const char* before_field = input;
 		StabsStructOrUnionType::Field field;
 		
-		std::optional<std::string> name = eat_dodgy_stabs_identifier(input);
+		std::optional<std::string> name = eat_stabs_identifier(input);
 		CCC_CHECK(name.has_value(), "Cannot parse field name.");
 		field.name = std::move(*name);
 		
@@ -578,7 +582,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			input++;
 			field.is_static = true;
 			
-			std::optional<std::string> type_name = eat_dodgy_stabs_identifier(input);
+			std::optional<std::string> type_name = eat_stabs_identifier(input);
 			CCC_CHECK(type_name.has_value(), "Cannot parse static field type name.");
 			field.type_name = std::move(*type_name);
 			
@@ -644,7 +648,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			function.type = std::move(*type);
 			
 			CCC_EXPECT_CHAR(input, ':', "member function");
-			std::optional<std::string> identifier = eat_dodgy_stabs_identifier(input);
+			std::optional<std::string> identifier = eat_stabs_identifier(input);
 			CCC_CHECK(identifier.has_value(), "Invalid member function identifier.");
 			CCC_EXPECT_CHAR(input, ';', "member function");
 			
@@ -771,7 +775,7 @@ std::optional<std::string> eat_stabs_identifier(const char*& input) {
 
 // The complexity here is because the input may contain an unescaped namespace
 // separator '::' even if the field terminator is supposed to be a colon.
-std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input) {
+Result<std::string> eat_dodgy_stabs_identifier(const char*& input) {
 	std::string identifier;
 	bool first = true;
 	s32 template_depth = 0;
@@ -792,7 +796,7 @@ std::optional<std::string> eat_dodgy_stabs_identifier(const char*& input) {
 		}
 		first = false;
 	}
-	return std::nullopt;
+	return CCC_FAILURE(STAB_TRUNCATED_ERROR_MESSAGE);
 }
 
 STABS_DEBUG(

@@ -602,7 +602,11 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
 			const DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
-			fprintf(out, "%s", data_type ? data_type->name().c_str() : "CCC_BAD_TYPE_NAME");
+			if(type_name.source != ast::TypeNameSource::ERROR && data_type) {
+				fprintf(out, "%s", data_type->name().c_str());
+			} else {
+				fprintf(out, "CCC_ERROR");
+			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}

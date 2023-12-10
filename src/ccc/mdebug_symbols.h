@@ -29,7 +29,7 @@ struct ParsedSymbol {
 	StabsSymbol name_colon_type;
 };
 
-Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, mdebug::SourceLanguage detected_language);
+Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags);
 
 }
 }

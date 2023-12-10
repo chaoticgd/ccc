@@ -38,6 +38,7 @@ static int main_test(const fs::path& input_directory) {
 			if(symbol_file.success()) {
 				SymbolDatabase database;
 				SymbolTableConfig importer_config;
+				importer_config.parser_flags = STRICT_PARSING;
 				Result<SymbolSourceHandle> handle = import_symbol_table(database, *symbol_file, importer_config);
 				CCC_EXIT_IF_ERROR(handle);
 			} else {
