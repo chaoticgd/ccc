@@ -251,7 +251,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 			out_type = std::move(function);
 			break;
 		}
-		case StabsTypeDescriptor::VOLATILE_QUALIFIER: { // k
+		case StabsTypeDescriptor::VOLATILE_QUALIFIER: { // B
 			auto volatile_qualifier = std::make_unique<StabsVolatileQualifierType>(info);
 			
 			auto type = parse_stabs_type(input);

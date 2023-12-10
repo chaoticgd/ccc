@@ -60,8 +60,10 @@ STABS_TEST(TypeReference, "s32:t(1,1)=(0,1)") {
 // typedef int Array[1][2];
 STABS_TEST(MultiDimensionalArray, "Array:t(1,1)=(1,2)=ar(1,3)=r(1,3);0;4294967295;;0;0;(1,4)=ar(1,3);0;1;(1,5)=ar(1,3);0;2;(0,1)") {
 	StabsTypeReferenceType& type_reference = symbol.type->as<StabsTypeReferenceType>();
-	StabsArrayType& array = type_reference.type->as<StabsArrayType>();
-	
+	StabsArrayType& outer_array = type_reference.type->as<StabsArrayType>();
+	ASSERT_EQ(outer_array.index_type->as<StabsRangeType>().high, "0");
+	StabsArrayType& inner_array = outer_array.element_type->as<StabsArrayType>();
+	ASSERT_EQ(inner_array.index_type->as<StabsRangeType>().high, "1");
 }
 
 // enum E { A = 0, B = 1, C = 2147483647, D = -2147483648 };
@@ -85,6 +87,14 @@ STABS_TEST(Function, "function:t(1,1)=(1,2)=f(0,1)") {
 	ASSERT_EQ(function.return_type->type_number.file, 0);
 	ASSERT_EQ(function.return_type->type_number.type, 1);
 }
+
+// Synthetic example.
+// typedef volatile int VolatileInt;
+STABS_TEST(VolatileQualifier, "VolatileInt:t(1,1)=B(0,1)") {}
+
+// Synthetic example.
+// typedef const int ConstInt;
+STABS_TEST(ConstQualifier, "ConstInt:t(1,1)=k(0,1)") {}
 
 // int
 STABS_TEST(RangeBuiltIn, "int:t(0,1)=r(0,1);-2147483648;2147483647;") {
@@ -152,7 +162,7 @@ STABS_TEST(CrossReference, "ForwardDeclaredPtr:t(1,1)=(1,2)=*(1,3)=xsForwardDecl
 	ASSERT_EQ(cross_reference.identifier, "ForwardDeclared");
 }
 
-// Synthetic example. Something like:
+// Synthetic example.
 // typedef int Struct::*pointer_to_data_member;
 STABS_TEST(PointerToDataMember, "pointer_to_data_member:t(1,1)=(1,2)=*(1,3)=@(1,4)=xsStruct:,(0,1)") {
 	StabsTypeReferenceType& type_reference = symbol.type->as<StabsTypeReferenceType>();
