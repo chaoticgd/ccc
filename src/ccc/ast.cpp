@@ -63,7 +63,7 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(check_intrusive_fields) {
 		if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
-		if(node_lhs.name != node_rhs.name) return CompareFailReason::NAME;
+		if(node_lhs.name != node_rhs.name && !(node_lhs.is_vtable_pointer && node_rhs.is_vtable_pointer)) return CompareFailReason::NAME;
 		if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
 		if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
 		if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;

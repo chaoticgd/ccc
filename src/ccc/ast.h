@@ -75,6 +75,7 @@ struct Node {
 	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	u8 storage_class : 4 = SC_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
+	u8 is_vtable_pointer : 1 = false;
 	
 	s32 computed_size_bytes = -1; // Calculated by compute_size_bytes_recursive.
 	

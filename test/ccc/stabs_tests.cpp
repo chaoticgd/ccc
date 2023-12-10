@@ -39,7 +39,14 @@ STABS_TEST(DodgyTypeName, "DodgyTypeName<Namespace::A>:T(1,1)=s1;") {
 	ASSERT_EQ(symbol.name, "DodgyTypeName<Namespace::A>");
 }
 
-STABS_TEST(DodgyVtablePointer, "DodgyVtablePointer<Namespace::A>:T(1,2)=s4_vptr$DodgyVtablePointer<Namespace::A>:(1,1),0,32;;") {}
+// Synthetic example. Something like:
+// namespace Namespace { struct A; }
+// template <typename T> struct DodgyVtablePointer { virtual ~DodgyVtablePointer(); };
+// template struct DodgyVtablePointer<Namespace::A>;
+STABS_TEST(DodgyVtablePointer, "DodgyVtablePointer<Namespace::A>:T(1,2)=s4_vptr$DodgyVtablePointer<Namespace::A>:(1,1),0,32;;") {
+	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
+	ASSERT_EQ(struct_type.fields.at(0).name, "_vptr$DodgyVtablePointer<Namespace::A>");
+}
 
 // typedef int s32;
 STABS_TEST(TypeReference, "s32:t(1,1)=(0,1)") {
@@ -98,6 +105,13 @@ STABS_TEST(SimpleStruct, "SimpleStruct:T(1,1)=s4a:(0,1),0,32;;") {
 	ASSERT_EQ(field.name, "a");
 	ASSERT_EQ(field.offset_bits, 0);
 	ASSERT_EQ(field.size_bits, 32);
+}
+
+// template <int num> struct VirtualFunctionStruct { virtual void func() {} };
+// template struct VirtualFunctionStruct<1>;
+STABS_TEST(VirtualFunction, "VirtualFunctionStruct<1>:T(1,1)=s4_vptr.VirtualFunctionStruct:(1,2)=*(0,25),0,32;;") {
+	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
+	ASSERT_EQ(struct_type.fields.at(0).name, "_vptr.VirtualFunctionStruct");
 }
 
 // union Union { int i; float f; };

@@ -570,7 +570,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		field.type = std::move(*type);
 		
 		if(field.name.size() >= 1 && field.name[0] == '$') {
-			// Virtual table pointers.
+			// Virtual table pointers that don't specify a size.
 			CCC_EXPECT_CHAR(input, ',', "field type");
 			
 			std::optional<s32> offset_bits = eat_s32_literal(input);
@@ -579,6 +579,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			
 			CCC_EXPECT_CHAR(input, ';', "field offset");
 		} else if(*input == ':') {
+			// Static fields.
 			input++;
 			field.is_static = true;
 			
@@ -589,6 +590,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			
 			CCC_EXPECT_CHAR(input, ';', "identifier");
 		} else if(*input == ',') {
+			// Normal fields.
 			input++;
 			
 			std::optional<s32> offset_bits = eat_s32_literal(input);
