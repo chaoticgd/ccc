@@ -312,8 +312,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
-		case StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER: {
-			const auto& stabs_member_pointer = type.as<StabsPointerToNonStaticDataMember>();
+		case StabsTypeDescriptor::POINTER_TO_DATA_MEMBER: {
+			const auto& stabs_member_pointer = type.as<StabsPointerToDataMemberType>();
 			auto member_pointer = std::make_unique<ast::PointerToDataMember>();
 			
 			auto class_node = stabs_type_to_ast(*stabs_member_pointer.class_type.get(), state, abs_parent_offset_bytes, depth + 1, true, true);

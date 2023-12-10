@@ -50,7 +50,7 @@ enum class StabsTypeDescriptor : u8 {
 	REFERENCE = '&',
 	POINTER = '*',
 	TYPE_ATTRIBUTE = '@',
-	POINTER_TO_NON_STATIC_MEMBER = 0xee, // also '@'
+	POINTER_TO_DATA_MEMBER = 0xee, // also '@'
 	BUILTIN = '-'
 };
 
@@ -337,12 +337,12 @@ struct StabsSizeTypeAttributeType : StabsType {
 	}
 };
 
-struct StabsPointerToNonStaticDataMember : StabsType {
+struct StabsPointerToDataMemberType : StabsType {
 	std::unique_ptr<StabsType> class_type;
 	std::unique_ptr<StabsType> member_type;
 	
-	StabsPointerToNonStaticDataMember(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
-	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::POINTER_TO_NON_STATIC_MEMBER;
+	StabsPointerToDataMemberType(const StabsTypeInfo& i) : StabsType(i, DESCRIPTOR) {}
+	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::POINTER_TO_DATA_MEMBER;
 	
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override {
 		StabsType::enumerate_numbered_types(output);

@@ -473,7 +473,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 		}
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: { // @
 			if((*input >= '0' && *input <= '9') || *input == '(') {
-				auto member_pointer = std::make_unique<StabsPointerToNonStaticDataMember>(info);
+				auto member_pointer = std::make_unique<StabsPointerToDataMemberType>(info);
 				
 				auto class_type = parse_stabs_type(input);
 				CCC_RETURN_IF_ERROR(class_type);

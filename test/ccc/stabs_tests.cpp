@@ -109,7 +109,7 @@ STABS_TEST(SimpleStruct, "SimpleStruct:T(1,1)=s4a:(0,1),0,32;;") {
 
 // template <int num> struct VirtualFunctionStruct { virtual void func() {} };
 // template struct VirtualFunctionStruct<1>;
-STABS_TEST(VirtualFunction, "VirtualFunctionStruct<1>:T(1,1)=s4_vptr.VirtualFunctionStruct:(1,2)=*(0,25),0,32;;") {
+STABS_TEST(VirtualFunctionStruct, "VirtualFunctionStruct<1>:T(1,1)=s4_vptr.VirtualFunctionStruct:(1,2)=*(0,25),0,32;;") {
 	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
 	ASSERT_EQ(struct_type.fields.at(0).name, "_vptr.VirtualFunctionStruct");
 }
@@ -123,8 +123,42 @@ STABS_TEST(Union, "Union:T(1,1)=u4i:(0,1),0,32;f:(0,14),0,32;;") {
 	ASSERT_EQ(union_type.member_functions.size(), 0);
 }
 
+// struct NestedStructsAndUnions {
+// 	union { struct { int a; } b; } c;
+// 	struct { int d; } e;
+// };
+STABS_TEST(NestedStructsAndUnions, "NestedStructsAndUnions:T(1,1)=s8c:(1,2)=u4b:(1,3)=s4a:(0,1),0,32;;,0,32;;,0,32;e:(1,4)=s4d:(0,1),0,32;;,32,32;;") {
+	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
+	StabsStructOrUnionType::Field& c = struct_type.fields.at(0);
+	ASSERT_EQ(c.name, "c");
+	StabsUnionType& c_type = c.type->as<StabsUnionType>();
+	StabsStructOrUnionType::Field& b = c_type.fields.at(0);
+	ASSERT_EQ(c_type.fields.at(0).name, "b");
+	StabsStructOrUnionType::Field& a = b.type->as<StabsStructType>().fields.at(0);
+	ASSERT_EQ(a.name, "a");
+	StabsStructOrUnionType::Field& e = struct_type.fields.at(1);
+	ASSERT_EQ(e.name, "e");
+	StabsStructOrUnionType::Field& d = e.type->as<StabsStructType>().fields.at(0);
+	ASSERT_EQ(d.name, "d");
+}
+
 // struct ForwardDeclared;
 // typedef ForwardDeclared* ForwardDeclaredPtr;
 STABS_TEST(CrossReference, "ForwardDeclaredPtr:t(1,1)=(1,2)=*(1,3)=xsForwardDeclared:") {
-	
+	StabsTypeReferenceType& type_reference = symbol.type->as<StabsTypeReferenceType>();
+	StabsPointerType& pointer = type_reference.type->as<StabsPointerType>();
+	StabsCrossReferenceType& cross_reference = pointer.value_type->as<StabsCrossReferenceType>();
+	ASSERT_EQ(cross_reference.type, ast::ForwardDeclaredType::STRUCT);
+	ASSERT_EQ(cross_reference.identifier, "ForwardDeclared");
 }
+
+// Synthetic example. Something like:
+// typedef int Struct::*pointer_to_data_member;
+STABS_TEST(PointerToDataMember, "pointer_to_data_member:t(1,1)=(1,2)=*(1,3)=@(1,4)=xsStruct:,(0,1)") {
+	StabsTypeReferenceType& type_reference = symbol.type->as<StabsTypeReferenceType>();
+	StabsPointerType& pointer = type_reference.type->as<StabsPointerType>();
+	StabsPointerToDataMemberType& pointer_to_data_member = pointer.value_type->as<StabsPointerToDataMemberType>();
+	StabsCrossReferenceType& class_type = pointer_to_data_member.class_type->as<StabsCrossReferenceType>();
+	ASSERT_EQ(class_type.identifier, "Struct");
+}
+
