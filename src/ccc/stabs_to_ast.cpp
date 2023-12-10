@@ -431,7 +431,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionT
 		(*node)->size_bits = field.size_bits;
 		(*node)->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
 		
-		if(field.name.starts_with("$vf")) {
+		if(field.name.starts_with("$vf") || field.name.starts_with("_vptr$")) {
 			(*node)->name = "__vtable";
 		} else if(field.name != " ") {
 			(*node)->name = field.name;

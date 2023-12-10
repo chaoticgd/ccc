@@ -39,6 +39,8 @@ STABS_TEST(DodgyTypeName, "DodgyTypeName<Namespace::A>:T(1,1)=s1;") {
 	ASSERT_EQ(symbol.name, "DodgyTypeName<Namespace::A>");
 }
 
+STABS_TEST(DodgyVtablePointer, "DodgyVtablePointer<Namespace::A>:T(1,2)=s4_vptr$DodgyVtablePointer<Namespace::A>:(1,1),0,32;;") {}
+
 // typedef int s32;
 STABS_TEST(TypeReference, "s32:t(1,1)=(0,1)") {
 	StabsTypeReferenceType& type_reference = symbol.type->as<StabsTypeReferenceType>();
