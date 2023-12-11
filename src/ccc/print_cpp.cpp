@@ -145,7 +145,7 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 		fprintf(out, "\n");
 	}
 	
-	if(symbol.conflict && (node.descriptor != ast::ENUM || !node.name.empty())) {
+	if(symbol.compare_fail_reason && (node.descriptor != ast::ENUM || !node.name.empty())) {
 		fprintf(out, "// warning: multiple differing types with the same name (%s not equal)\n", symbol.compare_fail_reason);
 	}
 	

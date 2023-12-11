@@ -4,11 +4,18 @@
 #include "ast.h"
 
 #include "symbol_database.h"
+#include "symbol_table.h"
 
 namespace ccc::ast {
 
 static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
+
+void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags) {
+	if((parser_flags & NO_ACCESS_SPECIFIERS) == 0) {
+		access_specifier = specifier;
+	}
+}
 
 // Some enums have two symbols associated with them: One named " " and another
 // one referencing the first.

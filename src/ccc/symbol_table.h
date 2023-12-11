@@ -37,9 +37,9 @@ enum ParserFlags {
 	NO_PARSER_FLAGS = 0,
 	DONT_DEDUPLICATE_TYPES = (1 << 0),
 	SKIP_FUNCTION_ANALYSIS = (1 << 1),
-	STRIP_ACCESS_SPECIFIERS = (1 << 2),
-	STRIP_MEMBER_FUNCTIONS = (1 << 3),
-	STRIP_GENERATED_FUNCTIONS = (1 << 4),
+	NO_ACCESS_SPECIFIERS = (1 << 2),
+	NO_MEMBER_FUNCTIONS = (1 << 3),
+	NO_GENERATED_MEMBER_FUNCTIONS = (1 << 4),
 	// Make bad STABS type lookups on the type number fatal. This is useful for
 	// running the tests.
 	STRICT_PARSING = (1 << 5)

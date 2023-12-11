@@ -12,7 +12,6 @@ namespace ccc {
 Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config);
 static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(const ElfFile& elf, const SymbolTableConfig& config);
 static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config);
-static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags);
 static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database);
 
 const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
@@ -100,7 +99,6 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 			#define CCC_X(SymbolType, symbol_list) \
 				for(SymbolType& symbol : database.symbol_list) { \
 					if(symbol.type()) { \
-						filter_ast_by_flags(*symbol.type(), config.parser_flags); \
 						compute_size_bytes_recursive(*symbol.type(), database); \
 					} \
 				}
@@ -232,51 +230,6 @@ static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config)
 	CCC_CHECK(!config.format.has_value() || *config.format == SNDLL,
 		"Symbol table format specified for SNDLL file is not 'sndll'.");
 	return Result<void>();
-}
-
-static void filter_ast_by_flags(ast::Node& ast_node, u32 parser_flags) {
-	for_each_node(ast_node, ast::PREORDER_TRAVERSAL, [&](ast::Node& node) {
-		if(parser_flags & STRIP_ACCESS_SPECIFIERS) {
-			node.access_specifier = ast::AS_PUBLIC;
-		}
-		if(node.descriptor == ast::STRUCT_OR_UNION) {
-			auto& struct_or_union = node.as<ast::StructOrUnion>();
-			if(parser_flags & STRIP_MEMBER_FUNCTIONS) {
-				struct_or_union.member_functions.clear();
-			} else if(parser_flags & STRIP_GENERATED_FUNCTIONS) {
-				auto is_special = [](const ast::Function& function, const std::string& name_no_template_args) {
-					return function.name == "operator="
-						|| function.name.starts_with("$")
-						|| (function.name == name_no_template_args
-							&& function.parameters->size() == 0);
-				};
-				
-				std::string name_no_template_args =
-					node.name.substr(0, node.name.find("<"));
-				bool only_special_functions = true;
-				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-						ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-						if(!is_special(function, name_no_template_args)) {
-							only_special_functions = false;
-						}
-					}
-				}
-				if(only_special_functions) {
-					for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-						if(struct_or_union.member_functions[i]->descriptor == ast::NodeDescriptor::FUNCTION) {
-							ast::Function& function = struct_or_union.member_functions[i]->as<ast::Function>();
-							if(is_special(function, name_no_template_args)) {
-								struct_or_union.member_functions.erase(struct_or_union.member_functions.begin() + i);
-								i--;
-							}
-						}
-					}
-				}
-			}
-		}
-		return ast::EXPLORE_CHILDREN;
-	});
 }
 
 static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database) {

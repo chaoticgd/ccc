@@ -64,18 +64,18 @@ enum AccessSpecifier {
 //  5. Add support for it in compare_nodes.
 //  6. Add support for it in node_type_to_string.
 //  7. Add support for it in CppPrinter::ast_node.
-//  8. Add support for it in print_json_ast_node.
-//  9. Add support for it in refine_global_variable.
+//  8. Add support for it in write_json.
+//  9. Add support for it in refine_node.
 struct Node {
 	NodeDescriptor descriptor;
 	u8 is_const : 1 = false;
 	u8 is_volatile : 1 = false;
 	u8 is_base_class : 1 = false;
+	u8 is_vtable_pointer : 1 = false;
 	u8 cannot_compute_size : 1 = false;
-	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	u8 storage_class : 4 = SC_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
-	u8 is_vtable_pointer : 1 = false;
+	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	
 	s32 computed_size_bytes = -1; // Calculated by compute_size_bytes_recursive.
 	
@@ -109,6 +109,8 @@ struct Node {
 		CCC_ASSERT(lhs.descriptor == SubType::DESCRIPTOR && rhs.descriptor == SubType::DESCRIPTOR);
 		return std::pair<const SubType&, const SubType&>(static_cast<const SubType&>(lhs), static_cast<const SubType&>(rhs));
 	}
+	
+	void set_access_specifier(AccessSpecifier specifier, u32 parser_flags);
 };
 
 struct Array : Node {

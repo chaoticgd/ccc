@@ -340,9 +340,9 @@ static void print_headers(FILE* out, const Options& options) {
 static u32 command_line_flags_to_parser_flags(u32 flags) {
 	u32 parser_flags = NO_PARSER_FLAGS;
 	if(flags & FLAG_PER_FILE) parser_flags |= DONT_DEDUPLICATE_TYPES;
-	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) parser_flags |= STRIP_ACCESS_SPECIFIERS;
-	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) parser_flags |= STRIP_MEMBER_FUNCTIONS;
-	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) parser_flags |= STRIP_GENERATED_FUNCTIONS;
+	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) parser_flags |= NO_ACCESS_SPECIFIERS;
+	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) parser_flags |= NO_MEMBER_FUNCTIONS;
+	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) parser_flags |= NO_GENERATED_MEMBER_FUNCTIONS;
 	return parser_flags;
 }
 

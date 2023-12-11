@@ -13,6 +13,7 @@ namespace ccc {
 static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
 static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
+static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
 	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=%d name=%s\n",
@@ -196,7 +197,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 				
 				(*base_class)->is_base_class = true;
 				(*base_class)->absolute_offset_bytes = stabs_base_class.offset;
-				(*base_class)->access_specifier = stabs_field_visibility_to_access_specifier(stabs_base_class.visibility);
+				(*base_class)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_base_class.visibility), state.parser_flags);
 				
 				struct_or_union->base_classes.emplace_back(std::move(*base_class));
 			}
@@ -207,35 +208,14 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 				struct_or_union->fields.emplace_back(std::move(*node));
 			}
 			AST_DEBUG_PRINTF("%-*s endfields\n", depth * 4, "");
+			
 			AST_DEBUG_PRINTF("%-*s beginmemberfuncs\n", depth * 4, "");
-			std::string struct_or_union_name_no_template_parameters;
-			if(type.name.has_value()) {
-				struct_or_union_name_no_template_parameters =
-					type.name->substr(0, type.name->find("<"));
-			}
-			for(const StabsStructOrUnionType::MemberFunctionSet& function_set : stabs_struct_or_union->member_functions) {
-				for(const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
-					auto node = stabs_type_to_ast(*stabs_func.type, state, abs_parent_offset_bytes, depth + 1, true, true);
-					CCC_RETURN_IF_ERROR(node);
-					if(function_set.name == "__as") {
-						(*node)->name = "operator=";
-					} else {
-						(*node)->name = function_set.name;
-					}
-					if((*node)->descriptor == ast::FUNCTION) {
-						ast::Function& function = (*node)->as<ast::Function>();
-						function.modifier = stabs_func.modifier;
-						function.is_constructor = false;
-						if(type.name.has_value()) {
-							function.is_constructor |= function_set.name == type.name;
-							function.is_constructor |= function_set.name == struct_or_union_name_no_template_parameters;
-						}
-						function.vtable_index = stabs_func.vtable_index;
-					}
-					(*node)->access_specifier = stabs_field_visibility_to_access_specifier(stabs_func.visibility);
-					struct_or_union->member_functions.emplace_back(std::move(*node));
-				}
-			}
+			
+			Result<std::vector<std::unique_ptr<ast::Node>>> member_functions =
+				member_functions_to_ast(*stabs_struct_or_union, state, abs_parent_offset_bytes, depth);
+			CCC_RETURN_IF_ERROR(member_functions);
+			struct_or_union->member_functions = std::move(*member_functions);
+			
 			AST_DEBUG_PRINTF("%-*s endmemberfuncs\n", depth * 4, "");
 			result = std::move(struct_or_union);
 			break;
@@ -415,7 +395,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionT
 		bitfield->size_bits = field.size_bits;
 		bitfield->underlying_type = std::move(*bitfield_node);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
-		bitfield->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
+		bitfield->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.parser_flags);
 		
 		return std::unique_ptr<ast::Node>(std::move(bitfield));
 	} else {
@@ -430,7 +410,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionT
 		(*node)->relative_offset_bytes = relative_offset_bytes;
 		(*node)->absolute_offset_bytes = absolute_offset_bytes;
 		(*node)->size_bits = field.size_bits;
-		(*node)->access_specifier = stabs_field_visibility_to_access_specifier(field.visibility);
+		(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.parser_flags);
 		
 		if(field.name.starts_with("$vf") || field.name.starts_with("_vptr$") || field.name.starts_with("_vptr.")) {
 			(*node)->is_vtable_pointer = true;
@@ -513,6 +493,76 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 	}
 	
 	return field.size_bits != underlying_type_size_bits;
+}
+
+static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
+	if(state.parser_flags & NO_MEMBER_FUNCTIONS) {
+		return std::vector<std::unique_ptr<ast::Node>>();
+	}
+	
+	std::string_view type_name_no_template_args;
+	if(type.name.has_value()) {
+		type_name_no_template_args =
+			type.name->substr(0, type.name->find("<"));
+	}
+	
+	if(state.parser_flags & NO_GENERATED_MEMBER_FUNCTIONS) {
+		bool only_special_functions = true;
+		for(const StabsStructOrUnionType::MemberFunctionSet& function_set : type.member_functions) {
+			for(const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
+				StabsType& func_type = *stabs_func.type;
+				if(func_type.descriptor == StabsTypeDescriptor::FUNCTION || func_type.descriptor == StabsTypeDescriptor::METHOD) {
+					size_t parameter_count = 0;
+					if(func_type.descriptor == StabsTypeDescriptor::METHOD) {
+						parameter_count = func_type.as<StabsMethodType>().parameter_types.size();
+					}
+					bool is_special = false;
+					is_special |= function_set.name == "__as";
+					is_special |= function_set.name == "operator=";
+					is_special |= function_set.name.starts_with("$");
+					is_special |= (function_set.name == type_name_no_template_args && parameter_count == 0);
+					if(!is_special) {
+						only_special_functions = false;
+						break;
+					}
+				}
+			}
+			if(!only_special_functions) {
+				break;
+			}
+		}
+		if(only_special_functions) {
+			return std::vector<std::unique_ptr<ast::Node>>();
+		}
+	}
+	
+	std::vector<std::unique_ptr<ast::Node>> member_functions;
+	
+	for(const StabsStructOrUnionType::MemberFunctionSet& function_set : type.member_functions) {
+		for(const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
+			auto node = stabs_type_to_ast(*stabs_func.type, state, abs_parent_offset_bytes, depth + 1, true, true);
+			CCC_RETURN_IF_ERROR(node);
+			if(function_set.name == "__as") {
+				(*node)->name = "operator=";
+			} else {
+				(*node)->name = function_set.name;
+			}
+			if((*node)->descriptor == ast::FUNCTION) {
+				ast::Function& function = (*node)->as<ast::Function>();
+				function.modifier = stabs_func.modifier;
+				function.is_constructor = false;
+				if(type.name.has_value()) {
+					function.is_constructor |= function_set.name == type.name;
+					function.is_constructor |= function_set.name == type_name_no_template_args;
+				}
+				function.vtable_index = stabs_func.vtable_index;
+			}
+			(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_func.visibility), state.parser_flags);
+			member_functions.emplace_back(std::move(*node));
+		}
+	}
+	
+	return member_functions;
 }
 
 ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility) {
