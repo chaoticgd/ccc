@@ -19,7 +19,7 @@ using namespace ccc;
 #define STABS_IDENTIFIER_TEST(name, identifier) \
 	TEST(CCCStabs, name) { \
 		const char* input = identifier ":"; \
-		Result<std::string> result = eat_dodgy_stabs_identifier(input); \
+		Result<std::string> result = parse_dodgy_stabs_identifier(input); \
 		CCC_GTEST_FAIL_IF_ERROR(result); \
 		ASSERT_EQ(*result, identifier); \
 	}
