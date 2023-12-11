@@ -32,7 +32,7 @@ struct StabsSymbol {
 	std::unique_ptr<StabsType> type;
 };
 
-Result<StabsSymbol> parse_stabs_symbol(const char* input);
+Result<StabsSymbol> parse_stabs_symbol(const char*& input);
 
 enum class StabsTypeDescriptor : u8 {
 	TYPE_REFERENCE = 0xef, // '0'..'9','('

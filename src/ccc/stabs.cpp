@@ -18,7 +18,7 @@ const char* STAB_TRUNCATED_ERROR_MESSAGE =
 	"STABS symbol truncated. This was probably caused by a GCC bug. "
 	"Other symbols from the same translation unit may be invalid.";
 
-Result<StabsSymbol> parse_stabs_symbol(const char* input) {
+Result<StabsSymbol> parse_stabs_symbol(const char*& input) {
 	STABS_DEBUG_PRINTF("PARSING %s\n", input);
 	
 	StabsSymbol symbol;
@@ -59,7 +59,6 @@ Result<StabsSymbol> parse_stabs_symbol(const char* input) {
 		while(*input != ',' && *input != '\0') input++; // function
 	}
 	
-	CCC_CHECK(*input == '\0', "Unknown data '%s' at the end of the '%s' stab.", input, name->c_str());
 	symbol.type = std::move(*type);
 	
 	// Make sure that variable names aren't used as type names e.g. the STABS

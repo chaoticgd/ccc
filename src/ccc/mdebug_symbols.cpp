@@ -28,8 +28,17 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 							std::string symbol_string = prefix + symbol.string;
 							prefix.clear();
 							
-							Result<StabsSymbol> parse_result = parse_stabs_symbol(symbol_string.c_str());
+							const char* input = symbol_string.c_str();
+							Result<StabsSymbol> parse_result = parse_stabs_symbol(input);
 							if(parse_result.success()) {
+								if(*input != '\0') {
+									if(parser_flags & STRICT_PARSING) {
+										return CCC_FAILURE("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
+									} else {
+										CCC_WARN("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
+									}
+								}
+								
 								ParsedSymbol& parsed = output.emplace_back();
 								parsed.type = ParsedSymbolType::NAME_COLON_TYPE;
 								parsed.raw = &symbol;
