@@ -29,10 +29,17 @@ using s16 = int16_t;
 using s32 = int32_t;
 using s64 = int64_t;
 
-#define CCC_ANSI_COLOUR_OFF "\033[0m"
-#define CCC_ANSI_COLOUR_RED "\033[31m"
-#define CCC_ANSI_COLOUR_MAGENTA "\033[35m"
-#define CCC_ANSI_COLOUR_GRAY "\033[90m"
+#ifdef _WIN32
+	#define CCC_ANSI_COLOUR_OFF ""
+	#define CCC_ANSI_COLOUR_RED ""
+	#define CCC_ANSI_COLOUR_MAGENTA ""
+	#define CCC_ANSI_COLOUR_GRAY ""
+#else
+	#define CCC_ANSI_COLOUR_OFF "\033[0m"
+	#define CCC_ANSI_COLOUR_RED "\033[31m"
+	#define CCC_ANSI_COLOUR_MAGENTA "\033[35m"
+	#define CCC_ANSI_COLOUR_GRAY "\033[90m"
+#endif
 
 struct Error {
 	std::string message;
