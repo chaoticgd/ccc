@@ -275,6 +275,7 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
 			type_name.data_type_handle = handle->second.value;
+			return Result<void>();
 		}
 	}
 	
