@@ -761,45 +761,59 @@ std::optional<s64> eat_s64_literal(const char*& input) {
 }
 
 std::optional<std::string> eat_stabs_identifier(const char*& input) {
-	std::string identifier;
-	bool first = true;
+	const char* begin = input;
 	for(; *input != '\0'; input++) {
 		bool valid_char = false;
 		valid_char |= *input != ':' && *input != ';';
-		valid_char |= !first && isalnum(*input);
-		if(valid_char) {
-			identifier += *input;
-		} else {
-			return identifier;
+		valid_char |= input != begin && isalnum(*input);
+		if(!valid_char) {
+			return std::string(begin, input);
 		}
-		first = false;
 	}
 	return std::nullopt;
 }
 
 // The complexity here is because the input may contain an unescaped namespace
-// separator '::' even if the field terminator is supposed to be a colon.
+// separator '::' even if the field terminator is supposed to be a colon, as
+// well as the raw contents of character literals. See test/ccc/stabs_tests.cpp
+// for some examples.
 Result<std::string> eat_dodgy_stabs_identifier(const char*& input) {
-	std::string identifier;
-	bool first = true;
+	const char* begin = input;
 	s32 template_depth = 0;
+	
 	for(; *input != '\0'; input++) {
+		// Skip past character literals.
+		if(*input == '\'') {
+			input++;
+			if(*input == '\'') {
+				input++; // Handle character literals containing a single quote.
+			}
+			while(*input != '\'' && *input != '\0') {
+				input++;
+			}
+			if(*input == '\0') {
+				break;
+			}
+			input++;
+		}
+		
+		// Keep track of the template depth so we know when to expect the
+		// terminating colon.
 		if(*input == '<') {
 			template_depth++;
 		}
 		if(*input == '>') {
 			template_depth--;
 		}
+		
 		bool valid_char = false;
 		valid_char |= (*input != ':' || template_depth != 0) && *input != ';';
-		valid_char |= !first && isalnum(*input);
-		if(valid_char) {
-			identifier += *input;
-		} else {
-			return identifier;
+		valid_char |= input != begin && isalnum(*input);
+		if(!valid_char) {
+			return std::string(begin, input);
 		}
-		first = false;
 	}
+	
 	return CCC_FAILURE(STAB_TRUNCATED_ERROR_MESSAGE);
 }
 

@@ -16,6 +16,14 @@ using namespace ccc;
 	} \
 	static void stabs_test_##name(StabsSymbol& symbol)
 
+#define STABS_IDENTIFIER_TEST(name, identifier) \
+	TEST(CCCStabs, name) { \
+		const char* input = identifier ":"; \
+		Result<std::string> result = eat_dodgy_stabs_identifier(input); \
+		CCC_GTEST_FAIL_IF_ERROR(result); \
+		ASSERT_EQ(*result, identifier); \
+	}
+
 // typedef int s32;
 STABS_TEST(TypeNumber, "s32:t1=0") {
 	ASSERT_FALSE(symbol.type->anonymous);
@@ -30,22 +38,6 @@ STABS_TEST(FancyTypeNumber, "s32:t(1,1)=(0,1)") {
 	ASSERT_EQ(symbol.type->type_number.file, 1);
 	ASSERT_EQ(symbol.type->type_number.type, 1);
 	ASSERT_TRUE(symbol.type->has_body);
-}
-
-// namespace Namespace { struct A; }
-// template <typename T> struct DodgyTypeName {};
-// template struct DodgyTypeName<Namespace::A>;
-STABS_TEST(DodgyTypeName, "DodgyTypeName<Namespace::A>:T(1,1)=s1;") {
-	ASSERT_EQ(symbol.name, "DodgyTypeName<Namespace::A>");
-}
-
-// Synthetic example. Something like:
-// namespace Namespace { struct A; }
-// template <typename T> struct DodgyVtablePointer { virtual ~DodgyVtablePointer(); };
-// template struct DodgyVtablePointer<Namespace::A>;
-STABS_TEST(DodgyVtablePointer, "DodgyVtablePointer<Namespace::A>:T(1,2)=s4_vptr$DodgyVtablePointer<Namespace::A>:(1,1),0,32;;") {
-	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
-	ASSERT_EQ(struct_type.fields.at(0).name, "_vptr$DodgyVtablePointer<Namespace::A>");
 }
 
 // typedef int s32;
@@ -172,3 +164,39 @@ STABS_TEST(PointerToDataMember, "pointer_to_data_member:t(1,1)=(1,2)=*(1,3)=@(1,
 	ASSERT_EQ(class_type.identifier, "Struct");
 }
 
+// namespace Namespace { struct A; }
+// template <typename T> struct DodgyTypeName {};
+// template struct DodgyTypeName<Namespace::A>;
+STABS_TEST(DodgyTypeName, "DodgyTypeName<Namespace::A>:T(1,1)=s1;") {
+	ASSERT_EQ(symbol.name, "DodgyTypeName<Namespace::A>");
+}
+
+// Synthetic example. Something like:
+// namespace Namespace { struct A; }
+// template <typename T> struct DodgyVtablePointer { virtual ~DodgyVtablePointer(); };
+// template struct DodgyVtablePointer<Namespace::A>;
+STABS_TEST(DodgyVtablePointer, "DodgyVtablePointer<Namespace::A>:T(1,2)=s4_vptr$DodgyVtablePointer<Namespace::A>:(1,1),0,32;;") {
+	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
+	ASSERT_EQ(struct_type.fields.at(0).name, "_vptr$DodgyVtablePointer<Namespace::A>");
+}
+
+// namespace Namespace { struct A; }
+// template <typename T> struct ColonInTypeName {};
+// template struct ColonInTypeName<Namespace::A>;
+STABS_IDENTIFIER_TEST(ColonInTypeName, "ColonInTypeName<Namespace::A>");
+
+// template <char c> struct LessThanCharacterLiteralInTypeName {};
+// template struct LessThanCharacterLiteralInTypeName<'<'>;
+STABS_IDENTIFIER_TEST(LessThanCharacterLiteralInTypeName, "LessThanCharacterLiteralInTypeName<'<'>");
+
+// template <char c> struct GreaterThanCharacterLiteralInTypeName {};
+// template struct GreaterThanCharacterLiteralInTypeName<'>'>;
+STABS_IDENTIFIER_TEST(GreaterThanCharacterLiteralInTypeName, "GreaterThanCharacterLiteralInTypeName<'>'>");
+
+// template <char c> struct SingleQuoteCharacterLiteralInTypeName {};
+// template struct SingleQuoteCharacterLiteralInTypeName<'\''>;
+STABS_IDENTIFIER_TEST(SingleQuoteCharacterLiteralInTypeName, "SingleQuoteCharacterLiteralInTypeName<'''>");
+
+// template <char c> struct NonPrintableCharacterLiteralInTypeName {};
+// template struct NonPrintableCharacterLiteralInTypeName<'\xff'>;
+STABS_IDENTIFIER_TEST(NonPrintableCharacterLiteralInTypeName, "NonPrintableCharacterLiteralInTypeName<'\xff" "77777777'>");
