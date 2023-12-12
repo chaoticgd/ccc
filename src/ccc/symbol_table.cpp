@@ -9,8 +9,10 @@
 
 namespace ccc {
 
-Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config);
-static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(const ElfFile& elf, const SymbolTableConfig& config);
+Result<SymbolSourceHandle> import_elf_symbol_table(
+	SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config);
+static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(
+	const ElfFile& elf, const SymbolTableConfig& config);
 static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config);
 static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database);
 
@@ -52,7 +54,8 @@ const SymbolTableFormatInfo* symbol_table_format_from_section(const char* sectio
 	return nullptr;
 }
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config)
+Result<SymbolSourceHandle> import_symbol_table(
+	SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config)
 {
 	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
 		return import_elf_symbol_table(database, *elf, config);
@@ -68,7 +71,8 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const S
 	return CCC_FAILURE("Invalid symbol file.");
 }
 
-Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config)
+Result<SymbolSourceHandle> import_elf_symbol_table(
+	SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config)
 {
 	auto section_and_format = get_section_and_format(elf, config);
 	CCC_RETURN_IF_ERROR(section_and_format);
@@ -137,7 +141,8 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 	return source;
 }
 
-Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals)
+Result<void> print_symbol_table(
+	FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals)
 {
 	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
 		auto section_and_format = get_section_and_format(*elf, config);
@@ -191,7 +196,8 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 	return Result<void>();
 }
 
-static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(const ElfFile& elf, const SymbolTableConfig& config)
+static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(
+	const ElfFile& elf, const SymbolTableConfig& config)
 {
 	const ElfSection* section = nullptr;
 	SymbolTableFormat format = SYMTAB;

@@ -24,6 +24,7 @@ struct VariableToRefine {
 };
 
 bool can_refine_variable(const VariableToRefine& variable);
-Result<RefinedData> refine_variable(const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual);
+Result<RefinedData> refine_variable(
+	const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual);
 
 }

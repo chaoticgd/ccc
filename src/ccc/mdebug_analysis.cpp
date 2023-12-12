@@ -50,7 +50,8 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location)
+Result<void> LocalSymbolTableAnalyser::global_variable(
+	const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location)
 {
 	std::optional<std::string> demangled_name = demangle_name(mangled_name);
 	std::string name;
@@ -166,7 +167,8 @@ Result<void> LocalSymbolTableAnalyser::function_end()
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference)
+Result<void> LocalSymbolTableAnalyser::parameter(
+	const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference)
 {
 	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
 	
@@ -190,7 +192,8 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass)
+Result<void> LocalSymbolTableAnalyser::local_variable(
+	const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass)
 {
 	if(!m_current_function) {
 		return Result<void>();

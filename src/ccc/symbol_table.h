@@ -56,8 +56,10 @@ struct SymbolTableConfig {
 // The main high-level parsing function for the entire library. Return the
 // handle of the newly created symbol source on success, or an invalid handle if
 // no symbol table was found.
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config);
+Result<SymbolSourceHandle> import_symbol_table(
+	SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config);
 
-Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals);
+Result<void> print_symbol_table(
+	FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals);
 
 }

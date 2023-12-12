@@ -56,7 +56,8 @@ static const char* symbol_bind_to_string(SymbolBind bind);
 static const char* symbol_type_to_string(SymbolType type);
 static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols)
+Result<SymbolSourceHandle> import_symbol_table(
+	SymbolDatabase& database, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols)
 {
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(source);
@@ -70,7 +71,12 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const E
 	return (*source)->handle();
 }
 
-static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols)
+static Result<void> import_symbols(
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const ElfSection& section,
+	const ElfFile& elf,
+	bool ignore_existing_symbols)
 {
 	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
 	

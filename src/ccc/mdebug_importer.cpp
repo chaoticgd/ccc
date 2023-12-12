@@ -12,7 +12,8 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source);
 static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source);
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle)
+Result<SymbolSourceHandle> import_symbol_table(
+	SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle)
 {
 	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
 	CCC_RETURN_IF_ERROR(external_symbols);

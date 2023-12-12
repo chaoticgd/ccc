@@ -46,7 +46,8 @@ CCC_PACKED_STRUCT(SNDLLSymbolHeader,
 	/* 0xb */ u8 processed;
 )
 
-static Result<SNDLLFile> parse_sndll_common(std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version);
+static Result<SNDLLFile> parse_sndll_common(
+	std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version);
 static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source);
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type);
 
@@ -72,7 +73,8 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
 	return CCC_FAILURE("Unknown SNDLL version '%c'.", version);
 }
 
-static Result<SNDLLFile> parse_sndll_common(std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version)
+static Result<SNDLLFile> parse_sndll_common(
+	std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version)
 {
 	SNDLLFile sndll;
 	

@@ -50,15 +50,18 @@ public:
 	[[nodiscard]] Result<void> stab_magic(const char* magic);
 	[[nodiscard]] Result<void> source_file(const char* path, Address text_address);
 	[[nodiscard]] Result<void> data_type(const ParsedSymbol& symbol);
-	[[nodiscard]] Result<void> global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location);
+	[[nodiscard]] Result<void> global_variable(
+		const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location);
 	[[nodiscard]] Result<void> sub_source_file(const char* name, Address text_address);
 	[[nodiscard]] Result<void> procedure(const char* mangled_name, Address address, bool is_static);
 	[[nodiscard]] Result<void> label(const char* label, Address address, s32 line_number);
 	[[nodiscard]] Result<void> text_end(const char* name, s32 function_size);
 	[[nodiscard]] Result<void> function(const char* mangled_name, const StabsType& return_type, Address address);
 	[[nodiscard]] Result<void> function_end();
-	[[nodiscard]] Result<void> parameter(const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference);
-	[[nodiscard]] Result<void> local_variable(const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass);
+	[[nodiscard]] Result<void> parameter(
+		const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference);
+	[[nodiscard]] Result<void> local_variable(
+		const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass);
 	[[nodiscard]] Result<void> lbrac(s32 begin_offset);
 	[[nodiscard]] Result<void> rbrac(s32 end_offset);
 	

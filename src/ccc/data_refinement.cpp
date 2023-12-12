@@ -10,9 +10,12 @@ struct DataRefinementContext {
 	ReadVirtualFunc read_virtual;
 };
 
-static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
-static Result<RefinedData> refine_builtin(u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context);
-static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+static Result<RefinedData> refine_node(
+	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+static Result<RefinedData> refine_builtin(
+	u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context);
+static Result<RefinedData> refine_pointer_or_reference(
+	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
 static const char* generate_format_string(s32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
@@ -28,14 +31,16 @@ bool can_refine_variable(const VariableToRefine& variable)
 	return true;
 }
 
-Result<RefinedData> refine_variable(const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual)
+Result<RefinedData> refine_variable(
+	const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual)
 {
 	CCC_ASSERT(variable.type);
 	DataRefinementContext context{database, read_virtual};
 	return refine_node(variable.address.value, *variable.type, context);
 }
 
-static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
+static Result<RefinedData> refine_node(
+	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
 {
 	switch(type.descriptor) {
 		case ast::ARRAY: {
@@ -127,7 +132,8 @@ static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& typ
 	return CCC_FAILURE("Failed to refine global variable (%s).", ast::node_type_to_string(type));
 }
 
-static Result<RefinedData> refine_builtin(u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context)
+static Result<RefinedData> refine_builtin(
+	u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context)
 {
 	RefinedData data;
 	
@@ -206,7 +212,8 @@ static Result<RefinedData> refine_builtin(u32 virtual_address, ast::BuiltInClass
 	return data;
 }
 
-static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
+static Result<RefinedData> refine_pointer_or_reference(
+	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
 {
 	RefinedData data;
 	u32 address = 0;

@@ -377,7 +377,8 @@ const char* global_storage_location_to_string(GlobalStorageLocation location)
 
 // *****************************************************************************
 
-void Function::set_parameter_variables(std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+void Function::set_parameter_variables(
+	std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
 {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS && m_parameter_variables.has_value()) {
 		database.parameter_variables.destroy_symbols(*m_parameter_variables);
@@ -390,7 +391,8 @@ void Function::set_parameter_variables(std::optional<ParameterVariableRange> ran
 	m_parameter_variables = range;
 }
 
-void Function::set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+void Function::set_local_variables(
+	std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
 {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS && m_local_variables.has_value()) {
 		database.local_variables.destroy_symbols(*m_local_variables);
@@ -431,7 +433,8 @@ const void GlobalVariable::set_mangled_name(std::string mangled)
 	m_mangled_name = std::move(mangled);
 }
 
-void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+void SourceFile::set_functions(
+	FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
 {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
 		database.functions.destroy_symbols(m_functions);
@@ -442,7 +445,8 @@ void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delet
 	}
 }
 
-void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+void SourceFile::set_globals_variables(
+	GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
 {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
 		database.global_variables.destroy_symbols(m_globals_variables);
@@ -495,7 +499,12 @@ void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source)
 	#undef CCC_X
 }
 
-Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, StabsTypeNumber number, const char* name, SourceFile& source_file, SymbolSourceHandle source)
+Result<DataType*> SymbolDatabase::create_data_type_if_unique(
+	std::unique_ptr<ast::Node> node,
+	StabsTypeNumber number,
+	const char* name,
+	SourceFile& source_file,
+	SymbolSourceHandle source)
 {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;

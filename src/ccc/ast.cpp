@@ -8,8 +8,10 @@
 
 namespace ccc::ast {
 
-static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
-static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
+static bool compare_nodes_and_merge(
+	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
+static void try_to_match_wobbly_typedefs(
+	CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 
 void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags)
 {
@@ -68,7 +70,8 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	//}
 }
 
-CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields)
+CompareResult compare_nodes(
+	const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields)
 {
 	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
@@ -171,7 +174,8 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 	return result;
 }
 
-static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
+static bool compare_nodes_and_merge(
+	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
 {
 	CompareResult result = compare_nodes(node_lhs, node_rhs, database, true);
 	try_to_match_wobbly_typedefs(result, node_lhs, node_rhs, database);
@@ -206,7 +210,8 @@ static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, c
 	return dest.type == CompareResultType::DIFFERS;
 }
 
-static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
+static void try_to_match_wobbly_typedefs(
+	CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
 {
 	// Detect if one side has a typedef when the other just has the plain type.
 	// This was previously a common reason why type deduplication would fail.
@@ -217,7 +222,8 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 			const TypeName& type_name = type_name_node->as<TypeName>();
 			const TypeName::StabsReadState& read_state = type_name.stabs_read_state;
 			if(read_state.referenced_file_handle != (u32) -1 && read_state.stabs_type_number_type > -1) {
-				const SourceFile* source_file = database.source_files.symbol_from_handle(read_state.referenced_file_handle);
+				const SourceFile* source_file =
+					database.source_files.symbol_from_handle(read_state.referenced_file_handle);
 				CCC_ASSERT(source_file);
 				StabsTypeNumber stabs_type_number = {
 					read_state.stabs_type_number_file,

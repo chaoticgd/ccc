@@ -11,11 +11,19 @@
 namespace ccc {
 
 static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
-static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
+static Result<std::unique_ptr<ast::Node>> field_to_ast(
+	const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
-static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
+static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
+	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 
-Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute)
+Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
+	const StabsType& type,
+	const StabsToAstState& state,
+	s32 abs_parent_offset_bytes,
+	s32 depth,
+	bool substitute_type_name,
+	bool force_substitute)
 {
 	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=%d name=%s\n",
 		depth * 4, "",
@@ -379,7 +387,8 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
 	return CCC_FAILURE("Failed to classify range.");
 }
 
-static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth)
+static Result<std::unique_ptr<ast::Node>> field_to_ast(
+	const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth)
 {
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
@@ -499,7 +508,8 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 	return field.size_bits != underlying_type_size_bits;
 }
 
-static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth)
+static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
+	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth)
 {
 	if(state.parser_flags & NO_MEMBER_FUNCTIONS) {
 		return std::vector<std::unique_ptr<ast::Node>>();

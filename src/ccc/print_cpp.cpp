@@ -316,7 +316,8 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
+void CppPrinter::global_variable(
+	const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
 {
 	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
@@ -360,7 +361,8 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatab
 	m_last_wants_spacing = wants_spacing;
 }
 
-void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database)
+void CppPrinter::ast_node(
+	const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database)
 {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;

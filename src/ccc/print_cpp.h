@@ -45,10 +45,12 @@ public:
 	
 	bool data_type(const DataType& symbol, const SymbolDatabase& database);
 	void function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
-	void global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
+	void global_variable(
+		const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
 	
 protected:
-	void ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database);
+	void ast_node(
+		const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database);
 	void refined_data(const RefinedData& data, s32 indentation_level);
 	void global_storage_comment(const GlobalStorage& storage, Address address);
 	void register_storage_comment(const RegisterStorage& storage);

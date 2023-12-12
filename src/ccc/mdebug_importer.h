@@ -11,7 +11,8 @@ namespace ccc::mdebug {
 
 // Perform all the main analysis passes on the mdebug symbol table and convert
 // it to a set of C++ ASTs.
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& symbol_table, u32 parser_flags, DemanglerFunc* demangle);
+Result<SymbolSourceHandle> import_symbol_table(
+	SymbolDatabase& database, const mdebug::SymbolTableReader& symbol_table, u32 parser_flags, DemanglerFunc* demangle);
 
 // Try to add pointers from member function declarations to their definitions
 // using a heuristic.
