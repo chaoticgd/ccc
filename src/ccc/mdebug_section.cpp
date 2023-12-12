@@ -97,7 +97,8 @@ static void print_symbol(FILE* out, const Symbol& symbol);
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
 static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
 
-Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset) {
+Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset)
+{
 	m_elf = elf;
 	m_section_offset = section_offset;
 	
@@ -112,12 +113,14 @@ Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset
 	return Result<void>();
 }
 	
-s32 SymbolTableReader::file_count() const {
+s32 SymbolTableReader::file_count() const
+{
 	CCC_ASSERT(m_ready);
 	return m_hdrr->file_descriptor_count;
 }
 
-Result<File> SymbolTableReader::parse_file(s32 index) const {
+Result<File> SymbolTableReader::parse_file(s32 index) const
+{
 	CCC_ASSERT(m_ready);
 	
 	File file;
@@ -169,7 +172,8 @@ Result<File> SymbolTableReader::parse_file(s32 index) const {
 	return file;
 }
 
-Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const {
+Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const
+{
 	CCC_ASSERT(m_ready);
 	
 	std::vector<Symbol> external_symbols;
@@ -184,7 +188,8 @@ Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const {
 	return external_symbols;
 }
 
-void SymbolTableReader::print_header(FILE* dest) const {
+void SymbolTableReader::print_header(FILE* dest) const
+{
 	CCC_ASSERT(m_ready);
 	
 	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n",
@@ -236,7 +241,8 @@ void SymbolTableReader::print_header(FILE* dest) const {
 		m_hdrr->external_symbols_count);
 }
 
-Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool print_externals) const {
+Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+{
 	if(print_locals) {
 		s32 count = file_count();
 		for(s32 i = 0; i < count; i++) {
@@ -284,7 +290,8 @@ static void print_symbol(FILE* out, const Symbol& symbol) {
 	fprintf(out, "%s\n", symbol.string);
 }
 
-static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr) {
+static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)
+{
 	// Test for corruption.
 	s32 right_after_header = INT32_MAX;
 	if(hdrr.line_numbers_offset > 0) right_after_header = std::min(hdrr.line_numbers_offset, right_after_header);
@@ -316,7 +323,8 @@ static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const Symbolic
 	return fudge_offset;
 }
 
-static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset) {
+static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset)
+{
 	Symbol symbol;
 	
 	Result<const char*> string = get_string(elf, strings_offset + header.iss);
@@ -333,7 +341,8 @@ static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u
 	return symbol;
 }
 
-const char* symbol_type(SymbolType type) {
+const char* symbol_type(SymbolType type)
+{
 	switch(type) {
 		case SymbolType::NIL: return "NIL";
 		case SymbolType::GLOBAL: return "GLOBAL";
@@ -353,7 +362,8 @@ const char* symbol_type(SymbolType type) {
 	return nullptr;
 }
 
-const char* symbol_class(SymbolClass symbol_class) {
+const char* symbol_class(SymbolClass symbol_class)
+{
 	switch(symbol_class) {
 		case SymbolClass::NIL: return "NIL";
 		case SymbolClass::TEXT: return "TEXT";
@@ -387,7 +397,8 @@ const char* symbol_class(SymbolClass symbol_class) {
 	return nullptr;
 }
 
-const char* stabs_code_to_string(StabsCode code) {
+const char* stabs_code_to_string(StabsCode code)
+{
 	switch(code) {
 		case STAB: return "STAB";
 		case N_GSYM: return "GSYM";

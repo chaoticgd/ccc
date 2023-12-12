@@ -10,7 +10,8 @@ using namespace ccc;
 
 static int main_test(const fs::path& input_directory);
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	testing::InitGoogleTest(&argc, argv);
 	int result = RUN_ALL_TESTS();
 	if(result != 0) {
@@ -24,7 +25,8 @@ int main(int argc, char** argv) {
 	return main_test(std::string(argv[1]));
 }
 
-static int main_test(const fs::path& input_directory) {
+static int main_test(const fs::path& input_directory)
+{
 	CCC_CHECK_FATAL(fs::is_directory(input_directory), "Input path is not a directory.");
 	
 	for(auto entry : fs::recursive_directory_iterator(input_directory)) {

@@ -18,7 +18,8 @@ const char* STAB_TRUNCATED_ERROR_MESSAGE =
 	"STABS symbol truncated. This was probably caused by a GCC bug. "
 	"Other symbols from the same translation unit may be invalid.";
 
-Result<StabsSymbol> parse_stabs_symbol(const char*& input) {
+Result<StabsSymbol> parse_stabs_symbol(const char*& input)
+{
 	STABS_DEBUG_PRINTF("PARSING %s\n", input);
 	
 	StabsSymbol symbol;
@@ -76,7 +77,8 @@ Result<StabsSymbol> parse_stabs_symbol(const char*& input) {
 	return symbol;
 }
 
-static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
+static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor)
+{
 	bool valid;
 	switch(descriptor) {
 		case StabsSymbolDescriptor::LOCAL_VARIABLE:
@@ -101,7 +103,8 @@ static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor) {
 	return valid;
 }
 
-Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input) {
+Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input)
+{
 	Result<std::unique_ptr<StabsType>> type = parse_stabs_type(input);
 	CCC_RETURN_IF_ERROR(type);
 	
@@ -133,7 +136,8 @@ Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input
 	return type;
 }
 
-static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
+static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
+{
 	StabsTypeInfo info;
 	CCC_CHECK(*input != '\0', "Unexpected end of input.");
 	if(*input == '(') {
@@ -525,7 +529,8 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input) {
 	return out_type;
 }
 
-static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input) {
+static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input)
+{
 	std::vector<StabsStructOrUnionType::Field> fields;
 	
 	while(*input != '\0') {
@@ -615,7 +620,8 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 	return fields;
 }
 
-static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input) {
+static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input)
+{
 	// Check for if the next character is from an enclosing field list. If this
 	// is the case, the next character will be ',' for normal fields and ':' for
 	// static fields (see above).
@@ -732,14 +738,16 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 	return member_functions;
 }
 
-std::optional<char> eat_char(const char*& input) {
+std::optional<char> eat_char(const char*& input)
+{
 	if(*input == '\0') {
 		return std::nullopt;
 	}
 	return *(input++);
 }
 
-std::optional<s32> parse_number_s32(const char*& input) {
+std::optional<s32> parse_number_s32(const char*& input)
+{
 	char* end;
 	s64 value = strtoll(input, &end, 10);
 	if(end == input) {
@@ -749,7 +757,8 @@ std::optional<s32> parse_number_s32(const char*& input) {
 	return (s32) value;
 }
 
-std::optional<s64> parse_number_s64(const char*& input) {
+std::optional<s64> parse_number_s64(const char*& input)
+{
 	char* end;
 	s64 value = strtoll(input, &end, 10);
 	if(end == input) {
@@ -759,7 +768,8 @@ std::optional<s64> parse_number_s64(const char*& input) {
 	return value;
 }
 
-std::optional<std::string> parse_stabs_identifier(const char*& input) {
+std::optional<std::string> parse_stabs_identifier(const char*& input)
+{
 	const char* begin = input;
 	for(; *input != '\0'; input++) {
 		bool valid_char = false;
@@ -776,7 +786,8 @@ std::optional<std::string> parse_stabs_identifier(const char*& input) {
 // separator '::' even if the field terminator is supposed to be a colon, as
 // well as the raw contents of character literals. See test/ccc/stabs_tests.cpp
 // for some examples.
-Result<std::string> parse_dodgy_stabs_identifier(const char*& input) {
+Result<std::string> parse_dodgy_stabs_identifier(const char*& input)
+{
 	const char* begin = input;
 	s32 template_depth = 0;
 	
@@ -818,13 +829,15 @@ Result<std::string> parse_dodgy_stabs_identifier(const char*& input) {
 
 STABS_DEBUG(
 
-static void print_field(const StabsStructOrUnionType::Field& field) {
+static void print_field(const StabsStructOrUnionType::Field& field)
+{
 	printf("\t%04x %04x %04x %04x %s\n", field.offset_bits / 8, field.size_bits / 8, field.offset_bits, field.size_bits, field.name.c_str());
 }
 
 )
 
-const char* stabs_field_visibility_to_string(StabsStructOrUnionType::Visibility visibility) {
+const char* stabs_field_visibility_to_string(StabsStructOrUnionType::Visibility visibility)
+{
 	switch(visibility) {
 		case StabsStructOrUnionType::Visibility::PRIVATE: return "private";
 		case StabsStructOrUnionType::Visibility::PROTECTED: return "protected";

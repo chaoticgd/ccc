@@ -8,7 +8,8 @@
 namespace ccc {
 
 template <typename SymbolType>
-SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> handle) {
+SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> handle)
+{
 	if(!handle.valid()) {
 		return nullptr;
 	}
@@ -22,12 +23,14 @@ SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> 
 }
 
 template <typename SymbolType>
-const SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> handle) const {
+const SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> handle) const
+{
 	return const_cast<SymbolList<SymbolType>*>(this)->symbol_from_handle(handle);
 }
 
 template <typename SymbolType>
-s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const {
+s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
+{
 	if(!handle.valid()) {
 		return -1;
 	}
@@ -41,27 +44,32 @@ s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) c
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::Iterator SymbolList<SymbolType>::begin() {
+typename SymbolList<SymbolType>::Iterator SymbolList<SymbolType>::begin()
+{
 	return m_symbols.begin();
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::ConstIterator SymbolList<SymbolType>::begin() const {
+typename SymbolList<SymbolType>::ConstIterator SymbolList<SymbolType>::begin() const
+{
 	return m_symbols.begin();
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::Iterator SymbolList<SymbolType>::end() {
+typename SymbolList<SymbolType>::Iterator SymbolList<SymbolType>::end()
+{
 	return m_symbols.end();
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::ConstIterator SymbolList<SymbolType>::end() const {
+typename SymbolList<SymbolType>::ConstIterator SymbolList<SymbolType>::end() const
+{
 	return m_symbols.end();
 }
 
 template <typename SymbolType>
-std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range) {
+std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range)
+{
 	size_t first = binary_search(range.first);
 	size_t last = binary_search(range.last);
 	if(last < m_symbols.size() && m_symbols[last].m_handle == range.last) {
@@ -72,12 +80,14 @@ std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range
 }
 
 template <typename SymbolType>
-std::span<const SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range) const {
+std::span<const SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range) const
+{
 	return const_cast<SymbolList<SymbolType>*>(this)->span(range);
 }
 
 template <typename SymbolType>
-std::span<SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range) {
+std::span<SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range)
+{
 	std::span<SymbolType> result;
 	if(range.has_value()) {
 		result = span(*range);
@@ -86,7 +96,8 @@ std::span<SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<Sym
 }
 
 template <typename SymbolType>
-std::span<const SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range) const {
+std::span<const SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range) const
+{
 	std::span<const SymbolType> result;
 	if(range.has_value()) {
 		result = span(*range);
@@ -95,19 +106,22 @@ std::span<const SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRan
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_address(Address address) const {
+typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_address(Address address) const
+{
 	auto iterators = m_address_to_handle.equal_range(address.value);
 	return {iterators.first, iterators.second};
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>::handles_from_name(const std::string& name) const {
+typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>::handles_from_name(const std::string& name) const
+{
 	auto iterators = m_name_to_handle.equal_range(name);
 	return {iterators.first, iterators.second};
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_address(Address address) const {
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_address(Address address) const
+{
 	auto handles = handles_from_address(address);
 	if(handles.begin() != handles.end()) {
 		return handles.begin()->second;
@@ -117,7 +131,8 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_address(Addre
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const {
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
+{
 	auto handles = handles_from_name(name);
 	if(handles.begin() != handles.end()) {
 		return handles.begin()->second;
@@ -127,12 +142,14 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const st
 }
 
 template <typename SymbolType>
-bool SymbolList<SymbolType>::empty() const {
+bool SymbolList<SymbolType>::empty() const
+{
 	return m_symbols.size() == 0;
 }
 
 template <typename SymbolType>
-Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address) {
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address)
+{
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::NAME);
 	
 	u32 handle = m_next_handle++;
@@ -163,7 +180,8 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 }
 
 template <typename SymbolType>
-bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Address new_address) {
+bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Address new_address)
+{
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
 		SymbolType* symbol = symbol_from_handle(handle);
 		if(!symbol) {
@@ -183,7 +201,8 @@ bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Addres
 }
 
 template <typename SymbolType>
-bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name) {
+bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name)
+{
 	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
 		SymbolType* symbol = symbol_from_handle(handle);
 		if(!symbol) {
@@ -203,13 +222,15 @@ bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std:
 }
 
 template <typename SymbolType>
-bool SymbolList<SymbolType>::destroy_symbol(SymbolHandle<SymbolType> handle) {
+bool SymbolList<SymbolType>::destroy_symbol(SymbolHandle<SymbolType> handle)
+{
 	SymbolRange<SymbolType> range = {handle, handle};
 	return destroy_symbols(range) == 1;
 }
 
 template <typename SymbolType>
-u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
+u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range)
+{
 	// Reject invalid ranges so that the <= comparison below works.
 	if(!range.valid()) {
 		return 0;
@@ -226,7 +247,8 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range) {
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle source) {
+void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle source)
+{
 	for(size_t i = 0; i < m_symbols.size(); i++) {
 		if(m_symbols[i].m_source == source) {
 			size_t end;
@@ -242,14 +264,16 @@ void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle sour
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::clear() {
+void SymbolList<SymbolType>::clear()
+{
 	m_symbols.clear();
 	m_address_to_handle.clear();
 	m_name_to_handle.clear();
 }
 
 template <typename SymbolType>
-size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const {
+size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) const
+{
 	size_t begin = 0;
 	size_t end = m_symbols.size();
 	
@@ -268,7 +292,8 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 }
 
 template <typename SymbolType>
-u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index) {
+u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index)
+{
 	for(u32 i = begin_index; i < end_index; i++) {
 		unlink_address_map(m_symbols[i]);
 	}
@@ -284,14 +309,16 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::link_address_map(SymbolType& symbol) {
+void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
+{
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
 		m_address_to_handle.emplace(symbol.address_ref().value, symbol.m_handle);
 	}
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
+void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
+{
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
 		auto iterators = m_address_to_handle.equal_range(symbol.address_ref().value);
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
@@ -304,14 +331,16 @@ void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol) {
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::link_name_map(SymbolType& symbol) {
+void SymbolList<SymbolType>::link_name_map(SymbolType& symbol)
+{
 	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
 		m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
 	}
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol) {
+void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
+{
 	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
 		auto iterators = m_name_to_handle.equal_range(symbol.m_name);
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
@@ -329,7 +358,8 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 
 // *****************************************************************************
 
-const char* global_storage_location_to_string(GlobalStorageLocation location) {
+const char* global_storage_location_to_string(GlobalStorageLocation location)
+{
 	switch(location) {
 		case NIL: return "nil";
 		case DATA: return "data";
@@ -347,7 +377,8 @@ const char* global_storage_location_to_string(GlobalStorageLocation location) {
 
 // *****************************************************************************
 
-void Function::set_parameter_variables(std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
+void Function::set_parameter_variables(std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+{
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS && m_parameter_variables.has_value()) {
 		database.parameter_variables.destroy_symbols(*m_parameter_variables);
 	}
@@ -359,7 +390,8 @@ void Function::set_parameter_variables(std::optional<ParameterVariableRange> ran
 	m_parameter_variables = range;
 }
 
-void Function::set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
+void Function::set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+{
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS && m_local_variables.has_value()) {
 		database.local_variables.destroy_symbols(*m_local_variables);
 	}
@@ -371,7 +403,8 @@ void Function::set_local_variables(std::optional<LocalVariableRange> range, Shou
 	m_local_variables = range;
 }
 
-const std::string& Function::mangled_name() const {
+const std::string& Function::mangled_name() const
+{
 	if(!m_mangled_name.empty()) {
 		return m_mangled_name;
 	} else {
@@ -379,11 +412,13 @@ const std::string& Function::mangled_name() const {
 	}
 }
 
-const void Function::set_mangled_name(std::string mangled) {
+const void Function::set_mangled_name(std::string mangled)
+{
 	m_mangled_name = std::move(mangled);
 }
 
-const std::string& GlobalVariable::mangled_name() const {
+const std::string& GlobalVariable::mangled_name() const
+{
 	if(!m_mangled_name.empty()) {
 		return m_mangled_name;
 	} else {
@@ -391,11 +426,13 @@ const std::string& GlobalVariable::mangled_name() const {
 	}
 }
 
-const void GlobalVariable::set_mangled_name(std::string mangled) {
+const void GlobalVariable::set_mangled_name(std::string mangled)
+{
 	m_mangled_name = std::move(mangled);
 }
 
-void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
+void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+{
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
 		database.functions.destroy_symbols(m_functions);
 	}
@@ -405,7 +442,8 @@ void SourceFile::set_functions(FunctionRange range, ShouldDeleteOldSymbols delet
 	}
 }
 
-void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database) {
+void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
+{
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
 		database.global_variables.destroy_symbols(m_globals_variables);
 	}
@@ -417,7 +455,8 @@ void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOl
 
 // *****************************************************************************
 
-bool SymbolDatabase::symbol_exists_at_address(Address address) const {
+bool SymbolDatabase::symbol_exists_at_address(Address address) const
+{
 	#define CCC_X(SymbolType, symbol_list) \
 		if(symbol_list.first_handle_from_address(address).valid()) { \
 			return true; \
@@ -427,7 +466,8 @@ bool SymbolDatabase::symbol_exists_at_address(Address address) const {
 	return false;
 }
 
-const ast::Node* SymbolDatabase::node_from_handle(const NodeHandle& node_handle) {
+const ast::Node* SymbolDatabase::node_from_handle(const NodeHandle& node_handle)
+{
 	switch(node_handle.m_descriptor) {
 		#define CCC_X(SymbolType, symbol_list) \
 			case SymbolType::DESCRIPTOR: \
@@ -441,19 +481,22 @@ const ast::Node* SymbolDatabase::node_from_handle(const NodeHandle& node_handle)
 	return node_handle.m_node;
 }
 
-void SymbolDatabase::clear() {
+void SymbolDatabase::clear()
+{
 	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }
 
-void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source) {
+void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source)
+{
 	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }
 
-Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, StabsTypeNumber number, const char* name, SourceFile& source_file, SymbolSourceHandle source) {
+Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, StabsTypeNumber number, const char* name, SourceFile& source_file, SymbolSourceHandle source)
+{
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
 	if(types_with_same_name.begin() == types_with_same_name.end()) {
@@ -523,7 +566,8 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast
 	return nullptr;
 }
 
-bool SymbolDatabase::destroy_function(FunctionHandle handle) {
+bool SymbolDatabase::destroy_function(FunctionHandle handle)
+{
 	Function* function = functions.symbol_from_handle(handle);
 	if(!function) {
 		return false;

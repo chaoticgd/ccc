@@ -7,11 +7,13 @@
 
 namespace ccc::mdebug {
 
-Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic) {
+Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic)
+{
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address text_address) {
+Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address text_address)
+{
 	m_source_file.relative_path = path;
 	m_source_file.text_address = text_address;
 	if(m_next_relative_path.empty()) {
@@ -21,7 +23,8 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address tex
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
+Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
+{
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*symbol.name_colon_type.type.get(), m_stabs_to_ast_state, 0, 0, false, false);
 	CCC_RETURN_IF_ERROR(node);
 	
@@ -47,7 +50,8 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location) {
+Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location)
+{
 	std::optional<std::string> demangled_name = demangle_name(mangled_name);
 	std::string name;
 	if(demangled_name.has_value()) {
@@ -80,7 +84,8 @@ Result<void> LocalSymbolTableAnalyser::global_variable(const char* mangled_name,
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address text_address) {
+Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address text_address)
+{
 	if(m_current_function && m_state == IN_FUNCTION_BEGINNING) {
 		Function::SubSourceFile& sub = m_current_function->sub_source_files.emplace_back();
 		sub.address = text_address;
@@ -92,7 +97,8 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::procedure(const char* mangled_name, Address address, bool is_static) {
+Result<void> LocalSymbolTableAnalyser::procedure(const char* mangled_name, Address address, bool is_static)
+{
 	if(!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str()) != 0) {
 		Result<void> result = create_function(mangled_name, address);
 		CCC_RETURN_IF_ERROR(result);
@@ -105,7 +111,8 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* mangled_name, Addre
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address, s32 line_number) {
+Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address, s32 line_number)
+{
 	if(address.valid() && m_current_function && label[0] == '$') {
 		Function::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
 		pair.address = address;
@@ -115,7 +122,8 @@ Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address,
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size) {
+Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size)
+{
 	if(m_state == IN_FUNCTION_BEGINNING) {
 		CCC_CHECK(m_current_function, "END TEXT symbol outside of function.");
 		m_current_function->size = function_size;
@@ -125,7 +133,8 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const StabsType& return_type, Address address) {
+Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const StabsType& return_type, Address address)
+{
 	if(!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str())) {
 		Result<void> result = create_function(mangled_name, address);
 		CCC_RETURN_IF_ERROR(result);
@@ -138,7 +147,8 @@ Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const 
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::function_end() {
+Result<void> LocalSymbolTableAnalyser::function_end()
+{
 	if(m_current_function) {
 		m_current_function->set_parameter_variables(m_current_parameter_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
 		m_current_function->set_local_variables(m_current_local_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
@@ -156,7 +166,8 @@ Result<void> LocalSymbolTableAnalyser::function_end() {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference) {
+Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference)
+{
 	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
 	
 	Result<ParameterVariable*> parameter_variable = m_database.parameter_variables.create_symbol(name, m_context.symbol_source);
@@ -179,7 +190,8 @@ Result<void> LocalSymbolTableAnalyser::parameter(const char* name, const StabsTy
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass) {
+Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass)
+{
 	if(!m_current_function) {
 		return Result<void>();
 	}
@@ -217,7 +229,8 @@ Result<void> LocalSymbolTableAnalyser::local_variable(const char* name, const St
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset) {
+Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset)
+{
 	for(LocalVariableHandle local_variable_handle : m_pending_local_variables) {
 		if(LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
 			local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
@@ -230,7 +243,8 @@ Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset) {
+Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset)
+{
 	CCC_CHECK(!m_blocks.empty(), "RBRAC symbol without a matching LBRAC symbol.");
 	
 	std::vector<LocalVariableHandle>& variables = m_blocks.back();
@@ -245,7 +259,8 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset) {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::finish() {
+Result<void> LocalSymbolTableAnalyser::finish()
+{
 	CCC_CHECK(m_state != IN_FUNCTION_BEGINNING,
 		"Unexpected end of symbol table for '%s'.", m_source_file.name().c_str());
 	
@@ -260,7 +275,8 @@ Result<void> LocalSymbolTableAnalyser::finish() {
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name, Address address) {
+Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name, Address address)
+{
 	if(m_current_function) {
 		Result<void> result = function_end();
 		CCC_RETURN_IF_ERROR(result);
@@ -293,7 +309,8 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	return Result<void>();
 }
 
-std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* mangled_name) {
+std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* mangled_name)
+{
 	if(m_context.demangle) {
 		const char* demangled_name = m_context.demangle(mangled_name, 0);
 		if(demangled_name) {
@@ -305,7 +322,8 @@ std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* m
 	return std::nullopt;
 }
 
-std::optional<GlobalStorageLocation> symbol_class_to_global_variable_location(SymbolClass symbol_class) {
+std::optional<GlobalStorageLocation> symbol_class_to_global_variable_location(SymbolClass symbol_class)
+{
 	std::optional<GlobalStorageLocation> location;
 	switch(symbol_class) {
 		case SymbolClass::NIL: location = GlobalStorageLocation::NIL; break;

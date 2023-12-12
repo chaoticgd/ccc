@@ -20,7 +20,8 @@ static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags);
 static void indent(FILE* out, s32 level);
 
-void CppPrinter::comment_block_beginning(const char* input_file) {
+void CppPrinter::comment_block_beginning(const char* input_file)
+{
 	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
@@ -40,7 +41,8 @@ void CppPrinter::comment_block_beginning(const char* input_file) {
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& database) {
+void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& database)
+{
 	std::set<std::string> toolchain_version_info;
 	for(const SourceFile& source_file : database.source_files) {
 		if(!source_file.toolchain_version_info.empty()) {
@@ -61,7 +63,8 @@ void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& data
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_builtin_types(const SymbolDatabase& database, SourceFileHandle file) {
+void CppPrinter::comment_block_builtin_types(const SymbolDatabase& database, SourceFileHandle file)
+{
 	std::set<std::pair<std::string, ast::BuiltInClass>> builtins;
 	for(const DataType& data_type : database.data_types) {
 		CCC_ASSERT(data_type.type());
@@ -82,7 +85,8 @@ void CppPrinter::comment_block_builtin_types(const SymbolDatabase& database, Sou
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::comment_block_file(const char* path) {
+void CppPrinter::comment_block_file(const char* path)
+{
 	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
@@ -96,7 +100,8 @@ void CppPrinter::comment_block_file(const char* path) {
 }
 
 
-void CppPrinter::begin_include_guard(const char* macro) {
+void CppPrinter::begin_include_guard(const char* macro)
+{
 	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
@@ -108,7 +113,8 @@ void CppPrinter::begin_include_guard(const char* macro) {
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::end_include_guard(const char* macro) {
+void CppPrinter::end_include_guard(const char* macro)
+{
 	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
@@ -119,7 +125,8 @@ void CppPrinter::end_include_guard(const char* macro) {
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::include_directive(const char* path) {
+void CppPrinter::include_directive(const char* path)
+{
 	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
@@ -130,7 +137,8 @@ void CppPrinter::include_directive(const char* path) {
 	m_has_anything_been_printed = true;
 }
 
-bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& database) {
+bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& database)
+{
 	CCC_ASSERT(symbol.type());
 	const ast::Node& node = *symbol.type();
 	
@@ -163,7 +171,8 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 	return true;
 }
 
-void CppPrinter::function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual) {
+void CppPrinter::function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
+{
 	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
@@ -307,7 +316,8 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual) {
+void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
+{
 	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
 		return;
 	}
@@ -350,7 +360,8 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatab
 	m_last_wants_spacing = wants_spacing;
 }
 
-void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database) {
+void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database)
+{
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
 	
@@ -613,7 +624,8 @@ void CppPrinter::ast_node(const ast::Node& node, VariableName& parent_name, s32 
 	}
 }
 
-void CppPrinter::refined_data(const RefinedData& data, s32 indentation_level) {
+void CppPrinter::refined_data(const RefinedData& data, s32 indentation_level)
+{
 	if(!data.field_name.empty()) {
 		fprintf(out, "/* %s = */ ", data.field_name.c_str());
 	}
@@ -638,7 +650,8 @@ void CppPrinter::refined_data(const RefinedData& data, s32 indentation_level) {
 	}
 }
 
-static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class) {
+static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class)
+{
 	switch(storage_class) {
 		case ast::SC_NONE: break;
 		case ast::SC_TYPEDEF: fprintf(out, "typedef "); break;
@@ -649,7 +662,8 @@ static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class) 
 	}
 }
 
-static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags) {
+static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags)
+{
 	bool has_name = name.identifier != nullptr && !name.identifier->empty();
 	bool has_brackets = (flags & BRACKETS_IF_POINTER) && !name.pointer_chars.empty();
 	if(has_name && (flags & INSERT_SPACE_TO_LEFT)) {
@@ -675,7 +689,8 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags) {
 	}
 }
 
-void CppPrinter::global_storage_comment(const GlobalStorage& storage, Address address) {
+void CppPrinter::global_storage_comment(const GlobalStorage& storage, Address address)
+{
 	if(m_config.print_storage_information) {
 		fprintf(out, "/* ");
 		fprintf(out, "%s", global_storage_location_to_string(storage.location));
@@ -686,7 +701,8 @@ void CppPrinter::global_storage_comment(const GlobalStorage& storage, Address ad
 	}
 }
 
-void CppPrinter::register_storage_comment(const RegisterStorage& storage) {
+void CppPrinter::register_storage_comment(const RegisterStorage& storage)
+{
 	if(m_config.print_storage_information) {
 		fprintf(out, "/* ");
 		auto [register_class, register_index_relative] =
@@ -699,7 +715,8 @@ void CppPrinter::register_storage_comment(const RegisterStorage& storage) {
 	}
 }
 
-void CppPrinter::stack_storage_comment(const StackStorage& storage) {
+void CppPrinter::stack_storage_comment(const StackStorage& storage)
+{
 	if(m_config.print_storage_information) {
 		fprintf(out, "/* ");
 		if(storage.stack_pointer_offset >= 0) {
@@ -711,7 +728,8 @@ void CppPrinter::stack_storage_comment(const StackStorage& storage) {
 	}
 }
 
-void CppPrinter::offset(const ast::Node& node) {
+void CppPrinter::offset(const ast::Node& node)
+{
 	if(m_config.print_offsets_and_sizes && node.storage_class != ast::SC_STATIC && node.absolute_offset_bytes > -1) {
 		CCC_ASSERT(m_digits_for_offset > -1 && m_digits_for_offset < 100);
 		fprintf(out, "/* 0x%0*x", m_digits_for_offset, node.absolute_offset_bytes);
@@ -722,7 +740,8 @@ void CppPrinter::offset(const ast::Node& node) {
 	}
 }
 
-static void indent(FILE* out, s32 level) {
+static void indent(FILE* out, s32 level)
+{
 	for(s32 i = 0; i < level; i++) {
 		fputc('\t', out);
 	}

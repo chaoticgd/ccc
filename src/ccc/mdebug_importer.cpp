@@ -12,7 +12,8 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source);
 static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source);
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle) {
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle)
+{
 	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
 	CCC_RETURN_IF_ERROR(external_symbols);
 	
@@ -46,7 +47,8 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const m
 	return (*symbol_source)->handle();
 }
 
-static Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context) {
+static Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context)
+{
 	Result<s32> file_count = context.reader->file_count();
 	CCC_RETURN_IF_ERROR(file_count);
 	
@@ -70,7 +72,8 @@ static Result<void> import_files(SymbolDatabase& database, const AnalysisContext
 	return Result<void>();
 }
 
-static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context) {
+static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context)
+{
 	Result<mdebug::File> input = context.reader->parse_file(file_index);
 	CCC_RETURN_IF_ERROR(input);
 	
@@ -244,7 +247,8 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	return Result<void>();
 }
 
-static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source) {
+static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source)
+{
 	Result<void> result;
 	database.for_each_symbol([&](ccc::Symbol& symbol) {
 		if(symbol.source() == source && symbol.type()) {
@@ -262,7 +266,8 @@ static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHan
 	return result;
 }
 
-static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source) {
+static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source)
+{
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
 	if(type_name.stabs_read_state.referenced_file_handle != (u32) -1 && type_name.stabs_read_state.stabs_type_number_type > -1) {
@@ -307,7 +312,8 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	return Result<void>();
 }
 
-void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database) {
+void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
+{
 	// Fill in pointers from member function declaration to corresponding definitions.
 	for(Function& function : database.functions) {
 		const std::string& demangled_name = function.name();

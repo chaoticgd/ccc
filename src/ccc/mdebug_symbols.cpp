@@ -7,7 +7,8 @@
 
 namespace ccc::mdebug {
 
-Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags) {
+Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags)
+{
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
 	for(const mdebug::Symbol& symbol : input) {

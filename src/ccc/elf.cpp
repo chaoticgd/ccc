@@ -76,7 +76,8 @@ CCC_PACKED_STRUCT(ElfSectionHeader,
 	/* 0x24 */ u32 entsize;
 )
 
-const ElfSection* ElfFile::lookup_section(const char* name) const {
+const ElfSection* ElfFile::lookup_section(const char* name) const
+{
 	for(const ElfSection& section : sections) {
 		if(section.name == name) {
 			return &section;
@@ -85,7 +86,8 @@ const ElfSection* ElfFile::lookup_section(const char* name) const {
 	return nullptr;
 }
 
-std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) const {
+std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) const
+{
 	for(const ElfSegment& segment : segments) {
 		if(file_offset >= segment.offset && file_offset < segment.offset + segment.size) {
 			return segment.address.get_or_zero() + file_offset - segment.offset;
@@ -94,7 +96,8 @@ std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) cons
 	return std::nullopt;
 }
 
-Result<ElfFile> parse_elf_file(std::span<const u8> image) {
+Result<ElfFile> parse_elf_file(std::span<const u8> image)
+{
 	ElfFile elf;
 	elf.image = std::vector<u8>(CCC_BEGIN_END(image));
 	
@@ -145,7 +148,8 @@ Result<ElfFile> parse_elf_file(std::span<const u8> image) {
 	return elf;
 }
 
-Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf) {
+Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf)
+{
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("ELF Headers", SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(source);
 	
@@ -159,7 +163,8 @@ Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, 
 	return (*source)->handle();
 }
 
-Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves) {
+Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves)
+{
 	while(size > 0) {
 		bool mapped = false;
 		

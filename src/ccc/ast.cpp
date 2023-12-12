@@ -11,7 +11,8 @@ namespace ccc::ast {
 static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 
-void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags) {
+void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags)
+{
 	if((parser_flags & NO_ACCESS_SPECIFIERS) == 0) {
 		access_specifier = specifier;
 	}
@@ -19,7 +20,8 @@ void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags) {
 
 // Some enums have two symbols associated with them: One named " " and another
 // one referencing the first.
-void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
+void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes)
+{
 	for(size_t i = 0; i < ast_nodes.size(); i++) {
 		Node& node = *ast_nodes[i].get();
 		if(node.descriptor == NodeDescriptor::ENUM && node.name.empty()) {
@@ -42,7 +44,8 @@ void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes) {
 	}
 }
 
-void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes) {
+void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes)
+{
 	//for(size_t i = 0; i < ast_nodes.size(); i++) {
 	//	Node& node = *ast_nodes[i].get();
 	//	if(node.descriptor == TYPE_NAME && node.as<TypeName>().type_name == node.name) {
@@ -65,7 +68,8 @@ void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_node
 	//}
 }
 
-CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields) {
+CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields)
+{
 	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(check_intrusive_fields) {
@@ -167,7 +171,8 @@ CompareResult compare_nodes(const Node& node_lhs, const Node& node_rhs, const Sy
 	return result;
 }
 
-static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database) {
+static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
+{
 	CompareResult result = compare_nodes(node_lhs, node_rhs, database, true);
 	try_to_match_wobbly_typedefs(result, node_lhs, node_rhs, database);
 	if(dest.type != result.type) {
@@ -201,7 +206,8 @@ static bool compare_nodes_and_merge(CompareResult& dest, const Node& node_lhs, c
 	return dest.type == CompareResultType::DIFFERS;
 }
 
-static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database) {
+static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
+{
 	// Detect if one side has a typedef when the other just has the plain type.
 	// This was previously a common reason why type deduplication would fail.
 	const Node* type_name_node = &node_lhs;
@@ -235,7 +241,8 @@ static void try_to_match_wobbly_typedefs(CompareResult& result, const Node& node
 	}
 }
 
-const char* compare_fail_reason_to_string(CompareFailReason reason) {
+const char* compare_fail_reason_to_string(CompareFailReason reason)
+{
 	switch(reason) {
 		case CompareFailReason::NONE: return "error";
 		case CompareFailReason::DESCRIPTOR: return "descriptor";
@@ -267,7 +274,8 @@ const char* compare_fail_reason_to_string(CompareFailReason reason) {
 	return "";
 }
 
-const char* node_type_to_string(const Node& node) {
+const char* node_type_to_string(const Node& node)
+{
 	switch(node.descriptor) {
 		case ARRAY: return "array";
 		case BITFIELD: return "bitfield";
@@ -297,7 +305,8 @@ const char* node_type_to_string(const Node& node) {
 	return "CCC_BAD_NODE_DESCRIPTOR";
 }
 
-const char* storage_class_to_string(StorageClass storage_class) {
+const char* storage_class_to_string(StorageClass storage_class)
+{
 	switch(storage_class) {
 		case SC_NONE: return "none";
 		case SC_TYPEDEF: return "typedef";
@@ -309,7 +318,8 @@ const char* storage_class_to_string(StorageClass storage_class) {
 	return "";
 }
 
-const char* access_specifier_to_string(AccessSpecifier specifier) {
+const char* access_specifier_to_string(AccessSpecifier specifier)
+{
 	switch(specifier) {
 		case AS_PUBLIC: return "public";
 		case AS_PROTECTED: return "protected";
@@ -318,7 +328,8 @@ const char* access_specifier_to_string(AccessSpecifier specifier) {
 	return "";
 }
 
-const char* builtin_class_to_string(BuiltInClass bclass) {
+const char* builtin_class_to_string(BuiltInClass bclass)
+{
 	switch(bclass) {
 		case BuiltInClass::VOID: return "void";
 		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
@@ -341,7 +352,8 @@ const char* builtin_class_to_string(BuiltInClass bclass) {
 	return "";
 }
 
-s32 builtin_class_size(BuiltInClass bclass) {
+s32 builtin_class_size(BuiltInClass bclass)
+{
 	switch(bclass) {
 		case BuiltInClass::VOID: return 0;
 		case BuiltInClass::UNSIGNED_8: return 1;

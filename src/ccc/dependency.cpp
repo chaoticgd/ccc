@@ -28,7 +28,8 @@ struct GraphPrinter {
 
 static void map_types_to_files_based_on_reference_count_single_pass(SymbolDatabase& database, bool do_types);
 
-void map_types_to_files_based_on_this_pointers(SymbolDatabase& database) {
+void map_types_to_files_based_on_this_pointers(SymbolDatabase& database)
+{
 	for(const Function& function : database.functions) {
 		std::span<const ParameterVariable> parameter_variables = database.parameter_variables.span(function.parameter_variables());
 		if(parameter_variables.empty()) {
@@ -69,12 +70,14 @@ void map_types_to_files_based_on_this_pointers(SymbolDatabase& database) {
 	}
 }
 
-void map_types_to_files_based_on_reference_count(SymbolDatabase& database) {
+void map_types_to_files_based_on_reference_count(SymbolDatabase& database)
+{
 	map_types_to_files_based_on_reference_count_single_pass(database, false);
 	map_types_to_files_based_on_reference_count_single_pass(database, true);
 }
 
-static void map_types_to_files_based_on_reference_count_single_pass(SymbolDatabase& database, bool do_types) {
+static void map_types_to_files_based_on_reference_count_single_pass(SymbolDatabase& database, bool do_types)
+{
 	for(DataType& type : database.data_types) {
 		if(type.files.size() == 1) {
 			continue;
@@ -141,7 +144,8 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 	}
 }
 
-TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolDatabase& database) {
+TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolDatabase& database)
+{
 	TypeDependencyAdjacencyList graph;
 	for(const DataType& data_type : database.data_types) {
 		std::set<DataTypeHandle> dependencies;
@@ -163,7 +167,8 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolDatabase& da
 	return graph;
 }
 
-void print_type_dependency_graph(FILE* out, const SymbolDatabase& database, const TypeDependencyAdjacencyList& graph) {
+void print_type_dependency_graph(FILE* out, const SymbolDatabase& database, const TypeDependencyAdjacencyList& graph)
+{
 	GraphPrinter printer(out);
 	printer.begin_graph("type_dependencies", DIRECTED);
 	for(const DataType& data_type : database.data_types) {
@@ -192,29 +197,34 @@ void print_type_dependency_graph(FILE* out, const SymbolDatabase& database, cons
 	printer.end_graph();
 }
 
-void GraphPrinter::begin_graph(const char* name, GraphType type) {
+void GraphPrinter::begin_graph(const char* name, GraphType type)
+{
 	new_line();
 	fprintf(out, "%s %s {", type == DIRECTED ? "digraph" : "graph", name);
 	indent_level++;
 }
 
-void GraphPrinter::end_graph() {
+void GraphPrinter::end_graph()
+{
 	indent_level--;
 	new_line();
 	fprintf(out, "}");
 }
 
-void GraphPrinter::node(const char* name, const char* label) {
+void GraphPrinter::node(const char* name, const char* label)
+{
 	new_line();
 	fprintf(out, "%s [label=\"%s\"]", name, label);
 }
 
-void GraphPrinter::edge(const char* out_name, const char* in_name) {
+void GraphPrinter::edge(const char* out_name, const char* in_name)
+{
 	new_line();
 	fprintf(out, "%s -> %s;", out_name, in_name);
 }
 
-void GraphPrinter::new_line() {
+void GraphPrinter::new_line()
+{
 	if(!no_lines_printed) {
 		fprintf(out, "\n");
 	}

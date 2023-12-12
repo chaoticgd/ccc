@@ -15,7 +15,8 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionT
 static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
 
-Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute) {
+Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth, bool substitute_type_name, bool force_substitute)
+{
 	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=%d name=%s\n",
 		depth * 4, "",
 		(u8) type.descriptor,
@@ -321,7 +322,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type, cons
 	return result;
 }
 
-static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type) {
+static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
+{
 	const char* low = type.low.c_str();
 	const char* high = type.high.c_str();
 	
@@ -377,7 +379,8 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type) {
 	return CCC_FAILURE("Failed to classify range.");
 }
 
-static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
+static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth)
+{
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
 	Result<bool> is_bitfield = detect_bitfield(field, state);
@@ -424,7 +427,8 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionT
 	}
 }
 
-static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state) {
+static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state)
+{
 	// Static fields can't be bitfields.
 	if(field.is_static) {
 		return false;
@@ -495,7 +499,8 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 	return field.size_bits != underlying_type_size_bits;
 }
 
-static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth) {
+static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth)
+{
 	if(state.parser_flags & NO_MEMBER_FUNCTIONS) {
 		return std::vector<std::unique_ptr<ast::Node>>();
 	}
@@ -565,7 +570,8 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(c
 	return member_functions;
 }
 
-ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility) {
+ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility)
+{
 	ast::AccessSpecifier access_specifier = ast::AS_PUBLIC;
 	switch(visibility) {
 		case StabsStructOrUnionType::Visibility::NONE: access_specifier = ast::AS_PUBLIC; break;

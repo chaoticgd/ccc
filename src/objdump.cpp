@@ -7,7 +7,8 @@
 
 using namespace ccc;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	CCC_CHECK_FATAL(argc == 2, "Incorrect number of arguments.");
 	
 	fs::path input_path(argv[1]);

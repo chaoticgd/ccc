@@ -301,7 +301,8 @@ enum ExplorationMode {
 };
 
 template <typename ThisNode, typename Callback>
-void for_each_node(ThisNode& node, TraversalOrder order, Callback callback) {
+void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
+{
 	if(order == PREORDER_TRAVERSAL && callback(node) == DONT_EXPLORE_CHILDREN) {
 		return;
 	}

@@ -99,7 +99,8 @@ static const StdumpCommand commands[] = {
 	}}
 };
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	Options options = parse_command_line_arguments(argc, argv);
 	
 	FILE* out = stdout;
@@ -116,7 +117,8 @@ int main(int argc, char** argv) {
 	}
 }
 
-static void identify_symbol_tables(FILE* out, const Options& options) {
+static void identify_symbol_tables(FILE* out, const Options& options)
+{
 	if(fs::is_regular_file(options.input_file)) {
 		identify_symbol_tables_in_file(out, nullptr, nullptr, options.input_file);
 	} else if(fs::is_directory(options.input_file)) {
@@ -140,7 +142,8 @@ static void identify_symbol_tables(FILE* out, const Options& options) {
 	}
 }
 
-static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_total, const fs::path& file_path) {
+static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_total, const fs::path& file_path)
+{
 	fprintf(out, "%100s:", file_path.string().c_str());
 	
 	Result<std::vector<u8>> file = platform::read_binary_file(file_path);
@@ -194,7 +197,8 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 	}
 }
 
-static void print_functions(FILE* out, const Options& options) {
+static void print_functions(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
@@ -220,7 +224,8 @@ static void print_functions(FILE* out, const Options& options) {
 	}
 }
 
-static void print_globals(FILE* out, const Options& options) {
+static void print_globals(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
@@ -246,7 +251,8 @@ static void print_globals(FILE* out, const Options& options) {
 	}
 }
 
-static void print_types(FILE* out, const Options& options) {
+static void print_types(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
@@ -257,7 +263,8 @@ static void print_types(FILE* out, const Options& options) {
 	}
 }
 
-static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options) {
+static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options)
+{
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
@@ -268,7 +275,8 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 	}
 }
 
-static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options) {
+static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options)
+{
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str());
@@ -285,7 +293,8 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 	}
 }
 
-static void print_type_graph(FILE* out, const Options& options) {
+static void print_type_graph(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
@@ -293,7 +302,8 @@ static void print_type_graph(FILE* out, const Options& options) {
 	print_type_dependency_graph(out, database, graph);
 }
 
-static void print_labels(FILE* out, const Options& options) {
+static void print_labels(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
@@ -302,7 +312,8 @@ static void print_labels(FILE* out, const Options& options) {
 	}
 }
 
-static void print_json(FILE* out, const Options& options) {
+static void print_json(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	rapidjson::StringBuffer buffer;
@@ -311,7 +322,8 @@ static void print_json(FILE* out, const Options& options) {
 	fprintf(out, "%s", buffer.GetString());
 }
 
-static void print_symbols(FILE* out, const Options& options) {
+static void print_symbols(FILE* out, const Options& options)
+{
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
@@ -333,11 +345,13 @@ static void print_symbols(FILE* out, const Options& options) {
 	CCC_EXIT_IF_ERROR(print_result);
 }
 
-static void print_headers(FILE* out, const Options& options) {
+static void print_headers(FILE* out, const Options& options)
+{
 	
 }
 
-static u32 command_line_flags_to_parser_flags(u32 flags) {
+static u32 command_line_flags_to_parser_flags(u32 flags)
+{
 	u32 parser_flags = NO_PARSER_FLAGS;
 	if(flags & FLAG_PER_FILE) parser_flags |= DONT_DEDUPLICATE_TYPES;
 	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) parser_flags |= NO_ACCESS_SPECIFIERS;
@@ -346,7 +360,8 @@ static u32 command_line_flags_to_parser_flags(u32 flags) {
 	return parser_flags;
 }
 
-static void print_files(FILE* out, const Options& options) {
+static void print_files(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
@@ -355,7 +370,8 @@ static void print_files(FILE* out, const Options& options) {
 	}
 }
 
-static void print_sections(FILE* out, const Options& options) {
+static void print_sections(FILE* out, const Options& options)
+{
 	SymbolFile symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
@@ -377,7 +393,8 @@ static void print_sections(FILE* out, const Options& options) {
 	}
 }
 
-static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options) {
+static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options)
+{
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
@@ -403,7 +420,8 @@ static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& 
 	return database;
 }
 
-static Options parse_command_line_arguments(int argc, char** argv) {
+static Options parse_command_line_arguments(int argc, char** argv)
+{
 	Options options;
 	if(argc < 2) {
 		return options;
@@ -472,7 +490,8 @@ static Options parse_command_line_arguments(int argc, char** argv) {
 
 const char* git_tag();
 
-static void print_help(FILE* out) {
+static void print_help(FILE* out)
+{
 	const char* tag = git_tag();
 	fprintf(out, "stdump %s -- https://github.com/chaoticgd/ccc\n",
 		(strlen(tag) > 0) ? tag : "development version");

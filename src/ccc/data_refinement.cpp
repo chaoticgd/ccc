@@ -18,7 +18,8 @@ static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
 static std::string stringf(const char* format, ...);
 
-bool can_refine_variable(const VariableToRefine& variable) {
+bool can_refine_variable(const VariableToRefine& variable)
+{
 	if(!variable.storage) return false;
 	if(variable.storage->location == GlobalStorageLocation::BSS) return false;
 	if(variable.storage->location == GlobalStorageLocation::SBSS) return false;
@@ -27,13 +28,15 @@ bool can_refine_variable(const VariableToRefine& variable) {
 	return true;
 }
 
-Result<RefinedData> refine_variable(const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual) {
+Result<RefinedData> refine_variable(const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual)
+{
 	CCC_ASSERT(variable.type);
 	DataRefinementContext context{database, read_virtual};
 	return refine_node(variable.address.value, *variable.type, context);
 }
 
-static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
+static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
+{
 	switch(type.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
@@ -124,7 +127,8 @@ static Result<RefinedData> refine_node(u32 virtual_address, const ast::Node& typ
 	return CCC_FAILURE("Failed to refine global variable (%s).", ast::node_type_to_string(type));
 }
 
-static Result<RefinedData> refine_builtin(u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context) {
+static Result<RefinedData> refine_builtin(u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context)
+{
 	RefinedData data;
 	
 	switch(bclass) {
@@ -202,7 +206,8 @@ static Result<RefinedData> refine_builtin(u32 virtual_address, ast::BuiltInClass
 	return data;
 }
 
-static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context) {
+static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
+{
 	RefinedData data;
 	u32 address = 0;
 	Result<void> read_result = context.read_virtual((u8*) &address, virtual_address, 4);
@@ -243,7 +248,8 @@ static Result<RefinedData> refine_pointer_or_reference(u32 virtual_address, cons
 	return data;
 }
 
-static const char* generate_format_string(s32 size, bool is_signed) {
+static const char* generate_format_string(s32 size, bool is_signed)
+{
 	switch(size) {
 		case 1: return is_signed ? "%hhd" : "%hhu";
 		case 2: return is_signed ? "%hd" : "%hu";
@@ -252,7 +258,8 @@ static const char* generate_format_string(s32 size, bool is_signed) {
 	return is_signed ? ("%" PRId64) : ("%" PRIu64);
 }
 
-static std::string single_precision_float_to_string(float value) {
+static std::string single_precision_float_to_string(float value)
+{
 	std::string result = stringf("%g", value);
 	if(strtof(result.c_str(), nullptr) != value) {
 		result = stringf("%.9g", value);
@@ -264,13 +271,15 @@ static std::string single_precision_float_to_string(float value) {
 	return result;
 }
 
-static std::string string_format(const char* format, va_list args) {
+static std::string string_format(const char* format, va_list args)
+{
 	static char buffer[16 * 1024];
 	vsnprintf(buffer, sizeof(buffer), format, args);
 	return std::string(buffer);
 }
 
-static std::string stringf(const char* format, ...) {
+static std::string stringf(const char* format, ...)
+{
 	va_list args;
 	va_start(args, format);
 	std::string string = string_format(format, args);

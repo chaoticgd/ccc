@@ -7,7 +7,8 @@
 
 namespace ccc::ast {
 
-void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& database) {
+void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& database)
+{
 	CCC_ASSERT(ptr);
 	const Node& node = *ptr;
 	

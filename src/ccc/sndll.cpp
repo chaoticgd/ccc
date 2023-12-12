@@ -50,7 +50,8 @@ static Result<SNDLLFile> parse_sndll_common(std::span<const u8> image, Address a
 static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source);
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type);
 
-Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address) {
+Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
+{
 	const u32* magic = get_packed<u32>(image, 0);
 	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.valid() ? "section" : "file");
 	
@@ -71,7 +72,8 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address) {
 	return CCC_FAILURE("Unknown SNDLL version '%c'.", version);
 }
 
-static Result<SNDLLFile> parse_sndll_common(std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version) {
+static Result<SNDLLFile> parse_sndll_common(std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version)
+{
 	SNDLLFile sndll;
 	
 	sndll.address = address;
@@ -103,7 +105,8 @@ static Result<SNDLLFile> parse_sndll_common(std::span<const u8> image, Address a
 	return sndll;
 }
 
-Result<SymbolSourceHandle> import_sndll_symbol_table(SymbolDatabase& database, const SNDLLFile& sndll) {
+Result<SymbolSourceHandle> import_sndll_symbol_table(SymbolDatabase& database, const SNDLLFile& sndll)
+{
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("SNDLL Linker Symbols", SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(source);
 	
@@ -116,7 +119,8 @@ Result<SymbolSourceHandle> import_sndll_symbol_table(SymbolDatabase& database, c
 	return (*source)->handle();
 }
 
-static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source) {
+static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source)
+{
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
 		if(symbol.value != 0 && !symbol.string.empty()) {
 			switch(symbol.type) {
@@ -143,7 +147,8 @@ static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFi
 	return Result<void>();
 }
 
-void print_sndll_symbols(FILE* out, const SNDLLFile& sndll) {
+void print_sndll_symbols(FILE* out, const SNDLLFile& sndll)
+{
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
 		const char* type = sndll_symbol_type_to_string(symbol.type);
 		const char* string = !symbol.string.empty() ? symbol.string.c_str() : "(no string)";
@@ -151,7 +156,8 @@ void print_sndll_symbols(FILE* out, const SNDLLFile& sndll) {
 	}
 }
 
-static const char* sndll_symbol_type_to_string(SNDLLSymbolType type) {
+static const char* sndll_symbol_type_to_string(SNDLLSymbolType type)
+{
 	switch(type) {
 		case SNDLLSymbolType::NIL: return "NIL";
 		case SNDLLSymbolType::EXTERNAL: return "EXTERNAL";

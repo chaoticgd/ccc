@@ -187,7 +187,8 @@ const char* VU0_STRINGS[32] = {
 	"vf31"
 };
 
-std::pair<RegisterClass, s32> map_dbx_register_index(s32 index) {
+std::pair<RegisterClass, s32> map_dbx_register_index(s32 index)
+{
 	if(index >= 0 && index <= 31) {
 		return {RegisterClass::GPR, index};
 	} else if(index >= 38 && index <= 69) {

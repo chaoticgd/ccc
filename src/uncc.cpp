@@ -25,7 +25,8 @@ static bool needs_lost_and_found_file(const SymbolDatabase& database);
 static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database);
 static void print_help(int argc, char** argv);
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	if(argc != 3) {
 		print_help(argc, argv);
 		return 1;
@@ -116,7 +117,8 @@ int main(int argc, char** argv) {
 	}
 }
 
-static std::vector<std::string> parse_sources_file(const fs::path& path) {
+static std::vector<std::string> parse_sources_file(const fs::path& path)
+{
 	std::optional<std::string> file = platform::read_text_file(path);
 	CCC_CHECK_FATAL(file.has_value(), "Failed to open file '%s'", path.string().c_str());
 	std::string_view input(*file);
@@ -127,7 +129,8 @@ static std::vector<std::string> parse_sources_file(const fs::path& path) {
 	return sources;
 }
 
-static FunctionsFile parse_functions_file(const fs::path& path) {
+static FunctionsFile parse_functions_file(const fs::path& path)
+{
 	FunctionsFile result;
 	
 	std::optional<std::string> file = platform::read_text_file(path);
@@ -171,7 +174,8 @@ static FunctionsFile parse_functions_file(const fs::path& path) {
 	return result;
 }
 
-static std::span<char> eat_line(std::span<char>& input) {
+static std::span<char> eat_line(std::span<char>& input)
+{
 	for(size_t i = 0; i < input.size(); i++) {
 		if(input[i] == '\n') {
 			std::span<char> result = input.subspan(0, i);
@@ -182,7 +186,8 @@ static std::span<char> eat_line(std::span<char>& input) {
 	return {};
 }
 
-static std::string eat_identifier(std::string_view& input) {
+static std::string eat_identifier(std::string_view& input)
+{
 	skip_whitespace(input);
 	std::string string;
 	size_t i;
@@ -193,18 +198,21 @@ static std::string eat_identifier(std::string_view& input) {
 	return string;
 }
 
-static void skip_whitespace(std::string_view& input) {
+static void skip_whitespace(std::string_view& input)
+{
 	while(input.size() > 0 && isspace(input[0])) {
 		input = input.substr(1);
 	}
 }
 
-static bool should_overwrite_file(const fs::path& path) {
+static bool should_overwrite_file(const fs::path& path)
+{
 	std::optional<std::string> file = platform::read_text_file(path);
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file, const std::vector<ElfFile*>& elves) {
+static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files, const FunctionsFile& functions_file, const std::vector<ElfFile*>& elves)
+{
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	CCC_CHECK_FATAL(out, "Failed to open '%s' for writing.", path.string().c_str());
@@ -258,7 +266,8 @@ static void write_c_cpp_file(const fs::path& path, const fs::path& header_path, 
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path, std::string relative_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files) {
+static void write_h_file(const fs::path& path, std::string relative_path, const SymbolDatabase& database, const std::vector<SourceFileHandle>& files)
+{
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
@@ -322,7 +331,8 @@ static void write_h_file(const fs::path& path, std::string relative_path, const 
 	fclose(out);
 }
 
-static bool needs_lost_and_found_file(const SymbolDatabase& database) {
+static bool needs_lost_and_found_file(const SymbolDatabase& database)
+{
 	for(const DataType& data_type : database.data_types) {
 		if(data_type.files.size() != 1) {
 			return true;
@@ -331,7 +341,8 @@ static bool needs_lost_and_found_file(const SymbolDatabase& database) {
 	return false;
 }
 
-static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database) {
+static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database)
+{
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
 	CppPrinterConfig config;
@@ -353,7 +364,8 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 
 const char* git_tag();
 
-static void print_help(int argc, char** argv) {
+static void print_help(int argc, char** argv)
+{
 	const char* tag = git_tag();
 	printf("uncc %s -- https://github.com/chaoticgd/ccc\n",
 		(strlen(tag) > 0) ? tag : "development version");

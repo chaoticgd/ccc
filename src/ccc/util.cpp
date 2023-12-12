@@ -5,7 +5,8 @@
 
 namespace ccc {
 
-Error format_error(const char* source_file, int source_line, const char* format, ...) {
+Error format_error(const char* source_file, int source_line, const char* format, ...)
+{
 	va_list args;
 	va_start(args, format);
 	
@@ -23,17 +24,20 @@ Error format_error(const char* source_file, int source_line, const char* format,
 	return error;
 }
 
-void print_error(FILE* out, const Error& error) {
+void print_error(FILE* out, const Error& error)
+{
 	fprintf(out, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n",
 		error.source_file, error.source_line, error.message.c_str());
 }
 
-void print_warning(FILE* out, const Error& warning) {
+void print_warning(FILE* out, const Error& warning)
+{
 	fprintf(out, "[%s:%d] " CCC_ANSI_COLOUR_MAGENTA "warning:" CCC_ANSI_COLOUR_OFF " %s\n",
 		warning.source_file, warning.source_line, warning.message.c_str());
 }
 
-const char* get_string(std::span<const u8> bytes, u64 offset) {
+const char* get_string(std::span<const u8> bytes, u64 offset)
+{
 	for(const unsigned char* c = bytes.data() + offset; c < bytes.data() + bytes.size(); c++) {
 		if(*c == '\0') {
 			return (const char*) &bytes[offset];
@@ -42,7 +46,8 @@ const char* get_string(std::span<const u8> bytes, u64 offset) {
 	return nullptr;
 }
 
-std::string merge_paths(const std::string& base, const std::string& path) {
+std::string merge_paths(const std::string& base, const std::string& path)
+{
 	// Try to figure out if we're dealing with a Windows path of a UNIX path.
 	bool is_windows_path = false;
 	if(base.empty()) {
@@ -61,7 +66,8 @@ std::string merge_paths(const std::string& base, const std::string& path) {
 	return normalise_path((base + "/" + path).c_str(), is_windows_path);
 }
 
-std::string normalise_path(const char* input, bool use_backslashes_as_path_separators) {
+std::string normalise_path(const char* input, bool use_backslashes_as_path_separators)
+{
 	bool is_absolute = false;
 	std::optional<char> drive_letter;
 	std::vector<std::string> parts;
@@ -118,7 +124,8 @@ std::string normalise_path(const char* input, bool use_backslashes_as_path_separ
 	return output;
 }
 
-bool guess_is_windows_path(const char* path) {
+bool guess_is_windows_path(const char* path)
+{
 	for(const char* ptr = path; *ptr != 0; ptr++) {
 		if(*ptr == '\\') {
 			return true;
@@ -129,7 +136,8 @@ bool guess_is_windows_path(const char* path) {
 	return false;
 }
 
-std::string extract_file_name(const std::string& path) {
+std::string extract_file_name(const std::string& path)
+{
 	std::string::size_type forward_pos = path.find_last_of('/');
 	std::string::size_type backward_pos = path.find_last_of('\\');
 	std::string::size_type pos;

@@ -5,7 +5,8 @@
 
 namespace ccc {
 
-Result<SymbolFile> parse_symbol_file(std::span<const u8> image) {
+Result<SymbolFile> parse_symbol_file(std::span<const u8> image)
+{
 	const u32* magic = get_packed<u32>(image, 0);
 	CCC_CHECK(magic, "File too small.");
 	

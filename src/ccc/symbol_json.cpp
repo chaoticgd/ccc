@@ -20,7 +20,8 @@ static void write_json(JsonWriter& json, const Section& symbol, const SymbolData
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database);
 
-void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set<SymbolSourceHandle>* sources) {
+void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set<SymbolSourceHandle>* sources)
+{
 	json.StartObject();
 	
 	json.Key("version");
@@ -54,7 +55,8 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database)
+{
 	json.Key("storage");
 	json.StartObject();
 	json.Key("type");
@@ -65,7 +67,8 @@ static void write_json(JsonWriter& json, const GlobalStorage& storage, const Sym
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const RegisterStorage& storage, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const RegisterStorage& storage, const SymbolDatabase& database)
+{
 	json.Key("storage");
 	json.StartObject();
 	auto [register_class, register_index_relative] =
@@ -85,7 +88,8 @@ static void write_json(JsonWriter& json, const RegisterStorage& storage, const S
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const StackStorage& storage, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const StackStorage& storage, const SymbolDatabase& database)
+{
 	json.Key("storage");
 	json.StartObject();
 	json.Key("type");
@@ -95,7 +99,8 @@ static void write_json(JsonWriter& json, const StackStorage& storage, const Symb
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDatabase& database)
+{
 	if(symbol.files.empty()) {
 		json.Key("files");
 		json.StartArray();
@@ -106,7 +111,8 @@ static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDat
 	}
 }
 
-static void write_json(JsonWriter& json, const Function& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const Function& symbol, const SymbolDatabase& database)
+{
 	if(symbol.size != 0) {
 		json.Key("size");
 		json.Uint(symbol.size);
@@ -152,7 +158,8 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 	}
 }
 
-static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database)
+{
 	if(symbol.address().valid()) {
 		json.Key("address");
 		json.Uint(symbol.address().value);
@@ -171,14 +178,16 @@ static void write_json(JsonWriter& json, const GlobalVariable& symbol, const Sym
 	}
 }
 
-static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database)
+{
 	if(symbol.address().valid()) {
 		json.Key("address");
 		json.Uint(symbol.address().value);
 	}
 }
 
-static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database)
+{
 	if(symbol.function().valid()) {
 		json.Key("function");
 		json.Uint(database.functions.index_from_handle(symbol.function()));
@@ -210,7 +219,8 @@ static void write_json(JsonWriter& json, const LocalVariable& symbol, const Symb
 	}
 }
 
-static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database)
+{
 	if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&symbol.storage)) {
 		write_json(json, *storage, database);
 	}
@@ -225,14 +235,16 @@ static void write_json(JsonWriter& json, const ParameterVariable& symbol, const 
 	}
 }
 
-static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database)
+{
 	if(symbol.size != 0) {
 		json.Key("size");
 		json.Uint(symbol.size);
 	}
 }
 
-static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database)
+{
 	if(!symbol.relative_path.empty()) {
 		json.Key("relative_path");
 		json.String(symbol.relative_path);
@@ -260,7 +272,8 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 	}
 }
 
-static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database) {
+static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database)
+{
 	if(symbol.address().valid()) {
 		json.Key("address");
 		json.Uint(symbol.address().value);

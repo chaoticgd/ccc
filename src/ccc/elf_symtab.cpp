@@ -56,7 +56,8 @@ static const char* symbol_bind_to_string(SymbolBind bind);
 static const char* symbol_type_to_string(SymbolType type);
 static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols) {
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols)
+{
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(source);
 	
@@ -69,7 +70,8 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const E
 	return (*source)->handle();
 }
 
-static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols) {
+static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols)
+{
 	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
 	
 	for(u32 i = 0; i < section.size / sizeof(Symbol); i++) {
@@ -125,7 +127,8 @@ static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle 
 	return Result<void>();
 }
 
-Result<void> print_symbol_table(FILE* out, const ElfSection& section, const ElfFile& elf) {
+Result<void> print_symbol_table(FILE* out, const ElfSection& section, const ElfFile& elf)
+{
 	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
 	
 	fprintf(out, "   Num:    Value  Size Type    Bind   Vis      Ndx Name\n");
@@ -151,7 +154,8 @@ Result<void> print_symbol_table(FILE* out, const ElfSection& section, const ElfF
 	return Result<void>();
 }
 
-static const char* symbol_bind_to_string(SymbolBind bind) {
+static const char* symbol_bind_to_string(SymbolBind bind)
+{
 	switch(bind) {
 		case SymbolBind::LOCAL: return "LOCAL";
 		case SymbolBind::GLOBAL: return "GLOBAL";
@@ -162,7 +166,8 @@ static const char* symbol_bind_to_string(SymbolBind bind) {
 	return "ERROR";
 }
 
-static const char* symbol_type_to_string(SymbolType type) {
+static const char* symbol_type_to_string(SymbolType type)
+{
 	switch(type) {
 		case SymbolType::NOTYPE: return "NOTYPE";
 		case SymbolType::OBJECT: return "OBJECT";
@@ -177,7 +182,8 @@ static const char* symbol_type_to_string(SymbolType type) {
 	return "ERROR";
 }
 
-static const char* symbol_visibility_to_string(SymbolVisibility visibility) {
+static const char* symbol_visibility_to_string(SymbolVisibility visibility)
+{
 	switch(visibility) {
 		case SymbolVisibility::DEFAULT: return "DEFAULT";
 		case SymbolVisibility::INTERNAL: return "INTERNAL";

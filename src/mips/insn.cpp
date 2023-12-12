@@ -21,7 +21,8 @@ Insn::Insn() {}
 
 Insn::Insn(u32 val) : value(val) {}
 
-InsnClass Insn::iclass() const {
+InsnClass Insn::iclass() const
+{
 	if(opcode() == OPCODE_SPECIAL) {
 		return INSN_CLASS_MIPS_SPECIAL;
 	} else if(opcode() == OPCODE_COP0) {
@@ -61,7 +62,8 @@ InsnClass Insn::iclass() const {
 	}
 }
 
-const InsnInfo& Insn::info() const {
+const InsnInfo& Insn::info() const
+{
 	switch(iclass()) {
 		case INSN_CLASS_MIPS: return MIPS_OPCODE_TABLE[opcode()];
 		case INSN_CLASS_MIPS_SPECIAL: return MIPS_SPECIAL_TABLE[func()];
@@ -83,43 +85,53 @@ const InsnInfo& Insn::info() const {
 	}
 }
 
-u32 Insn::opcode() const {
+u32 Insn::opcode() const
+{
 	return (value & OPCODE_MASK) >> 26;
 }
 
-u32 Insn::rs() const {
+u32 Insn::rs() const
+{
 	return (value & RS_MASK) >> 21;
 }
 
-u32 Insn::rt() const {
+u32 Insn::rt() const
+{
 	return (value & RT_MASK) >> 16;
 }
 
-u32 Insn::rd() const {
+u32 Insn::rd() const
+{
 	return (value & RD_MASK) >> 11;
 }
 
-u32 Insn::sa() const {
+u32 Insn::sa() const
+{
 	return (value & SA_MASK) >> 6;
 }
 
-u32 Insn::func() const {
+u32 Insn::func() const
+{
 	return (value & FUNCTION_MASK) >> 0;
 }
 
-u32 Insn::immed() const {
+u32 Insn::immed() const
+{
 	return (value & IMMEDIATE_MASK) >> 0;
 }
 
-u32 Insn::target_insns() const {
+u32 Insn::target_insns() const
+{
 	return (value & TARGET_MASK) >> 0;
 }
 
-u32 Insn::target_bytes() const {
+u32 Insn::target_bytes() const
+{
 	return target_insns() * 4;
 }
 
-u32 Insn::field(InsnField field) const {
+u32 Insn::field(InsnField field) const
+{
 	switch(field) {
 		case InsnField::NONE: return 0;
 		case InsnField::RS: return rs();

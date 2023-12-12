@@ -22,7 +22,8 @@ const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
 };
 const u32 SYMBOL_TABLE_FORMAT_COUNT = CCC_ARRAY_SIZE(SYMBOL_TABLE_FORMATS);
 
-const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format) {
+const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format)
+{
 	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
 		if(SYMBOL_TABLE_FORMATS[i].format == format) {
 			return &SYMBOL_TABLE_FORMATS[i];
@@ -31,7 +32,8 @@ const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat for
 	return nullptr;
 }
 
-const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name) {
+const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name)
+{
 	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
 		if(strcmp(SYMBOL_TABLE_FORMATS[i].format_name, format_name) == 0) {
 			return &SYMBOL_TABLE_FORMATS[i];
@@ -40,7 +42,8 @@ const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_na
 	return nullptr;
 }
 
-const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name) {
+const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name)
+{
 	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
 		if(strcmp(SYMBOL_TABLE_FORMATS[i].section_name, section_name) == 0) {
 			return &SYMBOL_TABLE_FORMATS[i];
@@ -49,7 +52,8 @@ const SymbolTableFormatInfo* symbol_table_format_from_section(const char* sectio
 	return nullptr;
 }
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config) {
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config)
+{
 	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
 		return import_elf_symbol_table(database, *elf, config);
 	}
@@ -64,7 +68,8 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const S
 	return CCC_FAILURE("Invalid symbol file.");
 }
 
-Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config) {
+Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config)
+{
 	auto section_and_format = get_section_and_format(elf, config);
 	CCC_RETURN_IF_ERROR(section_and_format);
 	const ElfSection* section = section_and_format->first;
@@ -132,7 +137,8 @@ Result<SymbolSourceHandle> import_elf_symbol_table(SymbolDatabase& database, con
 	return source;
 }
 
-Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals) {
+Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals)
+{
 	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
 		auto section_and_format = get_section_and_format(*elf, config);
 		CCC_RETURN_IF_ERROR(section_and_format);
@@ -185,7 +191,8 @@ Result<void> print_symbol_table(FILE* out, const SymbolFile& file, const SymbolT
 	return Result<void>();
 }
 
-static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(const ElfFile& elf, const SymbolTableConfig& config) {
+static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(const ElfFile& elf, const SymbolTableConfig& config)
+{
 	const ElfSection* section = nullptr;
 	SymbolTableFormat format = SYMTAB;
 	
@@ -224,14 +231,16 @@ static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_f
 	return std::make_pair(section, format);
 }
 
-static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config) {
+static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config)
+{
 	CCC_CHECK(!config.section.has_value(), "ELF section specified for SNDLL file.");
 	CCC_CHECK(!config.format.has_value() || *config.format == SNDLL,
 		"Symbol table format specified for SNDLL file is not 'sndll'.");
 	return Result<void>();
 }
 
-static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database) {
+static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database)
+{
 	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
 		// Skip nodes that have already been processed.
 		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
