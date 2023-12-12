@@ -211,29 +211,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	// Print out the parameter list.
 	fprintf(out, "(");
 	if(symbol.parameter_variables().has_value()) {
-		bool skip_this = m_config.omit_this_parameter && !parameter_variables.empty() && parameter_variables[0].name() == "this";
-		for(size_t i = skip_this ? 1 : 0; i < parameter_variables.size(); i++) {
-			const ParameterVariable& parameter_variable = parameter_variables[i];
-			
-			if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&parameter_variable.storage)) {
-				register_storage_comment(*storage);
-			}
-			
-			if(const StackStorage* storage = std::get_if<StackStorage>(&parameter_variable.storage)) {
-				stack_storage_comment(*storage);
-			}
-			
-			VariableName variable_name;
-			variable_name.identifier = &parameter_variable.name();
-			if(parameter_variable.type()) {
-				ast_node(*parameter_variable.type(), variable_name, 0, database);
-			} else {
-				print_cpp_variable_name(out, variable_name, NO_VAR_PRINT_FLAGS);
-			}
-			if(i + 1 != parameter_variables.size()) {
-				fprintf(out, ", ");
-			}
-		}
+		function_parameters(parameter_variables, database);
 	} else {
 		fprintf(out, "/* parameters unknown */");
 	}
@@ -345,6 +323,10 @@ void CppPrinter::global_variable(
 	
 	global_storage_comment(symbol.storage, symbol.address());
 	
+	if(m_config.make_globals_extern) {
+		print_cpp_storage_class(out, ast::SC_EXTERN);
+	}
+	
 	VariableName name;
 	name.identifier = &symbol.name();
 	if(symbol.type()) {
@@ -374,11 +356,7 @@ void CppPrinter::ast_node(
 		}
 	}
 	
-	ast::StorageClass storage_class = (ast::StorageClass) node.storage_class;
-	//if(m_config.make_globals_extern && node.descriptor == ast::VARIABLE && node.as<ast::Variable>().variable_class == ast::VariableClass::GLOBAL) {
-	//	storage_class = ast::SC_EXTERN; // For printing out header files.
-	//}
-	print_cpp_storage_class(out, storage_class);
+	print_cpp_storage_class(out, (ast::StorageClass) node.storage_class);
 	
 	if(node.is_const) {
 		fprintf(out, "const ");
@@ -484,24 +462,30 @@ void CppPrinter::ast_node(
 				
 				// The parameters provided in STABS member function declarations
 				// are wrong, so are swapped out for the correct ones here.
-				//if(m_config.substitute_parameter_lists && function.definition) {
-				//	ast::FunctionType& definition_type = function.definition->type->as<ast::FunctionType>();
-				//	if(definition_type.parameters.has_value()) {
-				//		parameters = &(*definition_type.parameters);
-				//	}
-				//}
-				
-				size_t start;
-				if(m_config.omit_this_parameter && parameters->size() >= 1 && (*parameters)[0]->name == "this") {
-					start = 1;
-				} else {
-					start = 0;
+				bool parameters_printed = false;
+				if(m_config.substitute_parameter_lists) {
+					const Function* function_definition = database.functions.symbol_from_handle(function.definition_handle);
+					if(function_definition) {
+						if(function_definition->parameter_variables().has_value()) {
+							function_parameters(database.parameter_variables.span(function_definition->parameter_variables()), database);
+							parameters_printed = true;
+						}
+					}
 				}
-				for(size_t i = start; i < parameters->size(); i++) {
-					VariableName dummy;
-					ast_node(*(*parameters)[i].get(), dummy, indentation_level, database);
-					if(i != parameters->size() - 1) {
-						fprintf(out, ", ");
+				
+				if(!parameters_printed) {
+					size_t start;
+					if(m_config.omit_this_parameter && parameters->size() >= 1 && (*parameters)[0]->name == "this") {
+						start = 1;
+					} else {
+						start = 0;
+					}
+					for(size_t i = start; i < parameters->size(); i++) {
+						VariableName dummy;
+						ast_node(*(*parameters)[i].get(), dummy, indentation_level, database);
+						if(i != parameters->size() - 1) {
+							fprintf(out, ", ");
+						}
 					}
 				}
 			} else {
@@ -622,6 +606,33 @@ void CppPrinter::ast_node(
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
+		}
+	}
+}
+
+void CppPrinter::function_parameters(std::span<const ParameterVariable> parameters, const SymbolDatabase& database)
+{
+	bool skip_this = m_config.omit_this_parameter && !parameters.empty() && parameters[0].name() == "this";
+	for(size_t i = skip_this ? 1 : 0; i < parameters.size(); i++) {
+		const ParameterVariable& parameter_variable = parameters[i];
+		
+		if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&parameter_variable.storage)) {
+			register_storage_comment(*storage);
+		}
+		
+		if(const StackStorage* storage = std::get_if<StackStorage>(&parameter_variable.storage)) {
+			stack_storage_comment(*storage);
+		}
+		
+		VariableName variable_name;
+		variable_name.identifier = &parameter_variable.name();
+		if(parameter_variable.type()) {
+			ast_node(*parameter_variable.type(), variable_name, 0, database);
+		} else {
+			print_cpp_variable_name(out, variable_name, NO_VAR_PRINT_FLAGS);
+		}
+		if(i + 1 != parameters.size()) {
+			fprintf(out, ", ");
 		}
 	}
 }
