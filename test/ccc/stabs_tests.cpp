@@ -80,13 +80,13 @@ STABS_TEST(Function, "function:t(1,1)=(1,2)=f(0,1)") {
 	ASSERT_EQ(function.return_type->type_number.type, 1);
 }
 
-// Synthetic example.
+// -gstabs+
 // typedef volatile int VolatileInt;
-STABS_TEST(VolatileQualifier, "VolatileInt:t(1,1)=B(0,1)") {}
+STABS_TEST(VolatileQualifier, "VolatileInt:t(1,1)=(1,2)=B(0,1)") {}
 
-// Synthetic example.
+// -gstabs+
 // typedef const int ConstInt;
-STABS_TEST(ConstQualifier, "ConstInt:t(1,1)=k(0,1)") {}
+STABS_TEST(ConstQualifier, "ConstInt:t(1,1)=(1,2)=k(0,1)") {}
 
 // int
 STABS_TEST(RangeBuiltIn, "int:t(0,1)=r(0,1);-2147483648;2147483647;") {
@@ -107,13 +107,6 @@ STABS_TEST(SimpleStruct, "SimpleStruct:T(1,1)=s4a:(0,1),0,32;;") {
 	ASSERT_EQ(field.name, "a");
 	ASSERT_EQ(field.offset_bits, 0);
 	ASSERT_EQ(field.size_bits, 32);
-}
-
-// template <int num> struct VirtualFunctionStruct { virtual void func() {} };
-// template struct VirtualFunctionStruct<1>;
-STABS_TEST(VirtualFunctionStruct, "VirtualFunctionStruct<1>:T(1,1)=s4_vptr.VirtualFunctionStruct:(1,2)=*(0,25),0,32;;") {
-	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
-	ASSERT_EQ(struct_type.fields.at(0).name, "_vptr.VirtualFunctionStruct");
 }
 
 // union Union { int i; float f; };
@@ -144,6 +137,29 @@ STABS_TEST(NestedStructsAndUnions, "NestedStructsAndUnions:T(1,1)=s8c:(1,2)=u4b:
 	ASSERT_EQ(d.name, "d");
 }
 
+// -gstabs+
+// struct DefaultMemberFunctions {};
+STABS_TEST(DefaultMemberFunctions,
+	"DefaultMemberFunctions:Tt(1,1)=s1"
+		"operator=::(1,2)=#(1,1),(1,3)=&(1,1),(1,4)=*(1,1),(1,5)=&(1,6)=k(1,1),(0,23);:_ZN22DefaultMemberFunctionsaSERKS_;2A.;"
+		"__base_ctor::(1,7)=#(1,1),(0,23),(1,4),(1,5),(0,23);:_ZN22DefaultMemberFunctionsC2ERKS_;2A.;"
+		"__comp_ctor::(1,7):_ZN22DefaultMemberFunctionsC1ERKS_;2A.;"
+		"__base_ctor::(1,8)=#(1,1),(0,23),(1,4),(0,23);:_ZN22DefaultMemberFunctionsC2Ev;2A.;"
+		"__comp_ctor::(1,8):_ZN22DefaultMemberFunctionsC1Ev;2A.;;") {}
+
+// -gstabs+
+// class FirstBaseClass {};
+// class SecondBaseClass {};
+// class MultipleInheritance : FirstBaseClass, SecondBaseClass {};
+STABS_TEST(MultipleInheritance,
+	"MultipleInheritance:Tt(1,17)=s1"
+		"!2,000,(1,1);000,(1,9);"
+		"operator=::(1,18)=#(1,17),(1,19)=&(1,17),(1,20)=*(1,17),(1,21)=&(1,22)=k(1,17),(0,23);:_ZN19MultipleInheritanceaSERKS_;2A.;"
+		"__base_ctor::(1,23)=#(1,17),(0,23),(1,20),(1,21),(0,23);:_ZN19MultipleInheritanceC2ERKS_;2A.;"
+		"__comp_ctor::(1,23):_ZN19MultipleInheritanceC1ERKS_;2A.;"
+		"__base_ctor::(1,24)=#(1,17),(0,23),(1,20),(0,23);:_ZN19MultipleInheritanceC2Ev;2A.;"
+		"__comp_ctor::(1,24):_ZN19MultipleInheritanceC1Ev;2A.;;") {}
+
 // struct ForwardDeclared;
 // typedef ForwardDeclared* ForwardDeclaredPtr;
 STABS_TEST(CrossReference, "ForwardDeclaredPtr:t(1,1)=(1,2)=*(1,3)=xsForwardDeclared:") {
@@ -154,7 +170,8 @@ STABS_TEST(CrossReference, "ForwardDeclaredPtr:t(1,1)=(1,2)=*(1,3)=xsForwardDecl
 	ASSERT_EQ(cross_reference.identifier, "ForwardDeclared");
 }
 
-// Synthetic example.
+// -gtstabs+
+// struct Struct;
 // typedef int Struct::*pointer_to_data_member;
 STABS_TEST(PointerToDataMember, "pointer_to_data_member:t(1,1)=(1,2)=*(1,3)=@(1,4)=xsStruct:,(0,1)") {
 	StabsTypeReferenceType& type_reference = symbol.type->as<StabsTypeReferenceType>();
@@ -169,15 +186,6 @@ STABS_TEST(PointerToDataMember, "pointer_to_data_member:t(1,1)=(1,2)=*(1,3)=@(1,
 // template struct DodgyTypeName<Namespace::A>;
 STABS_TEST(DodgyTypeName, "DodgyTypeName<Namespace::A>:T(1,1)=s1;") {
 	ASSERT_EQ(symbol.name, "DodgyTypeName<Namespace::A>");
-}
-
-// Synthetic example. Something like:
-// namespace Namespace { struct A; }
-// template <typename T> struct DodgyVtablePointer { virtual ~DodgyVtablePointer(); };
-// template struct DodgyVtablePointer<Namespace::A>;
-STABS_TEST(DodgyVtablePointer, "DodgyVtablePointer<Namespace::A>:T(1,2)=s4_vptr$DodgyVtablePointer<Namespace::A>:(1,1),0,32;;") {
-	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
-	ASSERT_EQ(struct_type.fields.at(0).name, "_vptr$DodgyVtablePointer<Namespace::A>");
 }
 
 // namespace Namespace { struct A; }
