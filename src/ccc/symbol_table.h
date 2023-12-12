@@ -14,9 +14,8 @@ namespace ccc {
 enum SymbolTableFormat {
 	SYMTAB = 0, // Standard ELF symbol table
 	MDEBUG = 1, // The infamous Third Eye symbol table
-	STAB   = 2, // Simpler container format for STABS symbols
-	DWARF  = 3, // DWARF 1 symbol table
-	SNDLL  = 4  // SNDLL linker symbols
+	DWARF  = 2, // DWARF 1 symbol table
+	SNDLL  = 3  // SNDLL linker symbols
 };
 
 struct SymbolTableFormatInfo {

@@ -17,7 +17,6 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& databa
 const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
 	{SYMTAB, "symtab", ".symtab", 2},
 	{MDEBUG, "mdebug", ".mdebug", 3},
-	{STAB, "stab", ".stab", 0},
 	{DWARF, "dwarf", ".debug", 0},
 	{SNDLL, "sndll", ".sndata", 1}
 };
