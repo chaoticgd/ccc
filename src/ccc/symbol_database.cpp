@@ -429,7 +429,7 @@ void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source) {
 	#undef CCC_X
 }
 
-const ast::Node* SymbolDatabase::node_pointer_from_handle(const NodeHandle& node_handle) {
+const ast::Node* SymbolDatabase::node_from_handle(const NodeHandle& node_handle) {
 	switch(node_handle.m_descriptor) {
 		#define CCC_X(SymbolType, symbol_list) \
 			case SymbolType::DESCRIPTOR: \

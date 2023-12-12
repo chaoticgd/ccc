@@ -538,7 +538,7 @@ public:
 	
 	// Check if the symbol referenced by a given node handle still exists. If it
 	// does, return the node pointer stored within, otherwise return nullptr.
-	const ast::Node* node_pointer_from_handle(const NodeHandle& node_handle);
+	const ast::Node* node_from_handle(const NodeHandle& node_handle);
 	
 	// Deduplicate matching data types with the same name. May replace the
 	// existing data type with the new one if the new one is better.

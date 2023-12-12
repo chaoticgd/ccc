@@ -233,13 +233,13 @@ TEST(CCCSymbolDatabase, NodePointerFromHandle) {
 	NodeHandle node_handle((*data_type)->handle(), (*data_type)->type());
 	
 	// Make sure we can lookup the node from the handle.
-	EXPECT_EQ(database.node_pointer_from_handle(node_handle), (*data_type)->type());
+	EXPECT_EQ(database.node_from_handle(node_handle), (*data_type)->type());
 	
 	// Destroy the symbol.
 	database.data_types.destroy_symbol((*data_type)->handle());
 	
 	// Make sure we can no longer lookup the node from the handle.
-	EXPECT_EQ(database.node_pointer_from_handle(node_handle), nullptr);
+	EXPECT_EQ(database.node_from_handle(node_handle), nullptr);
 }
 
 TEST(CCCSymbolDatabase, DestroyFunction) {
