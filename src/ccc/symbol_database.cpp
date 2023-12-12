@@ -417,16 +417,14 @@ void SourceFile::set_globals_variables(GlobalVariableRange range, ShouldDeleteOl
 
 // *****************************************************************************
 
-void SymbolDatabase::clear() {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
+bool SymbolDatabase::symbol_exists_at_address(Address address) const {
+	#define CCC_X(SymbolType, symbol_list) \
+		if(symbol_list.first_handle_from_address(address).valid()) { \
+			return true; \
+		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
-}
-
-void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source) {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
-	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-	#undef CCC_X
+	return false;
 }
 
 const ast::Node* SymbolDatabase::node_from_handle(const NodeHandle& node_handle) {
@@ -441,6 +439,18 @@ const ast::Node* SymbolDatabase::node_from_handle(const NodeHandle& node_handle)
 		#undef CCC_X
 	}
 	return node_handle.m_node;
+}
+
+void SymbolDatabase::clear() {
+	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+}
+
+void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source) {
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
 }
 
 Result<DataType*> SymbolDatabase::create_data_type_if_unique(std::unique_ptr<ast::Node> node, StabsTypeNumber number, const char* name, SourceFile& source_file, SymbolSourceHandle source) {

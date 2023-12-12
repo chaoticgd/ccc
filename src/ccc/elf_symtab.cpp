@@ -45,17 +45,22 @@ CCC_PACKED_STRUCT(Symbol,
 	SymbolVisibility visibility() const { return (SymbolVisibility) (other & 0x3); }
 )
 
-static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf);
+static Result<void> import_symbols(
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const ElfSection& section,
+	const ElfFile& elf,
+	bool ignore_existing_symbols);
 
 static const char* symbol_bind_to_string(SymbolBind bind);
 static const char* symbol_type_to_string(SymbolType type);
 static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 
-Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf) {
+Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols) {
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(source);
 	
-	Result<void> result = import_symbols(database, (*source)->handle(), section, elf);
+	Result<void> result = import_symbols(database, (*source)->handle(), section, elf, ignore_existing_symbols);
 	if(!result.success()) {
 		database.destroy_symbols_from_source((*source)->handle());
 		return result;
@@ -64,7 +69,7 @@ Result<SymbolSourceHandle> import_symbol_table(SymbolDatabase& database, const E
 	return (*source)->handle();
 }
 
-static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf) {
+static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle source, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols) {
 	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
 	
 	for(u32 i = 0; i < section.size / sizeof(Symbol); i++) {
@@ -77,6 +82,10 @@ static Result<void> import_symbols(SymbolDatabase& database, SymbolSourceHandle 
 		}
 		
 		if(!address.valid() || symbol->visibility() != SymbolVisibility::DEFAULT) {
+			continue;
+		}
+		
+		if(ignore_existing_symbols && database.symbol_exists_at_address(address)) {
 			continue;
 		}
 		

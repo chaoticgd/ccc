@@ -529,16 +529,19 @@ public:
 	SymbolList<SourceFile> source_files;
 	SymbolList<SymbolSource> symbol_sources;
 	
+	// Check if a symbol has already been added to the database.
+	bool symbol_exists_at_address(Address address) const;
+	
+	// Check if the symbol referenced by a given node handle still exists. If it
+	// does, return the node pointer stored within, otherwise return nullptr.
+	const ast::Node* node_from_handle(const NodeHandle& node_handle);
+	
 	// Destroy all the symbols in the symbol database.
 	void clear();
 	
 	// Destroy all the symbols from a given symbol source. For example, you can
 	// use this to free a symbol table without destroying user-defined symbols.
 	void destroy_symbols_from_source(SymbolSourceHandle source);
-	
-	// Check if the symbol referenced by a given node handle still exists. If it
-	// does, return the node pointer stored within, otherwise return nullptr.
-	const ast::Node* node_from_handle(const NodeHandle& node_handle);
 	
 	// Deduplicate matching data types with the same name. May replace the
 	// existing data type with the new one if the new one is better.
