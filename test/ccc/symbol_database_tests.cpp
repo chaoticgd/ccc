@@ -6,7 +6,8 @@
 
 using namespace ccc;
 
-TEST(CCCSymbolDatabase, SymbolFromHandle) {
+TEST(CCCSymbolDatabase, SymbolFromHandle)
+{
 	SymbolDatabase database;
 	SymbolSourceHandle handles[10];
 	
@@ -25,7 +26,8 @@ TEST(CCCSymbolDatabase, SymbolFromHandle) {
 	}
 }
 
-TEST(CCCSymbolDatabase, SymbolListSpan) {
+TEST(CCCSymbolDatabase, SymbolListSpan)
+{
 	struct SpanTestCase {
 		std::vector<u8> symbols;
 		u8 first;
@@ -76,7 +78,8 @@ TEST(CCCSymbolDatabase, SymbolListSpan) {
 	}
 }
 
-TEST(CCCSymbolDatabase, HandleFromAddress) {
+TEST(CCCSymbolDatabase, HandleFromAddress)
+{
 	SymbolDatabase database;
 	FunctionHandle handles[10];
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
@@ -94,7 +97,8 @@ TEST(CCCSymbolDatabase, HandleFromAddress) {
 	}
 }
 
-TEST(CCCSymbolDatabase, HandlesFromName) {
+TEST(CCCSymbolDatabase, HandlesFromName)
+{
 	SymbolDatabase database;
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	
@@ -125,7 +129,8 @@ TEST(CCCSymbolDatabase, HandlesFromName) {
 	EXPECT_EQ(ds.begin(), ds.end());
 }
 
-TEST(CCCSymbolDatabase, MoveSymbol) {
+TEST(CCCSymbolDatabase, MoveSymbol)
+{
 	SymbolDatabase database;
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
@@ -137,7 +142,8 @@ TEST(CCCSymbolDatabase, MoveSymbol) {
 	EXPECT_FALSE(database.functions.first_handle_from_address(0x1000).valid());
 }
 
-TEST(CCCSymbolDatabase, RenameSymbol) {
+TEST(CCCSymbolDatabase, RenameSymbol)
+{
 	SymbolDatabase database;
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
@@ -152,7 +158,8 @@ TEST(CCCSymbolDatabase, RenameSymbol) {
 	EXPECT_NE(new_handles.begin(), new_handles.end());
 }
 
-TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles) {
+TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles)
+{
 	SymbolDatabase database;
 	SymbolSourceHandle handles[10];
 	
@@ -179,7 +186,8 @@ TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles) {
 	}
 }
 
-TEST(CCCSymbolDatabase, DestroySymbolsFromSource) {
+TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
+{
 	SymbolDatabase database;
 	
 	Result<SymbolSource*> symbol_table_source = database.symbol_sources.create_symbol("Big Symbol Table", SymbolSourceHandle());
@@ -218,7 +226,8 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource) {
 	EXPECT_TRUE(user_symbols_remaining == 10);
 }
 
-TEST(CCCSymbolDatabase, NodePointerFromHandle) {
+TEST(CCCSymbolDatabase, NodePointerFromHandle)
+{
 	SymbolDatabase database;
 	
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Symbol Table", SymbolSourceHandle());
@@ -242,7 +251,8 @@ TEST(CCCSymbolDatabase, NodePointerFromHandle) {
 	EXPECT_EQ(database.node_from_handle(node_handle), nullptr);
 }
 
-TEST(CCCSymbolDatabase, DestroyFunction) {
+TEST(CCCSymbolDatabase, DestroyFunction)
+{
 	SymbolDatabase database;
 	
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Symbol Table", SymbolSourceHandle());
