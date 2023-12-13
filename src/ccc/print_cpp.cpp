@@ -20,13 +20,13 @@ static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class);
 static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags);
 static void indent(FILE* out, s32 level);
 
-void CppPrinter::comment_block_beginning(const char* input_file)
+void CppPrinter::comment_block_beginning(const char* input_file, const char* tool_name, const char* tool_version)
 {
 	if(m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
 	
-	fprintf(out, "// File written by stdump");
+	fprintf(out, "// File written by %s%s%s", tool_name, (tool_name && tool_version) ? " " : "", tool_version);
 	time_t cftime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	tm* t = std::localtime(&cftime);
 	if(t) {

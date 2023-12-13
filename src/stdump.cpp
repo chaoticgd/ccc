@@ -43,6 +43,7 @@ static void print_sections(FILE* out, const Options& options);
 static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options);
 static Options parse_command_line_arguments(int argc, char** argv);
 static void print_help(FILE* out);
+static const char* get_version();
 
 struct StdumpCommand {
 	void (*function)(FILE* out, const Options& options);
@@ -267,7 +268,7 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 {
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
-	printer.comment_block_beginning(options.input_file.filename().string().c_str());
+	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
 	printer.comment_block_toolchain_version_info(database);
 	printer.comment_block_builtin_types(database);
 	for(const DataType& data_type : database.data_types) {
@@ -279,7 +280,7 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 {
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
-	printer.comment_block_beginning(options.input_file.filename().string().c_str());
+	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
 	
 	for(const SourceFile& source_file : database.source_files) {
 		printer.comment_block_file(source_file.full_path().c_str());
@@ -488,13 +489,9 @@ static Options parse_command_line_arguments(int argc, char** argv)
 	return options;
 }
 
-const char* git_tag();
-
 static void print_help(FILE* out)
 {
-	const char* tag = git_tag();
-	fprintf(out, "stdump %s -- https://github.com/chaoticgd/ccc\n",
-		(strlen(tag) > 0) ? tag : "development version");
+	fprintf(out, "stdump %s -- https://github.com/chaoticgd/ccc\n", get_version());
 	fprintf(out, "  PS2 symbol table parser and dumper.\n");
 	fprintf(out, "\n");
 	fprintf(out, "Common Commands:\n");
@@ -553,4 +550,11 @@ static void print_help(FILE* out)
 		}
 		column += strlen(format.format_name) + 2;
 	}
+}
+
+const char* git_tag();
+
+static const char* get_version() {
+	const char* tag = git_tag();
+	return (tag && strlen(tag) > 0) ? tag : "development version";
 }

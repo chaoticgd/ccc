@@ -35,7 +35,7 @@ public:
 		: out(o)
 		, m_config(config) {}
 	
-	void comment_block_beginning(const char* input_file);
+	void comment_block_beginning(const char* input_file, const char* tool_name, const char* tool_version);
 	void comment_block_toolchain_version_info(const SymbolDatabase& database);
 	void comment_block_builtin_types(const SymbolDatabase& database, SourceFileHandle file = SourceFileHandle());
 	void comment_block_file(const char* path);
