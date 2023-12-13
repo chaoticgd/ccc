@@ -112,6 +112,10 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	// Convert the parsed stabs symbols to a more standard C AST.
 	LocalSymbolTableAnalyser analyser(database, stabs_to_ast_state, context, **source_file);
 	for(const ParsedSymbol& symbol : *symbols) {
+		if(symbol.duplicate) {
+			continue;
+		}
+		
 		switch(symbol.type) {
 			case ParsedSymbolType::NAME_COLON_TYPE: {
 				switch(symbol.name_colon_type.descriptor) {
@@ -235,15 +239,6 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	
 	// The STABS types are no longer needed, so delete them now.
 	symbols->clear();
-	
-	// Some enums have two separate stabs generated for them, one with a
-	// name of " ", where one stab references the other. Remove these
-	// duplicate AST nodes.
-	//ast::remove_duplicate_enums(source_file.data_types);
-	
-	// For some reason typedefs referencing themselves are generated along
-	// with a proper struct of the same name.
-	//ast::remove_duplicate_self_typedefs(source_file.data_types);
 	
 	return Result<void>();
 }

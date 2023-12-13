@@ -20,56 +20,6 @@ void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags)
 	}
 }
 
-// Some enums have two symbols associated with them: One named " " and another
-// one referencing the first.
-void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes)
-{
-	for(size_t i = 0; i < ast_nodes.size(); i++) {
-		Node& node = *ast_nodes[i].get();
-		if(node.descriptor == NodeDescriptor::ENUM && node.name.empty()) {
-			bool match = false;
-			for(std::unique_ptr<Node>& other : ast_nodes) {
-				bool is_match = other.get() != &node
-					&& other->descriptor == NodeDescriptor::ENUM
-					&& !other->name.empty()
-					&& other->as<Enum>().constants == node.as<Enum>().constants;
-				if(is_match) {
-					match = true;
-					break;
-				}
-			}
-			if(match) {
-				ast_nodes.erase(ast_nodes.begin() + i);
-				i--;
-			}
-		}
-	}
-}
-
-void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes)
-{
-	//for(size_t i = 0; i < ast_nodes.size(); i++) {
-	//	Node& node = *ast_nodes[i].get();
-	//	if(node.descriptor == TYPE_NAME && node.as<TypeName>().type_name == node.name) {
-	//		bool match = false;
-	//		for(std::unique_ptr<Node>& other : ast_nodes) {
-	//			bool is_match = other.get() != &node
-	//				&& (other->descriptor == ENUM
-	//					|| other->descriptor == STRUCT_OR_UNION)
-	//				&& other->name == node.name;
-	//			if(is_match) {
-	//				match = true;
-	//				break;
-	//			}
-	//		}
-	//		if(match) {
-	//			ast_nodes.erase(ast_nodes.begin() + i);
-	//			i--;
-	//		}
-	//	}
-	//}
-}
-
 CompareResult compare_nodes(
 	const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields)
 {

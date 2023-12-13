@@ -7,6 +7,8 @@
 
 namespace ccc::mdebug {
 
+static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols);
+
 Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags)
 {
 	std::vector<ParsedSymbol> output;
@@ -130,7 +132,35 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 			non_stabs_symbol.raw = &symbol;
 		}
 	}
+	
+	mark_duplicate_symbols(output);
+	
 	return output;
+}
+
+static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
+{
+	std::map<StabsTypeNumber, size_t> stabs_type_number_to_symbol;
+	for(size_t i = 0; i < symbols.size(); i++) {
+		ParsedSymbol& symbol = symbols[i];
+		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE && !symbol.name_colon_type.type->anonymous) {
+			stabs_type_number_to_symbol.emplace(symbol.name_colon_type.type->type_number, i);
+		}
+	}
+	
+	for(ParsedSymbol& symbol : symbols) {
+		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE && symbol.name_colon_type.type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
+			StabsTypeReferenceType& reference = symbol.name_colon_type.type->as<StabsTypeReferenceType>();
+			auto referenced_index = stabs_type_number_to_symbol.find(reference.type->type_number);
+			if(referenced_index != stabs_type_number_to_symbol.end()) {
+				ParsedSymbol& referenced = symbols[referenced_index->second];
+				if(referenced.name_colon_type.name == " " || referenced.name_colon_type.name == symbol.name_colon_type.name) {
+					referenced.duplicate = true;
+					symbol.dont_substitute_type_name = true;
+				}
+			}
+		}
+	}
 }
 
 }
