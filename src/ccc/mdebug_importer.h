@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "mdebug_analysis.h"
 #include "mdebug_section.h"
 #include "symbol_database.h"
 #include "symbol_table.h"
@@ -13,6 +14,8 @@ namespace ccc::mdebug {
 // it to a set of C++ ASTs.
 Result<SymbolSourceHandle> import_symbol_table(
 	SymbolDatabase& database, const mdebug::SymbolTableReader& symbol_table, u32 parser_flags, DemanglerFunc* demangle);
+Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context);
+Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, const AnalysisContext& context);
 
 // Try to add pointers from member function declarations to their definitions
 // using a heuristic.

@@ -79,7 +79,7 @@ CCC_PACKED_STRUCT(ProcedureDescriptor,
 
 CCC_PACKED_STRUCT(SymbolHeader,
 	/* 0x0 */ u32 iss;
-	/* 0x4 */ s32 value;
+	/* 0x4 */ u32 value;
 	/* 0x8:00 */ u32 st : 6;
 	/* 0x8:06 */ u32 sc : 5;
 	/* 0x8:11 */ u32 reserved : 1;
@@ -95,7 +95,7 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 
 static void print_symbol(FILE* out, const Symbol& symbol);
 static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
-static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
+static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
 
 Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset)
 {
@@ -153,7 +153,7 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 		CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
 		
 		s32 strings_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + m_fudge_offset;
-		Result<Symbol> sym = parse_symbol(*symbol_header, m_elf, strings_offset);
+		Result<Symbol> sym = get_symbol(*symbol_header, m_elf, strings_offset);
 		CCC_RETURN_IF_ERROR(sym);
 		
 		bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
@@ -181,7 +181,7 @@ Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const
 		u64 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
 		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(m_elf, sym_offset + m_fudge_offset);
 		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
-		Result<Symbol> sym = parse_symbol(external_header->symbol, m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
+		Result<Symbol> sym = get_symbol(external_header->symbol, m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
 		CCC_RETURN_IF_ERROR(sym);
 		external_symbols.emplace_back(std::move(*sym));
 	}
@@ -323,7 +323,7 @@ static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const Symbolic
 	return fudge_offset;
 }
 
-static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset)
+static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset)
 {
 	Symbol symbol;
 	
@@ -335,9 +335,11 @@ static Result<Symbol> parse_symbol(const SymbolHeader& header, std::span<const u
 	symbol.symbol_type = (SymbolType) header.st;
 	symbol.symbol_class = (SymbolClass) header.sc;
 	symbol.index = header.index;
+	
 	if(symbol.is_stabs()) {
 		CCC_CHECK(stabs_code_to_string(symbol.code()) != nullptr, "Bad stabs symbol code '%x'.", symbol.code());
 	}
+	
 	return symbol;
 }
 

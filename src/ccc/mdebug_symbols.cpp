@@ -140,6 +140,8 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 
 static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 {
+	return;
+	
 	std::map<StabsTypeNumber, size_t> stabs_type_number_to_symbol;
 	for(size_t i = 0; i < symbols.size(); i++) {
 		ParsedSymbol& symbol = symbols[i];

@@ -182,6 +182,7 @@ public:
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
 	
 	bool empty() const;
+	s32 size() const;
 	
 	// Create a new symbol. If it's a SymbolSource symbol, source can be left
 	// empty, otherwise it has to be valid.

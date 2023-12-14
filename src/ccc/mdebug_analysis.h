@@ -13,11 +13,11 @@
 namespace ccc::mdebug {
 	
 struct AnalysisContext {
-	const mdebug::SymbolTableReader* reader;
+	const mdebug::SymbolTableReader* reader = nullptr;
 	const std::map<std::string, const mdebug::Symbol*>* globals;
 	SymbolSourceHandle symbol_source;
-	u32 parser_flags;
-	DemanglerFunc* demangle;
+	u32 parser_flags = NO_PARSER_FLAGS;
+	DemanglerFunc* demangle = nullptr;
 };
 
 class LocalSymbolTableAnalyser {

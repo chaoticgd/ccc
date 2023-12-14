@@ -147,6 +147,13 @@ bool SymbolList<SymbolType>::empty() const
 	return m_symbols.size() == 0;
 }
 
+
+template <typename SymbolType>
+s32 SymbolList<SymbolType>::size() const
+{
+	return (s32) m_symbols.size();
+}
+
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address)
 {

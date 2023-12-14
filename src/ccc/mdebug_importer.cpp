@@ -3,12 +3,8 @@
 
 #include "mdebug_importer.h"
 
-#include "mdebug_analysis.h"
-
 namespace ccc::mdebug {
 
-static Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context);
-static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context);
 static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source);
 static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source);
 
@@ -48,13 +44,16 @@ Result<SymbolSourceHandle> import_symbol_table(
 	return (*symbol_source)->handle();
 }
 
-static Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context)
+Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context)
 {
 	Result<s32> file_count = context.reader->file_count();
 	CCC_RETURN_IF_ERROR(file_count);
 	
 	for(s32 i = 0; i < *file_count; i++) {
-		Result<void> result = import_file(database, i, context);
+		Result<mdebug::File> file = context.reader->parse_file(i);
+		CCC_RETURN_IF_ERROR(file);
+		
+		Result<void> result = import_file(database, *file, context);
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
@@ -73,17 +72,14 @@ static Result<void> import_files(SymbolDatabase& database, const AnalysisContext
 	return Result<void>();
 }
 
-static Result<void> import_file(SymbolDatabase& database, s32 file_index, const AnalysisContext& context)
+Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, const AnalysisContext& context)
 {
-	Result<mdebug::File> input = context.reader->parse_file(file_index);
-	CCC_RETURN_IF_ERROR(input);
-	
-	Result<SourceFile*> source_file = database.source_files.create_symbol(input->full_path, context.symbol_source);
+	Result<SourceFile*> source_file = database.source_files.create_symbol(input.full_path, context.symbol_source);
 	CCC_RETURN_IF_ERROR(source_file);
 	
 	// Sometimes the INFO symbols contain information about what toolchain
 	// version was used for building the executable.
-	for(mdebug::Symbol& symbol : input->symbols) {
+	for(const mdebug::Symbol& symbol : input.symbols) {
 		if(symbol.symbol_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
 			(*source_file)->toolchain_version_info.emplace(symbol.string);
 		}
@@ -92,7 +88,7 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
 	u32 parser_flags_for_this_file = context.parser_flags;
-	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(input->symbols, parser_flags_for_this_file);
+	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(input.symbols, parser_flags_for_this_file);
 	CCC_RETURN_IF_ERROR(symbols);
 	
 	// In stabs, types can be referenced by their number from other stabs,
@@ -162,10 +158,12 @@ static Result<void> import_file(SymbolDatabase& database, s32 file_index, const 
 							// only stored in the external symbol table (and
 							// the ELF symbol table), so we pull that
 							// information in here.
-							auto global_symbol = context.globals->find(symbol.name_colon_type.name);
-							if(global_symbol != context.globals->end()) {
-								address = (u32) global_symbol->second->value;
-								location = symbol_class_to_global_variable_location(global_symbol->second->symbol_class);
+							if(context.globals) {
+								auto global_symbol = context.globals->find(symbol.name_colon_type.name);
+								if(global_symbol != context.globals->end()) {
+									address = (u32) global_symbol->second->value;
+									location = symbol_class_to_global_variable_location(global_symbol->second->symbol_class);
+								}
 							}
 						} else {
 							// And for static global variables it's just stored

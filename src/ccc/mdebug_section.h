@@ -103,7 +103,7 @@ enum StabsCode {
 };
 
 struct Symbol {
-	s32 value;
+	u32 value;
 	SymbolType symbol_type;
 	SymbolClass symbol_class;
 	u32 index;
@@ -118,6 +118,8 @@ struct Symbol {
 	}
 };
 
+#define STABS_CODE(code) ((code) + 0x8f300)
+
 enum class SourceLanguage {
 	C,
 	CPP,
@@ -126,10 +128,10 @@ enum class SourceLanguage {
 };
 
 struct File {
+	std::vector<Symbol> symbols;
 	std::string base_path;
 	std::string raw_path;
 	std::string full_path;
-	std::vector<Symbol> symbols;
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
 };
 
