@@ -68,6 +68,9 @@ CompareResult compare_nodes(
 			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
 			break;
 		}
+		case ERROR: {
+			break;
+		}
 		case FORWARD_DECLARED: {
 			const auto [lhs, rhs] = Node::as<ForwardDeclared>(node_lhs, node_rhs);
 			if(lhs.type != rhs.type) return CompareFailReason::DESCRIPTOR;
@@ -248,6 +251,7 @@ const char* node_type_to_string(const Node& node)
 		case BITFIELD: return "bitfield";
 		case BUILTIN: return "builtin";
 		case ENUM: return "enum";
+		case ERROR: return "error";
 		case FORWARD_DECLARED: return "forward_declared";
 		case FUNCTION: return "function";
 		case POINTER_OR_REFERENCE: {

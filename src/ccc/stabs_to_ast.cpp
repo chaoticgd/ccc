@@ -80,14 +80,14 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		CCC_CHECK(!type.anonymous, "Cannot lookup type (type is anonymous).");
 		auto stabs_type = state.stabs_types->find(type.type_number);
 		if(stabs_type == state.stabs_types->end()) {
+			std::string error_message = "Failed to lookup STABS type by its type number ("
+				+ std::to_string(type.type_number.file) + "," + std::to_string(type.type_number.type) + ").";
 			if(state.parser_flags & STRICT_PARSING) {
-				return CCC_FAILURE("Failed to lookup STABS type by its type number (%d,%d).",
-					type.type_number.file, type.type_number.type);
+				return CCC_FAILURE("%s", error_message.c_str());
 			} else {
-				CCC_WARN("Failed to lookup STABS type by its type number (%d,%d).",
-					type.type_number.file, type.type_number.type);
-				std::unique_ptr<ast::TypeName> error = std::make_unique<ast::TypeName>();
-				error->source = ast::TypeNameSource::ERROR;
+				CCC_WARN("%s", error_message.c_str());
+				std::unique_ptr<ast::Error> error = std::make_unique<ast::Error>();
+				error->message = std::move(error_message);
 				return std::unique_ptr<ast::Node>(std::move(error));
 			}
 		}

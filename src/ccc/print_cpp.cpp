@@ -429,6 +429,10 @@ void CppPrinter::ast_node(
 			}
 			break;
 		}
+		case ast::ERROR: {
+			fprintf(out, "CCC_ERROR(\"%s\")", node.as<ast::Error>().message.c_str());
+			break;
+		}
 		case ast::FORWARD_DECLARED: {
 			const ast::ForwardDeclared& forward_declared = node.as<ast::ForwardDeclared>();
 			if(forward_declared.type.has_value()) {
@@ -599,10 +603,10 @@ void CppPrinter::ast_node(
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
 			const DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
-			if(type_name.source != ast::TypeNameSource::ERROR && data_type) {
+			if(data_type) {
 				fprintf(out, "%s", data_type->name().c_str());
 			} else {
-				fprintf(out, "CCC_ERROR");
+				fprintf(out, "CCC_ERROR(\"Invalid type name.\")");
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;

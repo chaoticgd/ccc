@@ -42,6 +42,7 @@ enum NodeDescriptor : u8 {
 	BITFIELD,
 	BUILTIN,
 	ENUM,
+	ERROR,
 	FORWARD_DECLARED,
 	FUNCTION,
 	POINTER_OR_REFERENCE,
@@ -152,6 +153,13 @@ struct Enum : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = ENUM;
 };
 
+struct Error : Node {
+	std::string message;
+	
+	Error() : Node(ERROR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = ERROR;
+};
+
 enum class ForwardDeclaredType {
 	STRUCT,
 	UNION,
@@ -210,7 +218,6 @@ struct StructOrUnion : Node {
 };
 
 enum class TypeNameSource : u8 {
-	ERROR,
 	REFERENCE,
 	CROSS_REFERENCE,
 	ANONYMOUS_REFERENCE
@@ -218,7 +225,7 @@ enum class TypeNameSource : u8 {
 
 struct TypeName : Node {
 	u32 data_type_handle = (u32) -1;
-	TypeNameSource source = TypeNameSource::ERROR;
+	TypeNameSource source = TypeNameSource::REFERENCE;
 	bool is_forward_declared = false;
 	
 	struct StabsReadState {
@@ -321,6 +328,9 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 			break;
 		}
 		case ENUM: {
+			break;
+		}
+		case ERROR: {
 			break;
 		}
 		case FORWARD_DECLARED: {

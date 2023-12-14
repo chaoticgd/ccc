@@ -82,10 +82,16 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 				json.Key("value");
 				json.Int(value);
 				json.Key("name");
-				json.String(name.c_str());
+				json.String(name);
 				json.EndObject();
 			}
 			json.EndArray();
+			break;
+		}
+		case ERROR: {
+			const Error& error = node.as<Error>();
+			json.Key("message");
+			json.String(error.message);
 			break;
 		}
 		case FORWARD_DECLARED: {

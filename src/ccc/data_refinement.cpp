@@ -80,6 +80,9 @@ static Result<RefinedData> refine_node(
 			data.value = std::to_string(value);
 			return data;
 		}
+		case ast::ERROR: {
+			break;
+		}
 		case ast::FORWARD_DECLARED: {
 			break;
 		}

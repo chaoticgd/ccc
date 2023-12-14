@@ -282,6 +282,9 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& databa
 				node.computed_size_bytes = 4;
 				break;
 			}
+			case ast::ERROR: {
+				break;
+			}
 			case ast::STRUCT_OR_UNION: {
 				node.computed_size_bytes = node.size_bits / 8;
 				break;

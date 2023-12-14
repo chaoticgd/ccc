@@ -94,7 +94,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 | Format Version | Release | Changes |
 | - | - | - |
-| 8 | | Overhauled format based on the structure of the new symbol database. Some AST nodes removed, `forward_declared` node added. |
+| 8 | | Overhauled format based on the structure of the new symbol database. Some AST nodes removed, `error` and `forward_declared` nodes added. |
 | 7 | v1.x | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
 | 6 | | Removed order property. |
 | 5 | | Added pointer_to_data_member node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
