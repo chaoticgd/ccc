@@ -28,7 +28,7 @@ struct ParsedSymbol {
 	const mdebug::Symbol* raw;
 	StabsSymbol name_colon_type;
 	bool duplicate = false;
-	bool dont_substitute_type_name = false;
+	bool is_typedef = false;
 };
 
 Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags);

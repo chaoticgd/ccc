@@ -69,6 +69,22 @@ MDEBUG_IMPORTER_TEST(NamedTypedefedEnum,
 	EXPECT_EQ(data_type->type()->storage_class, ast::SC_TYPEDEF);
 }
 
+// Synthetic example. Something like:
+// typedef enum {} ErraticEnum;
+MDEBUG_IMPORTER_TEST(ErraticEnum,
+	({
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), " :T(1,1)=e;"},
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "ErraticEnum:t(1,2)=(1,1)"}
+	}))
+{
+	EXPECT_EQ(database.data_types.size(), 1);
+	DataTypeHandle handle = database.data_types.first_handle_from_name("ErraticEnum");
+	DataType* data_type = database.data_types.symbol_from_handle(handle);
+	ASSERT_TRUE(data_type && data_type->type());
+	EXPECT_EQ(data_type->type()->descriptor, ast::ENUM);
+	EXPECT_EQ(data_type->type()->storage_class, ast::SC_TYPEDEF);
+}
+
 // ee-g++ -gstabs
 // struct Struct {};
 MDEBUG_IMPORTER_TEST(Struct,

@@ -140,25 +140,62 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 
 static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 {
-	return;
-	
 	std::map<StabsTypeNumber, size_t> stabs_type_number_to_symbol;
 	for(size_t i = 0; i < symbols.size(); i++) {
 		ParsedSymbol& symbol = symbols[i];
-		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE && !symbol.name_colon_type.type->anonymous) {
-			stabs_type_number_to_symbol.emplace(symbol.name_colon_type.type->type_number, i);
+		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
+			StabsType& type = *symbol.name_colon_type.type;
+			if(!type.anonymous && type.has_body) {
+				stabs_type_number_to_symbol.emplace(type.type_number, i);
+			}
 		}
 	}
 	
 	for(ParsedSymbol& symbol : symbols) {
-		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE && symbol.name_colon_type.type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
-			StabsTypeReferenceType& reference = symbol.name_colon_type.type->as<StabsTypeReferenceType>();
-			auto referenced_index = stabs_type_number_to_symbol.find(reference.type->type_number);
+		symbol.is_typedef =
+			symbol.type == ParsedSymbolType::NAME_COLON_TYPE &&
+			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME &&
+			symbol.name_colon_type.type->descriptor != StabsTypeDescriptor::ENUM;
+	}
+	
+	for(ParsedSymbol& symbol : symbols) {
+		if(symbol.type != ParsedSymbolType::NAME_COLON_TYPE) {
+			continue;
+		}
+		
+		StabsType& type = *symbol.name_colon_type.type;
+		
+		if(!type.has_body) {
+			auto referenced_index = stabs_type_number_to_symbol.find(type.type_number);
 			if(referenced_index != stabs_type_number_to_symbol.end()) {
 				ParsedSymbol& referenced = symbols[referenced_index->second];
-				if(referenced.name_colon_type.name == " " || referenced.name_colon_type.name == symbol.name_colon_type.name) {
-					referenced.duplicate = true;
-					symbol.dont_substitute_type_name = true;
+				if(referenced.name_colon_type.name == symbol.name_colon_type.name) {
+					// symbol:     "Struct:T(1,1)=s1;"
+					// referenced: "Struct:t(1,1)"
+					symbol.duplicate = true;
+				}
+			}
+		}
+		
+		if(type.has_body && type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
+			auto referenced_index = stabs_type_number_to_symbol.find(type.as<StabsTypeReferenceType>().type->type_number);
+			if(referenced_index != stabs_type_number_to_symbol.end()) {
+				ParsedSymbol& referenced = symbols[referenced_index->second];
+				
+				if(referenced.name_colon_type.name == " ") {
+					// referenced: " :T(1,1)=e;"
+					// symbol:     "ErraticEnum:t(1,2)=(1,1)"
+					referenced.name_colon_type.name = symbol.name_colon_type.name;
+					referenced.is_typedef = true;
+					symbol.duplicate = true;
+				}
+				
+				if(referenced.name_colon_type.name == symbol.name_colon_type.name) {
+					// referenced: "NamedTypedefedStruct:T(1,1)=s1;"
+					// symbol:     "NamedTypedefedStruct:t(1,2)=(1,1)"
+					referenced.name_colon_type.name = symbol.name_colon_type.name;
+					referenced.is_typedef = true;
+					symbol.duplicate = true;
 				}
 			}
 		}

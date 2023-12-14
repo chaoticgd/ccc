@@ -25,11 +25,11 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address tex
 
 Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 {
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*symbol.name_colon_type.type.get(), m_stabs_to_ast_state, 0, 0, false, symbol.dont_substitute_type_name, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*symbol.name_colon_type.type.get(), m_stabs_to_ast_state, 0, 0, false, false);
 	CCC_RETURN_IF_ERROR(node);
 	
 	(*node)->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
-	if(symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME) {
+	if(symbol.is_typedef) {
 		(*node)->storage_class = ast::SC_TYPEDEF;
 	}
 	
@@ -72,7 +72,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(
 	
 	
 	
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false);
 	CCC_RETURN_IF_ERROR(node);
 	
 	if(is_static) {
@@ -141,7 +141,7 @@ Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const 
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(return_type, m_stabs_to_ast_state, 0, 0, true, false, true);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(return_type, m_stabs_to_ast_state, 0, 0, true, true);
 	CCC_RETURN_IF_ERROR(node);
 	m_current_function->set_type_once(std::move(*node));
 	
@@ -176,7 +176,7 @@ Result<void> LocalSymbolTableAnalyser::parameter(
 	CCC_RETURN_IF_ERROR(parameter_variable);
 	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
 	
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false, true);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, true);
 	CCC_RETURN_IF_ERROR(node);
 	(*parameter_variable)->set_type_once(std::move(*node));
 	
@@ -205,7 +205,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 	m_current_local_variables.expand_to_include((*local_variable)->handle());
 	m_pending_local_variables.emplace_back((*local_variable)->handle());
 	
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, m_stabs_to_ast_state, 0, 0, true, false);
 	CCC_RETURN_IF_ERROR(node);
 	
 	if(desc == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {

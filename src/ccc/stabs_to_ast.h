@@ -21,9 +21,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	s32 abs_parent_offset_bytes,
 	s32 depth,
 	bool substitute_type_name,
-	bool dont_substitute_type_name,
 	bool force_substitute);
-
 ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility);
 
 }
