@@ -137,7 +137,7 @@ MDEBUG_IMPORTER_TEST(StrangeStruct,
 // void SimpleFunction() {}
 MDEBUG_IMPORTER_TEST(SimpleFunction,
 	({
-		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN), "Z14SimpleFunctionv:F(0,23)"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN), "_Z14SimpleFunctionv:F(0,23)"},
 		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM1"},
 		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                 "_Z14SimpleFunctionv"},
 		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM2"},
@@ -145,23 +145,24 @@ MDEBUG_IMPORTER_TEST(SimpleFunction,
 	}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
-	FunctionHandle handle = database.functions.first_handle_from_name("Z14SimpleFunctionv");
+	FunctionHandle handle = database.functions.first_handle_from_name("_Z14SimpleFunctionv");
 	Function* function = database.functions.symbol_from_handle(handle);
 	ASSERT_TRUE(function);
 }
 
 // iop-gcc -gstabs
-// void SimpleFunction() {}
+// void SimpleFunctionIOP() {}
 MDEBUG_IMPORTER_TEST(SimpleFunctionIOP,
 	({
-		{0x00000000,  SymbolType::PROC,  SymbolClass::TEXT, 1,                 "SimpleFunction"},
-		{0x0000000c,  SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM2"},
-		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 27,                "SimpleFunction"},
-		{0x00000000,  SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN), "SimpleFunction:F22"}
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM1"},
+		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                 "SimpleFunctionIOP"},
+		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM2"},
+		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 27,                "SimpleFunctionIOP"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN), "SimpleFunctionIOP:F22"}
 	}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
-	FunctionHandle handle = database.functions.first_handle_from_name("Z14SimpleFunctionv");
+	FunctionHandle handle = database.functions.first_handle_from_name("SimpleFunctionIOP");
 	Function* function = database.functions.symbol_from_handle(handle);
 	ASSERT_TRUE(function);
 }
@@ -175,26 +176,26 @@ MDEBUG_IMPORTER_TEST(SimpleFunctionIOP,
 // }
 MDEBUG_IMPORTER_TEST(ComplicatedFunction,
 	({
-		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN),  "_Z19ComplicatedFunctionifPc:F(0,1)"},
-		{0xffffffd0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM), "a:p(0,1)"},
-		{0xffffffd4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM), "b:p(0,14)"},
-		{0xffffffd8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM), "c:p(1,1)=*(0,2)"},
-		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                  "$LM1"},
-		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                  "_Z19ComplicatedFunctionifPc"},
-		{0x00000018, SymbolType::LABEL, SymbolClass::TEXT, 2,                  "$LM2"},
-		{0x00000048, SymbolType::LABEL, SymbolClass::TEXT, 3,                  "$LM3"},
-		{0x00000088, SymbolType::LABEL, SymbolClass::TEXT, 4,                  "$LM4"},
-		{0x000000e0, SymbolType::LABEL, SymbolClass::TEXT, 5,                  "$LM5"},
-		{0x000000e8, SymbolType::LABEL, SymbolClass::TEXT, 6,                  "$LM6"},
-		{0x00000100, SymbolType::END,   SymbolClass::TEXT, 34,                 "_Z19ComplicatedFunctionifPc"},
-		{0xffffffdc, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM), "x:(0,1)"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN),   "_Z19ComplicatedFunctionifPc:F(0,1)"},
+		{0xffffffd0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "a:p(0,1)"},
+		{0xffffffd4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "b:p(0,14)"},
+		{0xffffffd8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "c:p(1,1)=*(0,2)"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                   "$LM1"},
+		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                   "_Z19ComplicatedFunctionifPc"},
+		{0x00000018, SymbolType::LABEL, SymbolClass::TEXT, 2,                   "$LM2"},
+		{0x00000048, SymbolType::LABEL, SymbolClass::TEXT, 3,                   "$LM3"},
+		{0x00000088, SymbolType::LABEL, SymbolClass::TEXT, 4,                   "$LM4"},
+		{0x000000e0, SymbolType::LABEL, SymbolClass::TEXT, 5,                   "$LM5"},
+		{0x000000e8, SymbolType::LABEL, SymbolClass::TEXT, 6,                   "$LM6"},
+		{0x00000100, SymbolType::END,   SymbolClass::TEXT, 34,                  "_Z19ComplicatedFunctionifPc"},
+		{0xffffffdc, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "x:(0,1)"},
 		{0x00000018, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), ""},
-		{0xffffffe0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM), "y:(0,1)"},
+		{0xffffffe0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "y:(0,1)"},
 		{0x00000054, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), ""},
 		{0x00000088, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
-		{0xffffffe0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM), "i:(0,1)"},
+		{0xffffffe0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "i:(0,1)"},
 		{0x00000088, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), ""},
-		{0xffffffe4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM), "z:(0,1)"},
+		{0xffffffe4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "z:(0,1)"},
 		{0x000000a4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), ""},
 		{0x000000cc, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
 		{0x000000e0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
@@ -202,6 +203,44 @@ MDEBUG_IMPORTER_TEST(ComplicatedFunction,
 	}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
-	EXPECT_EQ(database.local_variables.size(), 3);
+	EXPECT_EQ(database.local_variables.size(), 4);
+	EXPECT_EQ(database.parameter_variables.size(), 3);
+}
+
+// iop-gcc -gstabs
+// int ComplicatedFunctionIOP(int a, float b, char* c) {
+// 	int x = b < 0, i;
+// 	if(a) { int y = b + *c; return y; }
+// 	for(i = 0; i < 5; i++) { int z = b + i; x += z; }
+// 	return x;
+// }
+MDEBUG_IMPORTER_TEST(ComplicatedFunctionIOP,
+	({
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                   "$LM1"},
+		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                   "ComplicatedFunctionIOP"},
+		{0x0000001c, SymbolType::LABEL, SymbolClass::TEXT, 2,                   "$LM2"},
+		{0x00000054, SymbolType::LABEL, SymbolClass::TEXT, 3,                   "$LM3"},
+		{0x000000b4, SymbolType::LABEL, SymbolClass::TEXT, 4,                   "$LM4"},
+		{0x0000012c, SymbolType::LABEL, SymbolClass::TEXT, 5,                   "$LM5"},
+		{0x00000138, SymbolType::LABEL, SymbolClass::TEXT, 6,                   "$LM6"},
+		{0x00000154, SymbolType::END,   SymbolClass::TEXT, 27,                  "ComplicatedFunctionIOP"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN),   "ComplicatedFunctionIOP:F1"},
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "a:p1"},
+		{0x00000004, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "b:p14"},
+		{0x00000008, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "c:p24=*2"},
+		{0xffffffe0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "x:1"},
+		{0xffffffe4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "i:1"},
+		{0x0000001c, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), "$LBB2"},
+		{0xffffffe8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "y:1"},
+		{0x00000064, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), "$LBB3"},
+		{0x000000b4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE3"},
+		{0xffffffe8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "z:1"},
+		{0x000000d4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), "$LBB4"},
+		{0x00000114, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE4"},
+		{0x00000138, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE2"},
+	}))
+{
+	EXPECT_EQ(database.functions.size(), 1);
+	EXPECT_EQ(database.local_variables.size(), 4);
 	EXPECT_EQ(database.parameter_variables.size(), 3);
 }
