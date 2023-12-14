@@ -193,7 +193,6 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 				if(referenced.name_colon_type.name == symbol.name_colon_type.name) {
 					// referenced: "NamedTypedefedStruct:T(1,1)=s1;"
 					// symbol:     "NamedTypedefedStruct:t(1,2)=(1,1)"
-					referenced.name_colon_type.name = symbol.name_colon_type.name;
 					referenced.is_typedef = true;
 					symbol.duplicate = true;
 				}

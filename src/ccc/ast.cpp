@@ -26,7 +26,18 @@ CompareResult compare_nodes(
 	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
 	if(check_intrusive_fields) {
-		if(node_lhs.storage_class != node_rhs.storage_class) return CompareFailReason::STORAGE_CLASS;
+		if(node_lhs.storage_class != node_rhs.storage_class) {
+			// In some cases we can determine that a type was typedef'd for C
+			// translation units, but not for C++ translation units, so we need
+			// to add a special case for that here.
+			if(node_lhs.storage_class == SC_TYPEDEF && node_rhs.storage_class == SC_NONE) {
+				result = CompareResultType::MATCHES_FAVOUR_LHS;
+			} else if(node_lhs.storage_class == SC_NONE && node_rhs.storage_class == SC_TYPEDEF) {
+				result = CompareResultType::MATCHES_FAVOUR_RHS;
+			} else {
+				return CompareFailReason::STORAGE_CLASS;
+			}
+		}
 		if(node_lhs.name != node_rhs.name && !(node_lhs.is_vtable_pointer && node_rhs.is_vtable_pointer)) return CompareFailReason::NAME;
 		if(node_lhs.relative_offset_bytes != node_rhs.relative_offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
 		if(node_lhs.absolute_offset_bytes != node_rhs.absolute_offset_bytes) return CompareFailReason::ABSOLUTE_OFFSET_BYTES;
