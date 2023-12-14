@@ -331,7 +331,7 @@ class Function : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
 	static constexpr const char* NAME = "function";
-	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP;
+	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
@@ -381,7 +381,7 @@ class GlobalVariable : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
 	static constexpr const char* NAME = "global variable";
-	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	GlobalVariableHandle handle() const { return m_handle; }
 	Address address() const { return m_address; }
