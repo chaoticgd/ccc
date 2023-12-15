@@ -502,6 +502,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 			depth + 1,
 			true,
 			false);
+		CCC_RETURN_IF_ERROR(bitfield_node);
 		
 		std::unique_ptr<ast::BitField> bitfield = std::make_unique<ast::BitField>();
 		bitfield->name = (field.name == " ") ? "" : field.name;
