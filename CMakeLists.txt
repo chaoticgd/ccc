@@ -24,7 +24,7 @@ endif()
 if(MSVC)
 	# TODO
 else()
-	set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall")
+	set(CMAKE_CXX_FLAGS_DEBUG "-O3 -ggdb -Wall")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 	add_link_options($<$<CONFIG:RELEASE>:-s>)
 endif()
