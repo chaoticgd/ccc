@@ -72,7 +72,7 @@ void print_warning(FILE* out, const Error& warning);
 // together a return value and a pointer to error information, so that errors
 // can be propagated up the stack.
 template <typename Value>
-class Result {
+class [[nodiscard]] Result {
 	template <typename OtherValue>
 	friend class Result;
 protected:
@@ -128,7 +128,7 @@ public:
 };
 
 template <>
-class Result<void> : public Result<int> {
+class [[nodiscard]] Result<void> : public Result<int> {
 public:
 	Result() : Result<int>(0) {}
 	

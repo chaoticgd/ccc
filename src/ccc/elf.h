@@ -59,10 +59,10 @@ Result<ElfFile> parse_elf_file(std::span<const u8> image);
 
 Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf);
 
-[[nodiscard]] Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves);
+Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves);
 
 template <typename T>
-[[nodiscard]] Result<std::vector<T>> read_virtual_vector(u32 address, u32 count, const std::vector<ElfFile*>& elves)
+Result<std::vector<T>> read_virtual_vector(u32 address, u32 count, const std::vector<ElfFile*>& elves)
 {
 	std::vector<T> vector(count);
 	Result<void> result = read_virtual((u8*) vector.data(), address, count * sizeof(T), elves);

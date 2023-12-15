@@ -583,7 +583,7 @@ public:
 	// existing data type with the new one if the new one is better.
 	// DANGER: Accessing a node handle that was pointing into a replaced data
 	// type after calling this function is a crash!
-	[[nodiscard]] Result<DataType*> create_data_type_if_unique(
+	Result<DataType*> create_data_type_if_unique(
 		std::unique_ptr<ast::Node> node,
 		StabsTypeNumber number,
 		const char* name,
