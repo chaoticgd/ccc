@@ -50,13 +50,13 @@ public:
 	
 protected:
 	void ast_node(
-		const ast::Node& node, VariableName& parent_name, s32 indentation_level, const SymbolDatabase& database);
+		const ast::Node& node, VariableName& parent_name, s32 base_offset, s32 indentation_level, const SymbolDatabase& database);
 	void function_parameters(std::span<const ParameterVariable> parameters, const SymbolDatabase& database);
 	void refined_data(const RefinedData& data, s32 indentation_level);
 	void global_storage_comment(const GlobalStorage& storage, Address address);
 	void register_storage_comment(const RegisterStorage& storage);
 	void stack_storage_comment(const StackStorage& storage);
-	void offset(const ast::Node& node);
+	void offset(const ast::Node& node, s32 base_offset);
 
 	CppPrinterConfig m_config;
 	s32 m_digits_for_offset = 3;

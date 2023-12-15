@@ -19,7 +19,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	const StabsType& type,
 	const StabsType* enclosing_struct,
 	const StabsToAstState& state,
-	s32 abs_parent_offset_bytes,
 	s32 depth,
 	bool substitute_type_name,
 	bool force_substitute);

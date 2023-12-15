@@ -15,17 +15,15 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 	const StabsStructOrUnionType::Field& field,
 	const StabsType& enclosing_struct,
 	const StabsToAstState& state,
-	s32 abs_parent_offset_bytes,
 	s32 depth);
 static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
-	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth);
+	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth);
 
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	const StabsType& type,
 	const StabsType* enclosing_struct,
 	const StabsToAstState& state,
-	s32 abs_parent_offset_bytes,
 	s32 depth,
 	bool substitute_type_name,
 	bool force_substitute)
@@ -106,7 +104,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			*stabs_type->second,
 			enclosing_struct,
 			state,
-			abs_parent_offset_bytes,
 			depth + 1,
 			substitute_type_name,
 			force_substitute);
@@ -118,7 +115,13 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			const auto& stabs_type_ref = type.as<StabsTypeReferenceType>();
 			if(type.anonymous || stabs_type_ref.type->anonymous || stabs_type_ref.type->type_number != type.type_number) {
-				auto node = stabs_type_to_ast(*stabs_type_ref.type, enclosing_struct, state, abs_parent_offset_bytes, depth + 1, substitute_type_name, force_substitute);
+				auto node = stabs_type_to_ast(
+					*stabs_type_ref.type,
+					enclosing_struct,
+					state,
+					depth + 1,
+					substitute_type_name,
+					force_substitute);
 				CCC_RETURN_IF_ERROR(node);
 				result = std::move(*node);
 			} else {
@@ -138,7 +141,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*stabs_array.element_type,
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				force_substitute);
@@ -183,7 +185,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*type.as<StabsFunctionType>().return_type,
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				force_substitute);
@@ -200,7 +201,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*volatile_qualifier.type.get(),
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				substitute_type_name,
 				force_substitute);
@@ -217,7 +217,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*const_qualifier.type.get(),
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				substitute_type_name,
 				force_substitute);
@@ -252,14 +251,13 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 					*stabs_base_class.type,
 					&type,
 					state,
-					abs_parent_offset_bytes,
 					depth + 1,
 					true,
 					force_substitute);
 				CCC_RETURN_IF_ERROR(base_class);
 				
 				(*base_class)->is_base_class = true;
-				(*base_class)->absolute_offset_bytes = stabs_base_class.offset;
+				(*base_class)->offset_bytes = stabs_base_class.offset;
 				(*base_class)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_base_class.visibility), state.parser_flags);
 				
 				struct_or_union->base_classes.emplace_back(std::move(*base_class));
@@ -267,7 +265,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			
 			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
 			for(const StabsStructOrUnionType::Field& field : stabs_struct_or_union->fields) {
-				auto node = field_to_ast(field, type, state, abs_parent_offset_bytes, depth);
+				auto node = field_to_ast(field, type, state, depth);
 				CCC_RETURN_IF_ERROR(node);
 				struct_or_union->fields.emplace_back(std::move(*node));
 			}
@@ -275,7 +273,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			
 			AST_DEBUG_PRINTF("%-*s beginmemberfuncs\n", depth * 4, "");
 			Result<std::vector<std::unique_ptr<ast::Node>>> member_functions =
-				member_functions_to_ast(*stabs_struct_or_union, state, abs_parent_offset_bytes, depth);
+				member_functions_to_ast(*stabs_struct_or_union, state, depth);
 			CCC_RETURN_IF_ERROR(member_functions);
 			struct_or_union->member_functions = std::move(*member_functions);
 			AST_DEBUG_PRINTF("%-*s endmemberfuncs\n", depth * 4, "");
@@ -315,7 +313,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*stabs_method.return_type.get(),
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				true);
@@ -328,7 +325,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 					*parameter_type,
 					enclosing_struct,
 					state,
-					abs_parent_offset_bytes,
 					depth + 1,
 					true,
 					true);
@@ -346,7 +342,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*type.as<StabsPointerType>().value_type,
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				force_substitute);
@@ -364,7 +359,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*type.as<StabsReferenceType>().value_type,
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				force_substitute);
@@ -381,7 +375,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*stabs_type_attribute.type,
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				substitute_type_name,
 				force_substitute);
@@ -399,7 +392,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*stabs_member_pointer.class_type.get(),
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				true);
@@ -410,7 +402,6 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				*stabs_member_pointer.member_type.get(),
 				enclosing_struct,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				true);
@@ -495,30 +486,26 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 	const StabsStructOrUnionType::Field& field,
 	const StabsType& enclosing_struct,
 	const StabsToAstState& state,
-	s32 abs_parent_offset_bytes,
 	s32 depth)
 {
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
 	Result<bool> is_bitfield = detect_bitfield(field, state);
 	CCC_RETURN_IF_ERROR(is_bitfield);
+	
 	if(*is_bitfield) {
 		// Process bitfields.
-		s32 relative_offset_bytes = field.offset_bits / 8;
-		s32 absolute_offset_bytes = abs_parent_offset_bytes + relative_offset_bytes;
 		auto bitfield_node = stabs_type_to_ast(
 			*field.type,
 			&enclosing_struct,
 			state,
-			absolute_offset_bytes,
 			depth + 1,
 			true,
 			false);
 		
 		std::unique_ptr<ast::BitField> bitfield = std::make_unique<ast::BitField>();
 		bitfield->name = (field.name == " ") ? "" : field.name;
-		bitfield->relative_offset_bytes = relative_offset_bytes;
-		bitfield->absolute_offset_bytes = absolute_offset_bytes;
+		bitfield->offset_bytes = field.offset_bits / 8;
 		bitfield->size_bits = field.size_bits;
 		bitfield->underlying_type = std::move(*bitfield_node);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
@@ -527,22 +514,17 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		return std::unique_ptr<ast::Node>(std::move(bitfield));
 	} else {
 		// Process a normal field.
-		s32 relative_offset_bytes = field.offset_bits / 8;
-		s32 absolute_offset_bytes = abs_parent_offset_bytes + relative_offset_bytes;
-		
 		Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(
 			*field.type,
 			&enclosing_struct,
 			state,
-			absolute_offset_bytes,
 			depth + 1,
 			true,
 			false);
 		CCC_RETURN_IF_ERROR(node);
 		
 		(*node)->name = field.name;
-		(*node)->relative_offset_bytes = relative_offset_bytes;
-		(*node)->absolute_offset_bytes = absolute_offset_bytes;
+		(*node)->offset_bytes = field.offset_bits / 8;
 		(*node)->size_bits = field.size_bits;
 		(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.parser_flags);
 		
@@ -631,7 +613,7 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 }
 
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
-	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 abs_parent_offset_bytes, s32 depth)
+	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth)
 {
 	if(state.parser_flags & NO_MEMBER_FUNCTIONS) {
 		return std::vector<std::unique_ptr<ast::Node>>();
@@ -681,7 +663,6 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 				*stabs_func.type,
 				&type,
 				state,
-				abs_parent_offset_bytes,
 				depth + 1,
 				true,
 				true);

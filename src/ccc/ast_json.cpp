@@ -25,13 +25,9 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		json.Key("storage_class");
 		json.String(storage_class_to_string((StorageClass) node.storage_class));
 	}
-	if(node.relative_offset_bytes != -1) {
-		json.Key("relative_offset_bytes");
-		json.Int(node.relative_offset_bytes);
-	}
-	if(node.absolute_offset_bytes != -1) {
-		json.Key("absolute_offset_bytes");
-		json.Int(node.absolute_offset_bytes);
+	if(node.offset_bytes != -1) {
+		json.Key("offset_bytes");
+		json.Int(node.offset_bytes);
 	}
 	if(node.size_bits != -1) {
 		json.Key("size_bits");
