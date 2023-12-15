@@ -287,14 +287,24 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	// Looking up the type by its STABS type number failed, so look for it by
 	// its name instead. This happens when a type is forward declared but not
 	// defined in a given translation unit.
-	for(auto& name_handle : database.data_types.handles_from_name(stabs->type_name)) {
-		DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
-		if(data_type->source() == source) {
-			ast::TypeName::Resolved& resolved = type_name.data.emplace<ast::TypeName::Resolved>();
-			resolved.data_type_handle = name_handle.second.value;
-			resolved.is_forward_declared = true;
-			return Result<void>();
+	if(!stabs->type_name.empty()) {
+		for(auto& name_handle : database.data_types.handles_from_name(stabs->type_name)) {
+			DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
+			if(data_type->source() == source) {
+				ast::TypeName::Resolved& resolved = type_name.data.emplace<ast::TypeName::Resolved>();
+				resolved.data_type_handle = name_handle.second.value;
+				resolved.is_forward_declared = true;
+				return Result<void>();
+			}
 		}
+	}
+	
+	// If this branch is taken it means the type name was probably from an
+	// automatically generated member function of a nested struct trying to
+	// reference the struct (for the this parameter). We shouldn't create a
+	// forward declared type in this case.
+	if(type_name.source == ast::TypeNameSource::THIS) {
+		return Result<void>();
 	}
 	
 	// Type lookup failed. This happens when a type is forward declared in a

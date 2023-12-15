@@ -364,6 +364,7 @@ void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 #define CCC_X(SymbolType, symbol_list) template class SymbolList<SymbolType>;
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
+
 // *****************************************************************************
 
 Symbol::Symbol() {}

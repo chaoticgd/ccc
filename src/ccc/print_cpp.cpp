@@ -580,15 +580,17 @@ void CppPrinter::ast_node(
 					indent(out, indentation_level + 1);
 					fprintf(out, "\n");
 				}
-				for(size_t i = 0; i < struct_or_union.member_functions.size(); i++) {
-					ast::Function& member_func = struct_or_union.member_functions[i]->as<ast::Function>();
-					if(access_specifier != member_func.access_specifier) {
-						indent(out, indentation_level);
-						fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) member_func.access_specifier));
-						access_specifier = member_func.access_specifier;
+				for(const std::unique_ptr<ast::Node>& member_function : struct_or_union.member_functions) {
+					if(member_function->descriptor == ast::FUNCTION) {
+						ast::Function& member_func = member_function->as<ast::Function>();
+						if(access_specifier != member_func.access_specifier) {
+							indent(out, indentation_level);
+							fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) member_func.access_specifier));
+							access_specifier = member_func.access_specifier;
+						}
 					}
 					indent(out, indentation_level + 1);
-					ast_node(*struct_or_union.member_functions[i].get(), name, indentation_level + 1, database);
+					ast_node(*member_function, name, indentation_level + 1, database);
 					fprintf(out, ";\n");
 				}
 			}
