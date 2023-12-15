@@ -156,7 +156,23 @@ CompareResult compare_nodes(
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
 			// Don't check the source so that REFERENCE and CROSS_REFERENCE are
 			// treated as the same.
-			if(lhs.data != rhs.data) return CompareFailReason::TYPE_NAME;
+			if(const TypeName::Resolved* lhs_resolved = std::get_if<TypeName::Resolved>(&lhs.data)) {
+				if(const TypeName::Resolved* rhs_resolved = std::get_if<TypeName::Resolved>(&rhs.data)) {
+					if(lhs_resolved->data_type_handle != rhs_resolved->data_type_handle) {
+						return CompareFailReason::TYPE_NAME;
+					}
+				} else {
+					return CompareFailReason::TYPE_NAME;
+				}
+			} else if(const TypeName::UnresolvedStabs* lhs_unresolved = std::get_if<TypeName::UnresolvedStabs>(&lhs.data)) {
+				if(const TypeName::UnresolvedStabs* rhs_unresolved = std::get_if<TypeName::UnresolvedStabs>(&rhs.data)) {
+					if(lhs_unresolved->type_name != rhs_unresolved->type_name) {
+						return CompareFailReason::TYPE_NAME;
+					}
+				} else {
+					return CompareFailReason::TYPE_NAME;
+				}
+			}
 			break;
 		}
 	}
