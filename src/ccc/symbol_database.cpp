@@ -170,7 +170,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	
 	if constexpr(std::is_same_v<SymbolType, SymbolSource>) {
 		// It doesn't make sense for the calling code to provide a symbol source
-		// handle as an argument if w're creating a symbol source symbol, so we
+		// handle as an argument if we're creating a symbol source symbol, so we
 		// set the source of the new symbol to its own handle.
 		symbol.m_source = handle;
 	} else {
