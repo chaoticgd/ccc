@@ -561,6 +561,13 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
+			// We don't want to merge together types from different source so we
+			// can destroy all the types from one source without breaking
+			// anything else.
+			if(existing_type->source() != source) {
+				continue;
+			}
+			
 			CCC_ASSERT(existing_type->type());
 			ast::CompareResult compare_result = compare_nodes(*existing_type->type(), *node.get(), *this, true);
 			if(compare_result.type == ast::CompareResultType::DIFFERS) {
