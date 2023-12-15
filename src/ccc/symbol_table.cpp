@@ -298,16 +298,14 @@ static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& databa
 			}
 			case ast::TYPE_NAME: {
 				ast::TypeName& type_name = node.as<ast::TypeName>();
-				if(!type_name.is_forward_declared) {
-					DataType* resolved_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
-					if(resolved_type) {
-						ast::Node* resolved_node = resolved_type->type();
-						CCC_ASSERT(resolved_node);
-						if(resolved_node->computed_size_bytes < 0 && !resolved_node->cannot_compute_size) {
-							compute_size_bytes_recursive(*resolved_node, database);
-						}
-						type_name.computed_size_bytes = resolved_node->computed_size_bytes;
+				DataType* resolved_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
+				if(resolved_type) {
+					ast::Node* resolved_node = resolved_type->type();
+					CCC_ASSERT(resolved_node);
+					if(resolved_node->computed_size_bytes < 0 && !resolved_node->cannot_compute_size) {
+						compute_size_bytes_recursive(*resolved_node, database);
 					}
+					type_name.computed_size_bytes = resolved_node->computed_size_bytes;
 				}
 				break;
 			}

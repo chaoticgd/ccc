@@ -166,16 +166,10 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		}
 		case TYPE_NAME: {
 			const TypeName& type_name = node.as<TypeName>();
-			const char* source = "";
-			switch(type_name.source) {
-				case TypeNameSource::REFERENCE: source = "reference"; break;
-				case TypeNameSource::CROSS_REFERENCE: source = "cross_reference"; break;
-				case TypeNameSource::ANONYMOUS_REFERENCE: source = "anonymous_reference"; break;
-			}
 			json.Key("source");
-			json.String(source);
+			json.String(type_name_source_to_string(type_name.source));
 			json.Key("data_type_handle");
-			json.Int(database.data_types.index_from_handle(type_name.data_type_handle));
+			json.Int(database.data_types.index_from_handle(type_name.data_type_handle()));
 			break;
 		}
 	}

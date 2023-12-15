@@ -3,39 +3,11 @@
 
 #pragma once
 
-#include "util.h"
+#include <variant>
 
-namespace ccc {
-
-// TODO: Figure out what to do about this.
-
-// These are used to reference STABS types from other types within a single
-// translation unit. For most games these will just be a single number, the type
-// number. In some cases, for example with the homebrew SDK, type numbers are a
-// pair of two numbers surrounded by round brackets e.g. (1,23) where the first
-// number is the index of the include file to use (includes are listed for each
-// translation unit separately), and the second number is the type number.
-struct StabsTypeNumber {
-	s32 file = -1;
-	s32 type = -1;
-	
-	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
-};
-
-class SymbolDatabase;
-
-}
+#include "symbol_database.h"
 
 namespace ccc::ast {
-
-enum StorageClass {
-	SC_NONE = 0,
-	SC_TYPEDEF = 1,
-	SC_EXTERN = 2,
-	SC_STATIC = 3,
-	SC_AUTO = 4,
-	SC_REGISTER = 5
-};
 
 enum NodeDescriptor : u8 {
 	ARRAY,
@@ -140,7 +112,7 @@ enum class BuiltInClass {
 };
 
 struct BuiltIn : Node {
-	BuiltInClass bclass;
+	BuiltInClass bclass = BuiltInClass::VOID;
 	
 	BuiltIn() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
@@ -185,7 +157,7 @@ struct Function : Node {
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
 	bool is_constructor = false;
-	u32 definition_handle = (u32) -1; // Filled in by fill_in_pointers_to_member_function_definitions.
+	FunctionHandle definition_handle; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 	Function() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
@@ -218,32 +190,44 @@ struct StructOrUnion : Node {
 };
 
 enum class TypeNameSource : u8 {
-	REFERENCE,
-	CROSS_REFERENCE,
-	ANONYMOUS_REFERENCE
+	REFERENCE, // A STABS type reference.
+	CROSS_REFERENCE, // A STABS cross reference.
+	VOID, // The void type.
+	THIS // A member function referencing the class that it's a member of.
 };
 
+const char* type_name_source_to_string(TypeNameSource source);
+
 struct TypeName : Node {
-	u32 data_type_handle = (u32) -1;
 	TypeNameSource source = TypeNameSource::REFERENCE;
-	bool is_forward_declared = false;
 	
-	struct StabsReadState {
+	DataTypeHandle data_type_handle() const;
+	DataTypeHandle data_type_handle_unless_forward_declared() const;
+	
+	struct Resolved {
+		DataTypeHandle data_type_handle;
+		bool is_forward_declared = false;
+		
+		Resolved() {}
+		friend auto operator<=>(const Resolved& lhs, const Resolved& rhs) = default;
+	};
+	
+	struct UnresolvedStabs {
 		std::string type_name;
-		u32 referenced_file_handle = (u32) -1;
+		SourceFileHandle referenced_file_handle;
 		s32 stabs_type_number_file = -1;
 		s32 stabs_type_number_type = -1;
 		std::optional<ForwardDeclaredType> type;
+		
+		UnresolvedStabs() {}
+		friend auto operator<=>(const UnresolvedStabs& lhs, const UnresolvedStabs& rhs) = default;
 	};
 	
-	StabsReadState stabs_read_state;
+	std::variant<Resolved, UnresolvedStabs> data;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
 };
-
-void remove_duplicate_enums(std::vector<std::unique_ptr<Node>>& ast_nodes);
-void remove_duplicate_self_typedefs(std::vector<std::unique_ptr<Node>>& ast_nodes);
 
 enum class CompareResultType {
 	MATCHES_NO_SWAP,    // Both lhs and rhs are identical.

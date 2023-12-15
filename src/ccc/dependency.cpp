@@ -3,6 +3,8 @@
 
 #include "dependency.h"
 
+#include "ast.h"
+
 namespace ccc {
 
 enum GraphType {
@@ -54,13 +56,9 @@ void map_types_to_files_based_on_this_pointers(SymbolDatabase& database)
 			continue;
 		}
 		
-		const ast::TypeName& type_name = class_node.as<ast::TypeName>();
-		if(type_name.is_forward_declared) {
-			continue;
-		}
-		
 		// Lookup the type pointed to by the this pointer.
-		DataType* class_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
+		const ast::TypeName& type_name = class_node.as<ast::TypeName>();
+		DataType* class_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
 		if(!class_type) {
 			continue;
 		}
@@ -95,11 +93,9 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 			auto count_references = [&](const ast::Node& node) {
 				if(node.descriptor == ast::TYPE_NAME) {
 					const ast::TypeName& type_name = node.as<ast::TypeName>();
-						if(!type_name.is_forward_declared) {
-						DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
-						if(data_type->handle() == type.handle()) {
-							reference_count++;
-						}
+					DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
+					if(data_type->handle() == type.handle()) {
+						reference_count++;
 					}
 				}
 				return ast::EXPLORE_CHILDREN;
@@ -153,8 +149,8 @@ TypeDependencyAdjacencyList build_type_dependency_graph(const SymbolDatabase& da
 		ast::for_each_node(*data_type.type(), ast::PREORDER_TRAVERSAL, [&](const ast::Node& node) {
 			if(node.descriptor == ast::TYPE_NAME) {
 				const ast::TypeName& type_name = node.as<ast::TypeName>();
-				if(type_name.source == ast::TypeNameSource::REFERENCE && !type_name.is_forward_declared) {
-					DataTypeHandle dependency_handle = type_name.data_type_handle;
+				if(type_name.source == ast::TypeNameSource::REFERENCE) {
+					DataTypeHandle dependency_handle = type_name.data_type_handle_unless_forward_declared();
 					if(dependency_handle.valid()) {
 						dependencies.emplace(dependency_handle);
 					}

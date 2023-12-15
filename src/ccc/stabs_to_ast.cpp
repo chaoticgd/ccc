@@ -48,10 +48,11 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
-			type_name->stabs_read_state.type_name = *type.name;
-			type_name->stabs_read_state.referenced_file_handle = state.file_handle;
-			type_name->stabs_read_state.stabs_type_number_file = type.type_number.file;
-			type_name->stabs_read_state.stabs_type_number_type = type.type_number.type;
+			ast::TypeName::UnresolvedStabs& stabs = type_name->data.emplace<ast::TypeName::UnresolvedStabs>();
+			stabs.type_name = *type.name;
+			stabs.referenced_file_handle = state.file_handle;
+			stabs.stabs_type_number_file = type.type_number.file;
+			stabs.stabs_type_number_type = type.type_number.type;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 	}
@@ -66,10 +67,11 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		if(type_string) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
-			type_name->stabs_read_state.type_name = type_string;
-			type_name->stabs_read_state.referenced_file_handle = state.file_handle;
-			type_name->stabs_read_state.stabs_type_number_file = type.type_number.file;
-			type_name->stabs_read_state.stabs_type_number_type = type.type_number.type;
+			ast::TypeName::UnresolvedStabs& stabs = type_name->data.emplace<ast::TypeName::UnresolvedStabs>();
+			stabs.type_name = type_string;
+			stabs.referenced_file_handle = state.file_handle;
+			stabs.stabs_type_number_file = type.type_number.file;
+			stabs.stabs_type_number_type = type.type_number.type;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 	}
@@ -107,8 +109,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
 				auto type_name = std::make_unique<ast::TypeName>();
-				type_name->source = ast::TypeNameSource::REFERENCE;
-				type_name->stabs_read_state.type_name = "void";
+				type_name->source = ast::TypeNameSource::VOID;
 				result = std::move(type_name);
 			}
 			break;
@@ -233,8 +234,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			const auto& cross_reference = type.as<StabsCrossReferenceType>();
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::CROSS_REFERENCE;
-			type_name->stabs_read_state.type_name = cross_reference.identifier;
-			type_name->stabs_read_state.type = cross_reference.type;
+			ast::TypeName::UnresolvedStabs& stabs = type_name->data.emplace<ast::TypeName::UnresolvedStabs>();
+			stabs.type_name = cross_reference.identifier;
+			stabs.type = cross_reference.type;
 			result = std::move(type_name);
 			break;
 		}

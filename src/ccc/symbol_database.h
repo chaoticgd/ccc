@@ -6,9 +6,37 @@
 #include <variant>
 #include <unordered_map>
 
-#include "ast.h"
+#include "util.h"
 
 namespace ccc {
+
+// These are used to reference STABS types from other types within a single
+// translation unit. For most games these will just be a single number, the type
+// number. In some cases, for example with the homebrew SDK, type numbers are a
+// pair of two numbers surrounded by round brackets e.g. (1,23) where the first
+// number is the index of the include file to use (includes are listed for each
+// translation unit separately), and the second number is the type number.
+struct StabsTypeNumber {
+	s32 file = -1;
+	s32 type = -1;
+	
+	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
+};
+
+namespace ast {
+
+struct Node;
+
+enum StorageClass {
+	SC_NONE = 0,
+	SC_TYPEDEF = 1,
+	SC_EXTERN = 2,
+	SC_STATIC = 3,
+	SC_AUTO = 4,
+	SC_REGISTER = 5
+};
+	
+};
 
 // Define an X macro for all the symbol types.
 
@@ -241,29 +269,36 @@ class Symbol {
 	template <typename SymbolType>
 	friend class SymbolList;
 public:
+	Symbol();
+	Symbol(const Symbol& rhs) = delete;
+	Symbol(Symbol&& rhs);
+	~Symbol();
+	Symbol& operator=(const Symbol& rhs) = delete;
+	Symbol& operator=(Symbol&& rhs);
+	
 	const std::string& name() const { return m_name; }
 	u32 raw_handle() const { return m_handle; }
 	SymbolSourceHandle source() const { return m_source; }
 	
-	ast::Node* type() { return m_type.get(); }
-	const ast::Node* type() const { return m_type.get(); }
+	ast::Node* type() { return m_type; }
+	const ast::Node* type() const { return m_type; }
 	
 	void set_type_once(std::unique_ptr<ast::Node> type) {
-		CCC_ASSERT(!m_type.get());
-		m_type = std::move(type);
+		CCC_ASSERT(!m_type);
+		m_type = type.release();
 	}
 	
 	// DANGER: Accessing a node handle that was pointing into this symbol after
 	// this call is a use after free.
 	void set_type_and_invalidate_node_handles(std::unique_ptr<ast::Node> type) {
-		m_type = std::move(type);
+		m_type = type.release();
 	}
 	
 protected:
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
 	std::string m_name;
-	std::unique_ptr<ast::Node> m_type;
+	ast::Node* m_type = nullptr;
 };
 
 // Variable storage types. This is different to whether the variable is a

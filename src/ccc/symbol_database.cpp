@@ -3,7 +3,9 @@
 
 #include "symbol_database.h"
 
-#include <mutex>
+#include <utility>
+
+#include "ast.h"
 
 namespace ccc {
 
@@ -362,6 +364,28 @@ void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 #define CCC_X(SymbolType, symbol_list) template class SymbolList<SymbolType>;
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
+// *****************************************************************************
+
+Symbol::Symbol() {}
+
+Symbol::Symbol(Symbol&& rhs) {
+	m_handle = std::exchange(rhs.m_handle, (u32) -1);
+	m_source = std::exchange(rhs.m_source, SymbolSourceHandle());
+	m_name = std::move(rhs.m_name);
+	m_type = std::exchange(rhs.m_type, nullptr);
+}
+
+Symbol::~Symbol() {
+	delete m_type;
+}
+
+Symbol& Symbol::operator=(Symbol&& rhs) {
+	m_handle = std::exchange(rhs.m_handle, (u32) -1);
+	m_source = std::exchange(rhs.m_source, SymbolSourceHandle());
+	m_name = std::move(rhs.m_name);
+	m_type = std::exchange(rhs.m_type, nullptr);
+	return *this;
+}
 
 // *****************************************************************************
 

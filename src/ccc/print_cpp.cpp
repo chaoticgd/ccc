@@ -6,6 +6,7 @@
 #include <cmath>
 #include <chrono>
 
+#include "ast.h"
 #include "registers.h"
 
 namespace ccc {
@@ -602,9 +603,13 @@ void CppPrinter::ast_node(
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = node.as<ast::TypeName>();
-			const DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
+			const DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle());
 			if(data_type) {
 				fprintf(out, "%s", data_type->name().c_str());
+			} else if(type_name.source == ast::TypeNameSource::VOID) {
+				fprintf(out, "void");
+			} else if(type_name.source == ast::TypeNameSource::THIS) {
+				fprintf(out, "CCC_THIS_TYPE");
 			} else {
 				fprintf(out, "CCC_ERROR(\"Invalid type name.\")");
 			}

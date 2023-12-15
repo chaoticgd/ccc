@@ -10,14 +10,43 @@ namespace ccc::ast {
 
 static bool compare_nodes_and_merge(
 	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
-static void try_to_match_wobbly_typedefs(
-	CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
+static bool try_to_match_wobbly_typedefs(
+	const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 
 void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags)
 {
 	if((parser_flags & NO_ACCESS_SPECIFIERS) == 0) {
 		access_specifier = specifier;
 	}
+}
+
+const char* type_name_source_to_string(TypeNameSource source)
+{
+	switch(source) {
+		case TypeNameSource::REFERENCE: return "reference";
+		case TypeNameSource::CROSS_REFERENCE: return "cross_reference";
+		case TypeNameSource::VOID: return "void";
+		case TypeNameSource::THIS: return "this";
+	}
+	return "";
+}
+
+DataTypeHandle TypeName::data_type_handle() const
+{
+	if(const Resolved* resolved = std::get_if<Resolved>(&data)) {
+		return resolved->data_type_handle;
+	}
+	return DataTypeHandle();
+}
+
+DataTypeHandle TypeName::data_type_handle_unless_forward_declared() const
+{
+	if(const Resolved* resolved = std::get_if<Resolved>(&data)) {
+		if(resolved->is_forward_declared) {
+			return resolved->data_type_handle;
+		}
+	}
+	return DataTypeHandle();
 }
 
 CompareResult compare_nodes(
@@ -127,11 +156,7 @@ CompareResult compare_nodes(
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
 			// Don't check the source so that REFERENCE and CROSS_REFERENCE are
 			// treated as the same.
-			if(lhs.data_type_handle != (u32) -1) {
-				if(lhs.data_type_handle != rhs.data_type_handle) return CompareFailReason::TYPE_NAME;
-			} else {
-				if(lhs.stabs_read_state.type_name != rhs.stabs_read_state.type_name) return CompareFailReason::TYPE_NAME;
-			}
+			if(lhs.data != rhs.data) return CompareFailReason::TYPE_NAME;
 			break;
 		}
 	}
@@ -142,7 +167,12 @@ static bool compare_nodes_and_merge(
 	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
 {
 	CompareResult result = compare_nodes(node_lhs, node_rhs, database, true);
-	try_to_match_wobbly_typedefs(result, node_lhs, node_rhs, database);
+	if(result.type == CompareResultType::DIFFERS && try_to_match_wobbly_typedefs(node_lhs, node_rhs, database)) {
+		result.type = CompareResultType::MATCHES_FAVOUR_LHS;
+	} else if(result.type == CompareResultType::DIFFERS && try_to_match_wobbly_typedefs(node_rhs, node_lhs, database)) {
+		result.type = CompareResultType::MATCHES_FAVOUR_RHS;
+	}
+	
 	if(dest.type != result.type) {
 		if(dest.type == CompareResultType::DIFFERS || result.type == CompareResultType::DIFFERS) {
 			// If any of the inner types differ, the outer type does too.
@@ -168,47 +198,49 @@ static bool compare_nodes_and_merge(
 			dest.type = CompareResultType::MATCHES_FAVOUR_RHS;
 		}
 	}
+	
 	if(dest.fail_reason == CompareFailReason::NONE) {
 		dest.fail_reason = result.fail_reason;
 	}
+	
 	return dest.type == CompareResultType::DIFFERS;
 }
 
-static void try_to_match_wobbly_typedefs(
-	CompareResult& result, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
+static bool try_to_match_wobbly_typedefs(
+	const Node& type_name_node, const Node& raw_node, const SymbolDatabase& database)
 {
 	// Detect if one side has a typedef when the other just has the plain type.
 	// This was previously a common reason why type deduplication would fail.
-	const Node* type_name_node = &node_lhs;
-	const Node* raw_node = &node_rhs;
-	for(s32 i = 0; result.type == CompareResultType::DIFFERS && i < 2; i++) {
-		if(type_name_node->descriptor == TYPE_NAME) {
-			const TypeName& type_name = type_name_node->as<TypeName>();
-			const TypeName::StabsReadState& read_state = type_name.stabs_read_state;
-			if(read_state.referenced_file_handle != (u32) -1 && read_state.stabs_type_number_type > -1) {
-				const SourceFile* source_file =
-					database.source_files.symbol_from_handle(read_state.referenced_file_handle);
-				CCC_ASSERT(source_file);
-				StabsTypeNumber stabs_type_number = {
-					read_state.stabs_type_number_file,
-					read_state.stabs_type_number_type
-				};
-				auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
-				if(handle != source_file->stabs_type_number_to_handle.end()) {
-					const DataType* referenced_type = database.data_types.symbol_from_handle(handle->second);
-					CCC_ASSERT(referenced_type && referenced_type->type());
-					// Don't compare 'intrusive' fields e.g. the offset.
-					CompareResult new_result = compare_nodes(*referenced_type->type(), *raw_node, database, false);
-					if(new_result.type != CompareResultType::DIFFERS) {
-						result.type = (i == 0)
-							? CompareResultType::MATCHES_FAVOUR_LHS
-							: CompareResultType::MATCHES_FAVOUR_RHS;
-					}
-				}
+	if(type_name_node.descriptor != TYPE_NAME) {
+		return false;
+	}
+	
+	const TypeName& type_name = type_name_node.as<TypeName>();
+	if(const TypeName::UnresolvedStabs* read_state = std::get_if<TypeName::UnresolvedStabs>(&type_name.data)) {
+		if(read_state->referenced_file_handle == (u32) -1 || read_state->stabs_type_number_type == -1) {
+			return false;
+		}
+		
+		const SourceFile* source_file =
+			database.source_files.symbol_from_handle(read_state->referenced_file_handle);
+		CCC_ASSERT(source_file);
+		StabsTypeNumber stabs_type_number = {
+			read_state->stabs_type_number_file,
+			read_state->stabs_type_number_type
+		};
+		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
+		if(handle != source_file->stabs_type_number_to_handle.end()) {
+			const DataType* referenced_type = database.data_types.symbol_from_handle(handle->second);
+			CCC_ASSERT(referenced_type && referenced_type->type());
+			// Don't compare 'intrusive' fields e.g. the offset.
+			CompareResult new_result = compare_nodes(*referenced_type->type(), raw_node, database, false);
+			if(new_result.type != CompareResultType::DIFFERS) {
+				return true;
 			}
 		}
-		std::swap(type_name_node, raw_node);
 	}
+	
+	return false;
 }
 
 const char* compare_fail_reason_to_string(CompareFailReason reason)
@@ -273,7 +305,7 @@ const char* node_type_to_string(const Node& node)
 		}
 		case TYPE_NAME: return "type_name";
 	}
-	return "CCC_BAD_NODE_DESCRIPTOR";
+	return "";
 }
 
 const char* storage_class_to_string(StorageClass storage_class)

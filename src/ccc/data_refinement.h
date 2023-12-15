@@ -5,7 +5,6 @@
 
 #include <functional>
 
-#include "elf.h"
 #include "symbol_database.h"
 
 namespace ccc {

@@ -3,6 +3,8 @@
 
 #include "data_refinement.h"
 
+#include "ast.h"
+
 namespace ccc {
 
 struct DataRefinementContext {
@@ -119,7 +121,7 @@ static Result<RefinedData> refine_node(
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
-			const DataType* resolved_type = context.database.data_types.symbol_from_handle(type_name.data_type_handle);
+			const DataType* resolved_type = context.database.data_types.symbol_from_handle(type_name.data_type_handle());
 			if(resolved_type && resolved_type->type() && !resolved_type->type()->is_currently_processing) {
 				resolved_type->type()->is_currently_processing = true;
 				Result<RefinedData> child = refine_node(virtual_address, *resolved_type->type(), context);
