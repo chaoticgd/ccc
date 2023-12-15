@@ -20,6 +20,7 @@ static Result<SymbolDatabase> run_importer(const char* name, const mdebug::File&
 	
 	AnalysisContext context;
 	context.symbol_source = (*symbol_source)->handle();
+	context.parser_flags = STRICT_PARSING;
 	
 	Result<void> result = import_file(database, input, context);
 	CCC_RETURN_IF_ERROR(result);
@@ -153,11 +154,12 @@ MDEBUG_IMPORTER_TEST(StrangeStruct,
 // void SimpleFunction() {}
 MDEBUG_IMPORTER_TEST(SimpleFunction,
 	({
-		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN), "_Z14SimpleFunctionv:F(0,23)"},
-		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM1"},
-		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                 "_Z14SimpleFunctionv"},
-		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM2"},
-		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 31,                "_Z14SimpleFunctionv"}
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM), "__builtin_va_list:t(0,22)=*(0,23)=(0,23)"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN),  "_Z14SimpleFunctionv:F(0,23)"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                  "$LM1"},
+		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                  "_Z14SimpleFunctionv"},
+		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                  "$LM2"},
+		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 31,                 "_Z14SimpleFunctionv"}
 	}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
@@ -170,11 +172,12 @@ MDEBUG_IMPORTER_TEST(SimpleFunction,
 // void SimpleFunctionIOP() {}
 MDEBUG_IMPORTER_TEST(SimpleFunctionIOP,
 	({
-		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM1"},
-		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                 "SimpleFunctionIOP"},
-		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                 "$LM2"},
-		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 27,                "SimpleFunctionIOP"},
-		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN), "SimpleFunctionIOP:F22"}
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM), "__builtin_va_list:t21=*22=22"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                  "$LM1"},
+		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                  "SimpleFunctionIOP"},
+		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                  "$LM2"},
+		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 27,                 "SimpleFunctionIOP"},
+		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN),  "SimpleFunctionIOP:F22"}
 	}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
@@ -192,6 +195,9 @@ MDEBUG_IMPORTER_TEST(SimpleFunctionIOP,
 // }
 MDEBUG_IMPORTER_TEST(ComplicatedFunction,
 	({
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "int:t(0,1)=r(0,1);-2147483648;2147483647;"},
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "char:t(0,2)=r(0,2);0;127;"},
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "float:t(0,14)=r(0,1);4;0;"},
 		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN),   "_Z19ComplicatedFunctionifPc:F(0,1)"},
 		{0xffffffd0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "a:p(0,1)"},
 		{0xffffffd4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_PSYM),  "b:p(0,14)"},
@@ -232,6 +238,9 @@ MDEBUG_IMPORTER_TEST(ComplicatedFunction,
 // }
 MDEBUG_IMPORTER_TEST(ComplicatedFunctionIOP,
 	({
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "int:t1=r1;-2147483648;2147483647;"},
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "char:t2=r2;0;127;"},
+		{0x00000000, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "float:t14=r1;4;0;"},
 		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, 1,                   "$LM1"},
 		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                   "ComplicatedFunctionIOP"},
 		{0x0000001c, SymbolType::LABEL, SymbolClass::TEXT, 2,                   "$LM2"},
