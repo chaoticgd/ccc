@@ -200,19 +200,23 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
 	SymbolSourceHandle user_defined_handle = (*user_defined_source)->handle();
 	
 	for(s32 i = 0; i < 5; i++) {
-		database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
+		Result<DataType*> result = database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
+		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
 	
 	for(s32 i = 0; i < 5; i++) {
-		database.data_types.create_symbol("UserDefinedType", user_defined_handle);
+		Result<DataType*> result = database.data_types.create_symbol("UserDefinedType", user_defined_handle);
+		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
 	
 	for(s32 i = 0; i < 5; i++) {
-		database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
+		Result<DataType*> result = database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
+		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
 	
 	for(s32 i = 0; i < 5; i++) {
-		database.data_types.create_symbol("UserDefinedType", user_defined_handle);
+		Result<DataType*> result = database.data_types.create_symbol("UserDefinedType", user_defined_handle);
+		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
 	
 	// Simulate freeing a symbol table while retaining user-defined symbols.

@@ -70,9 +70,12 @@ static Result<RefinedData> refine_node(
 		}
 		case ast::ENUM: {
 			const ast::Enum& enumeration = type.as<ast::Enum>();
-			RefinedData data;
+			
 			s32 value = 0;
-			context.read_virtual((u8*) &value, virtual_address, 4);
+			Result<void> read_result = context.read_virtual((u8*) &value, virtual_address, 4);
+			CCC_RETURN_IF_ERROR(read_result);
+			
+			RefinedData data;
 			for(const auto& [number, name] : enumeration.constants) {
 				if(number == value) {
 					data.value = name;
@@ -80,6 +83,7 @@ static Result<RefinedData> refine_node(
 				}
 			}
 			data.value = std::to_string(value);
+			
 			return data;
 		}
 		case ast::ERROR: {
@@ -101,6 +105,7 @@ static Result<RefinedData> refine_node(
 			const ast::StructOrUnion& struct_or_union = type.as<ast::StructOrUnion>();
 			RefinedData list;
 			std::vector<RefinedData>& children = list.value.emplace<std::vector<RefinedData>>();
+			
 			for(s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
 				Result<RefinedData> child = refine_node(virtual_address + base_class->offset_bytes, *base_class.get(), context);
@@ -108,6 +113,7 @@ static Result<RefinedData> refine_node(
 				child->field_name = "base class " + std::to_string(i);
 				children.emplace_back(std::move(*child));
 			}
+			
 			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
 				if(field->storage_class == ast::SC_STATIC) {
 					continue;
@@ -117,6 +123,7 @@ static Result<RefinedData> refine_node(
 				child->field_name = "." + field->name;
 				children.emplace_back(std::move(*child));
 			}
+			
 			return list;
 		}
 		case ast::TYPE_NAME: {
