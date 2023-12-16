@@ -55,7 +55,7 @@ struct ElfFile {
 };
 
 // Parse the ELF file header, section headers and program headers.
-Result<ElfFile> parse_elf_file(std::span<const u8> image);
+Result<ElfFile> parse_elf_file(std::vector<u8> image);
 
 Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf);
 

@@ -399,7 +399,7 @@ static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& 
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<SymbolFile> symbol_file_result = parse_symbol_file(*image);
+	Result<SymbolFile> symbol_file_result = parse_symbol_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(symbol_file_result);
 	symbol_file = std::move(*symbol_file_result);
 	

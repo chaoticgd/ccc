@@ -58,11 +58,8 @@ int main(int argc, char** argv)
 	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<ElfFile> elf = parse_elf_file(*image);
+	Result<ElfFile> elf = parse_elf_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf);
-	
-	// The ELF parser copies the data.
-	image->clear();
 	
 	SymbolTableConfig config;
 	config.demangle = cplus_demangle;

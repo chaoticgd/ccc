@@ -10,6 +10,7 @@ namespace ccc {
 
 using SymbolFile = std::variant<ElfFile, SNDLLFile>;
 
-Result<SymbolFile> parse_symbol_file(std::span<const u8> image);
+// Determine the type of the input file and parse it.
+Result<SymbolFile> parse_symbol_file(std::vector<u8> image);
 
 }
