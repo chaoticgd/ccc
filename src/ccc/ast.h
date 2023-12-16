@@ -40,7 +40,7 @@ enum AccessSpecifier {
 //  8. Add support for it in write_json.
 //  9. Add support for it in refine_node.
 struct Node {
-	NodeDescriptor descriptor;
+	const NodeDescriptor descriptor;
 	u8 is_const : 1 = false;
 	u8 is_volatile : 1 = false;
 	u8 is_base_class : 1 = false;
