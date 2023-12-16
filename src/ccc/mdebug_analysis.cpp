@@ -30,7 +30,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	
 	(*node)->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
 	if(symbol.is_typedef) {
-		(*node)->storage_class = ast::SC_TYPEDEF;
+		(*node)->storage_class = STORAGE_CLASS_TYPEDEF;
 	}
 	
 	const char* name = (*node)->name.c_str();
@@ -76,7 +76,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(
 	CCC_RETURN_IF_ERROR(node);
 	
 	if(is_static) {
-		(*global)->storage_class = ast::SC_STATIC;
+		(*global)->storage_class = STORAGE_CLASS_STATIC;
 	}
 	(*global)->set_type_once(std::move(*node));
 	
@@ -106,7 +106,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(const char* mangled_name, Addre
 	}
 	
 	if(is_static) {
-		m_current_function->storage_class = ast::SC_STATIC;
+		m_current_function->storage_class = STORAGE_CLASS_STATIC;
 	}
 	
 	return Result<void>();
@@ -216,7 +216,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 			"Invalid static local variable location %s.",
 			symbol_class(sclass));
 		global_storage.location = *location_opt;
-		(*node)->storage_class = ast::SC_STATIC;
+		(*node)->storage_class = STORAGE_CLASS_STATIC;
 	} else if(desc == StabsSymbolDescriptor::REGISTER_VARIABLE) {
 		RegisterStorage& register_storage = (*local_variable)->storage.emplace<RegisterStorage>();
 		register_storage.dbx_register_number = (s32) value;

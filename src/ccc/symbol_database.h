@@ -3,40 +3,13 @@
 
 #pragma once
 
+#include <map>
 #include <variant>
 #include <unordered_map>
 
 #include "util.h"
 
 namespace ccc {
-
-// These are used to reference STABS types from other types within a single
-// translation unit. For most games these will just be a single number, the type
-// number. In some cases, for example with the homebrew SDK, type numbers are a
-// pair of two numbers surrounded by round brackets e.g. (1,23) where the first
-// number is the index of the include file to use (includes are listed for each
-// translation unit separately), and the second number is the type number.
-struct StabsTypeNumber {
-	s32 file = -1;
-	s32 type = -1;
-	
-	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
-};
-
-namespace ast {
-
-struct Node;
-
-enum StorageClass {
-	SC_NONE = 0,
-	SC_TYPEDEF = 1,
-	SC_EXTERN = 2,
-	SC_STATIC = 3,
-	SC_AUTO = 4,
-	SC_REGISTER = 5
-};
-	
-};
 
 // Define an X macro for all the symbol types.
 
@@ -394,7 +367,7 @@ public:
 	
 	u32 size = 0;
 	std::string relative_path;
-	ast::StorageClass storage_class;
+	StorageClass storage_class;
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
 	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
@@ -426,7 +399,7 @@ public:
 	const void set_mangled_name(std::string mangled);
 	
 	GlobalStorage storage;
-	ast::StorageClass storage_class;
+	StorageClass storage_class;
 	
 protected:
 	Address& address_ref() { return m_address; }

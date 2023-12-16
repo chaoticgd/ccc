@@ -17,7 +17,7 @@ enum VariableNamePrintFlags {
 	BRACKETS_IF_POINTER = (1 << 2)
 };
 
-static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class);
+static void print_cpp_storage_class(FILE* out, StorageClass storage_class);
 static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags);
 static void indent(FILE* out, s32 level);
 
@@ -174,7 +174,7 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 
 void CppPrinter::function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
 {
-	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
+	if(m_config.skip_statics && symbol.storage_class == STORAGE_CLASS_STATIC) {
 		return;
 	}
 	
@@ -298,7 +298,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 void CppPrinter::global_variable(
 	const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
 {
-	if(m_config.skip_statics && symbol.storage_class == ast::SC_STATIC) {
+	if(m_config.skip_statics && symbol.storage_class == STORAGE_CLASS_STATIC) {
 		return;
 	}
 	
@@ -325,7 +325,7 @@ void CppPrinter::global_variable(
 	global_storage_comment(symbol.storage, symbol.address());
 	
 	if(m_config.make_globals_extern) {
-		print_cpp_storage_class(out, ast::SC_EXTERN);
+		print_cpp_storage_class(out, STORAGE_CLASS_EXTERN);
 	}
 	
 	VariableName name;
@@ -357,7 +357,7 @@ void CppPrinter::ast_node(
 		}
 	}
 	
-	print_cpp_storage_class(out, (ast::StorageClass) node.storage_class);
+	print_cpp_storage_class(out, (StorageClass) node.storage_class);
 	
 	if(node.is_const) {
 		fprintf(out, "const ");
@@ -407,7 +407,7 @@ void CppPrinter::ast_node(
 		case ast::ENUM: {
 			const ast::Enum& enumeration = node.as<ast::Enum>();
 			fprintf(out, "enum");
-			bool name_on_top = (indentation_level == 0) && (enumeration.storage_class != ast::SC_TYPEDEF);
+			bool name_on_top = (indentation_level == 0) && (enumeration.storage_class != STORAGE_CLASS_TYPEDEF);
 			if(name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}
@@ -531,7 +531,7 @@ void CppPrinter::ast_node(
 			} else {
 				fprintf(out, "union");
 			}
-			bool name_on_top = (indentation_level == 0) && (struct_or_union.storage_class != ast::SC_TYPEDEF);
+			bool name_on_top = (indentation_level == 0) && (struct_or_union.storage_class != STORAGE_CLASS_TYPEDEF);
 			if(name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}
@@ -674,15 +674,15 @@ void CppPrinter::refined_data(const RefinedData& data, s32 indentation_level)
 	}
 }
 
-static void print_cpp_storage_class(FILE* out, ast::StorageClass storage_class)
+static void print_cpp_storage_class(FILE* out, StorageClass storage_class)
 {
 	switch(storage_class) {
-		case ast::SC_NONE: break;
-		case ast::SC_TYPEDEF: fprintf(out, "typedef "); break;
-		case ast::SC_EXTERN: fprintf(out, "extern "); break;
-		case ast::SC_STATIC: fprintf(out, "static "); break;
-		case ast::SC_AUTO: fprintf(out, "auto "); break;
-		case ast::SC_REGISTER: fprintf(out, "register "); break;
+		case STORAGE_CLASS_NONE: break;
+		case STORAGE_CLASS_TYPEDEF: fprintf(out, "typedef "); break;
+		case STORAGE_CLASS_EXTERN: fprintf(out, "extern "); break;
+		case STORAGE_CLASS_STATIC: fprintf(out, "static "); break;
+		case STORAGE_CLASS_AUTO: fprintf(out, "auto "); break;
+		case STORAGE_CLASS_REGISTER: fprintf(out, "register "); break;
 	}
 }
 
@@ -754,7 +754,7 @@ void CppPrinter::stack_storage_comment(const StackStorage& storage)
 
 void CppPrinter::offset(const ast::Node& node, s32 base_offset)
 {
-	if(m_config.print_offsets_and_sizes && node.storage_class != ast::SC_STATIC && node.offset_bytes > -1) {
+	if(m_config.print_offsets_and_sizes && node.storage_class != STORAGE_CLASS_STATIC && node.offset_bytes > -1) {
 		CCC_ASSERT(m_digits_for_offset > -1 && m_digits_for_offset < 100);
 		fprintf(out, "/* 0x%0*x", m_digits_for_offset, base_offset + node.offset_bytes);
 		if(node.descriptor == ast::BITFIELD) {

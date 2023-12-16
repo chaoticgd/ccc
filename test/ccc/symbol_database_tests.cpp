@@ -325,7 +325,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	
 	// Create a typedef for that builtin.
 	std::unique_ptr<ast::TypeName> typedef_type = std::make_unique<ast::TypeName>();
-	typedef_type->storage_class = ast::SC_TYPEDEF;
+	typedef_type->storage_class = STORAGE_CLASS_TYPEDEF;
 	{
 		ast::TypeName::UnresolvedStabs& stabs = typedef_type->data.emplace<ast::TypeName::UnresolvedStabs>();
 		stabs.type_name = "Underlying";

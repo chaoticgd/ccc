@@ -59,9 +59,9 @@ CompareResult compare_nodes(
 			// In some cases we can determine that a type was typedef'd for C
 			// translation units, but not for C++ translation units, so we need
 			// to add a special case for that here.
-			if(node_lhs.storage_class == SC_TYPEDEF && node_rhs.storage_class == SC_NONE) {
+			if(node_lhs.storage_class == STORAGE_CLASS_TYPEDEF && node_rhs.storage_class == STORAGE_CLASS_NONE) {
 				result = CompareResultType::MATCHES_FAVOUR_LHS;
-			} else if(node_lhs.storage_class == SC_NONE && node_rhs.storage_class == SC_TYPEDEF) {
+			} else if(node_lhs.storage_class == STORAGE_CLASS_NONE && node_rhs.storage_class == STORAGE_CLASS_TYPEDEF) {
 				result = CompareResultType::MATCHES_FAVOUR_RHS;
 			} else {
 				return CompareFailReason::STORAGE_CLASS;
@@ -326,12 +326,12 @@ const char* node_type_to_string(const Node& node)
 const char* storage_class_to_string(StorageClass storage_class)
 {
 	switch(storage_class) {
-		case SC_NONE: return "none";
-		case SC_TYPEDEF: return "typedef";
-		case SC_EXTERN: return "extern";
-		case SC_STATIC: return "static";
-		case SC_AUTO: return "auto";
-		case SC_REGISTER: return "register";
+		case STORAGE_CLASS_NONE: return "none";
+		case STORAGE_CLASS_TYPEDEF: return "typedef";
+		case STORAGE_CLASS_EXTERN: return "extern";
+		case STORAGE_CLASS_STATIC: return "static";
+		case STORAGE_CLASS_AUTO: return "auto";
+		case STORAGE_CLASS_REGISTER: return "register";
 	}
 	return "";
 }

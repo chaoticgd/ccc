@@ -51,7 +51,7 @@ MDEBUG_IMPORTER_TEST(Enum,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::ENUM);
-	EXPECT_EQ(data_type->type()->storage_class, ast::SC_NONE);
+	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_NONE);
 }
 
 // ee-g++ -gstabs
@@ -67,7 +67,7 @@ MDEBUG_IMPORTER_TEST(NamedTypedefedEnum,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::ENUM);
-	EXPECT_EQ(data_type->type()->storage_class, ast::SC_TYPEDEF);
+	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_TYPEDEF);
 }
 
 // Synthetic example. Something like:
@@ -83,7 +83,7 @@ MDEBUG_IMPORTER_TEST(ErraticEnum,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::ENUM);
-	EXPECT_EQ(data_type->type()->storage_class, ast::SC_TYPEDEF);
+	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_TYPEDEF);
 }
 
 // ee-g++ -gstabs
@@ -99,7 +99,7 @@ MDEBUG_IMPORTER_TEST(Struct,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::STRUCT_OR_UNION);
-	EXPECT_EQ(data_type->type()->storage_class, ast::SC_NONE);
+	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_NONE);
 }
 
 // ee-g++ -gstabs
@@ -114,7 +114,7 @@ MDEBUG_IMPORTER_TEST(TypedefedStruct,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::STRUCT_OR_UNION);
-	EXPECT_EQ(data_type->type()->storage_class, ast::SC_TYPEDEF);
+	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_TYPEDEF);
 }
 
 // ee-g++ -gstabs
@@ -131,7 +131,7 @@ MDEBUG_IMPORTER_TEST(NamedTypedefStruct,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::STRUCT_OR_UNION);
-	EXPECT_EQ(data_type->type()->storage_class, ast::SC_TYPEDEF);
+	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_TYPEDEF);
 }
 
 // Synthetic example. Something like:
@@ -147,7 +147,7 @@ MDEBUG_IMPORTER_TEST(StrangeStruct,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::STRUCT_OR_UNION);
-	EXPECT_EQ(data_type->type()->storage_class, ast::SC_TYPEDEF);
+	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_TYPEDEF);
 }
 
 // ee-g++ -gstabs
@@ -221,7 +221,7 @@ MDEBUG_IMPORTER_TEST(ComplicatedFunction,
 		{0x000000a4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), ""},
 		{0x000000cc, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
 		{0x000000e0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
-		{0x000000e8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
+		{0x000000e8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""}
 	}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
@@ -262,7 +262,7 @@ MDEBUG_IMPORTER_TEST(ComplicatedFunctionIOP,
 		{0xffffffe8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LSYM),  "z:1"},
 		{0x000000d4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), "$LBB4"},
 		{0x00000114, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE4"},
-		{0x00000138, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE2"},
+		{0x00000138, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE2"}
 	}))
 {
 	EXPECT_EQ(database.functions.size(), 1);

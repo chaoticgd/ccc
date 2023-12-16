@@ -7,11 +7,7 @@
 #include "stabs.h"
 #include "mdebug_section.h"
 
-namespace ccc {
-
-struct StabsType;
-
-namespace mdebug {
+namespace ccc::mdebug {
 
 enum class ParsedSymbolType {
 	NAME_COLON_TYPE,
@@ -33,5 +29,4 @@ struct ParsedSymbol {
 
 Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags);
 
-}
 }

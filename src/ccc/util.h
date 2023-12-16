@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <map>
 #include <set>
 #include <span>
 #include <cstdio>
@@ -15,7 +14,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
-#include <inttypes.h>
 
 namespace ccc {
 
@@ -176,7 +174,7 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 #define CCC_WARN(...) \
 	ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
 
-#ifdef _MSC_VER
+#ifdef _MSTORAGE_CLASS_VER
 	#define CCC_PACKED_STRUCT(name, ...) \
 		__pragma(pack(push, 1)) struct name { __VA_ARGS__ } __pragma(pack(pop));
 #else
@@ -236,5 +234,29 @@ std::string merge_paths(const std::string& base, const std::string& path);
 std::string normalise_path(const char* input, bool use_backslashes_as_path_separators);
 bool guess_is_windows_path(const char* path);
 std::string extract_file_name(const std::string& path);
+
+namespace ast { struct Node; }
+
+// These are used to reference STABS types from other types within a single
+// translation unit. For most games these will just be a single number, the type
+// number. In some cases, for example with the homebrew SDK, type numbers are a
+// pair of two numbers surrounded by round brackets e.g. (1,23) where the first
+// number is the index of the include file to use (includes are listed for each
+// translation unit separately), and the second number is the type number.
+struct StabsTypeNumber {
+	s32 file = -1;
+	s32 type = -1;
+	
+	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
+};
+
+enum StorageClass {
+	STORAGE_CLASS_NONE = 0,
+	STORAGE_CLASS_TYPEDEF = 1,
+	STORAGE_CLASS_EXTERN = 2,
+	STORAGE_CLASS_STATIC = 3,
+	STORAGE_CLASS_AUTO = 4,
+	STORAGE_CLASS_REGISTER = 5
+};
 
 }

@@ -534,7 +534,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		}
 		
 		if(field.is_static) {
-			(*node)->storage_class = ast::SC_STATIC;
+			(*node)->storage_class = STORAGE_CLASS_STATIC;
 		}
 		
 		return node;

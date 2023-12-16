@@ -21,7 +21,7 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		json.Key("name");
 		json.String(node.name.c_str());
 	}
-	if(node.storage_class != SC_NONE) {
+	if(node.storage_class != STORAGE_CLASS_NONE) {
 		json.Key("storage_class");
 		json.String(storage_class_to_string((StorageClass) node.storage_class));
 	}

@@ -3,6 +3,8 @@
 
 #include "data_refinement.h"
 
+#include <cinttypes>
+
 #include "ast.h"
 
 namespace ccc {
@@ -115,7 +117,7 @@ static Result<RefinedData> refine_node(
 			}
 			
 			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
-				if(field->storage_class == ast::SC_STATIC) {
+				if(field->storage_class == STORAGE_CLASS_STATIC) {
 					continue;
 				}
 				Result<RefinedData> child = refine_node(virtual_address + field->offset_bytes, *field.get(), context);

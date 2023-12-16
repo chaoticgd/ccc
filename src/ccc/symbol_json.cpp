@@ -123,7 +123,7 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 		json.String(symbol.relative_path);
 	}
 	
-	if(symbol.storage_class != ast::SC_NONE) {
+	if(symbol.storage_class != STORAGE_CLASS_NONE) {
 		json.Key("storage_class");
 		json.String(ast::storage_class_to_string(symbol.storage_class));
 	}
@@ -167,7 +167,7 @@ static void write_json(JsonWriter& json, const GlobalVariable& symbol, const Sym
 	
 	write_json(json, symbol.storage, database);
 	
-	if(symbol.storage_class != ast::SC_NONE) {
+	if(symbol.storage_class != STORAGE_CLASS_NONE) {
 		json.Key("storage_class");
 		json.String(ast::storage_class_to_string(symbol.storage_class));
 	}

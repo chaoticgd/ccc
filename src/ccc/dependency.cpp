@@ -110,7 +110,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 				}
 			} else {
 				for(const Function& function : database.functions.span(file->functions())) {
-					if(function.storage_class != ast::SC_STATIC) {
+					if(function.storage_class != STORAGE_CLASS_STATIC) {
 						if(function.type()) {
 							ast::for_each_node(*function.type(), ast::PREORDER_TRAVERSAL, count_references);
 						}
@@ -122,7 +122,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 					}
 				}
 				for(const GlobalVariable& global_variable : database.global_variables.span(file->globals_variables())) {
-					if(global_variable.storage_class != ast::SC_STATIC) {
+					if(global_variable.storage_class != STORAGE_CLASS_STATIC) {
 						if(global_variable.type()) {
 							ast::for_each_node(*global_variable.type(), ast::PREORDER_TRAVERSAL, count_references);
 						}
