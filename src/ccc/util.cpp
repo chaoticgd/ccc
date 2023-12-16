@@ -5,6 +5,8 @@
 
 namespace ccc {
 
+static CustomErrorCallback custom_error_callback = nullptr;
+
 Error format_error(const char* source_file, int source_line, const char* format, ...)
 {
 	va_list args;
@@ -24,16 +26,29 @@ Error format_error(const char* source_file, int source_line, const char* format,
 	return error;
 }
 
-void print_error(FILE* out, const Error& error)
+void report_fatal_error(const Error& error)
 {
-	fprintf(out, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n",
-		error.source_file, error.source_line, error.message.c_str());
+	if(custom_error_callback) {
+		custom_error_callback(error, ErrorSeverity::FATAL);
+	} else {
+		fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n",
+			error.source_file, error.source_line, error.message.c_str());
+	}
 }
 
-void print_warning(FILE* out, const Error& warning)
+void report_warning(const Error& warning)
 {
-	fprintf(out, "[%s:%d] " CCC_ANSI_COLOUR_MAGENTA "warning:" CCC_ANSI_COLOUR_OFF " %s\n",
-		warning.source_file, warning.source_line, warning.message.c_str());
+	if(custom_error_callback) {
+		custom_error_callback(warning, ErrorSeverity::WARNING);
+	} else {
+		fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_MAGENTA "warning:" CCC_ANSI_COLOUR_OFF " %s\n",
+			warning.source_file, warning.source_line, warning.message.c_str());
+	}
+}
+
+void set_custom_error_callback(CustomErrorCallback callback)
+{
+	custom_error_callback = callback;
 }
 
 const char* get_string(std::span<const u8> bytes, u64 offset)

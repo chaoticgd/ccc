@@ -45,21 +45,29 @@ struct Error {
 	s32 source_line;
 };
 
+enum class ErrorSeverity {
+	FATAL,
+	WARNING
+};
+
+typedef void (*CustomErrorCallback)(const Error& error, ErrorSeverity severity);
+
 Error format_error(const char* source_file, int source_line, const char* format, ...);
-void print_error(FILE* out, const Error& error);
-void print_warning(FILE* out, const Error& warning);
+void report_fatal_error(const Error& error);
+void report_warning(const Error& warning);
+void set_custom_error_callback(CustomErrorCallback callback);
 
 #define CCC_FATAL(...) \
 	{ \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::print_error(stderr, error); \
+		ccc::report_fatal_error(error); \
 		exit(1); \
 	}
 	
 #define CCC_CHECK_FATAL(condition, ...) \
 	if(!(condition)) { \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::print_error(stderr, error); \
+		ccc::report_fatal_error(error); \
 		exit(1); \
 	}
 
@@ -157,7 +165,7 @@ public:
 
 #define CCC_EXIT_IF_ERROR(result) \
 	if(!(result).success()) { \
-		ccc::print_error(stderr, (result).error()); \
+		ccc::report_fatal_error((result).error()); \
 		exit(1); \
 	}
 
@@ -169,7 +177,7 @@ public:
 template <typename... Args>
 void warn_impl(const char* source_file, int source_line, const char* format, Args... args) {
 	Error warning = format_error(source_file, source_line, format, args...);
-	print_warning(stderr, warning);
+	report_warning(warning);
 }
 #define CCC_WARN(...) \
 	ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
