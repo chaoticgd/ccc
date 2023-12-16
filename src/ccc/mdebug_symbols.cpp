@@ -28,10 +28,17 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 						if(symbol.string[strlen(symbol.string) - 1] == '\\') {
 							prefix += std::string(symbol.string, symbol.string + strlen(symbol.string) - 1);
 						} else {
-							std::string symbol_string = prefix + symbol.string;
-							prefix.clear();
+							std::string merged_string;
+							const char* string;
+							if(!prefix.empty()) {
+								merged_string = prefix + symbol.string;
+								string = merged_string.c_str();
+								prefix.clear();
+							} else {
+								string = symbol.string;
+							}
 							
-							const char* input = symbol_string.c_str();
+							const char* input = string;
 							Result<StabsSymbol> parse_result = parse_stabs_symbol(input);
 							if(parse_result.success()) {
 								if(*input != '\0') {
@@ -50,7 +57,7 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 								// Symbol truncated due to a GCC bug. Report a
 								// warning and try to tolerate further faults
 								// caused as a result of this.
-								CCC_WARN("%s Symbol string: %s", STAB_TRUNCATED_ERROR_MESSAGE, symbol_string.c_str());
+								CCC_WARN("%s Symbol string: %s", STAB_TRUNCATED_ERROR_MESSAGE, string);
 								parser_flags &= ~STRICT_PARSING;
 							} else {
 								return parse_result;
