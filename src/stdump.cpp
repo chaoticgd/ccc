@@ -3,6 +3,8 @@
 
 #include "ccc/ccc.h"
 #include "platform/file.h"
+#define HAVE_DECL_BASENAME 1
+#include "demangle.h"
 
 using namespace ccc;
 
@@ -13,7 +15,8 @@ enum Flags {
 	FLAG_OMIT_MEMBER_FUNCTIONS = 1 << 2,
 	FLAG_INCLUDE_GENERATED_FUNCTIONS = 1 << 3,
 	FLAG_LOCAL_SYMBOLS = 1 << 4,
-	FLAG_EXTERNAL_SYMBOLS = 1 << 5
+	FLAG_EXTERNAL_SYMBOLS = 1 << 5,
+	FLAG_MANGLED = 1 << 6
 };
 
 struct Options {
@@ -415,6 +418,11 @@ static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& 
 	config.format = options.format;
 	config.parser_flags = command_line_flags_to_parser_flags(options.flags);
 	
+	if((options.flags & FLAG_MANGLED) == 0) {
+		config.demangler.cplus_demangle = cplus_demangle;
+		config.demangler.cplus_demangle_opname = cplus_demangle_opname;
+	}
+	
 	Result<SymbolSourceHandle> symbol_source = import_symbol_table(database, symbol_file, config);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
@@ -453,6 +461,8 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			options.flags |= FLAG_LOCAL_SYMBOLS;
 		} else if(strcmp(arg, "--externals") == 0) {
 			options.flags |= FLAG_EXTERNAL_SYMBOLS;
+		} else if(strcmp(arg, "--mangled") == 0) {
+			options.flags |= FLAG_MANGLED;
 		} else if(strcmp(arg, "--output") == 0) {
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];
@@ -494,7 +504,7 @@ static void print_help(FILE* out)
 	fprintf(out, "stdump %s -- https://github.com/chaoticgd/ccc\n", get_version());
 	fprintf(out, "  PS2 symbol table parser and dumper.\n");
 	fprintf(out, "\n");
-	fprintf(out, "Common Commands:\n");
+	fprintf(out, "Commands:\n");
 	fprintf(out, "\n");
 	for(const StdumpCommand& command : commands) {
 		fprintf(out, "  %s [options] <input file>\n", command.name);
@@ -506,7 +516,7 @@ static void print_help(FILE* out)
 	fprintf(out, "  help | --help | -h\n");
 	fprintf(out, "    Print this help message.\n");
 	fprintf(out, "\n");
-	fprintf(out, "Common Options:\n");
+	fprintf(out, "Options:\n");
 	fprintf(out, "\n");
 	fprintf(out, "  --output <output file>        Write the output to the file specified instead\n");
 	fprintf(out, "                                of to the standard output.\n");
@@ -550,6 +560,8 @@ static void print_help(FILE* out)
 		}
 		column += strlen(format.format_name) + 2;
 	}
+	fprintf(out, "  --mangled                     Don't demangle function names, global variable\n");
+	fprintf(out, "                                names, or overloaded operator names.\n");
 }
 
 const char* git_tag();

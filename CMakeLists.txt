@@ -101,7 +101,7 @@ add_executable(objdump src/objdump.cpp)
 target_link_libraries(objdump ccc ccc_mips ccc_platform ccc_versioninfo)
 
 add_executable(stdump src/stdump.cpp)
-target_link_libraries(stdump ccc ccc_platform ccc_versioninfo)
+target_link_libraries(stdump ccc ccc_platform ccc_versioninfo demanglegnu)
 add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
 
 add_executable(uncc src/uncc.cpp)

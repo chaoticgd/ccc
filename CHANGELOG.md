@@ -12,6 +12,7 @@
 - stdump: Removed `--verbose` option (no one actually used that, right?).
 - stdump: Dropped support for legacy command aliases (e.g. `print_types` instead of `types`).
 - stdump: Fixed issue where the `mdebug` option would display some sizes as counts.
+- stdump: Demangling is now performed automatically unless `--mangled` is passed.
 - uncc: Improve how pointers to global variables in other global variable data is printed.
 - Probably lots more I'm forgetting!
 
