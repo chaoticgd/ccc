@@ -13,6 +13,7 @@ struct StabsToAstState {
 	u32 file_handle;
 	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
 	u32 parser_flags;
+	DemanglerFunctions demangler;
 };
 
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(

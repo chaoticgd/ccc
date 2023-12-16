@@ -9,7 +9,7 @@ static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHan
 static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags);
 
 Result<SymbolSourceHandle> import_symbol_table(
-	SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, DemanglerFunc* demangle)
+	SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, const DemanglerFunctions& demangler)
 {
 	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
 	CCC_RETURN_IF_ERROR(external_symbols);
@@ -33,7 +33,7 @@ Result<SymbolSourceHandle> import_symbol_table(
 	context.globals = &globals;
 	context.symbol_source = (*symbol_source)->handle();
 	context.parser_flags = parser_flags;
-	context.demangle = demangle;
+	context.demangler = demangler;
 	
 	Result<void> result = import_files(database, context);
 	if(!result.success()) {
@@ -104,6 +104,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	stabs_to_ast_state.file_handle = (*source_file)->handle().value;
 	stabs_to_ast_state.stabs_types = &stabs_types;
 	stabs_to_ast_state.parser_flags = parser_flags_for_this_file;
+	stabs_to_ast_state.demangler = context.demangler;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
 	LocalSymbolTableAnalyser analyser(database, stabs_to_ast_state, context, **source_file);

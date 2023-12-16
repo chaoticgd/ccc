@@ -453,7 +453,7 @@ void CppPrinter::ast_node(
 			} else if(function.modifier == ast::MemberFunctionModifier::VIRTUAL) {
 				fprintf(out, "virtual ");
 			}
-			if(!function.is_constructor) {
+			if(!function.is_constructor_or_destructor) {
 				if(function.return_type.has_value()) {
 					VariableName dummy;
 					ast_node(*function.return_type->get(), dummy, 0, indentation_level, database);

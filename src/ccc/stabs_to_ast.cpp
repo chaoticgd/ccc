@@ -10,6 +10,13 @@
 
 namespace ccc {
 
+struct MemberFunctionInfo {
+	std::string name;
+	bool is_constructor_or_destructor = false;
+	bool is_special_member_function = false;
+	bool is_operator_member_function = false;
+};
+
 static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
 static Result<std::unique_ptr<ast::Node>> field_to_ast(
 	const StabsStructOrUnionType::Field& field,
@@ -19,6 +26,8 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth);
+static MemberFunctionInfo check_member_function(
+	const std::string& mangled_name, std::string_view type_name_no_template_args, const DemanglerFunctions& demangler);
 
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	const StabsType& type,
@@ -623,7 +632,7 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	std::string_view type_name_no_template_args;
 	if(type.name.has_value()) {
 		type_name_no_template_args =
-			type.name->substr(0, type.name->find("<"));
+			std::string_view(*type.name).substr(0, type.name->find("<"));
 	}
 	
 	if(state.parser_flags & NO_GENERATED_MEMBER_FUNCTIONS) {
@@ -657,8 +666,15 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	}
 	
 	std::vector<std::unique_ptr<ast::Node>> member_functions;
+	bool only_special_functions = true;
 	
 	for(const StabsStructOrUnionType::MemberFunctionSet& function_set : type.member_functions) {
+		MemberFunctionInfo info = check_member_function(function_set.name, type_name_no_template_args, state.demangler);
+		
+		if(!info.is_special_member_function) {
+			only_special_functions = false;
+		}
+		
 		for(const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
 			auto node = stabs_type_to_ast(
 				*stabs_func.type,
@@ -668,27 +684,70 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 				true,
 				true);
 			CCC_RETURN_IF_ERROR(node);
-			if(function_set.name == "__as") {
-				(*node)->name = "operator=";
-			} else {
-				(*node)->name = function_set.name;
-			}
+			
+			(*node)->is_constructor_or_destructor = info.is_constructor_or_destructor;
+			(*node)->is_special_member_function = info.is_special_member_function;
+			(*node)->is_operator_member_function = info.is_operator_member_function;
+			
+			(*node)->name = info.name;
+			(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_func.visibility), state.parser_flags);
+			
 			if((*node)->descriptor == ast::FUNCTION) {
 				ast::Function& function = (*node)->as<ast::Function>();
 				function.modifier = stabs_func.modifier;
-				function.is_constructor = false;
-				if(type.name.has_value()) {
-					function.is_constructor |= function_set.name == type.name;
-					function.is_constructor |= function_set.name == type_name_no_template_args;
-				}
 				function.vtable_index = stabs_func.vtable_index;
 			}
-			(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_func.visibility), state.parser_flags);
+			
 			member_functions.emplace_back(std::move(*node));
 		}
 	}
 	
+	if(only_special_functions && (state.parser_flags & NO_GENERATED_MEMBER_FUNCTIONS)) {
+		return std::vector<std::unique_ptr<ast::Node>>();
+	}
+	
 	return member_functions;
+}
+
+static MemberFunctionInfo check_member_function(
+	const std::string& mangled_name, std::string_view type_name_no_template_args, const DemanglerFunctions& demangler)
+{
+	MemberFunctionInfo info;
+	
+	// Some compiler versions output gcc opnames for overloaded operators instead of their proper names.
+	char demangled_name[64];
+	info.is_operator_member_function =
+		demangler.cplus_demangle_opname &&
+		demangler.cplus_demangle_opname(mangled_name.c_str(), demangled_name, 0);
+	if(info.is_operator_member_function) {
+		info.name = demangled_name;
+	} else {
+		info.name = mangled_name;
+	}
+	
+	bool is_constructor =
+		info.name == "__ct" || // Takes a parameter to decide whether or not construct virtual base classes.
+		info.name == "__comp_ctor" || // Constructs virtual base classes.
+		info.name == "__base_ctor"; // Does not construct virtual base classes.
+	
+	if(!is_constructor && !type_name_no_template_args.empty()) {
+		is_constructor |= info.name == type_name_no_template_args; // Named constructor.
+	}
+	
+	bool is_destructor =
+		info.name == "__dt" || // Takes parameters to decide to construct virtual base classes and/or delete the object.
+		info.name == "__comp_dtor" || // Destructs virtual base classes.
+		info.name == "__base_dtor" || // Does not construct virtual base classes.
+		info.name == "__deleting_dtor"; // Destructs virtual base clases then deletes the entire object.
+	
+	if(!is_destructor && !info.name.empty()) {
+		is_destructor |= info.name[0] == '~' && std::string_view(info.name).substr(1) == type_name_no_template_args; // Named destructor.
+	}
+	
+	info.is_constructor_or_destructor = is_constructor || is_destructor || info.name.starts_with("$_");
+	info.is_special_member_function = info.is_constructor_or_destructor || info.name == "operator=";
+	
+	return info;
 }
 
 ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility)

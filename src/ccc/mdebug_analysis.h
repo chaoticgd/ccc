@@ -17,7 +17,7 @@ struct AnalysisContext {
 	const std::map<std::string, const mdebug::Symbol*>* globals;
 	SymbolSourceHandle symbol_source;
 	u32 parser_flags = NO_PARSER_FLAGS;
-	DemanglerFunc* demangle = nullptr;
+	DemanglerFunctions demangler;
 };
 
 class LocalSymbolTableAnalyser {

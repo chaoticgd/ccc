@@ -44,13 +44,11 @@ enum ParserFlags {
 	STRICT_PARSING = (1 << 5)
 };
 
-typedef char* DemanglerFunc(const char* mangled, int options);
-
 struct SymbolTableConfig {
 	std::optional<std::string> section;
 	std::optional<SymbolTableFormat> format;
 	u32 parser_flags = NO_PARSER_FLAGS;
-	DemanglerFunc* demangle = nullptr;
+	DemanglerFunctions demangler;
 };
 
 // The main high-level parsing function for the entire library. Return the

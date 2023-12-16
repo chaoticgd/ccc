@@ -314,8 +314,8 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 
 std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* mangled_name)
 {
-	if(m_context.demangle) {
-		const char* demangled_name = m_context.demangle(mangled_name, 0);
+	if(m_context.demangler.cplus_demangle) {
+		const char* demangled_name = m_context.demangler.cplus_demangle(mangled_name, 0);
 		if(demangled_name) {
 			std::string name = demangled_name;
 			free((void*) demangled_name);

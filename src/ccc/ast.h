@@ -45,6 +45,9 @@ struct Node {
 	u8 is_volatile : 1 = false;
 	u8 is_base_class : 1 = false;
 	u8 is_vtable_pointer : 1 = false;
+	u8 is_constructor_or_destructor : 1 = false;
+	u8 is_special_member_function : 1 = false;
+	u8 is_operator_member_function : 1 = false;
 	u8 cannot_compute_size : 1 = false;
 	u8 storage_class : 4 = STORAGE_CLASS_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
@@ -155,7 +158,6 @@ struct Function : Node {
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
-	bool is_constructor = false;
 	FunctionHandle definition_handle; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 	Function() : Node(DESCRIPTOR) {}
@@ -252,7 +254,6 @@ enum class CompareFailReason {
 	FUNCTION_PARAMAETER_COUNT,
 	FUNCTION_PARAMETERS_HAS_VALUE,
 	FUNCTION_MODIFIER,
-	FUNCTION_IS_CONSTRUCTOR,
 	ENUM_CONSTANTS,
 	BASE_CLASS_COUNT,
 	FIELDS_SIZE,

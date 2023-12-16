@@ -62,7 +62,8 @@ int main(int argc, char** argv)
 	CCC_EXIT_IF_ERROR(elf);
 	
 	SymbolTableConfig config;
-	config.demangle = cplus_demangle;
+	config.demangler.cplus_demangle = cplus_demangle;
+	config.demangler.cplus_demangle_opname = cplus_demangle_opname;
 	
 	SymbolDatabase database;
 	Result<SymbolSourceHandle> symbol_source = import_symbol_table(database, *elf, config);

@@ -259,4 +259,11 @@ enum StorageClass {
 	STORAGE_CLASS_REGISTER = 5
 };
 
+// Function pointers for the GNU demangler functions, so we can build CCC as a
+// library without linking against the demangler.
+struct DemanglerFunctions {
+	char* (*cplus_demangle)(const char *mangled, int options) = nullptr;
+	int (*cplus_demangle_opname)(const char *opname, char *result, int options) = nullptr;
+};
+
 }

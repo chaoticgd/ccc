@@ -118,8 +118,12 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 			json.String(modifier);
 			json.Key("vtable_index");
 			json.Int(function.vtable_index);
-			json.Key("is_constructor");
-			json.Bool(function.is_constructor);
+			json.Key("is_constructor_or_destructor");
+			json.Bool(function.is_constructor_or_destructor);
+			json.Key("is_special_member_function");
+			json.Bool(function.is_special_member_function);
+			json.Key("is_operator_member_function");
+			json.Bool(function.is_operator_member_function);
 			break;
 		}
 		case POINTER_OR_REFERENCE: {

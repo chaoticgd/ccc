@@ -119,7 +119,6 @@ CompareResult compare_nodes(
 				return CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE;
 			}
 			if(lhs.modifier != rhs.modifier) return CompareFailReason::FUNCTION_MODIFIER;
-			if(lhs.is_constructor != rhs.is_constructor) return CompareFailReason::FUNCTION_IS_CONSTRUCTOR;
 			break;
 		}
 		case POINTER_OR_REFERENCE: {
@@ -276,7 +275,6 @@ const char* compare_fail_reason_to_string(CompareFailReason reason)
 		case CompareFailReason::FUNCTION_PARAMAETER_COUNT: return "function paramaeter count";
 		case CompareFailReason::FUNCTION_PARAMETERS_HAS_VALUE: return "function parameter";
 		case CompareFailReason::FUNCTION_MODIFIER: return "function modifier";
-		case CompareFailReason::FUNCTION_IS_CONSTRUCTOR: return "function is constructor";
 		case CompareFailReason::ENUM_CONSTANTS: return "enum constant";
 		case CompareFailReason::BASE_CLASS_COUNT: return "base class count";
 		case CompareFailReason::FIELDS_SIZE: return "fields size";

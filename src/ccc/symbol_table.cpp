@@ -99,7 +99,7 @@ Result<SymbolSourceHandle> import_elf_symbol_table(
 			Result<void> reader_result = reader.init(elf.image, section->offset);
 			CCC_RETURN_IF_ERROR(reader_result);
 			
-			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(database, reader, config.parser_flags, config.demangle);
+			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(database, reader, config.parser_flags, config.demangler);
 			CCC_RETURN_IF_ERROR(source_result);
 			source = *source_result;
 			
