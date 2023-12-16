@@ -7,7 +7,7 @@
 - Massively reduced memory usage.
 - Reworked error handling.
 - Fixed a bunch of STABS parsing issues.
-- Demangle special member function names.
+- Demangle overloaded operator function names.
 - stdump: Added `identify` command.
 - stdump: Removed `--verbose` option (no one actually used that, right?).
 - stdump: Dropped support for legacy command aliases (e.g. `print_types` instead of `types`).
