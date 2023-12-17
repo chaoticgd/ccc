@@ -14,7 +14,6 @@ Result<SymbolSourceHandle> import_elf_symbol_table(
 static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(
 	const ElfFile& elf, const SymbolTableConfig& config);
 static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config);
-static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database);
 
 const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
 	{SYMTAB, "symtab", ".symtab", 2},
@@ -102,16 +101,6 @@ Result<SymbolSourceHandle> import_elf_symbol_table(
 			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(database, reader, config.parser_flags, config.demangler);
 			CCC_RETURN_IF_ERROR(source_result);
 			source = *source_result;
-			
-			// Filter the AST and compute size information for all nodes.
-			#define CCC_X(SymbolType, symbol_list) \
-				for(SymbolType& symbol : database.symbol_list) { \
-					if(symbol.type()) { \
-						compute_size_bytes_recursive(*symbol.type(), database); \
-					} \
-				}
-				CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-			#undef CCC_X
 			
 			break;
 		}
@@ -243,80 +232,6 @@ static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config)
 	CCC_CHECK(!config.format.has_value() || *config.format == SNDLL,
 		"Symbol table format specified for SNDLL file is not 'sndll'.");
 	return Result<void>();
-}
-
-static void compute_size_bytes_recursive(ast::Node& node, SymbolDatabase& database)
-{
-	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
-		// Skip nodes that have already been processed.
-		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
-			return ast::EXPLORE_CHILDREN;
-		}
-		
-		// Can't compute size recursively.
-		node.cannot_compute_size = true;
-		
-		switch(node.descriptor) {
-			case ast::ARRAY: {
-				ast::Array& array = node.as<ast::Array>();
-				if(array.element_type->computed_size_bytes > -1) {
-					array.computed_size_bytes = array.element_type->computed_size_bytes * array.element_count;
-				}
-				break;
-			}
-			case ast::BITFIELD: {
-				break;
-			}
-			case ast::BUILTIN: {
-				ast::BuiltIn& built_in = node.as<ast::BuiltIn>();
-				built_in.computed_size_bytes = builtin_class_size(built_in.bclass);
-				break;
-			}
-			case ast::FUNCTION: {
-				break;
-			}
-			case ast::FORWARD_DECLARED: {
-				break;
-			}
-			case ast::ENUM: {
-				node.computed_size_bytes = 4;
-				break;
-			}
-			case ast::ERROR: {
-				break;
-			}
-			case ast::STRUCT_OR_UNION: {
-				node.computed_size_bytes = node.size_bits / 8;
-				break;
-			}
-			case ast::POINTER_OR_REFERENCE: {
-				node.computed_size_bytes = 4;
-				break;
-			}
-			case ast::POINTER_TO_DATA_MEMBER: {
-				break;
-			}
-			case ast::TYPE_NAME: {
-				ast::TypeName& type_name = node.as<ast::TypeName>();
-				DataType* resolved_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
-				if(resolved_type) {
-					ast::Node* resolved_node = resolved_type->type();
-					CCC_ASSERT(resolved_node);
-					if(resolved_node->computed_size_bytes < 0 && !resolved_node->cannot_compute_size) {
-						compute_size_bytes_recursive(*resolved_node, database);
-					}
-					type_name.computed_size_bytes = resolved_node->computed_size_bytes;
-				}
-				break;
-			}
-		}
-		
-		if(node.computed_size_bytes > -1) {
-			node.cannot_compute_size = false;
-		}
-		
-		return ast::EXPLORE_CHILDREN;
-	});
 }
 
 }

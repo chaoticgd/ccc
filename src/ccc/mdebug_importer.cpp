@@ -7,6 +7,7 @@ namespace ccc::mdebug {
 
 static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags);
 static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags);
+static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
 
 Result<SymbolSourceHandle> import_symbol_table(
 	SymbolDatabase& database, const mdebug::SymbolTableReader& reader, u32 parser_flags, const DemanglerFunctions& demangler)
@@ -68,6 +69,13 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 	// Lookup data types and store data type handles in type names.
 	Result<void> type_name_result = resolve_type_names(database, context.symbol_source, context.parser_flags);
 	CCC_RETURN_IF_ERROR(type_name_result);
+	
+	// Compute the size in bytes of all the AST nodes.
+	database.for_each_symbol([&](ccc::Symbol& symbol) {
+		if(symbol.source() == context.symbol_source && symbol.type()) {
+			compute_size_bytes(*symbol.type(), database);
+		}
+	});
 	
 	return Result<void>();
 }
@@ -321,6 +329,80 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	type_name.is_forward_declared = true;
 	type_name.unresolved_stabs.reset();
 	return Result<void>();
+}
+
+static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
+{
+	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
+		// Skip nodes that have already been processed.
+		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
+			return ast::EXPLORE_CHILDREN;
+		}
+		
+		// Can't compute size recursively.
+		node.cannot_compute_size = true;
+		
+		switch(node.descriptor) {
+			case ast::ARRAY: {
+				ast::Array& array = node.as<ast::Array>();
+				if(array.element_type->computed_size_bytes > -1) {
+					array.computed_size_bytes = array.element_type->computed_size_bytes * array.element_count;
+				}
+				break;
+			}
+			case ast::BITFIELD: {
+				break;
+			}
+			case ast::BUILTIN: {
+				ast::BuiltIn& built_in = node.as<ast::BuiltIn>();
+				built_in.computed_size_bytes = builtin_class_size(built_in.bclass);
+				break;
+			}
+			case ast::FUNCTION: {
+				break;
+			}
+			case ast::FORWARD_DECLARED: {
+				break;
+			}
+			case ast::ENUM: {
+				node.computed_size_bytes = 4;
+				break;
+			}
+			case ast::ERROR: {
+				break;
+			}
+			case ast::STRUCT_OR_UNION: {
+				node.computed_size_bytes = node.size_bits / 8;
+				break;
+			}
+			case ast::POINTER_OR_REFERENCE: {
+				node.computed_size_bytes = 4;
+				break;
+			}
+			case ast::POINTER_TO_DATA_MEMBER: {
+				break;
+			}
+			case ast::TYPE_NAME: {
+				ast::TypeName& type_name = node.as<ast::TypeName>();
+				DataType* resolved_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
+				if(resolved_type) {
+					ast::Node* resolved_node = resolved_type->type();
+					CCC_ASSERT(resolved_node);
+					if(resolved_node->computed_size_bytes < 0 && !resolved_node->cannot_compute_size) {
+						compute_size_bytes(*resolved_node, database);
+					}
+					type_name.computed_size_bytes = resolved_node->computed_size_bytes;
+				}
+				break;
+			}
+		}
+		
+		if(node.computed_size_bytes > -1) {
+			node.cannot_compute_size = false;
+		}
+		
+		return ast::EXPLORE_CHILDREN;
+	});
 }
 
 void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
