@@ -322,7 +322,7 @@ class DataType : public Symbol {
 	friend SymbolList<DataType>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::DATA_TYPE;
-	static constexpr const char* NAME = "data type";
+	static constexpr const char* NAME = "Data Type";
 	static constexpr const u32 FLAGS = WITH_NAME_MAP;
 	
 	DataTypeHandle handle() const { return m_handle; }
@@ -338,7 +338,7 @@ class Function : public Symbol {
 	friend SymbolList<Function>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
-	static constexpr const char* NAME = "function";
+	static constexpr const char* NAME = "Function";
 	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	FunctionHandle handle() const { return m_handle; }
@@ -388,7 +388,7 @@ class GlobalVariable : public Symbol {
 	friend SymbolList<GlobalVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
-	static constexpr const char* NAME = "global variable";
+	static constexpr const char* NAME = "Global Variable";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	GlobalVariableHandle handle() const { return m_handle; }
@@ -413,7 +413,7 @@ class Label : public Symbol {
 	friend SymbolList<Label>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LABEL;
-	static constexpr const char* NAME = "label";
+	static constexpr const char* NAME = "Label";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
 	LabelHandle handle() const { return m_handle; }
@@ -430,7 +430,7 @@ class LocalVariable : public Symbol {
 	friend SymbolList<LocalVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LOCAL_VARIABLE;
-	static constexpr const char* NAME = "local variable";
+	static constexpr const char* NAME = "Local Variable";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
 	Address address() const { return m_address; }
@@ -452,7 +452,7 @@ class ParameterVariable : public Symbol {
 	friend SymbolList<ParameterVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::PARAMETER_VARIABLE;
-	static constexpr const char* NAME = "parameter variable";
+	static constexpr const char* NAME = "Parameter Variable";
 	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
 	
 	ParameterVariableHandle handle() const { return m_handle; }
@@ -468,7 +468,7 @@ class Section : public Symbol {
 	friend SymbolList<Section>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SECTION;
-	static constexpr const char* NAME = "section";
+	static constexpr const char* NAME = "Section";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	SectionHandle handle() const { return m_handle; }
@@ -486,7 +486,7 @@ class SourceFile : public Symbol {
 	friend SymbolList<SourceFile>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SOURCE_FILE;
-	static constexpr const char* NAME = "source file";
+	static constexpr const char* NAME = "Source File";
 	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
 	
 	SourceFileHandle handle() const { return m_handle; }
@@ -512,7 +512,7 @@ class SymbolSource : public Symbol {
 	friend SymbolList<SymbolSource>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
-	static constexpr const char* NAME = "symbol source";
+	static constexpr const char* NAME = "Symbol Source";
 	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
 	
 	SymbolSourceHandle handle() const { return m_handle; }
