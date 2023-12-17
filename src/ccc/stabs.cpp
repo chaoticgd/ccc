@@ -772,10 +772,7 @@ std::optional<std::string> parse_stabs_identifier(const char*& input)
 {
 	const char* begin = input;
 	for(; *input != '\0'; input++) {
-		bool valid_char = false;
-		valid_char |= *input != ':' && *input != ';';
-		valid_char |= input != begin && isalnum(*input);
-		if(!valid_char) {
+		if(*input == ':' || *input == ';') {
 			return std::string(begin, input);
 		}
 	}
@@ -816,10 +813,7 @@ Result<std::string> parse_dodgy_stabs_identifier(const char*& input)
 			template_depth--;
 		}
 		
-		bool valid_char = false;
-		valid_char |= (*input != ':' || template_depth != 0) && *input != ';';
-		valid_char |= input != begin && isalnum(*input);
-		if(!valid_char) {
+		if((*input == ':' && template_depth == 0) || *input == ';') {
 			return std::string(begin, input);
 		}
 	}
