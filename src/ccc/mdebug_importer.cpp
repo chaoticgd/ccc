@@ -280,6 +280,8 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
 			type_name.data_type_handle = handle->second.value;
+			type_name.is_forward_declared = false;
+			type_name.unresolved_stabs.reset();
 			return Result<void>();
 		}
 	}
@@ -293,6 +295,7 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 			if(data_type->source() == source) {
 				type_name.data_type_handle = name_handle.second.value;
 				type_name.is_forward_declared = true;
+				type_name.unresolved_stabs.reset();
 				return Result<void>();
 			}
 		}
@@ -318,7 +321,7 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	
 	type_name.data_type_handle = (*forward_declared_type)->handle().value;
 	type_name.is_forward_declared = true;
-	
+	type_name.unresolved_stabs.reset();
 	return Result<void>();
 }
 
