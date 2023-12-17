@@ -236,8 +236,6 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	Result<void> result = analyser.finish();
 	CCC_RETURN_IF_ERROR(result);
 	
-	// The STABS types are no longer needed, so delete them now.
-	symbols->clear();
 	
 	return Result<void>();
 }
