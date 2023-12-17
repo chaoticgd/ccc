@@ -263,24 +263,23 @@ static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHan
 
 static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags)
 {
-	ast::TypeName::UnresolvedStabs* stabs = std::get_if<ast::TypeName::UnresolvedStabs>(&type_name.data);
-	if(!stabs) {
+	ast::TypeName::UnresolvedStabs* unresolved_stabs = type_name.unresolved_stabs.get();
+	if(!unresolved_stabs) {
 		return Result<void>();
 	}
 	
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
-	if(stabs->referenced_file_handle != (u32) -1 && stabs->stabs_type_number_type > -1) {
-		const SourceFile* source_file = database.source_files.symbol_from_handle(stabs->referenced_file_handle);
+	if(unresolved_stabs->referenced_file_handle != (u32) -1 && unresolved_stabs->stabs_type_number_type > -1) {
+		const SourceFile* source_file = database.source_files.symbol_from_handle(unresolved_stabs->referenced_file_handle);
 		CCC_ASSERT(source_file);
 		StabsTypeNumber stabs_type_number = {
-			stabs->stabs_type_number_file,
-			stabs->stabs_type_number_type
+			unresolved_stabs->stabs_type_number_file,
+			unresolved_stabs->stabs_type_number_type
 		};
 		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
-			ast::TypeName::Resolved& resolved = type_name.data.emplace<ast::TypeName::Resolved>();
-			resolved.data_type_handle = handle->second.value;
+			type_name.data_type_handle = handle->second.value;
 			return Result<void>();
 		}
 	}
@@ -288,13 +287,12 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	// Looking up the type by its STABS type number failed, so look for it by
 	// its name instead. This happens when a type is forward declared but not
 	// defined in a given translation unit.
-	if(!stabs->type_name.empty()) {
-		for(auto& name_handle : database.data_types.handles_from_name(stabs->type_name)) {
+	if(!unresolved_stabs->type_name.empty()) {
+		for(auto& name_handle : database.data_types.handles_from_name(unresolved_stabs->type_name)) {
 			DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
 			if(data_type->source() == source) {
-				ast::TypeName::Resolved& resolved = type_name.data.emplace<ast::TypeName::Resolved>();
-				resolved.data_type_handle = name_handle.second.value;
-				resolved.is_forward_declared = true;
+				type_name.data_type_handle = name_handle.second.value;
+				type_name.is_forward_declared = true;
 				return Result<void>();
 			}
 		}
@@ -311,16 +309,15 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	// Type lookup failed. This happens when a type is forward declared in a
 	// translation unit with symbols but is not defined in one. We haven't
 	// already created a forward declared type, so we create one now.
-	Result<DataType*> forward_declared_type = database.data_types.create_symbol(stabs->type_name, source);
+	Result<DataType*> forward_declared_type = database.data_types.create_symbol(unresolved_stabs->type_name, source);
 	CCC_RETURN_IF_ERROR(forward_declared_type);
 	
 	std::unique_ptr<ast::ForwardDeclared> forward_declared_node = std::make_unique<ast::ForwardDeclared>();
-	forward_declared_node->type = stabs->type;
+	forward_declared_node->type = unresolved_stabs->type;
 	(*forward_declared_type)->set_type_once(std::move(forward_declared_node));
 	
-	ast::TypeName::Resolved& resolved = type_name.data.emplace<ast::TypeName::Resolved>();
-	resolved.data_type_handle = (*forward_declared_type)->handle().value;
-	resolved.is_forward_declared = true;
+	type_name.data_type_handle = (*forward_declared_type)->handle().value;
+	type_name.is_forward_declared = true;
 	
 	return Result<void>();
 }

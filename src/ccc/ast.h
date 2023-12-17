@@ -200,18 +200,11 @@ enum class TypeNameSource : u8 {
 const char* type_name_source_to_string(TypeNameSource source);
 
 struct TypeName : Node {
+	DataTypeHandle data_type_handle;
 	TypeNameSource source = TypeNameSource::REFERENCE;
+	bool is_forward_declared = false;
 	
-	DataTypeHandle data_type_handle() const;
 	DataTypeHandle data_type_handle_unless_forward_declared() const;
-	
-	struct Resolved {
-		DataTypeHandle data_type_handle;
-		bool is_forward_declared = false;
-		
-		Resolved() {}
-		friend auto operator<=>(const Resolved& lhs, const Resolved& rhs) = default;
-	};
 	
 	struct UnresolvedStabs {
 		std::string type_name;
@@ -224,7 +217,7 @@ struct TypeName : Node {
 		friend auto operator<=>(const UnresolvedStabs& lhs, const UnresolvedStabs& rhs) = default;
 	};
 	
-	std::variant<Resolved, UnresolvedStabs> data;
+	std::unique_ptr<UnresolvedStabs> unresolved_stabs;
 	
 	TypeName() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;

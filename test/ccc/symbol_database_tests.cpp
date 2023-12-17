@@ -326,26 +326,22 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	// Create a typedef for that builtin.
 	std::unique_ptr<ast::TypeName> typedef_type = std::make_unique<ast::TypeName>();
 	typedef_type->storage_class = STORAGE_CLASS_TYPEDEF;
-	{
-		ast::TypeName::UnresolvedStabs& stabs = typedef_type->data.emplace<ast::TypeName::UnresolvedStabs>();
-		stabs.type_name = "Underlying";
-		stabs.referenced_file_handle = (*file)->handle().value;
-		stabs.stabs_type_number_file = 1;
-		stabs.stabs_type_number_type = 1;
-	}
+	typedef_type->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+	typedef_type->unresolved_stabs->type_name = "Underlying";
+	typedef_type->unresolved_stabs->referenced_file_handle = (*file)->handle().value;
+	typedef_type->unresolved_stabs->stabs_type_number_file = 1;
+	typedef_type->unresolved_stabs->stabs_type_number_type = 1;
 	Result<DataType*> typedef_symbol = database.create_data_type_if_unique(
 		std::move(typedef_type), StabsTypeNumber{1,2}, "Typedef", **file, (*source)->handle());
 	
 	// Create a struct referencing the builtin type directly.
 	std::unique_ptr<ast::StructOrUnion> struct_underlying_type = std::make_unique<ast::StructOrUnion>();
 	std::unique_ptr<ast::TypeName> member_underlying_type = std::make_unique<ast::TypeName>();
-	{
-		ast::TypeName::UnresolvedStabs& stabs = member_underlying_type->data.emplace<ast::TypeName::UnresolvedStabs>();
-		stabs.type_name = "Underlying";
-		stabs.referenced_file_handle = (*file)->handle().value;
-		stabs.stabs_type_number_file = 1;
-		stabs.stabs_type_number_type = 1;
-	}
+	member_underlying_type->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+	member_underlying_type->unresolved_stabs->type_name = "Underlying";
+	member_underlying_type->unresolved_stabs->referenced_file_handle = (*file)->handle().value;
+	member_underlying_type->unresolved_stabs->stabs_type_number_file = 1;
+	member_underlying_type->unresolved_stabs->stabs_type_number_type = 1;
 	struct_underlying_type->fields.emplace_back(std::move(member_underlying_type));
 	Result<DataType*> struct_underlying_symbol = database.create_data_type_if_unique(
 		std::move(struct_underlying_type), StabsTypeNumber{1,3}, "WobblyStruct", **file, (*source)->handle());
@@ -353,13 +349,11 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	// Create a struct referencing the builtin through the typedef.
 	std::unique_ptr<ast::StructOrUnion> struct_typedef_type = std::make_unique<ast::StructOrUnion>();
 	std::unique_ptr<ast::TypeName> member_typedef_type = std::make_unique<ast::TypeName>();
-	{
-		ast::TypeName::UnresolvedStabs& stabs = member_typedef_type->data.emplace<ast::TypeName::UnresolvedStabs>();
-		stabs.type_name = "Typedef";
-		stabs.referenced_file_handle = (*file)->handle().value;
-		stabs.stabs_type_number_file = 1;
-		stabs.stabs_type_number_type = 2;
-	}
+	member_typedef_type->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+	member_typedef_type->unresolved_stabs->type_name = "Typedef";
+	member_typedef_type->unresolved_stabs->referenced_file_handle = (*file)->handle().value;
+	member_typedef_type->unresolved_stabs->stabs_type_number_file = 1;
+	member_typedef_type->unresolved_stabs->stabs_type_number_type = 2;
 	struct_typedef_type->fields.emplace_back(std::move(member_typedef_type));
 	Result<DataType*> struct_typedef_symbol = database.create_data_type_if_unique(
 		std::move(struct_typedef_type), StabsTypeNumber{1,4}, "WobblyStruct", **file, (*source)->handle());
@@ -377,7 +371,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	ASSERT_EQ(chosen_struct.fields[0]->descriptor, ast::TYPE_NAME);
 	
 	// Validate that the typedef'd struct was chosen over the other one.
-	ast::TypeName::UnresolvedStabs* field =
-		std::get_if<ast::TypeName::UnresolvedStabs>(&chosen_struct.fields[0]->as<ast::TypeName>().data);
+	ast::TypeName::UnresolvedStabs* field = chosen_struct.fields[0]->as<ast::TypeName>().unresolved_stabs.get();
+	ASSERT_TRUE(field);
 	EXPECT_EQ(field->stabs_type_number_type, 2);
 }

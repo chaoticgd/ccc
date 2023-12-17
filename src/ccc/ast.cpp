@@ -31,22 +31,13 @@ const char* type_name_source_to_string(TypeNameSource source)
 	return "";
 }
 
-DataTypeHandle TypeName::data_type_handle() const
-{
-	if(const Resolved* resolved = std::get_if<Resolved>(&data)) {
-		return resolved->data_type_handle;
-	}
-	return DataTypeHandle();
-}
-
 DataTypeHandle TypeName::data_type_handle_unless_forward_declared() const
 {
-	if(const Resolved* resolved = std::get_if<Resolved>(&data)) {
-		if(resolved->is_forward_declared) {
-			return resolved->data_type_handle;
-		}
+	if(!is_forward_declared) {
+		return data_type_handle;
+	} else {
+		return DataTypeHandle();
 	}
-	return DataTypeHandle();
 }
 
 CompareResult compare_nodes(
@@ -152,25 +143,21 @@ CompareResult compare_nodes(
 		}
 		case TYPE_NAME: {
 			const auto [lhs, rhs] = Node::as<TypeName>(node_lhs, node_rhs);
+			
 			// Don't check the source so that REFERENCE and CROSS_REFERENCE are
 			// treated as the same.
-			if(const TypeName::Resolved* lhs_resolved = std::get_if<TypeName::Resolved>(&lhs.data)) {
-				if(const TypeName::Resolved* rhs_resolved = std::get_if<TypeName::Resolved>(&rhs.data)) {
-					if(lhs_resolved->data_type_handle != rhs_resolved->data_type_handle) {
-						return CompareFailReason::TYPE_NAME;
-					}
-				} else {
+			if(lhs.data_type_handle != rhs.data_type_handle) return CompareFailReason::TYPE_NAME;
+			
+			const TypeName::UnresolvedStabs* lhs_unresolved_stabs = lhs.unresolved_stabs.get();
+			const TypeName::UnresolvedStabs* rhs_unresolved_stabs = rhs.unresolved_stabs.get();
+			if(lhs_unresolved_stabs && rhs_unresolved_stabs) {
+				if(lhs_unresolved_stabs->type_name != rhs_unresolved_stabs->type_name) {
 					return CompareFailReason::TYPE_NAME;
 				}
-			} else if(const TypeName::UnresolvedStabs* lhs_unresolved = std::get_if<TypeName::UnresolvedStabs>(&lhs.data)) {
-				if(const TypeName::UnresolvedStabs* rhs_unresolved = std::get_if<TypeName::UnresolvedStabs>(&rhs.data)) {
-					if(lhs_unresolved->type_name != rhs_unresolved->type_name) {
-						return CompareFailReason::TYPE_NAME;
-					}
-				} else {
-					return CompareFailReason::TYPE_NAME;
-				}
+			} else if(lhs_unresolved_stabs || rhs_unresolved_stabs) {
+				return CompareFailReason::TYPE_NAME;
 			}
+			
 			break;
 		}
 	}
@@ -230,17 +217,17 @@ static bool try_to_match_wobbly_typedefs(
 	}
 	
 	const TypeName& type_name = type_name_node.as<TypeName>();
-	if(const TypeName::UnresolvedStabs* read_state = std::get_if<TypeName::UnresolvedStabs>(&type_name.data)) {
-		if(read_state->referenced_file_handle == (u32) -1 || read_state->stabs_type_number_type == -1) {
+	if(const TypeName::UnresolvedStabs* unresolved_stabs = type_name.unresolved_stabs.get()) {
+		if(unresolved_stabs->referenced_file_handle == (u32) -1 || unresolved_stabs->stabs_type_number_type == -1) {
 			return false;
 		}
 		
 		const SourceFile* source_file =
-			database.source_files.symbol_from_handle(read_state->referenced_file_handle);
+			database.source_files.symbol_from_handle(unresolved_stabs->referenced_file_handle);
 		CCC_ASSERT(source_file);
 		StabsTypeNumber stabs_type_number = {
-			read_state->stabs_type_number_file,
-			read_state->stabs_type_number_type
+			unresolved_stabs->stabs_type_number_file,
+			unresolved_stabs->stabs_type_number_type
 		};
 		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {

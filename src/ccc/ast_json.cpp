@@ -169,7 +169,7 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 			json.Key("source");
 			json.String(type_name_source_to_string(type_name.source));
 			json.Key("data_type_handle");
-			json.Int(database.data_types.index_from_handle(type_name.data_type_handle()));
+			json.Int(database.data_types.index_from_handle(type_name.data_type_handle));
 			break;
 		}
 	}

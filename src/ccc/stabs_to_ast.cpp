@@ -69,11 +69,11 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
-			ast::TypeName::UnresolvedStabs& stabs = type_name->data.emplace<ast::TypeName::UnresolvedStabs>();
-			stabs.type_name = *type.name;
-			stabs.referenced_file_handle = state.file_handle;
-			stabs.stabs_type_number_file = type.type_number.file;
-			stabs.stabs_type_number_type = type.type_number.type;
+			type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+			type_name->unresolved_stabs->type_name = *type.name;
+			type_name->unresolved_stabs->referenced_file_handle = state.file_handle;
+			type_name->unresolved_stabs->stabs_type_number_file = type.type_number.file;
+			type_name->unresolved_stabs->stabs_type_number_type = type.type_number.type;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 	}
@@ -85,10 +85,10 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		// It's probably a this parameter (or return type) for an unnamed type.
 		auto type_name = std::make_unique<ast::TypeName>();
 		type_name->source = ast::TypeNameSource::THIS;
-		ast::TypeName::UnresolvedStabs& stabs = type_name->data.emplace<ast::TypeName::UnresolvedStabs>();
-		stabs.referenced_file_handle = state.file_handle;
-		stabs.stabs_type_number_file = type.type_number.file;
-		stabs.stabs_type_number_type = type.type_number.type;
+		type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+		type_name->unresolved_stabs->referenced_file_handle = state.file_handle;
+		type_name->unresolved_stabs->stabs_type_number_file = type.type_number.file;
+		type_name->unresolved_stabs->stabs_type_number_type = type.type_number.type;
 		return std::unique_ptr<ast::Node>(std::move(type_name));
 	}
 	
@@ -294,9 +294,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			const auto& cross_reference = type.as<StabsCrossReferenceType>();
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::CROSS_REFERENCE;
-			ast::TypeName::UnresolvedStabs& stabs = type_name->data.emplace<ast::TypeName::UnresolvedStabs>();
-			stabs.type_name = cross_reference.identifier;
-			stabs.type = cross_reference.type;
+			type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+			type_name->unresolved_stabs->type_name = cross_reference.identifier;
+			type_name->unresolved_stabs->type = cross_reference.type;
 			result = std::move(type_name);
 			break;
 		}
