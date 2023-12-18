@@ -10,17 +10,17 @@ using namespace ccc;
 
 namespace platform {
 
-ccc::Result<std::vector<ccc::u8>> read_binary_file(const fs::path& path)
+Result<std::vector<ccc::u8>> read_binary_file(const fs::path& path)
 {
-	FILE* file = fopen(path.string().c_str(), "rb");
-	CCC_CHECK(file != nullptr, "Failed to open file '%s' (%s).", path.string().c_str(), strerror(errno));
-	s64 size = file_size(file);
+	CCC_CHECK(fs::is_regular_file(path), "Failed to open '%s' (not a regular file).", path.string().c_str());
+	std::ifstream file(path, std::ios::binary);
+	CCC_CHECK(file, "Failed to open file '%s' (%s).", path.string().c_str(), strerror(errno));
+	file.seekg(0, std::ios::end);
+	s64 size = file.tellg();
+	file.seekg(0, std::ios::beg);
 	std::vector<u8> output(size);
-	if(size > 0) {
-		size_t read_result = fread(output.data(), size, 1, file);
-		fclose(file);
-		CCC_CHECK(read_result == 1, "Failed to read from file '%s' (%s).", path.string().c_str(), strerror(errno));
-	}
+	file.read((char*) output.data(), size);
+	CCC_CHECK(file, "Failed to read from file '%s' (%s).", path.string().c_str(), strerror(errno));
 	return output;
 }
 
@@ -34,15 +34,6 @@ std::optional<std::string> read_text_file(const fs::path& path)
 	std::stringstream string_stream;
 	string_stream << file_stream.rdbuf();
 	return string_stream.str();
-}
-
-s64 file_size(FILE* file)
-{
-	s64 pos = ftell(file);
-	fseek(file, 0, SEEK_END);
-	s64 size = ftell(file);
-	fseek(file, pos, SEEK_SET);
-	return size;
 }
 
 }
