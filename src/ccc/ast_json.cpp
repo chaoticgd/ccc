@@ -21,10 +21,6 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		json.Key("name");
 		json.String(node.name.c_str());
 	}
-	if(node.storage_class != STORAGE_CLASS_NONE) {
-		json.Key("storage_class");
-		json.String(storage_class_to_string((StorageClass) node.storage_class));
-	}
 	if(node.offset_bytes != -1) {
 		json.Key("offset_bytes");
 		json.Int(node.offset_bytes);
@@ -32,6 +28,14 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 	if(node.size_bits != -1) {
 		json.Key("size_bits");
 		json.Int(node.size_bits);
+	}
+	if(node.storage_class != STORAGE_CLASS_NONE) {
+		json.Key("storage_class");
+		json.String(storage_class_to_string((StorageClass) node.storage_class));
+	}
+	if(node.access_specifier != AS_PUBLIC) {
+		json.Key("access_specifier");
+		json.String(access_specifier_to_string((AccessSpecifier) node.access_specifier));
 	}
 	if(node.is_const) {
 		json.Key("is_const");
@@ -41,9 +45,21 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		json.Key("is_volatile");
 		json.Bool(node.is_volatile);
 	}
-	if(node.access_specifier != AS_PUBLIC) {
-		json.Key("access_specifier");
-		json.String(access_specifier_to_string((AccessSpecifier) node.access_specifier));
+	if(node.is_vtable_pointer) {
+		json.Key("is_vtable_pointer");
+		json.Bool(node.is_vtable_pointer);
+	}
+	if(node.is_constructor_or_destructor) {
+		json.Key("is_constructor_or_destructor");
+		json.Bool(node.is_constructor_or_destructor);
+	}
+	if(node.is_special_member_function) {
+		json.Key("is_special_member_function");
+		json.Bool(node.is_special_member_function);
+	}
+	if(node.is_operator_member_function) {
+		json.Key("is_operator_member_function");
+		json.Bool(node.is_operator_member_function);
 	}
 	
 	switch(node.descriptor) {
@@ -91,7 +107,11 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 			break;
 		}
 		case FORWARD_DECLARED: {
-			// TODO
+			const ForwardDeclared& forward_declared = node.as<ForwardDeclared>();
+			if(forward_declared.type.has_value()) {
+				json.Key("type");
+				json.String(forward_declared_type_to_string(*forward_declared.type));
+			}
 			break;
 		}
 		case FUNCTION: {
@@ -108,22 +128,14 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 				}
 				json.EndArray();
 			}
-			const char* modifier = "none";
-			if(function.modifier == MemberFunctionModifier::STATIC) {
-				modifier = "static";
-			} else if(function.modifier == MemberFunctionModifier::VIRTUAL) {
-				modifier = "virtual";
+			if(function.modifier != MemberFunctionModifier::NONE) {
+				json.Key("modifier");
+				json.String(member_function_modifier_to_string(function.modifier));
 			}
-			json.Key("modifier");
-			json.String(modifier);
-			json.Key("vtable_index");
-			json.Int(function.vtable_index);
-			json.Key("is_constructor_or_destructor");
-			json.Bool(function.is_constructor_or_destructor);
-			json.Key("is_special_member_function");
-			json.Bool(function.is_special_member_function);
-			json.Key("is_operator_member_function");
-			json.Bool(function.is_operator_member_function);
+			if(function.vtable_index > -1) {
+				json.Key("vtable_index");
+				json.Int(function.vtable_index);
+			}
 			break;
 		}
 		case POINTER_OR_REFERENCE: {
@@ -142,7 +154,7 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		}
 		case STRUCT_OR_UNION: {
 			const StructOrUnion& struct_or_union = node.as<StructOrUnion>();
-			if(struct_or_union.is_struct) {
+			if(!struct_or_union.base_classes.empty()) {
 				json.Key("base_classes");
 				json.StartArray();
 				for(const std::unique_ptr<Node>& base_class : struct_or_union.base_classes) {
@@ -150,18 +162,22 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 				}
 				json.EndArray();
 			}
-			json.Key("fields");
-			json.StartArray();
-			for(const std::unique_ptr<Node>& node : struct_or_union.fields) {
-				write_json(json, node.get(), database);
+			if(!struct_or_union.fields.empty()) {
+				json.Key("fields");
+				json.StartArray();
+				for(const std::unique_ptr<Node>& node : struct_or_union.fields) {
+					write_json(json, node.get(), database);
+				}
+				json.EndArray();
 			}
-			json.EndArray();
-			json.Key("member_functions");
-			json.StartArray();
-			for(const std::unique_ptr<Node>& node : struct_or_union.member_functions) {
-				write_json(json, node.get(), database);
+			if(!struct_or_union.member_functions.empty()) {
+				json.Key("member_functions");
+				json.StartArray();
+				for(const std::unique_ptr<Node>& node : struct_or_union.member_functions) {
+					write_json(json, node.get(), database);
+				}
+				json.EndArray();
 			}
-			json.EndArray();
 			break;
 		}
 		case TYPE_NAME: {
@@ -170,6 +186,10 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 			json.String(type_name_source_to_string(type_name.source));
 			json.Key("data_type_handle");
 			json.Int(database.data_types.index_from_handle(type_name.data_type_handle));
+			if(const TypeName::UnresolvedStabs* unresolved = type_name.unresolved_stabs.get()) {
+				json.Key("type_name");
+				json.String(unresolved->type_name);
+			}
 			break;
 		}
 	}

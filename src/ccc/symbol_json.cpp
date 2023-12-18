@@ -63,7 +63,6 @@ static void write_json(JsonWriter& json, const GlobalStorage& storage, const Sym
 	json.String("global");
 	json.Key("location");
 	json.String(global_storage_location_to_string(storage.location));
-	json.Key("address");
 	json.EndObject();
 }
 
@@ -245,9 +244,14 @@ static void write_json(JsonWriter& json, const Section& symbol, const SymbolData
 
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database)
 {
-	if(!symbol.relative_path.empty()) {
-		json.Key("relative_path");
-		json.String(symbol.relative_path);
+	if(!symbol.working_dir.empty()) {
+		json.Key("working_dir");
+		json.String(symbol.working_dir);
+	}
+	
+	if(!symbol.command_line_path.empty()) {
+		json.Key("command_line_path");
+		json.String(symbol.command_line_path);
 	}
 	
 	if(symbol.text_address != 0) {
@@ -265,9 +269,20 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 	}
 	
 	if(symbol.functions().valid()) {
+		auto [begin, end] = database.functions.index_pair_from_range(symbol.functions());
 		json.Key("functions");
 		json.StartArray();
-		//json.Uint(symbol.functions().);
+		json.Uint(begin);
+		json.Uint(end);
+		json.EndArray();
+	}
+	
+	if(symbol.globals_variables().valid()) {
+		auto [begin, end] = database.global_variables.index_pair_from_range(symbol.globals_variables());
+		json.Key("global_variables");
+		json.StartArray();
+		json.Uint(begin);
+		json.Uint(end);
 		json.EndArray();
 	}
 }

@@ -131,12 +131,12 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
 	
 	s32 raw_path_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + m_fudge_offset;
-	Result<const char*> raw_path = get_string(m_elf, raw_path_offset);
-	CCC_RETURN_IF_ERROR(raw_path);
-	file.raw_path = *raw_path;
+	Result<const char*> command_line_path = get_string(m_elf, raw_path_offset);
+	CCC_RETURN_IF_ERROR(command_line_path);
+	file.command_line_path = *command_line_path;
 	
 	// Try to detect the source language.
-	std::string lower_name = file.raw_path;
+	std::string lower_name = file.command_line_path;
 	for(char& c : lower_name) c = tolower(c);
 	if(lower_name.ends_with(".c")) {
 		file.detected_language = SourceLanguage::C;
@@ -157,17 +157,17 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 		CCC_RETURN_IF_ERROR(sym);
 		
 		bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
-		if(file.base_path.empty() && string_offset_equal && sym->is_stabs() && sym->code() == N_SO && file.symbols.size() > 2) {
-			const Symbol& base_path = file.symbols.back();
-			if(base_path.is_stabs() && base_path.code() == N_SO) {
-				file.base_path = base_path.string;
+		if(file.working_dir.empty() && string_offset_equal && sym->is_stabs() && sym->code() == N_SO && file.symbols.size() > 2) {
+			const Symbol& working_dir = file.symbols.back();
+			if(working_dir.is_stabs() && working_dir.code() == N_SO) {
+				file.working_dir = working_dir.string;
 			}
 		}
 		
 		file.symbols.emplace_back(std::move(*sym));
 	}
 	
-	file.full_path = merge_paths(file.base_path, file.raw_path);
+	file.full_path = merge_paths(file.working_dir, file.command_line_path);
 	
 	return file;
 }
@@ -249,7 +249,7 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 			Result<File> file = parse_file(i);
 			CCC_RETURN_IF_ERROR(file);
 			
-			fprintf(out, "FILE %s:\n", file->raw_path.c_str());
+			fprintf(out, "FILE %s:\n", file->command_line_path.c_str());
 			for(const Symbol& symbol : file->symbols) {
 				print_symbol(out, symbol);
 			}

@@ -14,10 +14,9 @@ Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic)
 
 Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address text_address)
 {
-	m_source_file.relative_path = path;
 	m_source_file.text_address = text_address;
 	if(m_next_relative_path.empty()) {
-		m_next_relative_path = m_source_file.relative_path;
+		m_next_relative_path = m_source_file.command_line_path;
 	}
 	
 	return Result<void>();
@@ -305,7 +304,7 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	
 	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
 	
-	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_source_file.relative_path) {
+	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_source_file.command_line_path) {
 		m_current_function->relative_path = m_next_relative_path;
 	}
 	

@@ -31,21 +31,6 @@ const SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<Symbol
 }
 
 template <typename SymbolType>
-s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
-{
-	if(!handle.valid()) {
-		return -1;
-	}
-	
-	size_t index = binary_search(handle);
-	if(index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
-		return -1;
-	}
-	
-	return (s32) index;
-}
-
-template <typename SymbolType>
 typename SymbolList<SymbolType>::Iterator SymbolList<SymbolType>::begin()
 {
 	return m_symbols.begin();
@@ -140,6 +125,33 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const st
 		return handles.begin()->second;
 	} else {
 		return SymbolHandle<SymbolType>();
+	}
+}
+
+template <typename SymbolType>
+s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
+{
+	if(!handle.valid()) {
+		return -1;
+	}
+	
+	size_t index = binary_search(handle);
+	if(index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
+		return -1;
+	}
+	
+	return (s32) index;
+}
+
+template <typename SymbolType>
+std::pair<s32, s32> SymbolList<SymbolType>::index_pair_from_range(SymbolRange<SymbolType> range) const
+{
+	size_t first = binary_search(range.first);
+	size_t last = binary_search(range.last);
+	if(last < m_symbols.size() && m_symbols[last].m_handle == range.last) {
+		return {first, last + 1};
+	} else {
+		return {first, last};
 	}
 }
 

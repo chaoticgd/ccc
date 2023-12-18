@@ -140,8 +140,6 @@ public:
 	SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle);
 	const SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle) const;
 	
-	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
-	
 	using Iterator = typename std::vector<SymbolType>::iterator;
 	using ConstIterator = typename std::vector<SymbolType>::const_iterator;
 	
@@ -182,7 +180,14 @@ public:
 	SymbolHandle<SymbolType> first_handle_from_address(Address address) const;
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
 	
+	// Convert handles to underlying array indices, for the JSON code.
+	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
+	std::pair<s32, s32> index_pair_from_range(SymbolRange<SymbolType> range) const;
+	
+	// Determine if any symbols are being stored.
 	bool empty() const;
+	
+	// Retrieve the number of symbols stored.
 	s32 size() const;
 	
 	// Create a new symbol. If it's a SymbolSource symbol, source can be left
@@ -498,7 +503,8 @@ public:
 	GlobalVariableRange globals_variables() const { return m_globals_variables; }
 	void set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
-	std::string relative_path;
+	std::string working_dir;
+	std::string command_line_path;
 	Address text_address = 0;
 	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
 	std::set<std::string> toolchain_version_info;

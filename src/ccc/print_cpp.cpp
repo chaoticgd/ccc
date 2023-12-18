@@ -437,11 +437,7 @@ void CppPrinter::ast_node(
 		case ast::FORWARD_DECLARED: {
 			const ast::ForwardDeclared& forward_declared = node.as<ast::ForwardDeclared>();
 			if(forward_declared.type.has_value()) {
-				switch(*forward_declared.type) {
-					case ast::ForwardDeclaredType::STRUCT: fprintf(out, "struct "); break;
-					case ast::ForwardDeclaredType::UNION: fprintf(out, "union "); break;
-					case ast::ForwardDeclaredType::ENUM: fprintf(out, "enum "); break;
-				}
+				fprintf(out, "%s ", forward_declared_type_to_string(*forward_declared.type));
 			}
 			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
 			break;

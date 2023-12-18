@@ -138,6 +138,8 @@ enum class ForwardDeclaredType {
 	ENUM // Should be illegal but STABS supports cross references to enums so it's here.
 };
 
+const char* forward_declared_type_to_string(ForwardDeclaredType type);
+
 struct ForwardDeclared : Node {
 	std::optional<ForwardDeclaredType> type;
 	
@@ -150,6 +152,8 @@ enum class MemberFunctionModifier {
 	STATIC,
 	VIRTUAL
 };
+
+const char* member_function_modifier_to_string(MemberFunctionModifier modifier);
 
 struct Function : Node {
 	std::optional<std::unique_ptr<Node>> return_type;

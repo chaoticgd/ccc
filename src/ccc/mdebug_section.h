@@ -129,9 +129,9 @@ enum class SourceLanguage {
 
 struct File {
 	std::vector<Symbol> symbols;
-	std::string base_path;
-	std::string raw_path;
-	std::string full_path;
+	std::string working_dir; // The working directory of GCC.
+	std::string command_line_path; // The source file path passed on the command line to GCC.
+	std::string full_path; // The full combined path.
 	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
 };
 

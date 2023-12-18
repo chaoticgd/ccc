@@ -85,6 +85,9 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	Result<SourceFile*> source_file = database.source_files.create_symbol(input.full_path, context.symbol_source);
 	CCC_RETURN_IF_ERROR(source_file);
 	
+	(*source_file)->working_dir = input.working_dir;
+	(*source_file)->command_line_path = input.command_line_path;
+	
 	// Sometimes the INFO symbols contain information about what toolchain
 	// version was used for building the executable.
 	for(const mdebug::Symbol& symbol : input.symbols) {

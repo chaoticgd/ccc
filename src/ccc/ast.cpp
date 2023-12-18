@@ -20,6 +20,26 @@ void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags)
 	}
 }
 
+const char* forward_declared_type_to_string(ForwardDeclaredType type)
+{
+	switch(type) {
+		case ForwardDeclaredType::STRUCT: return "struct";
+		case ForwardDeclaredType::UNION: return "union";
+		case ForwardDeclaredType::ENUM: return "enum";
+	}
+	return "";
+}
+
+const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
+{
+	switch(modifier) {
+		case MemberFunctionModifier::NONE: return "none";
+		case MemberFunctionModifier::STATIC: return "static";
+		case MemberFunctionModifier::VIRTUAL: return "virtual";
+	}
+	return "";
+}
+
 const char* type_name_source_to_string(TypeNameSource source)
 {
 	switch(source) {
