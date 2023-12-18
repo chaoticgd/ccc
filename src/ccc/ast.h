@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <variant>
-
 #include "symbol_database.h"
 
 namespace ccc::ast {
