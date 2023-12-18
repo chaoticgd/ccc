@@ -271,7 +271,7 @@ enum StorageClass {
 // library without linking against the demangler.
 struct DemanglerFunctions {
 	char* (*cplus_demangle)(const char *mangled, int options) = nullptr;
-	int (*cplus_demangle_opname)(const char *opname, char *result, int options) = nullptr;
+	int (*cplus_demangle_opname)(const char *opname, char *result, size_t result_size, int options) = nullptr;
 };
 
 }

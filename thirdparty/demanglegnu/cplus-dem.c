@@ -651,7 +651,7 @@ demangle_qualifier (int c)
 }
 
 int
-cplus_demangle_opname (const char *opname, char *result, int options)
+cplus_demangle_opname (const char *opname, char *result, size_t result_size, int options)
 {
   int len, len1, ret;
   string type;
@@ -673,7 +673,8 @@ cplus_demangle_opname (const char *opname, char *result, int options)
       if (do_type (work, &tem, &type))
 	{
 	  strcat (result, "operator ");
-	  strncat (result, type.b, type.p - type.b);
+	  /* CCC: Limit the number of bytes written to the result buffer. */
+	  strncat (result, type.b, min(type.p - type.b, result_size - 10));
 	  string_delete (&type);
 	  ret = 1;
 	}
@@ -767,7 +768,8 @@ cplus_demangle_opname (const char *opname, char *result, int options)
       if (do_type (work, &tem, &type))
 	{
 	  strcat (result, "operator ");
-	  strncat (result, type.b, type.p - type.b);
+	  /* CCC: Limit the number of bytes written to the result buffer. */
+	  strncat (result, type.b, min(type.p - type.b, result_size - 10));
 	  string_delete (&type);
 	  ret = 1;
 	}

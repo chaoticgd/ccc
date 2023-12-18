@@ -5,6 +5,8 @@
 
 #include "ccc/ccc.h"
 #include "platform/file.h"
+#define HAVE_DECL_BASENAME 1
+#include "demangle.h"
 
 using namespace ccc;
 
@@ -39,8 +41,12 @@ static int main_test(const fs::path& input_directory)
 			Result<SymbolFile> symbol_file = parse_symbol_file(*image);
 			if(symbol_file.success()) {
 				SymbolDatabase database;
+				
 				SymbolTableConfig importer_config;
 				importer_config.parser_flags = STRICT_PARSING;
+				importer_config.demangler.cplus_demangle = cplus_demangle;
+				importer_config.demangler.cplus_demangle_opname = cplus_demangle_opname;
+				
 				Result<SymbolSourceHandle> handle = import_symbol_table(database, *symbol_file, importer_config);
 				CCC_EXIT_IF_ERROR(handle);
 			} else {

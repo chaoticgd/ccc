@@ -109,7 +109,7 @@ target_link_libraries(uncc ccc ccc_platform ccc_versioninfo demanglegnu)
 
 add_executable(tests src/tests.cpp ${TEST_SOURCES})
 target_include_directories(tests PUBLIC src/)
-target_link_libraries(tests ccc ccc_platform ccc_versioninfo gtest)
+target_link_libraries(tests ccc ccc_platform ccc_versioninfo demanglegnu gtest)
 add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/testdata)
 
 if(WIN32)
