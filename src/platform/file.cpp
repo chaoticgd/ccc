@@ -12,9 +12,9 @@ namespace platform {
 
 Result<std::vector<ccc::u8>> read_binary_file(const fs::path& path)
 {
-	CCC_CHECK(fs::is_regular_file(path), "Failed to open '%s' (not a regular file).", path.string().c_str());
 	std::ifstream file(path, std::ios::binary);
 	CCC_CHECK(file, "Failed to open file '%s' (%s).", path.string().c_str(), strerror(errno));
+	CCC_CHECK(fs::is_regular_file(path), "Failed to open '%s' (not a regular file).", path.string().c_str());
 	file.seekg(0, std::ios::end);
 	s64 size = file.tellg();
 	file.seekg(0, std::ios::beg);
