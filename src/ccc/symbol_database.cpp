@@ -179,6 +179,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	
 	symbol.m_handle = handle;
 	symbol.m_name = std::move(name);
+	symbol.m_address = address;
 	
 	if constexpr(std::is_same_v<SymbolType, SymbolSource>) {
 		// It doesn't make sense for the calling code to provide a symbol source
@@ -190,10 +191,6 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 		symbol.m_source = source;
 	}
 	
-	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		symbol.address_ref() = address;
-	}
-	
 	link_address_map(symbol);
 	link_name_map(symbol);
 	
@@ -203,43 +200,35 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 template <typename SymbolType>
 bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Address new_address)
 {
-	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		SymbolType* symbol = symbol_from_handle(handle);
-		if(!symbol) {
-			return false;
-		}
-		
-		if(symbol->address_ref() != new_address) {
-			unlink_address_map(*symbol);
-			symbol->address_ref() = new_address;
-			link_address_map(*symbol);
-		}
-		
-		return true;
-	} else {
-		CCC_FATAL("move_symbol called on SymbolList with no address map!");
+	SymbolType* symbol = symbol_from_handle(handle);
+	if(!symbol) {
+		return false;
 	}
+	
+	if(symbol->m_address != new_address) {
+		unlink_address_map(*symbol);
+		symbol->m_address = new_address;
+		link_address_map(*symbol);
+	}
+	
+	return true;
 }
 
 template <typename SymbolType>
 bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name)
 {
-	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
-		SymbolType* symbol = symbol_from_handle(handle);
-		if(!symbol) {
-			return false;
-		}
-		
-		if(symbol->m_name != new_name) {
-			unlink_name_map(*symbol);
-			symbol->m_name = std::move(new_name);
-			link_name_map(*symbol);
-		}
-		
-		return true;
-	} else {
-		CCC_FATAL("rename_symbol called on SymbolList with no name map!");
+	SymbolType* symbol = symbol_from_handle(handle);
+	if(!symbol) {
+		return false;
 	}
+	
+	if(symbol->m_name != new_name) {
+		unlink_name_map(*symbol);
+		symbol->m_name = std::move(new_name);
+		link_name_map(*symbol);
+	}
+	
+	return true;
 }
 
 template <typename SymbolType>
@@ -333,7 +322,7 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
-		m_address_to_handle.emplace(symbol.address_ref().value, symbol.m_handle);
+		m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
 	}
 }
 
@@ -341,7 +330,7 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		auto iterators = m_address_to_handle.equal_range(symbol.address_ref().value);
+		auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
 			if(iterator->second == symbol.m_handle) {
 				m_address_to_handle.erase(iterator);

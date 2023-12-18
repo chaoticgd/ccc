@@ -7,6 +7,13 @@
 
 namespace ccc {
 
+template <typename SymbolType>
+static void write_symbol_list(
+	JsonWriter& json,
+	const SymbolList<SymbolType>& list,
+	const SymbolDatabase& database,
+	const std::set<SymbolSourceHandle>* sources);
+
 static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const RegisterStorage& storage, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const StackStorage& storage, const SymbolDatabase& database);
@@ -28,31 +35,51 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.Int(8);
 	
 	#define CCC_X(SymbolType, symbol_list) \
-		json.Key(#symbol_list); \
-		json.StartArray(); \
-		for(const SymbolType& symbol : database.symbol_list) { \
-			json.StartObject(); \
-			\
-			json.Key("name"); \
-			json.String(symbol.name()); \
-			\
-			json.Key("source"); \
-			json.Uint(symbol.source().value); \
-			\
-			write_json(json, symbol, database); \
-			\
-			if(symbol.type()) { \
-				json.Key("type"); \
-				ast::write_json(json, symbol.type(), database); \
-			} \
-			\
-			json.EndObject(); \
-		} \
-		json.EndArray();
+		if(!std::is_same_v<SymbolType, SymbolSource>) { \
+			json.Key(#symbol_list); \
+			write_symbol_list<SymbolType>(json, database.symbol_list, database, sources); \
+		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 	
 	json.EndObject();
+}
+
+template <typename SymbolType>
+static void write_symbol_list(
+	JsonWriter& json,
+	const SymbolList<SymbolType>& list,
+	const SymbolDatabase& database,
+	const std::set<SymbolSourceHandle>* sources)
+{
+	json.StartArray();
+	for(const SymbolType& symbol : list) {
+		if(sources && !sources->contains(symbol.source())) {
+			continue;
+		}
+		
+		json.StartObject();
+		
+		if(!symbol.name().empty()) {
+			json.Key("name");
+			json.String(symbol.name());
+		}
+		
+		if(symbol.address().valid()) {
+			json.Key("address");
+			json.Uint(symbol.address().value);
+		}
+		
+		write_json(json, symbol, database);
+		
+		if(symbol.type()) {
+			json.Key("type");
+			ast::write_json(json, symbol.type(), database);
+		}
+		
+		json.EndObject();
+	}
+	json.EndArray();
 }
 
 static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database)
@@ -159,11 +186,6 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 
 static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database)
 {
-	if(symbol.address().valid()) {
-		json.Key("address");
-		json.Uint(symbol.address().value);
-	}
-	
 	write_json(json, symbol.storage, database);
 	
 	if(symbol.storage_class != STORAGE_CLASS_NONE) {
@@ -177,24 +199,13 @@ static void write_json(JsonWriter& json, const GlobalVariable& symbol, const Sym
 	}
 }
 
-static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database)
-{
-	if(symbol.address().valid()) {
-		json.Key("address");
-		json.Uint(symbol.address().value);
-	}
-}
+static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database) {}
 
 static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database)
 {
 	if(symbol.function().valid()) {
 		json.Key("function");
 		json.Uint(database.functions.index_from_handle(symbol.function()));
-	}
-	
-	if(symbol.address().valid()) {
-		json.Key("address");
-		json.Uint(symbol.address().value);
 	}
 	
 	if(const GlobalStorage* storage = std::get_if<GlobalStorage>(&symbol.storage)) {
@@ -287,12 +298,6 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 	}
 }
 
-static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database)
-{
-	if(symbol.address().valid()) {
-		json.Key("address");
-		json.Uint(symbol.address().value);
-	}
-}
+static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database) {}
 
 }

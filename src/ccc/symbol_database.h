@@ -256,6 +256,7 @@ public:
 	
 	const std::string& name() const { return m_name; }
 	u32 raw_handle() const { return m_handle; }
+	Address address() const { return m_address; }
 	SymbolSourceHandle source() const { return m_source; }
 	
 	ast::Node* type() { return m_type; }
@@ -274,7 +275,9 @@ public:
 	
 protected:
 	u32 m_handle = (u32) -1;
+	Address m_address;
 	SymbolSourceHandle m_source;
+	u32 m_pad;
 	std::string m_name;
 	ast::Node* m_type = nullptr;
 };
@@ -355,8 +358,6 @@ public:
 	std::optional<LocalVariableRange> local_variables() const { return m_local_variables; }
 	void set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
-	Address address() const { return m_address; }
-	
 	const std::string& mangled_name() const;
 	const void set_mangled_name(std::string mangled);
 	
@@ -378,13 +379,10 @@ public:
 	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	
 protected:
-	Address& address_ref() { return m_address; }
-	
 	SourceFileHandle m_source_file;
 	std::optional<ParameterVariableRange> m_parameter_variables;
 	std::optional<LocalVariableRange> m_local_variables;
 	
-	Address m_address;
 	std::string m_mangled_name;
 };
 
@@ -397,7 +395,6 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	GlobalVariableHandle handle() const { return m_handle; }
-	Address address() const { return m_address; }
 	SourceFileHandle source_file() const { return m_source_file; };
 	
 	const std::string& mangled_name() const;
@@ -407,9 +404,6 @@ public:
 	StorageClass storage_class;
 	
 protected:
-	Address& address_ref() { return m_address; }
-	
-	Address m_address;
 	SourceFileHandle m_source_file;
 	std::string m_mangled_name;
 };
@@ -422,12 +416,6 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
 	LabelHandle handle() const { return m_handle; }
-	Address address() const { return m_address; }
-	
-protected:
-	Address& address_ref() { return m_address; }
-	
-	Address m_address;
 };
 
 class LocalVariable : public Symbol {
@@ -438,7 +426,6 @@ public:
 	static constexpr const char* NAME = "Local Variable";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
-	Address address() const { return m_address; }
 	LocalVariableHandle handle() const { return m_handle; }
 	FunctionHandle function() const { return m_function; };
 	
@@ -446,9 +433,6 @@ public:
 	AddressRange live_range;
 	
 protected:
-	Address& address_ref() { return m_address; }
-	
-	Address m_address;
 	FunctionHandle m_function;
 };
 
@@ -477,14 +461,8 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	SectionHandle handle() const { return m_handle; }
-	Address address() const { return m_address; }
 	
 	u32 size = 0;
-
-protected:
-	Address& address_ref() { return m_address; }
-	
-	Address m_address;
 };
 
 class SourceFile : public Symbol {
@@ -522,12 +500,6 @@ public:
 	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
 	
 	SymbolSourceHandle handle() const { return m_handle; }
-	Address address() const { return m_address; }
-
-protected:
-	Address& address_ref() { return m_address; }
-
-	Address m_address;
 };
 
 // The symbol database itself. This owns all the symbols.
