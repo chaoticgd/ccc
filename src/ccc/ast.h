@@ -13,7 +13,6 @@ enum NodeDescriptor : u8 {
 	BUILTIN,
 	ENUM,
 	ERROR,
-	FORWARD_DECLARED,
 	FUNCTION,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
@@ -132,21 +131,6 @@ struct Error : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = ERROR;
 };
 
-enum class ForwardDeclaredType {
-	STRUCT,
-	UNION,
-	ENUM // Should be illegal but STABS supports cross references to enums so it's here.
-};
-
-const char* forward_declared_type_to_string(ForwardDeclaredType type);
-
-struct ForwardDeclared : Node {
-	std::optional<ForwardDeclaredType> type;
-	
-	ForwardDeclared() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = FORWARD_DECLARED;
-};
-
 enum class MemberFunctionModifier {
 	NONE,
 	STATIC,
@@ -200,6 +184,14 @@ enum class TypeNameSource : u8 {
 };
 
 const char* type_name_source_to_string(TypeNameSource source);
+
+enum class ForwardDeclaredType {
+	STRUCT,
+	UNION,
+	ENUM // Should be illegal but STABS supports cross references to enums so it's here.
+};
+
+const char* forward_declared_type_to_string(ForwardDeclaredType type);
 
 struct TypeName : Node {
 	DataTypeHandle data_type_handle;
@@ -310,9 +302,6 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 			break;
 		}
 		case ERROR: {
-			break;
-		}
-		case FORWARD_DECLARED: {
 			break;
 		}
 		case FUNCTION: {

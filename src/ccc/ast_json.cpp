@@ -106,14 +106,6 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 			json.String(error.message);
 			break;
 		}
-		case FORWARD_DECLARED: {
-			const ForwardDeclared& forward_declared = node.as<ForwardDeclared>();
-			if(forward_declared.type.has_value()) {
-				json.Key("type");
-				json.String(forward_declared_type_to_string(*forward_declared.type));
-			}
-			break;
-		}
 		case FUNCTION: {
 			const Function& function = node.as<Function>();
 			if(function.return_type.has_value()) {

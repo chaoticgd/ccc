@@ -147,9 +147,8 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 		return false;
 	}
 	
-	bool wants_spacing =
-		node.descriptor == ast::ENUM ||
-		node.descriptor == ast::STRUCT_OR_UNION;
+	bool wants_spacing = !symbol.not_defined_in_any_translation_unit &&
+		(node.descriptor == ast::ENUM || node.descriptor == ast::STRUCT_OR_UNION);
 	if(m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
@@ -163,7 +162,7 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 	if(node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
 		m_digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
 	}
-	ast_node(node, name, 0, 0, database);
+	ast_node(node, name, 0, 0, database, !symbol.not_defined_in_any_translation_unit);
 	fprintf(out, ";\n");
 	
 	m_last_wants_spacing = wants_spacing;
@@ -345,7 +344,12 @@ void CppPrinter::global_variable(
 }
 
 void CppPrinter::ast_node(
-	const ast::Node& node, VariableName& parent_name, s32 base_offset, s32 indentation_level, const SymbolDatabase& database)
+	const ast::Node& node,
+	VariableName& parent_name,
+	s32 base_offset,
+	s32 indentation_level,
+	const SymbolDatabase& database,
+	bool print_body)
 {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
@@ -411,19 +415,21 @@ void CppPrinter::ast_node(
 			if(name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}
-			fprintf(out, " {");
-			if(enumeration.size_bits > -1) {
-				fprintf(out, " // 0x%x", enumeration.size_bits / 8);
+			if(print_body) {
+				fprintf(out, " {");
+				if(enumeration.size_bits > -1) {
+					fprintf(out, " // 0x%x", enumeration.size_bits / 8);
+				}
+				fprintf(out, "\n");
+				for(size_t i = 0; i < enumeration.constants.size(); i++) {
+					s32 value = enumeration.constants[i].first;
+					const std::string& name = enumeration.constants[i].second;
+					bool is_last = i == enumeration.constants.size() - 1;
+					indent(out, indentation_level + 1);
+					fprintf(out, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
+				}
+				indent(out, indentation_level);
 			}
-			fprintf(out, "\n");
-			for(size_t i = 0; i < enumeration.constants.size(); i++) {
-				s32 value = enumeration.constants[i].first;
-				const std::string& name = enumeration.constants[i].second;
-				bool is_last = i == enumeration.constants.size() - 1;
-				indent(out, indentation_level + 1);
-				fprintf(out, "%s = %d%s\n", name.c_str(), value, is_last ? "" : ",");
-			}
-			indent(out, indentation_level);
 			fprintf(out, "}");
 			if(!name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
@@ -432,14 +438,6 @@ void CppPrinter::ast_node(
 		}
 		case ast::ERROR: {
 			fprintf(out, "CCC_ERROR(\"%s\")", node.as<ast::Error>().message.c_str());
-			break;
-		}
-		case ast::FORWARD_DECLARED: {
-			const ast::ForwardDeclared& forward_declared = node.as<ast::ForwardDeclared>();
-			if(forward_declared.type.has_value()) {
-				fprintf(out, "%s ", forward_declared_type_to_string(*forward_declared.type));
-			}
-			print_cpp_variable_name(out, name, NO_VAR_PRINT_FLAGS);
 			break;
 		}
 		case ast::FUNCTION: {
@@ -550,49 +548,52 @@ void CppPrinter::ast_node(
 				}
 			}
 			
-			fprintf(out, " {");
-			if(m_config.print_offsets_and_sizes) {
-				fprintf(out, " // 0x%x", struct_or_union.size_bits / 8);
-			}
-			fprintf(out, "\n");
-			
-			// Print fields.
-			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
-				CCC_ASSERT(field.get());
-				if(access_specifier != field->access_specifier) {
-					indent(out, indentation_level);
-					fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) field->access_specifier));
-					access_specifier = field->access_specifier;
+			if(print_body) {
+				fprintf(out, " {");
+				if(m_config.print_offsets_and_sizes) {
+					fprintf(out, " // 0x%x", struct_or_union.size_bits / 8);
 				}
-				indent(out, indentation_level + 1);
-				offset(*field.get(), base_offset);
-				ast_node(*field.get(), name, base_offset + field->offset_bytes, indentation_level + 1, database);
-				fprintf(out, ";\n");
-			}
-			
-			// Print member functions.
-			if(!struct_or_union.member_functions.empty()) {
-				if(!struct_or_union.fields.empty()) {
-					indent(out, indentation_level + 1);
-					fprintf(out, "\n");
-				}
-				for(const std::unique_ptr<ast::Node>& member_function : struct_or_union.member_functions) {
-					if(member_function->descriptor == ast::FUNCTION) {
-						ast::Function& member_func = member_function->as<ast::Function>();
-						if(access_specifier != member_func.access_specifier) {
-							indent(out, indentation_level);
-							fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) member_func.access_specifier));
-							access_specifier = member_func.access_specifier;
-						}
+				fprintf(out, "\n");
+				
+				// Print fields.
+				for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
+					CCC_ASSERT(field.get());
+					if(access_specifier != field->access_specifier) {
+						indent(out, indentation_level);
+						fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) field->access_specifier));
+						access_specifier = field->access_specifier;
 					}
 					indent(out, indentation_level + 1);
-					ast_node(*member_function, name, 0, indentation_level + 1, database);
+					offset(*field.get(), base_offset);
+					ast_node(*field.get(), name, base_offset + field->offset_bytes, indentation_level + 1, database);
 					fprintf(out, ";\n");
 				}
+				
+				// Print member functions.
+				if(!struct_or_union.member_functions.empty()) {
+					if(!struct_or_union.fields.empty()) {
+						indent(out, indentation_level + 1);
+						fprintf(out, "\n");
+					}
+					for(const std::unique_ptr<ast::Node>& member_function : struct_or_union.member_functions) {
+						if(member_function->descriptor == ast::FUNCTION) {
+							ast::Function& member_func = member_function->as<ast::Function>();
+							if(access_specifier != member_func.access_specifier) {
+								indent(out, indentation_level);
+								fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) member_func.access_specifier));
+								access_specifier = member_func.access_specifier;
+							}
+						}
+						indent(out, indentation_level + 1);
+						ast_node(*member_function, name, 0, indentation_level + 1, database);
+						fprintf(out, ";\n");
+					}
+				}
+				
+				indent(out, indentation_level);
+				fprintf(out, "}");
 			}
 			
-			indent(out, indentation_level);
-			fprintf(out, "}");
 			if(!name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}

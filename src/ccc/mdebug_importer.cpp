@@ -62,7 +62,7 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 	// need to save this information here.
 	for(DataType& data_type : database.data_types) {
 		if(data_type.source() == context.symbol_source && data_type.files.size() == 1) {
-			data_type.probably_defined_in_cpp_file = true;
+			data_type.only_defined_in_single_translation_unit = true;
 		}
 	}
 	
@@ -321,16 +321,41 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	// Type lookup failed. This happens when a type is forward declared in a
 	// translation unit with symbols but is not defined in one. We haven't
 	// already created a forward declared type, so we create one now.
-	Result<DataType*> forward_declared_type = database.data_types.create_symbol(unresolved_stabs->type_name, source);
-	CCC_RETURN_IF_ERROR(forward_declared_type);
+	std::unique_ptr<ast::Node> forward_declared_node;
+	if(unresolved_stabs->type.has_value()) {
+		switch(*unresolved_stabs->type) {
+			case ast::ForwardDeclaredType::STRUCT: {
+				std::unique_ptr<ast::StructOrUnion> node = std::make_unique<ast::StructOrUnion>();
+				node->is_struct = true;
+				forward_declared_node = std::move(node);
+				break;
+			}
+			case ast::ForwardDeclaredType::UNION: {
+				std::unique_ptr<ast::StructOrUnion> node = std::make_unique<ast::StructOrUnion>();
+				node->is_struct = false;
+				forward_declared_node = std::move(node);
+				break;
+			}
+			case ast::ForwardDeclaredType::ENUM: {
+				std::unique_ptr<ast::Enum> node = std::make_unique<ast::Enum>();
+				forward_declared_node = std::move(node);
+				break;
+			}
+		}
+	}
 	
-	std::unique_ptr<ast::ForwardDeclared> forward_declared_node = std::make_unique<ast::ForwardDeclared>();
-	forward_declared_node->type = unresolved_stabs->type;
-	(*forward_declared_type)->set_type_once(std::move(forward_declared_node));
+	if(forward_declared_node) {
+		Result<DataType*> forward_declared_type = database.data_types.create_symbol(unresolved_stabs->type_name, source);
+		CCC_RETURN_IF_ERROR(forward_declared_type);
+		
+		(*forward_declared_type)->set_type_once(std::move(forward_declared_node));
+		(*forward_declared_type)->not_defined_in_any_translation_unit = true;
+		
+		type_name.data_type_handle = (*forward_declared_type)->handle().value;
+		type_name.is_forward_declared = true;
+		type_name.unresolved_stabs.reset();
+	}
 	
-	type_name.data_type_handle = (*forward_declared_type)->handle().value;
-	type_name.is_forward_declared = true;
-	type_name.unresolved_stabs.reset();
 	return Result<void>();
 }
 
@@ -362,9 +387,6 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 				break;
 			}
 			case ast::FUNCTION: {
-				break;
-			}
-			case ast::FORWARD_DECLARED: {
 				break;
 			}
 			case ast::ENUM: {

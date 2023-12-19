@@ -20,16 +20,6 @@ void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags)
 	}
 }
 
-const char* forward_declared_type_to_string(ForwardDeclaredType type)
-{
-	switch(type) {
-		case ForwardDeclaredType::STRUCT: return "struct";
-		case ForwardDeclaredType::UNION: return "union";
-		case ForwardDeclaredType::ENUM: return "enum";
-	}
-	return "";
-}
-
 const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 {
 	switch(modifier) {
@@ -47,6 +37,16 @@ const char* type_name_source_to_string(TypeNameSource source)
 		case TypeNameSource::CROSS_REFERENCE: return "cross_reference";
 		case TypeNameSource::VOID: return "void";
 		case TypeNameSource::THIS: return "this";
+	}
+	return "";
+}
+
+const char* forward_declared_type_to_string(ForwardDeclaredType type)
+{
+	switch(type) {
+		case ForwardDeclaredType::STRUCT: return "struct";
+		case ForwardDeclaredType::UNION: return "union";
+		case ForwardDeclaredType::ENUM: return "enum";
 	}
 	return "";
 }
@@ -108,11 +108,6 @@ CompareResult compare_nodes(
 			break;
 		}
 		case ERROR: {
-			break;
-		}
-		case FORWARD_DECLARED: {
-			const auto [lhs, rhs] = Node::as<ForwardDeclared>(node_lhs, node_rhs);
-			if(lhs.type != rhs.type) return CompareFailReason::DESCRIPTOR;
 			break;
 		}
 		case FUNCTION: {
@@ -304,7 +299,6 @@ const char* node_type_to_string(const Node& node)
 		case BUILTIN: return "builtin";
 		case ENUM: return "enum";
 		case ERROR: return "error";
-		case FORWARD_DECLARED: return "forward_declared";
 		case FUNCTION: return "function";
 		case POINTER_OR_REFERENCE: {
 			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();

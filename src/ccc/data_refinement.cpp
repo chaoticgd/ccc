@@ -91,9 +91,6 @@ static Result<RefinedData> refine_node(
 		case ast::ERROR: {
 			break;
 		}
-		case ast::FORWARD_DECLARED: {
-			break;
-		}
 		case ast::FUNCTION: {
 			break;
 		}

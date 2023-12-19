@@ -338,7 +338,8 @@ public:
 	std::vector<SourceFileHandle> files; // List of files for which a given top-level type is present.
 	const char* compare_fail_reason = nullptr;
 	
-	bool probably_defined_in_cpp_file : 1 = false;
+	bool not_defined_in_any_translation_unit : 1 = false;
+	bool only_defined_in_single_translation_unit : 1 = false;
 };
 
 class Function : public Symbol {

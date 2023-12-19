@@ -247,7 +247,7 @@ static void write_c_cpp_file(
 	// Print types.
 	for(SourceFileHandle file_handle : files) {
 		for(const DataType& data_type : database.data_types) {
-			if(data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
+			if(data_type.only_defined_in_single_translation_unit && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
 				printer.data_type(data_type, database);
 			}
 		}
@@ -313,7 +313,7 @@ static void write_h_file(
 	// Print types.
 	for(SourceFileHandle file_handle : files) {
 		for(const DataType& data_type : database.data_types) {
-			if(!data_type.probably_defined_in_cpp_file && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
+			if(!data_type.only_defined_in_single_translation_unit && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
 				printer.data_type(data_type, database);
 			}
 		}

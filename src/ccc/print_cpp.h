@@ -50,7 +50,12 @@ public:
 	
 protected:
 	void ast_node(
-		const ast::Node& node, VariableName& parent_name, s32 base_offset, s32 indentation_level, const SymbolDatabase& database);
+		const ast::Node& node,
+		VariableName& parent_name,
+		s32 base_offset,
+		s32 indentation_level,
+		const SymbolDatabase& database,
+		bool print_body = true);
 	void function_parameters(std::span<const ParameterVariable> parameters, const SymbolDatabase& database);
 	void refined_data(const RefinedData& data, s32 indentation_level);
 	void global_storage_comment(const GlobalStorage& storage, Address address);
