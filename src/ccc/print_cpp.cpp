@@ -605,12 +605,10 @@ void CppPrinter::ast_node(
 			const DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
 			if(data_type) {
 				fprintf(out, "%s", data_type->name().c_str());
-			} else if(type_name.source == ast::TypeNameSource::VOID) {
-				fprintf(out, "void");
 			} else if(type_name.source == ast::TypeNameSource::THIS) {
 				fprintf(out, "CCC_THIS_TYPE");
 			} else {
-				fprintf(out, "CCC_ERROR(\"Invalid type name.\")");
+				fprintf(out, "CCC_ERROR(\"Invalid %s type name.\")", ast::type_name_source_to_string(type_name.source));
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;

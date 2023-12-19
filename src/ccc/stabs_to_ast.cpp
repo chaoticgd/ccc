@@ -65,8 +65,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		// Unfortunately, a common case seems to be that __builtin_va_list is
 		// indistinguishable from void*, so we prevent it from being output to
 		// avoid confusion.
-		bool is_va_list = type.name == "__builtin_va_list";
-		if((substitute_type_name || try_substitute) && !is_name_empty && !is_va_list) {
+		bool is_void = type.name == "void" || type.name == "__builtin_va_list";
+		if((substitute_type_name || try_substitute) && !is_name_empty && !is_void) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
 			type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
@@ -136,9 +136,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			} else {
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
-				auto type_name = std::make_unique<ast::TypeName>();
-				type_name->source = ast::TypeNameSource::VOID;
-				result = std::move(type_name);
+				auto builtin = std::make_unique<ast::BuiltIn>();
+				builtin->bclass = ast::BuiltInClass::VOID;
+				result = std::move(builtin);
 			}
 			break;
 		}

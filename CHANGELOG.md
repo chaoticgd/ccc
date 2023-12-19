@@ -4,6 +4,7 @@
 
 - Added support for ELF and SNDLL symbol tables.
 - Rewrote core symbol table data structures.
+- Overhauled the JSON format.
 - Massively reduced memory usage.
 - Reworked error handling.
 - Fixed a bunch of STABS parsing issues.
