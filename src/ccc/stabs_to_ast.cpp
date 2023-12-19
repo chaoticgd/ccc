@@ -716,13 +716,14 @@ static MemberFunctionInfo check_member_function(
 	
 	// Some compiler versions output gcc opnames for overloaded operators
 	// instead of their proper names.
-	char demangled_name[1024];
-	info.is_operator_member_function =
-		demangler.cplus_demangle_opname &&
-		demangler.cplus_demangle_opname(mangled_name.c_str(), demangled_name, sizeof(demangled_name), 0);
-	if(info.is_operator_member_function) {
-		info.name = demangled_name;
-	} else {
+	if(demangler.cplus_demangle_opname) {
+		char* demangled_name = demangler.cplus_demangle_opname(mangled_name.c_str(), 0);
+		if(demangled_name) {
+			info.name = demangled_name;
+			free((void*) demangled_name);
+		}
+	}
+	if(info.name.empty()) {
 		info.name = mangled_name;
 	}
 	

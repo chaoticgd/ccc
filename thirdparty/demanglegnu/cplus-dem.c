@@ -650,17 +650,17 @@ demangle_qualifier (int c)
   return qualifier_string (code_for_qualifier (c));
 }
 
-int
-cplus_demangle_opname (const char *opname, char *result, size_t result_size, int options)
+char*
+cplus_demangle_opname (const char *opname, int options)
 {
-  int len, len1, ret;
+  char* result;
+  int len, len1;
   string type;
   struct work_stuff work[1];
   const char *tem;
 
+  result = NULL;
   len = strlen(opname);
-  result[0] = '\0';
-  ret = 0;
   memset ((char *) work, 0, sizeof (work));
   work->options = options;
 
@@ -672,11 +672,12 @@ cplus_demangle_opname (const char *opname, char *result, size_t result_size, int
       tem = opname + 4;
       if (do_type (work, &tem, &type))
 	{
+	  /* CCC: Allocate the result string on the heap. */
+	  result = XNEWVEC (char, (type.p - type.b) + 10);
+	  result[0] = '\0';
 	  strcat (result, "operator ");
-	  /* CCC: Limit the number of bytes written to the result buffer. */
-	  strncat (result, type.b, min(type.p - type.b, result_size - 10));
+	  strncat (result, type.b, type.p - type.b);
 	  string_delete (&type);
-	  ret = 1;
 	}
     }
   else if (opname[0] == '_' && opname[1] == '_'
@@ -692,9 +693,11 @@ cplus_demangle_opname (const char *opname, char *result, size_t result_size, int
 	      if (strlen (optable[i].in) == 2
 		  && memcmp (optable[i].in, opname + 2, 2) == 0)
 		{
+		  /* CCC: Allocate the result string on the heap. */
+		  result = XNEWVEC (char, strlen(optable[i].out) + 9);
+		  result[0] = '\0';
 		  strcat (result, "operator");
 		  strcat (result, optable[i].out);
-		  ret = 1;
 		  break;
 		}
 	    }
@@ -710,9 +713,11 @@ cplus_demangle_opname (const char *opname, char *result, size_t result_size, int
 		  if (strlen (optable[i].in) == 3
 		      && memcmp (optable[i].in, opname + 2, 3) == 0)
 		    {
+		      /* CCC: Allocate the result string on the heap. */
+		      result = XNEWVEC (char, strlen(optable[i].out) + 9);
+		      result[0] = '\0';
 		      strcat (result, "operator");
 		      strcat (result, optable[i].out);
-		      ret = 1;
 		      break;
 		    }
 		}
@@ -735,10 +740,12 @@ cplus_demangle_opname (const char *opname, char *result, size_t result_size, int
 	      if ((int) strlen (optable[i].in) == len1
 		  && memcmp (optable[i].in, opname + 10, len1) == 0)
 		{
+		  /* CCC: Allocate the result string on the heap. */
+		  result = XNEWVEC (char, strlen(optable[i].out) + 10);
+		  result[0] = '\0';
 		  strcat (result, "operator");
 		  strcat (result, optable[i].out);
 		  strcat (result, "=");
-		  ret = 1;
 		  break;
 		}
 	    }
@@ -752,9 +759,11 @@ cplus_demangle_opname (const char *opname, char *result, size_t result_size, int
 	      if ((int) strlen (optable[i].in) == len1
 		  && memcmp (optable[i].in, opname + 3, len1) == 0)
 		{
+		  /* CCC: Allocate the result string on the heap. */
+		  result = XNEWVEC (char, strlen(optable[i].out) + 9);
+		  result[0] = '\0';
 		  strcat (result, "operator");
 		  strcat (result, optable[i].out);
-		  ret = 1;
 		  break;
 		}
 	    }
@@ -767,15 +776,16 @@ cplus_demangle_opname (const char *opname, char *result, size_t result_size, int
       tem = opname + 5;
       if (do_type (work, &tem, &type))
 	{
+	  /* CCC: Allocate the result string on the heap. */
+	  result = XNEWVEC (char, type.p - type.b + 10);
+	  result[0] = '\0';
 	  strcat (result, "operator ");
-	  /* CCC: Limit the number of bytes written to the result buffer. */
-	  strncat (result, type.b, min(type.p - type.b, result_size - 10));
+	  strncat (result, type.b, type.p - type.b);
 	  string_delete (&type);
-	  ret = 1;
 	}
     }
   squangle_mop_up (work);
-  return ret;
+  return result;
 
 }
 
