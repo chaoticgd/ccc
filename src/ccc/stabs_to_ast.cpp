@@ -61,12 +61,16 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		bool try_substitute = depth > 0 && (type.is_root
 			|| type.descriptor == StabsTypeDescriptor::RANGE
 			|| type.descriptor == StabsTypeDescriptor::BUILTIN);
+		// GCC emits anonymous enums with a name of " " since apparently some
+		// debuggers can't handle zero-length names.
 		bool is_name_empty = type.name == "" || type.name == " ";
+		// Cross references will be handled below.
+		bool is_cross_reference = type.descriptor == StabsTypeDescriptor::CROSS_REFERENCE;
 		// Unfortunately, a common case seems to be that __builtin_va_list is
 		// indistinguishable from void*, so we prevent it from being output to
 		// avoid confusion.
 		bool is_void = type.name == "void" || type.name == "__builtin_va_list";
-		if((substitute_type_name || try_substitute) && !is_name_empty && !is_void) {
+		if((substitute_type_name || try_substitute) && !is_name_empty && !is_cross_reference && !is_void) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
 			type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
