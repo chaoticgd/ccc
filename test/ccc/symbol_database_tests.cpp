@@ -231,31 +231,6 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
 	EXPECT_TRUE(user_symbols_remaining == 10);
 }
 
-TEST(CCCSymbolDatabase, NodePointerFromHandle)
-{
-	SymbolDatabase database;
-	
-	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Symbol Table", SymbolSourceHandle());
-	CCC_GTEST_FAIL_IF_ERROR(source);
-	
-	Result<DataType*> data_type = database.data_types.create_symbol("DataType", (*source)->handle());
-	CCC_GTEST_FAIL_IF_ERROR(data_type);
-	
-	std::unique_ptr<ast::BuiltIn> node = std::make_unique<ast::BuiltIn>();
-	(*data_type)->set_type_and_invalidate_node_handles(std::move(node));
-	
-	NodeHandle node_handle((*data_type)->handle(), (*data_type)->type());
-	
-	// Make sure we can lookup the node from the handle.
-	EXPECT_EQ(database.node_from_handle(node_handle), (*data_type)->type());
-	
-	// Destroy the symbol.
-	database.data_types.destroy_symbol((*data_type)->handle());
-	
-	// Make sure we can no longer lookup the node from the handle.
-	EXPECT_EQ(database.node_from_handle(node_handle), nullptr);
-}
-
 TEST(CCCSymbolDatabase, DestroyFunction)
 {
 	SymbolDatabase database;
@@ -374,4 +349,35 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	ast::TypeName::UnresolvedStabs* field = chosen_struct.fields[0]->as<ast::TypeName>().unresolved_stabs.get();
 	ASSERT_TRUE(field);
 	EXPECT_EQ(field->stabs_type_number_type, 2);
+}
+
+TEST(CCCSymbolDatabase, NodeHandle)
+{
+	SymbolDatabase database;
+	
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Symbol Table", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<DataType*> data_type = database.data_types.create_symbol("DataType", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(data_type);
+	
+	std::unique_ptr<ast::BuiltIn> node = std::make_unique<ast::BuiltIn>();
+	(*data_type)->set_type(std::move(node));
+	
+	NodeHandle node_handle(**data_type, (*data_type)->type());
+	
+	// Make sure we can lookup the node from the handle.
+	EXPECT_EQ(node_handle.lookup_node_in(database), (*data_type)->type());
+	
+	// Increment the generation counter.
+	(*data_type)->invalidate_node_handles();
+	
+	// Make sure we can no longer lookup the node from the handle.
+	EXPECT_EQ(node_handle.lookup_node_in(database), nullptr);
+	
+	// Destroy the symbol.
+	database.data_types.destroy_symbol((*data_type)->handle());
+	
+	// Make sure we can still not lookup the node from the handle.
+	EXPECT_EQ(node_handle.lookup_node_in(database), nullptr);
 }

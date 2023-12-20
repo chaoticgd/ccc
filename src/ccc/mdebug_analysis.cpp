@@ -38,7 +38,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	if(m_context.parser_flags & DONT_DEDUPLICATE_TYPES) {
 		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
 		m_source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
-		(*data_type)->set_type_once(std::move(*node));
+		(*data_type)->set_type(std::move(*node));
 		
 		(*data_type)->files = {m_source_file.handle()};
 	} else {
@@ -77,7 +77,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(
 	if(is_static) {
 		(*global)->storage_class = STORAGE_CLASS_STATIC;
 	}
-	(*global)->set_type_once(std::move(*node));
+	(*global)->set_type(std::move(*node));
 	
 	(*global)->storage.location = location;
 	
@@ -142,7 +142,7 @@ Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const 
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(return_type, nullptr, m_stabs_to_ast_state, 0, true, true);
 	CCC_RETURN_IF_ERROR(node);
-	m_current_function->set_type_once(std::move(*node));
+	m_current_function->set_type(std::move(*node));
 	
 	return Result<void>();
 }
@@ -177,7 +177,7 @@ Result<void> LocalSymbolTableAnalyser::parameter(
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, nullptr, m_stabs_to_ast_state, 0, true, true);
 	CCC_RETURN_IF_ERROR(node);
-	(*parameter_variable)->set_type_once(std::move(*node));
+	(*parameter_variable)->set_type(std::move(*node));
 	
 	if(is_stack) {
 		StackStorage& stack_storage = (*parameter_variable)->storage.emplace<StackStorage>();
@@ -226,7 +226,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 		return CCC_FAILURE("LocalSymbolTableAnalyser::local_variable() called with bad symbol descriptor.");
 	}
 	
-	(*local_variable)->set_type_once(std::move(*node));
+	(*local_variable)->set_type(std::move(*node));
 	
 	return Result<void>();
 }

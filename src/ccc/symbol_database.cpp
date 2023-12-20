@@ -389,6 +389,12 @@ Symbol& Symbol::operator=(Symbol&& rhs) {
 	return *this;
 }
 
+void Symbol::set_type(std::unique_ptr<ast::Node> type) {
+	delete m_type;
+	m_type = type.release();
+	invalidate_node_handles();
+}
+
 // *****************************************************************************
 
 const char* global_storage_location_to_string(GlobalStorageLocation location)
@@ -503,21 +509,6 @@ bool SymbolDatabase::symbol_exists_at_address(Address address) const
 	return false;
 }
 
-const ast::Node* SymbolDatabase::node_from_handle(const NodeHandle& node_handle)
-{
-	switch(node_handle.m_descriptor) {
-		#define CCC_X(SymbolType, symbol_list) \
-			case SymbolType::DESCRIPTOR: \
-				if(!symbol_list.symbol_from_handle(node_handle.m_symbol_handle)) { \
-					return nullptr; \
-				} \
-				break;
-		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-		#undef CCC_X
-	}
-	return node_handle.m_node;
-}
-
 void SymbolDatabase::clear()
 {
 	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
@@ -551,7 +542,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 		}
 		
-		(*data_type)->set_type_once(std::move(node));
+		(*data_type)->set_type(std::move(node));
 		
 		return *data_type;
 	} else {
@@ -588,7 +579,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 				if(compare_result.type == ast::CompareResultType::MATCHES_FAVOUR_RHS) {
 					// The new node almost matches the old one, but the new one
 					// is slightly better, so we replace the old type.
-					existing_type->set_type_and_invalidate_node_handles(std::move(node));
+					existing_type->set_type(std::move(node));
 				}
 				match = true;
 				break;
@@ -606,7 +597,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			}
 			(*data_type)->compare_fail_reason = compare_fail_reason;
 			
-			(*data_type)->set_type_once(std::move(node));
+			(*data_type)->set_type(std::move(node));
 			
 			return *data_type;
 		}
@@ -629,5 +620,38 @@ bool SymbolDatabase::destroy_function(FunctionHandle handle)
 	}
 	return functions.destroy_symbol(handle);
 }
+
+// *****************************************************************************
+
+template <typename SymbolType>
+NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node)
+	: m_descriptor(SymbolType::DESCRIPTOR)
+	, m_symbol_handle(symbol.handle().value)
+	, m_node(node)
+	, m_generation(symbol.generation()) {}
+
+const ast::Node* NodeHandle::lookup_node_in(SymbolDatabase& database) const {
+	const Symbol* symbol = lookup_symbol_in(database);
+	if(symbol && symbol->generation() == m_generation) {
+		return m_node;
+	} else {
+		return nullptr;
+	}
+}
+
+const Symbol* NodeHandle::lookup_symbol_in(SymbolDatabase& database) const {
+	switch(m_descriptor) {
+		#define CCC_X(SymbolType, symbol_list) \
+			case SymbolType::DESCRIPTOR: \
+				return database.symbol_list.symbol_from_handle(m_symbol_handle);
+		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+		#undef CCC_X
+	}
+	return nullptr;
+}
+
+#define CCC_X(SymbolType, symbol_list) template NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node);
+CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+#undef CCC_X
 
 }

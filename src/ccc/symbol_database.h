@@ -67,25 +67,6 @@ struct SymbolHandle {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-// Define a strongly typed handle to an AST node.
-
-class NodeHandle {
-	friend SymbolDatabase;
-public:
-	template <typename SymbolType>
-	NodeHandle(SymbolHandle<SymbolType> symbol_handle, const ast::Node* node)
-		: m_descriptor(SymbolType::DESCRIPTOR)
-		, m_symbol_handle(symbol_handle.value)
-		, m_node(node) {}
-	
-	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
-	
-protected:
-	SymbolDescriptor m_descriptor;
-	u32 m_symbol_handle;
-	const ast::Node* m_node;
-};
-
 // Define range types for all of the symbol table objects. Note that the last
 // member actually points to the last real element in the range.
 
@@ -261,23 +242,19 @@ public:
 	
 	ast::Node* type() { return m_type; }
 	const ast::Node* type() const { return m_type; }
+	void set_type(std::unique_ptr<ast::Node> type);
 	
-	void set_type_once(std::unique_ptr<ast::Node> type) {
-		CCC_ASSERT(!m_type);
-		m_type = type.release();
-	}
+	u32 generation() const { return m_generation; }
 	
-	// DANGER: Accessing a node handle that was pointing into this symbol after
-	// this call is a use after free.
-	void set_type_and_invalidate_node_handles(std::unique_ptr<ast::Node> type) {
-		m_type = type.release();
-	}
+	// This MUST be called after the type variable has been modified via the
+	// type() accessor above. For the set_type function this is done for you.
+	void invalidate_node_handles() { m_generation++; }
 	
 protected:
 	u32 m_handle = (u32) -1;
 	Address m_address;
 	SymbolSourceHandle m_source;
-	u32 m_pad;
+	u32 m_generation = 0;
 	std::string m_name;
 	ast::Node* m_type = nullptr;
 };
@@ -520,10 +497,6 @@ public:
 	// Check if a symbol has already been added to the database.
 	bool symbol_exists_at_address(Address address) const;
 	
-	// Check if the symbol referenced by a given node handle still exists. If it
-	// does, return the node pointer stored within, otherwise return nullptr.
-	const ast::Node* node_from_handle(const NodeHandle& node_handle);
-	
 	// Destroy all the symbols in the symbol database.
 	void clear();
 	
@@ -533,8 +506,6 @@ public:
 	
 	// Deduplicate matching data types with the same name. May replace the
 	// existing data type with the new one if the new one is better.
-	// DANGER: Accessing a node handle that was pointing into a replaced data
-	// type after calling this function is a crash!
 	Result<DataType*> create_data_type_if_unique(
 		std::unique_ptr<ast::Node> node,
 		StabsTypeNumber number,
@@ -554,6 +525,26 @@ public:
 		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 		#undef CCC_X
 	}
+};
+
+// Define a strongly typed handle to an AST node.
+
+class NodeHandle {
+	friend SymbolDatabase;
+public:
+	template <typename SymbolType>
+	NodeHandle(SymbolType& symbol, const ast::Node* node);
+	
+	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
+	
+	const ast::Node* lookup_node_in(SymbolDatabase& database) const;
+	const Symbol* lookup_symbol_in(SymbolDatabase& database) const;
+	
+protected:
+	SymbolDescriptor m_descriptor;
+	u32 m_symbol_handle;
+	const ast::Node* m_node;
+	u32 m_generation;
 };
 
 }

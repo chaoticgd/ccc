@@ -348,7 +348,7 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 		Result<DataType*> forward_declared_type = database.data_types.create_symbol(unresolved_stabs->type_name, source);
 		CCC_RETURN_IF_ERROR(forward_declared_type);
 		
-		(*forward_declared_type)->set_type_once(std::move(forward_declared_node));
+		(*forward_declared_type)->set_type(std::move(forward_declared_node));
 		(*forward_declared_type)->not_defined_in_any_translation_unit = true;
 		
 		type_name.data_type_handle = (*forward_declared_type)->handle().value;
