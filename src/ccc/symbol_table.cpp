@@ -94,11 +94,8 @@ Result<SymbolSourceHandle> import_elf_symbol_table(
 			break;
 		}
 		case MDEBUG: {
-			mdebug::SymbolTableReader reader;
-			Result<void> reader_result = reader.init(elf.image, section->offset);
-			CCC_RETURN_IF_ERROR(reader_result);
-			
-			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(database, reader, config.parser_flags, config.demangler);
+			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(
+				database, elf.image, section->offset, config.parser_flags, config.demangler);
 			CCC_RETURN_IF_ERROR(source_result);
 			source = *source_result;
 			
