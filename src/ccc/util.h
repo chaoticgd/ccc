@@ -267,6 +267,7 @@ struct StabsTypeNumber {
 	s32 type = -1;
 	
 	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
+	bool valid() const { return type > -1; }
 };
 
 enum StorageClass {

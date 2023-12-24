@@ -84,7 +84,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	
 	// This prevents infinite recursion when an automatically generated member
 	// function references an unnamed type.
-	bool can_compare_type_numbers = !type.anonymous && enclosing_struct && !enclosing_struct->anonymous;
+	bool can_compare_type_numbers = type.type_number.valid() && enclosing_struct && enclosing_struct->type_number.valid();
 	if(force_substitute && can_compare_type_numbers && type.type_number == enclosing_struct->type_number) {
 		// It's probably a this parameter (or return type) for an unnamed type.
 		auto type_name = std::make_unique<ast::TypeName>();
@@ -96,10 +96,10 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		return std::unique_ptr<ast::Node>(std::move(type_name));
 	}
 	
-	if(!type.has_body) {
+	if(!type.descriptor.has_value()) {
 		// The definition of the type has been defined previously, so we have to
 		// look it up by its type number.
-		CCC_CHECK(!type.anonymous, "Cannot lookup type (type is anonymous).");
+		CCC_CHECK(type.type_number.valid(), "Cannot lookup type (type is anonymous).");
 		auto stabs_type = state.stabs_types->find(type.type_number);
 		if(stabs_type == state.stabs_types->end()) {
 			std::string error_message = "Failed to lookup STABS type by its type number ("
@@ -124,10 +124,10 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	
 	std::unique_ptr<ast::Node> result;
 	
-	switch(type.descriptor) {
+	switch(*type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			const auto& stabs_type_ref = type.as<StabsTypeReferenceType>();
-			if(type.anonymous || stabs_type_ref.type->anonymous || stabs_type_ref.type->type_number != type.type_number) {
+			if(!type.type_number.valid() || !stabs_type_ref.type->type_number.valid() || stabs_type_ref.type->type_number != type.type_number) {
 				auto node = stabs_type_to_ast(
 					*stabs_type_ref.type,
 					enclosing_struct,
@@ -564,8 +564,8 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 	// Resolve type references.
 	const StabsType* type = field.type.get();
 	for(s32 i = 0; i < 50; i++) {
-		if(!type->has_body) {
-			if(type->anonymous) {
+		if(!type->descriptor.has_value()) {
+			if(!type->type_number.valid()) {
 				return false;
 			}
 			auto next_type = state.stabs_types->find(type->type_number);
@@ -591,7 +591,7 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 	
 	// Determine the size of the underlying type.
 	s32 underlying_type_size_bits = 0;
-	switch(type->descriptor) {
+	switch(*type->descriptor) {
 		case ccc::StabsTypeDescriptor::RANGE: {
 			Result<ast::BuiltInClass> bclass = classify_range(type->as<StabsRangeType>());
 			CCC_RETURN_IF_ERROR(bclass);

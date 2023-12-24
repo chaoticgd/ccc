@@ -138,51 +138,46 @@ Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input
 
 static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 {
-	StabsTypeInfo info;
+	StabsTypeNumber type_number;
+	
 	CCC_CHECK(*input != '\0', "Unexpected end of input.");
+	
 	if(*input == '(') {
 		// This file has type numbers made up of two pieces: an include file
 		// index and a type number.
 		
 		input++;
 		
-		std::optional<s32> file_number = parse_number_s32(input);
-		CCC_CHECK(file_number.has_value(), "Cannot parse file number.");
+		std::optional<s32> file_index = parse_number_s32(input);
+		CCC_CHECK(file_index.has_value(), "Cannot parse type number (file index).");
 		
 		CCC_EXPECT_CHAR(input, ',', "type number");
 		
-		std::optional<s32> type_number = parse_number_s32(input);
-		CCC_CHECK(type_number.has_value(), "Cannot parse type number.");
+		std::optional<s32> type_index = parse_number_s32(input);
+		CCC_CHECK(type_index.has_value(), "Cannot parse type number (type index).");
 		
 		CCC_EXPECT_CHAR(input, ')', "type number");
 		
-		info.anonymous = false;
-		info.type_number.file = *file_number;
-		info.type_number.type = *type_number;
+		type_number.file = *file_index;
+		type_number.type = *type_index;
+		
 		if(*input != '=') {
-			info.has_body = false;
-			return std::make_unique<StabsType>(info);
+			return std::make_unique<StabsType>(type_number);
 		}
 		input++;
 	} else if(*input >= '0' && *input <= '9') {
 		// This file has type numbers which are just a single number. This is
 		// the more common case for games.
 		
-		info.anonymous = false;
-		
-		std::optional<s32> type_number = parse_number_s32(input);
-		CCC_CHECK(type_number.has_value(), "Cannot parse type number.");
-		info.type_number.type = *type_number;
+		std::optional<s32> type_index = parse_number_s32(input);
+		CCC_CHECK(type_index.has_value(), "Cannot parse type number.");
+		type_number.type = *type_index;
 		
 		if(*input != '=') {
-			info.has_body = false;
-			return std::make_unique<StabsType>(info);
+			return std::make_unique<StabsType>(type_number);
 		}
 		input++;
-	} else {
-		info.anonymous = true;
 	}
-	info.has_body = true;
 	
 	CCC_CHECK(*input != '\0', "Unexpected end of input.");
 	
@@ -199,7 +194,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 	
 	switch(descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: { // 0..9
-			auto type_reference = std::make_unique<StabsTypeReferenceType>(info);
+			auto type_reference = std::make_unique<StabsTypeReferenceType>(type_number);
 			
 			auto type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(type);
@@ -209,7 +204,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::ARRAY: { // a
-			auto array = std::make_unique<StabsArrayType>(info);
+			auto array = std::make_unique<StabsArrayType>(type_number);
 			
 			auto index_type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(index_type);
@@ -223,7 +218,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::ENUM: { // e
-			auto enum_type = std::make_unique<StabsEnumType>(info);
+			auto enum_type = std::make_unique<StabsEnumType>(type_number);
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
 				std::optional<std::string> name = parse_stabs_identifier(input);
@@ -245,7 +240,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::FUNCTION: { // f
-			auto function = std::make_unique<StabsFunctionType>(info);
+			auto function = std::make_unique<StabsFunctionType>(type_number);
 			
 			auto return_type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(return_type);
@@ -255,7 +250,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::VOLATILE_QUALIFIER: { // B
-			auto volatile_qualifier = std::make_unique<StabsVolatileQualifierType>(info);
+			auto volatile_qualifier = std::make_unique<StabsVolatileQualifierType>(type_number);
 			
 			auto type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(type);
@@ -265,7 +260,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::CONST_QUALIFIER: { // k
-			auto const_qualifier = std::make_unique<StabsConstQualifierType>(info);
+			auto const_qualifier = std::make_unique<StabsConstQualifierType>(type_number);
 			
 			auto type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(type);
@@ -275,7 +270,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::RANGE: { // r
-			auto range = std::make_unique<StabsRangeType>(info);
+			auto range = std::make_unique<StabsRangeType>(type_number);
 			
 			auto type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(type);
@@ -298,7 +293,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::STRUCT: { // s
-			auto struct_type = std::make_unique<StabsStructType>(info);
+			auto struct_type = std::make_unique<StabsStructType>(type_number);
 			STABS_DEBUG_PRINTF("struct {\n");
 			
 			std::optional<s64> struct_size = parse_number_s64(input);
@@ -347,7 +342,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::UNION: { // u
-			auto union_type = std::make_unique<StabsUnionType>(info);
+			auto union_type = std::make_unique<StabsUnionType>(type_number);
 			STABS_DEBUG_PRINTF("union {\n");
 			
 			std::optional<s64> union_size = parse_number_s64(input);
@@ -368,7 +363,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::CROSS_REFERENCE: { // x
-			auto cross_reference = std::make_unique<StabsCrossReferenceType>(info);
+			auto cross_reference = std::make_unique<StabsCrossReferenceType>(type_number);
 			
 			std::optional<char> c = eat_char(input);
 			CCC_CHECK(c.has_value(), "Cannot parse cross reference type.");
@@ -392,7 +387,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::FLOATING_POINT_BUILTIN: { // R
-			auto fp_builtin = std::make_unique<StabsFloatingPointBuiltInType>(info);
+			auto fp_builtin = std::make_unique<StabsFloatingPointBuiltInType>(type_number);
 			
 			std::optional<s32> fpclass = parse_number_s32(input);
 			CCC_CHECK(fpclass.has_value(), "Cannot parse floating point built-in class.");
@@ -415,7 +410,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::METHOD: { // #
-			auto method = std::make_unique<StabsMethodType>(info);
+			auto method = std::make_unique<StabsMethodType>(type_number);
 			
 			if(*input == '#') {
 				input++;
@@ -455,7 +450,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::REFERENCE: { // &
-			auto reference = std::make_unique<StabsReferenceType>(info);
+			auto reference = std::make_unique<StabsReferenceType>(type_number);
 			
 			auto value_type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(value_type);
@@ -465,7 +460,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::POINTER: { // *
-			auto pointer = std::make_unique<StabsPointerType>(info);
+			auto pointer = std::make_unique<StabsPointerType>(type_number);
 			
 			auto value_type = parse_stabs_type(input);
 			CCC_RETURN_IF_ERROR(value_type);
@@ -476,7 +471,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 		}
 		case StabsTypeDescriptor::TYPE_ATTRIBUTE: { // @
 			if((*input >= '0' && *input <= '9') || *input == '(') {
-				auto member_pointer = std::make_unique<StabsPointerToDataMemberType>(info);
+				auto member_pointer = std::make_unique<StabsPointerToDataMemberType>(type_number);
 				
 				auto class_type = parse_stabs_type(input);
 				CCC_RETURN_IF_ERROR(class_type);
@@ -490,7 +485,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 				
 				out_type = std::move(member_pointer);
 			} else {
-				auto type_attribute = std::make_unique<StabsSizeTypeAttributeType>(info);
+				auto type_attribute = std::make_unique<StabsSizeTypeAttributeType>(type_number);
 				CCC_CHECK(*input == 's', "Weird value following '@' type descriptor.");
 				input++;
 				
@@ -508,7 +503,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		case StabsTypeDescriptor::BUILTIN: { // -
-			auto built_in = std::make_unique<StabsBuiltInType>(info);
+			auto built_in = std::make_unique<StabsBuiltInType>(type_number);
 			
 			std::optional<s64> type_id = parse_number_s64(input);
 			CCC_CHECK(type_id.has_value(), "Cannot parse built-in.");

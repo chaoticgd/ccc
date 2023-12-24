@@ -152,7 +152,7 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 		ParsedSymbol& symbol = symbols[i];
 		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			StabsType& type = *symbol.name_colon_type.type;
-			if(!type.anonymous && type.has_body) {
+			if(type.type_number.valid() && type.descriptor.has_value()) {
 				stabs_type_number_to_symbol.emplace(type.type_number, i);
 			}
 		}
@@ -172,7 +172,7 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 		
 		StabsType& type = *symbol.name_colon_type.type;
 		
-		if(!type.has_body) {
+		if(!type.descriptor.has_value()) {
 			auto referenced_index = stabs_type_number_to_symbol.find(type.type_number);
 			if(referenced_index != stabs_type_number_to_symbol.end()) {
 				ParsedSymbol& referenced = symbols[referenced_index->second];
@@ -184,7 +184,7 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 			}
 		}
 		
-		if(type.has_body && type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
+		if(type.descriptor.has_value() && type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
 			auto referenced_index = stabs_type_number_to_symbol.find(type.as<StabsTypeReferenceType>().type->type_number);
 			if(referenced_index != stabs_type_number_to_symbol.end()) {
 				ParsedSymbol& referenced = symbols[referenced_index->second];

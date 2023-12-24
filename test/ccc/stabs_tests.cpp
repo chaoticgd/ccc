@@ -33,20 +33,20 @@ using namespace ccc;
 // typedef int s32;
 STABS_TEST(TypeNumber, "s32:t1=0")
 {
-	ASSERT_FALSE(symbol.type->anonymous);
+	ASSERT_FALSE(!symbol.type->type_number.valid());
 	ASSERT_EQ(symbol.type->type_number.file, -1);
 	ASSERT_EQ(symbol.type->type_number.type, 1);
-	ASSERT_TRUE(symbol.type->has_body);
+	ASSERT_TRUE(symbol.type->descriptor.has_value());
 }
 
 // ee-g++ -gstabs
 // typedef int s32;
 STABS_TEST(FancyTypeNumber, "s32:t(1,1)=(0,1)")
 {
-	ASSERT_FALSE(symbol.type->anonymous);
+	ASSERT_FALSE(!symbol.type->type_number.valid());
 	ASSERT_EQ(symbol.type->type_number.file, 1);
 	ASSERT_EQ(symbol.type->type_number.type, 1);
-	ASSERT_TRUE(symbol.type->has_body);
+	ASSERT_TRUE(symbol.type->descriptor.has_value());
 }
 
 // ee-g++ -gstabs
@@ -54,10 +54,10 @@ STABS_TEST(FancyTypeNumber, "s32:t(1,1)=(0,1)")
 STABS_TEST(TypeReference, "s32:t(1,1)=(0,1)")
 {
 	StabsTypeReferenceType& type_reference = symbol.type->as<StabsTypeReferenceType>();
-	ASSERT_FALSE(type_reference.type->anonymous);
+	ASSERT_FALSE(!type_reference.type->type_number.valid());
 	ASSERT_EQ(type_reference.type->type_number.file, 0);
 	ASSERT_EQ(type_reference.type->type_number.type, 1);
-	ASSERT_FALSE(type_reference.type->has_body);
+	ASSERT_FALSE(type_reference.type->descriptor.has_value());
 }
 
 // ee-g++ -gstabs
