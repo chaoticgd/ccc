@@ -94,7 +94,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 				if(node.descriptor == ast::TYPE_NAME) {
 					const ast::TypeName& type_name = node.as<ast::TypeName>();
 					DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
-					if(data_type->handle() == type.handle()) {
+					if(data_type && data_type->handle() == type.handle()) {
 						reference_count++;
 					}
 				}
