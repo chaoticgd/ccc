@@ -263,9 +263,11 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 						to_refine.type = variable.type();
 						if(can_refine_variable(to_refine)) {
 							fprintf(out, " = ");
-							Result<RefinedData> data = refine_variable(to_refine, database, *read_virtual);
-							if(data.success()) {
-								refined_data(*data, 1);
+							Result<RefinedData> refine_result = refine_variable(to_refine, database, *read_virtual);
+							if(refine_result.success()) {
+								refined_data(*refine_result, 1);
+							} else {
+								report_warning(refine_result.error());
 							}
 						}
 					}
@@ -309,8 +311,11 @@ void CppPrinter::global_variable(
 		to_refine.type = symbol.type();
 		if(can_refine_variable(to_refine)) {
 			Result<RefinedData> refine_result = refine_variable(to_refine, database, *read_virtual);
-			CCC_EXIT_IF_ERROR(refine_result);
-			data = std::move(*refine_result);
+			if(refine_result.success()) {
+				data = std::move(*refine_result);
+			} else {
+				report_warning(refine_result.error());
+			}
 		}
 	}
 	
