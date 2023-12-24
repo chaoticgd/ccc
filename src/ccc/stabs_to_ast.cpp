@@ -639,36 +639,6 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 			std::string_view(*type.name).substr(0, type.name->find("<"));
 	}
 	
-	if(state.parser_flags & NO_GENERATED_MEMBER_FUNCTIONS) {
-		bool only_special_functions = true;
-		for(const StabsStructOrUnionType::MemberFunctionSet& function_set : type.member_functions) {
-			for(const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
-				StabsType& func_type = *stabs_func.type;
-				if(func_type.descriptor == StabsTypeDescriptor::FUNCTION || func_type.descriptor == StabsTypeDescriptor::METHOD) {
-					size_t parameter_count = 0;
-					if(func_type.descriptor == StabsTypeDescriptor::METHOD) {
-						parameter_count = func_type.as<StabsMethodType>().parameter_types.size();
-					}
-					bool is_special = false;
-					is_special |= function_set.name == "__as";
-					is_special |= function_set.name == "operator=";
-					is_special |= function_set.name.starts_with("$");
-					is_special |= (function_set.name == type_name_no_template_args && parameter_count == 0);
-					if(!is_special) {
-						only_special_functions = false;
-						break;
-					}
-				}
-			}
-			if(!only_special_functions) {
-				break;
-			}
-		}
-		if(only_special_functions) {
-			return std::vector<std::unique_ptr<ast::Node>>();
-		}
-	}
-	
 	std::vector<std::unique_ptr<ast::Node>> member_functions;
 	bool only_special_functions = true;
 	
