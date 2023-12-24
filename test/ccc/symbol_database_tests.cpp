@@ -367,17 +367,17 @@ TEST(CCCSymbolDatabase, NodeHandle)
 	NodeHandle node_handle(**data_type, (*data_type)->type());
 	
 	// Make sure we can lookup the node from the handle.
-	EXPECT_EQ(node_handle.lookup_node_in(database), (*data_type)->type());
+	EXPECT_EQ(node_handle.lookup_node(database), (*data_type)->type());
 	
 	// Increment the generation counter.
 	(*data_type)->invalidate_node_handles();
 	
 	// Make sure we can no longer lookup the node from the handle.
-	EXPECT_EQ(node_handle.lookup_node_in(database), nullptr);
+	EXPECT_EQ(node_handle.lookup_node(database), nullptr);
 	
 	// Destroy the symbol.
 	database.data_types.destroy_symbol((*data_type)->handle());
 	
 	// Make sure we can still not lookup the node from the handle.
-	EXPECT_EQ(node_handle.lookup_node_in(database), nullptr);
+	EXPECT_EQ(node_handle.lookup_node(database), nullptr);
 }

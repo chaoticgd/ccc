@@ -92,42 +92,50 @@ public:
 	
 	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
-	Result(Result<OtherValue>&& rhs) {
+	Result(Result<OtherValue>&& rhs)
+	{
 		CCC_ASSERT(rhs.m_error != nullptr);
 		m_error = std::move(rhs.m_error);
 	}
 	
-	static Result<Value> failure(Error error) {
+	static Result<Value> failure(Error error)
+	{
 		Result<Value> result;
 		result.m_error = std::make_unique<Error>(std::move(error));
 		return result;
 	}
 	
-	bool success() const {
+	bool success() const
+	{
 		return m_error == nullptr;
 	}
 	
-	const Error& error() const {
+	const Error& error() const
+	{
 		CCC_ASSERT(m_error != nullptr);
 		return *m_error;
 	}
 	
-	Value& operator*() {
+	Value& operator*()
+	{
 		CCC_ASSERT(m_error == nullptr);
 		return m_value;
 	}
 	
-	const Value& operator*() const {
+	const Value& operator*() const
+	{
 		CCC_ASSERT(m_error == nullptr);
 		return m_value;
 	}
 	
-	Value* operator->() {
+	Value* operator->()
+	{
 		CCC_ASSERT(m_error == nullptr);
 		return &m_value;
 	}
 	
-	const Value* operator->() const {
+	const Value* operator->() const
+	{
 		CCC_ASSERT(m_error == nullptr);
 		return &m_value;
 	}
@@ -140,7 +148,8 @@ public:
 	
 	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
-	Result(Result<OtherValue>&& rhs) {
+	Result(Result<OtherValue>&& rhs)
+	{
 		CCC_ASSERT(rhs.m_error != nullptr);
 		m_error = std::move(rhs.m_error);
 	}
@@ -175,14 +184,15 @@ public:
 	}
 
 template <typename... Args>
-void warn_impl(const char* source_file, int source_line, const char* format, Args... args) {
+void warn_impl(const char* source_file, int source_line, const char* format, Args... args)
+{
 	Error warning = format_error(source_file, source_line, format, args...);
 	report_warning(warning);
 }
 #define CCC_WARN(...) \
 	ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
 
-#ifdef _MSTORAGE_CLASS_VER
+#ifdef _MSC_VER
 	#define CCC_PACKED_STRUCT(name, ...) \
 		__pragma(pack(push, 1)) struct name { __VA_ARGS__ } __pragma(pack(pop));
 #else
@@ -191,7 +201,8 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 #endif
 
 template <typename T>
-const T* get_packed(std::span<const u8> bytes, u64 offset) {
+const T* get_packed(std::span<const u8> bytes, u64 offset)
+{
 	if(offset + sizeof(T) <= bytes.size()) {
 		return reinterpret_cast<const T*>(&bytes[offset]);
 	} else {

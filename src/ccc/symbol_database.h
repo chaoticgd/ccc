@@ -537,8 +537,8 @@ public:
 	
 	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
 	
-	const ast::Node* lookup_node_in(SymbolDatabase& database) const;
-	const Symbol* lookup_symbol_in(SymbolDatabase& database) const;
+	const ast::Node* lookup_node(SymbolDatabase& database) const;
+	const Symbol* lookup_symbol(SymbolDatabase& database) const;
 	
 protected:
 	SymbolDescriptor m_descriptor;

@@ -60,12 +60,12 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
 	switch(version) {
 		case '1': {
 			const SNDLLHeaderV1* header = get_packed<SNDLLHeaderV1>(image, 0);
-			CCC_CHECK(header, "File too small to contains SNDLL V1 header.");
+			CCC_CHECK(header, "File too small to contain SNDLL V1 header.");
 			return parse_sndll_common(image, address, header->common, SNDLL_V1);
 		}
 		case '2': {
 			const SNDLLHeaderV2* header = get_packed<SNDLLHeaderV2>(image, 0);
-			CCC_CHECK(header, "File too small to contains SNDLL V2 header.");
+			CCC_CHECK(header, "File too small to contain SNDLL V2 header.");
 			return parse_sndll_common(image, address, header->common, SNDLL_V2);
 		}
 	}
