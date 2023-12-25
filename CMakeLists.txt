@@ -111,6 +111,7 @@ add_executable(tests src/tests.cpp ${TEST_SOURCES})
 target_include_directories(tests PUBLIC src/)
 target_link_libraries(tests ccc ccc_platform ccc_versioninfo demanglegnu gtest)
 add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/testdata)
+set_property(TARGET tests PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 if(WIN32)
 	target_sources(demangle PUBLIC src/ccc.manifest)
