@@ -15,7 +15,7 @@ Result<SymbolSourceHandle> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
-	u32 parser_flags,
+	u32 importer_flags,
 	const DemanglerFunctions& demangler);
 Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context);
 Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, const AnalysisContext& context);

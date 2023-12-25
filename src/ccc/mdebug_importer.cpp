@@ -5,15 +5,15 @@
 
 namespace ccc::mdebug {
 
-static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags);
-static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags);
+static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags);
+static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
 
 Result<SymbolSourceHandle> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
-	u32 parser_flags, const
+	u32 importer_flags, const
 	DemanglerFunctions& demangler)
 {
 	SymbolTableReader reader;
@@ -42,7 +42,7 @@ Result<SymbolSourceHandle> import_symbol_table(
 	context.reader = &reader;
 	context.globals = &globals;
 	context.symbol_source = (*symbol_source)->handle();
-	context.parser_flags = parser_flags;
+	context.importer_flags = importer_flags;
 	context.demangler = demangler;
 	
 	Result<void> result = import_files(database, context);
@@ -76,7 +76,7 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 	}
 	
 	// Lookup data types and store data type handles in type names.
-	Result<void> type_name_result = resolve_type_names(database, context.symbol_source, context.parser_flags);
+	Result<void> type_name_result = resolve_type_names(database, context.symbol_source, context.importer_flags);
 	CCC_RETURN_IF_ERROR(type_name_result);
 	
 	// Compute the size in bytes of all the AST nodes.
@@ -107,8 +107,8 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
-	u32 parser_flags_for_this_file = context.parser_flags;
-	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(input.symbols, parser_flags_for_this_file);
+	u32 importer_flags_for_this_file = context.importer_flags;
+	Result<std::vector<ParsedSymbol>> symbols = parse_symbols(input.symbols, importer_flags_for_this_file);
 	CCC_RETURN_IF_ERROR(symbols);
 	
 	// In stabs, types can be referenced by their number from other stabs,
@@ -123,7 +123,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	StabsToAstState stabs_to_ast_state;
 	stabs_to_ast_state.file_handle = (*source_file)->handle().value;
 	stabs_to_ast_state.stabs_types = &stabs_types;
-	stabs_to_ast_state.parser_flags = parser_flags_for_this_file;
+	stabs_to_ast_state.importer_flags = importer_flags_for_this_file;
 	stabs_to_ast_state.demangler = context.demangler;
 	
 	// Convert the parsed stabs symbols to a more standard C AST.
@@ -260,14 +260,14 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	return Result<void>();
 }
 
-static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags)
+static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags)
 {
 	Result<void> result;
 	database.for_each_symbol([&](ccc::Symbol& symbol) {
 		if(symbol.source() == source && symbol.type()) {
 			ast::for_each_node(*symbol.type(), ast::PREORDER_TRAVERSAL, [&](ast::Node& node) {
 				if(node.descriptor == ast::TYPE_NAME) {
-					Result<void> type_name_result = resolve_type_name(node.as<ast::TypeName>(), database, source, parser_flags);
+					Result<void> type_name_result = resolve_type_name(node.as<ast::TypeName>(), database, source, importer_flags);
 					if(!type_name_result.success()) {
 						result = std::move(type_name_result);
 					}
@@ -279,7 +279,7 @@ static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHan
 	return result;
 }
 
-static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 parser_flags)
+static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags)
 {
 	ast::TypeName::UnresolvedStabs* unresolved_stabs = type_name.unresolved_stabs.get();
 	if(!unresolved_stabs) {

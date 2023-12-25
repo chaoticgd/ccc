@@ -95,7 +95,7 @@ Result<SymbolSourceHandle> import_elf_symbol_table(
 		}
 		case MDEBUG: {
 			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(
-				database, elf.image, section->offset, config.parser_flags, config.demangler);
+				database, elf.image, section->offset, config.importer_flags, config.demangler);
 			CCC_RETURN_IF_ERROR(source_result);
 			source = *source_result;
 			

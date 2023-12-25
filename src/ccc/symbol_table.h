@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "elf.h"
 #include "symbol_file.h"
 #include "symbol_database.h"
 
@@ -32,8 +31,8 @@ const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat for
 const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name);
 const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name);
 
-enum ParserFlags {
-	NO_PARSER_FLAGS = 0,
+enum ImporterFlags {
+	NO_IMPORTER_FLAGS = 0,
 	DONT_DEDUPLICATE_TYPES = (1 << 0),
 	NO_ACCESS_SPECIFIERS = (1 << 1),
 	NO_MEMBER_FUNCTIONS = (1 << 2),
@@ -46,7 +45,7 @@ enum ParserFlags {
 struct SymbolTableConfig {
 	std::optional<std::string> section;
 	std::optional<SymbolTableFormat> format;
-	u32 parser_flags = NO_PARSER_FLAGS;
+	u32 importer_flags = NO_IMPORTER_FLAGS;
 	DemanglerFunctions demangler;
 };
 

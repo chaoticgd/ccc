@@ -40,7 +40,7 @@ static void print_labels(FILE* out, const Options& options);
 static void print_json(FILE* out, const Options& options);
 static void print_symbols(FILE* out, const Options& options);
 static void print_headers(FILE* out, const Options& options);
-static u32 command_line_flags_to_parser_flags(u32 flags);
+static u32 command_line_flags_to_importer_flags(u32 flags);
 static void print_files(FILE* out, const Options& options);
 static void print_sections(FILE* out, const Options& options);
 static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options);
@@ -365,14 +365,14 @@ static void print_headers(FILE* out, const Options& options)
 	CCC_EXIT_IF_ERROR(print_result);
 }
 
-static u32 command_line_flags_to_parser_flags(u32 flags)
+static u32 command_line_flags_to_importer_flags(u32 flags)
 {
-	u32 parser_flags = NO_PARSER_FLAGS;
-	if(flags & FLAG_PER_FILE) parser_flags |= DONT_DEDUPLICATE_TYPES;
-	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) parser_flags |= NO_ACCESS_SPECIFIERS;
-	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) parser_flags |= NO_MEMBER_FUNCTIONS;
-	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) parser_flags |= NO_GENERATED_MEMBER_FUNCTIONS;
-	return parser_flags;
+	u32 importer_flags = NO_IMPORTER_FLAGS;
+	if(flags & FLAG_PER_FILE) importer_flags |= DONT_DEDUPLICATE_TYPES;
+	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) importer_flags |= NO_ACCESS_SPECIFIERS;
+	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) importer_flags |= NO_MEMBER_FUNCTIONS;
+	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) importer_flags |= NO_GENERATED_MEMBER_FUNCTIONS;
+	return importer_flags;
 }
 
 static void print_files(FILE* out, const Options& options)
@@ -427,7 +427,7 @@ static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& 
 	SymbolTableConfig config;
 	config.section = options.section;
 	config.format = options.format;
-	config.parser_flags = command_line_flags_to_parser_flags(options.flags);
+	config.importer_flags = command_line_flags_to_importer_flags(options.flags);
 	
 	if((options.flags & FLAG_MANGLED) == 0) {
 		config.demangler.cplus_demangle = cplus_demangle;

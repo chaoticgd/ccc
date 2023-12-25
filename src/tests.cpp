@@ -43,7 +43,7 @@ static int main_test(const fs::path& input_directory)
 				SymbolDatabase database;
 				
 				SymbolTableConfig importer_config;
-				importer_config.parser_flags = STRICT_PARSING;
+				importer_config.importer_flags = STRICT_PARSING;
 				importer_config.demangler.cplus_demangle = cplus_demangle;
 				importer_config.demangler.cplus_demangle_opname = cplus_demangle_opname;
 				

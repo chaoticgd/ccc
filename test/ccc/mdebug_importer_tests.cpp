@@ -20,7 +20,7 @@ static Result<SymbolDatabase> run_importer(const char* name, const mdebug::File&
 	
 	AnalysisContext context;
 	context.symbol_source = (*symbol_source)->handle();
-	context.parser_flags = STRICT_PARSING;
+	context.importer_flags = STRICT_PARSING;
 	
 	Result<void> result = import_file(database, input, context);
 	CCC_RETURN_IF_ERROR(result);

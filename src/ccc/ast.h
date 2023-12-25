@@ -82,7 +82,7 @@ struct Node {
 		return std::pair<const SubType&, const SubType&>(static_cast<const SubType&>(lhs), static_cast<const SubType&>(rhs));
 	}
 	
-	void set_access_specifier(AccessSpecifier specifier, u32 parser_flags);
+	void set_access_specifier(AccessSpecifier specifier, u32 importer_flags);
 };
 
 struct Array : Node {

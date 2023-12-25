@@ -46,7 +46,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	
 	if(depth > 200) {
 		const char* error_message = "Call depth greater than 200 in stabs_type_to_ast, probably infinite recursion.";
-		if(state.parser_flags & STRICT_PARSING) {
+		if(state.importer_flags & STRICT_PARSING) {
 			return CCC_FAILURE(error_message);
 		} else {
 			auto error = std::make_unique<ast::Error>();
@@ -104,7 +104,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		if(stabs_type == state.stabs_types->end()) {
 			std::string error_message = "Failed to lookup STABS type by its type number ("
 				+ std::to_string(type.type_number.file) + "," + std::to_string(type.type_number.type) + ").";
-			if(state.parser_flags & STRICT_PARSING) {
+			if(state.importer_flags & STRICT_PARSING) {
 				return CCC_FAILURE("%s", error_message.c_str());
 			} else {
 				CCC_WARN("%s", error_message.c_str());
@@ -271,7 +271,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				
 				(*base_class)->is_base_class = true;
 				(*base_class)->offset_bytes = stabs_base_class.offset;
-				(*base_class)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_base_class.visibility), state.parser_flags);
+				(*base_class)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_base_class.visibility), state.importer_flags);
 				
 				struct_or_union->base_classes.emplace_back(std::move(*base_class));
 			}
@@ -523,7 +523,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		bitfield->size_bits = field.size_bits;
 		bitfield->underlying_type = std::move(*bitfield_node);
 		bitfield->bitfield_offset_bits = field.offset_bits % 8;
-		bitfield->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.parser_flags);
+		bitfield->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.importer_flags);
 		
 		return std::unique_ptr<ast::Node>(std::move(bitfield));
 	} else {
@@ -540,7 +540,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		(*node)->name = field.name;
 		(*node)->offset_bytes = field.offset_bits / 8;
 		(*node)->size_bits = field.size_bits;
-		(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.parser_flags);
+		(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.importer_flags);
 		
 		if(field.name.starts_with("$vf") || field.name.starts_with("_vptr$") || field.name.starts_with("_vptr.")) {
 			(*node)->is_vtable_pointer = true;
@@ -629,7 +629,7 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth)
 {
-	if(state.parser_flags & NO_MEMBER_FUNCTIONS) {
+	if(state.importer_flags & NO_MEMBER_FUNCTIONS) {
 		return std::vector<std::unique_ptr<ast::Node>>();
 	}
 	
@@ -664,7 +664,7 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 			(*node)->is_operator_member_function = info.is_operator_member_function;
 			
 			(*node)->name = info.name;
-			(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_func.visibility), state.parser_flags);
+			(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_func.visibility), state.importer_flags);
 			
 			if((*node)->descriptor == ast::FUNCTION) {
 				ast::Function& function = (*node)->as<ast::Function>();
@@ -676,7 +676,7 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 		}
 	}
 	
-	if(only_special_functions && (state.parser_flags & NO_GENERATED_MEMBER_FUNCTIONS)) {
+	if(only_special_functions && (state.importer_flags & NO_GENERATED_MEMBER_FUNCTIONS)) {
 		return std::vector<std::unique_ptr<ast::Node>>();
 	}
 	

@@ -12,7 +12,7 @@ namespace ccc {
 struct StabsToAstState {
 	u32 file_handle;
 	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
-	u32 parser_flags;
+	u32 importer_flags;
 	DemanglerFunctions demangler;
 };
 

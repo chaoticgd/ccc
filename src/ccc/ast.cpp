@@ -13,9 +13,9 @@ static bool compare_nodes_and_merge(
 static bool try_to_match_wobbly_typedefs(
 	const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 
-void Node::set_access_specifier(AccessSpecifier specifier, u32 parser_flags)
+void Node::set_access_specifier(AccessSpecifier specifier, u32 importer_flags)
 {
-	if((parser_flags & NO_ACCESS_SPECIFIERS) == 0) {
+	if((importer_flags & NO_ACCESS_SPECIFIERS) == 0) {
 		access_specifier = specifier;
 	}
 }

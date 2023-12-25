@@ -9,7 +9,7 @@ namespace ccc::mdebug {
 
 static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols);
 
-Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& parser_flags)
+Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& importer_flags)
 {
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
@@ -42,7 +42,7 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 							Result<StabsSymbol> parse_result = parse_stabs_symbol(input);
 							if(parse_result.success()) {
 								if(*input != '\0') {
-									if(parser_flags & STRICT_PARSING) {
+									if(importer_flags & STRICT_PARSING) {
 										return CCC_FAILURE("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
 									} else {
 										CCC_WARN("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
@@ -58,7 +58,7 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 								// warning and try to tolerate further faults
 								// caused as a result of this.
 								CCC_WARN("%s Symbol string: %s", STAB_TRUNCATED_ERROR_MESSAGE, string);
-								parser_flags &= ~STRICT_PARSING;
+								importer_flags &= ~STRICT_PARSING;
 							} else {
 								return parse_result;
 							}
