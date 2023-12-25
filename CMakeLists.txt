@@ -111,7 +111,6 @@ add_executable(tests src/tests.cpp ${TEST_SOURCES})
 target_include_directories(tests PUBLIC src/)
 target_link_libraries(tests ccc ccc_platform ccc_versioninfo demanglegnu gtest)
 add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/testdata)
-set_property(TARGET tests PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 if(WIN32)
 	target_sources(demangle PUBLIC src/ccc.manifest)
@@ -122,7 +121,10 @@ if(WIN32)
 endif()
 
 add_subdirectory(thirdparty/demanglegnu)
+
+set(gtest_force_shared_crt on)
 add_subdirectory(thirdparty/googletest)
+
 add_subdirectory(thirdparty/rapidjson)
 
 # All the files to be included in a release.
