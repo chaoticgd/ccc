@@ -93,7 +93,7 @@ static const StdumpCommand commands[] = {
 		"--externals                   Only print external .mdebug symbols."
 	}},
 	{print_headers, "headers", {
-		"Print out the contents of the file headers."
+		"Print out the contents of the .mdebug header."
 	}},
 	{print_files, "files", {
 		"Print a list of all the source files."
@@ -345,13 +345,24 @@ static void print_symbols(FILE* out, const Options& options)
 		print_externals = true;
 	}
 	
-	Result<void> print_result = print_symbol_table(out, *symbol_file, config, print_locals, print_externals);
+	Result<void> print_result = print_symbols(out, *symbol_file, config, print_locals, print_externals);
 	CCC_EXIT_IF_ERROR(print_result);
 }
 
 static void print_headers(FILE* out, const Options& options)
 {
+	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
+	CCC_EXIT_IF_ERROR(image);
 	
+	Result<SymbolFile> symbol_file = parse_symbol_file(*image);
+	CCC_EXIT_IF_ERROR(symbol_file);
+	
+	SymbolTableConfig config;
+	config.section = options.section;
+	config.format = options.format;
+	
+	Result<void> print_result = print_headers(out, *symbol_file, config);
+	CCC_EXIT_IF_ERROR(print_result);
 }
 
 static u32 command_line_flags_to_parser_flags(u32 flags)

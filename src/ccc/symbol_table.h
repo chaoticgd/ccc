@@ -57,7 +57,9 @@ struct SymbolTableConfig {
 Result<SymbolSourceHandle> import_symbol_table(
 	SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config);
 
-Result<void> print_symbol_table(
+Result<void> print_headers(FILE* out, const SymbolFile& file, const SymbolTableConfig& config);
+
+Result<void> print_symbols(
 	FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals);
 
 }

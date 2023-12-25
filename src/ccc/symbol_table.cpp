@@ -127,7 +127,39 @@ Result<SymbolSourceHandle> import_elf_symbol_table(
 	return source;
 }
 
-Result<void> print_symbol_table(
+Result<void> print_headers(FILE* out, const SymbolFile& file, const SymbolTableConfig& config)
+{
+	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
+		auto section_and_format = get_section_and_format(*elf, config);
+		CCC_RETURN_IF_ERROR(section_and_format);
+		const ElfSection* section = section_and_format->first;
+		SymbolTableFormat format = section_and_format->second;
+		
+		if(!section) {
+			return CCC_FAILURE("No symbol table.");
+		}
+		
+		switch(format) {
+			case MDEBUG: {
+				mdebug::SymbolTableReader reader;
+				
+				Result<void> reader_result = reader.init(elf->image, section->offset);
+				CCC_RETURN_IF_ERROR(reader_result);
+				
+				reader.print_header(out);
+				
+				return Result<void>();
+			}
+			default: {
+				break;
+			}
+		}
+	}
+	
+	return CCC_FAILURE("No headers to print.");
+}
+
+Result<void> print_symbols(
 	FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals)
 {
 	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
@@ -137,7 +169,7 @@ Result<void> print_symbol_table(
 		SymbolTableFormat format = section_and_format->second;
 		
 		if(!section) {
-			return CCC_FAILURE("No symbol table present.");
+			return CCC_FAILURE("No symbol table.");
 		}
 		
 		switch(format) {
