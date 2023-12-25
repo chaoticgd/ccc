@@ -7,7 +7,7 @@
 
 using namespace ccc;
 
-const char* git_tag();
+extern const char* git_tag;
 
 int main(int argc, char** argv)
 {
@@ -17,9 +17,8 @@ int main(int argc, char** argv)
 		printf("%s", demangled);
 		return 0;
 	} else {
-		const char* tag = git_tag();
 		printf("demangle %s -- https://github.com/chaoticgd/ccc\n",
-			(strlen(tag) > 0) ? tag : "development version");
+			(strlen(git_tag) > 0) ? git_tag : "development version");
 		printf("\n");
 		printf("usage: %s <mangled symbol>\n", (argc > 0) ? argv[0] : "demangle");
 		printf("\n");

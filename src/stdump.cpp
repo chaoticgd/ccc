@@ -575,9 +575,8 @@ static void print_help(FILE* out)
 	fprintf(out, "                                names, or overloaded operator names.\n");
 }
 
-const char* git_tag();
+extern const char* git_tag;
 
 static const char* get_version() {
-	const char* tag = git_tag();
-	return (tag && strlen(tag) > 0) ? tag : "development version";
+	return (git_tag && strlen(git_tag) > 0) ? git_tag : "development version";
 }

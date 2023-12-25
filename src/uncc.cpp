@@ -380,13 +380,12 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 	fclose(out);
 }
 
-const char* git_tag();
+extern const char* git_tag;
 
 static void print_help(int argc, char** argv)
 {
-	const char* tag = git_tag();
 	printf("uncc %s -- https://github.com/chaoticgd/ccc\n",
-		(strlen(tag) > 0) ? tag : "development version");
+		(strlen(git_tag) > 0) ? git_tag : "development version");
 	printf("\n");
 	printf("usage: %s <input elf> <output directory>\n", (argc > 0) ? argv[0] : "uncc");
 	printf("\n");

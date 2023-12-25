@@ -1,5 +1,12 @@
 # Package up all the files for a release. This is to be run as part of a CI job.
 if(ZIP_RELEASE)
+	if(GIT_TAG STREQUAL "")
+		string(TIMESTAMP RELEASE_DATE "%Y-%m-%d_%H-%M-%S")
+		string(SUBSTRING "${GIT_COMMIT}" 0 7 GIT_SHORT_COMMIT)
+		set(RELEASE_VERSION "${RELEASE_DATE}_${GIT_SHORT_COMMIT}")
+	else()
+		set(RELEASE_VERSION ${GIT_TAG})
+	endif()
 	if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 		set(RELEASE_OS "linux")
 	elseif(APPLE)
@@ -9,7 +16,7 @@ if(ZIP_RELEASE)
 	else()
 		set(RELEASE_OS ${CMAKE_SYSTEM_NAME})
 	endif()
-	set(RELEASE_NAME "ccc_${GIT_TAG}_${RELEASE_OS}")
+	set(RELEASE_NAME "ccc_${RELEASE_VERSION}_${RELEASE_OS}")
 	add_custom_target(releasezip ALL
 		COMMAND
 			${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/${RELEASE_NAME}" &&

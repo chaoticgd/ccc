@@ -141,4 +141,4 @@ set(RELEASE_CONTENTS
 	"${CMAKE_SOURCE_DIR}/thirdparty/googletest/GoogleTestLicense.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/rapidjson/RapidJSONLicense.txt"
 )
-include(cmake/zip_crafter.cmake)
+include(cmake/release_crafter.cmake)

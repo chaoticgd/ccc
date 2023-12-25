@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+  BUILD_STATIC: false
+
+jobs:
+  build:
+    runs-on: ${{ matrix.sys.os }} 
+    strategy:
+      matrix:
+        sys: 
+          - { os: windows-latest, shell: pwsh }
+          - { os: ubuntu-latest,  shell: 'alpine.sh --root {0}' }
+          - { os: macos-latest,   shell: bash }
+    defaults:
+      run:
+        shell: ${{ matrix.sys.shell }}
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: 'recursive'
+    
+    - name: Setup latest Alpine Linux
+      uses: jirutka/setup-alpine@39d2d96fa8e4b713be89c0239a5c3b9a0f49838d
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
+      with:
+        arch: x86_64
+        packages: >
+          make
+          cmake
+          libstdc++
+          g++
+          musl-dev
+          git
+
+    - name: Git Nonsense
+      if: ${{ matrix.sys.os == 'ubuntu-latest' }}
+      run: git config --global --add safe.directory ${{github.workspace}}
+
+    - name: Configure CMake
+      env:
+        BUILD_STATIC: ${{ matrix.sys.os == 'ubuntu-latest' }}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=${{env.BUILD_STATIC}} -DZIP_RELEASE=1
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Release
+      uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e
+      with:
+        name: ${{ github.ref }}
+        tag: 'unstable'
+        artifacts: build/ccc_*.zip
+        allowUpdates: true
+        draft: false
+        omitBodyDuringUpdate: true
+        omitDraftDuringUpdate: true
+        omitNameDuringUpdate: true
+        omitPrereleaseDuringUpdate: true
+        prerelease: true
+        replacesArtifacts: false
+        skipIfReleaseExists: false
