@@ -133,8 +133,8 @@ public:
 	// For iterating over a subset of the symbols.
 	std::span<SymbolType> span(SymbolRange<SymbolType> range);
 	std::span<const SymbolType> span(SymbolRange<SymbolType> range) const;
-	std::span<SymbolType> span(std::optional<SymbolRange<SymbolType>> range);
-	std::span<const SymbolType> span(std::optional<SymbolRange<SymbolType>> range) const;
+	std::span<SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range);
+	std::span<const SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range) const;
 	
 	using AddressToHandleMap = std::unordered_multimap<u32, SymbolHandle<SymbolType>>;
 	using NameToHandleMap = std::unordered_multimap<std::string, SymbolHandle<SymbolType>>;

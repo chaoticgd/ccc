@@ -60,9 +60,9 @@ std::span<SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType> range
 	size_t first = binary_search(range.first);
 	size_t last = binary_search(range.last);
 	if(last < m_symbols.size() && m_symbols[last].m_handle == range.last) {
-		return std::span<SymbolType>(m_symbols.begin() + first, m_symbols.begin() + last + 1);
+		return std::span<SymbolType>(m_symbols.begin() + first, last - first + 1);
 	} else {
-		return std::span<SymbolType>(m_symbols.begin() + first, m_symbols.begin() + last);
+		return std::span<SymbolType>(m_symbols.begin() + first, last - first);
 	}
 }
 
@@ -73,7 +73,7 @@ std::span<const SymbolType> SymbolList<SymbolType>::span(SymbolRange<SymbolType>
 }
 
 template <typename SymbolType>
-std::span<SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range)
+std::span<SymbolType> SymbolList<SymbolType>::optional_span(std::optional<SymbolRange<SymbolType>> range)
 {
 	std::span<SymbolType> result;
 	if(range.has_value()) {
@@ -83,7 +83,7 @@ std::span<SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<Sym
 }
 
 template <typename SymbolType>
-std::span<const SymbolType> SymbolList<SymbolType>::span(std::optional<SymbolRange<SymbolType>> range) const
+std::span<const SymbolType> SymbolList<SymbolType>::optional_span(std::optional<SymbolRange<SymbolType>> range) const
 {
 	std::span<const SymbolType> result;
 	if(range.has_value()) {

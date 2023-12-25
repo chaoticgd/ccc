@@ -181,8 +181,8 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		return;
 	}
 	
-	std::span<const ParameterVariable> parameter_variables = database.parameter_variables.span(symbol.parameter_variables());
-	std::span<const LocalVariable> local_variables = database.local_variables.span(symbol.local_variables());
+	std::span<const ParameterVariable> parameter_variables = database.parameter_variables.optional_span(symbol.parameter_variables());
+	std::span<const LocalVariable> local_variables = database.local_variables.optional_span(symbol.local_variables());
 	
 	bool wants_spacing = m_config.print_function_bodies
 		&& (!local_variables.empty() || function_bodies);
@@ -471,7 +471,7 @@ void CppPrinter::ast_node(
 					const Function* function_definition = database.functions.symbol_from_handle(function.definition_handle);
 					if(function_definition) {
 						if(function_definition->parameter_variables().has_value()) {
-							function_parameters(database.parameter_variables.span(function_definition->parameter_variables()), database);
+							function_parameters(database.parameter_variables.optional_span(function_definition->parameter_variables()), database);
 							parameters_printed = true;
 						}
 					}

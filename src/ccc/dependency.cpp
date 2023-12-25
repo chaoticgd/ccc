@@ -33,7 +33,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 void map_types_to_files_based_on_this_pointers(SymbolDatabase& database)
 {
 	for(const Function& function : database.functions) {
-		std::span<const ParameterVariable> parameter_variables = database.parameter_variables.span(function.parameter_variables());
+		std::span<const ParameterVariable> parameter_variables = database.parameter_variables.optional_span(function.parameter_variables());
 		if(parameter_variables.empty()) {
 			continue;
 		}
@@ -114,7 +114,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 						if(function.type()) {
 							ast::for_each_node(*function.type(), ast::PREORDER_TRAVERSAL, count_references);
 						}
-						for(const ParameterVariable& parameter_variable : database.parameter_variables.span(function.parameter_variables())) {
+						for(const ParameterVariable& parameter_variable : database.parameter_variables.optional_span(function.parameter_variables())) {
 							if(parameter_variable.type()) {
 								ast::for_each_node(*parameter_variable.type(), ast::PREORDER_TRAVERSAL, count_references);
 							}
