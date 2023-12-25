@@ -256,7 +256,6 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	Result<void> result = analyser.finish();
 	CCC_RETURN_IF_ERROR(result);
 	
-	
 	return Result<void>();
 }
 
