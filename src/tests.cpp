@@ -34,6 +34,7 @@ static int main_test(const fs::path& input_directory)
 	for(auto entry : fs::recursive_directory_iterator(input_directory)) {
 		if(entry.is_regular_file()) {
 			printf("%s ", entry.path().string().c_str());
+			fflush(stdout);
 			
 			Result<std::vector<u8>> image = platform::read_binary_file(entry.path());
 			CCC_EXIT_IF_ERROR(image);
