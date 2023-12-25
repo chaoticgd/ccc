@@ -77,16 +77,29 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	
 ## Resources
 
+### DWARF (.debug) Section
+
+- [DWARF Debugging Information Format](https://dwarfstd.org/doc/dwarf_1_1_0.pdf) / [in-repo mirror](docs/dwarf_1_1_0.pdf) / [archive.org mirror](https://web.archive.org/web/20230702091554/https://dwarfstd.org/doc/dwarf_1_1_0.pdf)
+
+### MIPS Debug (.mdebug) Section
+
 - [Third Eye Software and the MIPS symbol table (Peter Rowell)](http://datahedron.com/mips.html) / [in-repo mirror](docs/ThirdEyeSoftwareAndTheMIPSSymbolTable.html) / [archive.org mirror](https://web.archive.org/web/20230605005654/http://datahedron.com/mips.html)
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://www.prevanders.net/Mdebug.ps) / [in-repo mirror](docs/Mdebug.ps) / [archive.org mirror](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992) / [in-repo mirror](docs/MIPSProgrammingGuide.pdf)
-- [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / [in-repo mirror](docs/STABS.html) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
+- Tru64 UNIX Object File and Symbol Table Format Specification, Symbol Table Chapter
+	- Version 5.1 (Compaq Computer Corporation, 2000) / [in-repo mirror](docs/tru64coff.pdf)
+	- Version 5.0 (Compaq Computer Corporation, 1999) / [in-repo mirror](docs/OBJSPEC.PDF)
 - `mdebugread.c` from gdb (reading)
-- `dbxread.c` from gdb (reading)
+- `include/coff/sym.h` from binutils (headers)
+
+### STABS
+
+- [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / [in-repo mirror](docs/STABS.html) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
 - `stabs.c` from binutils (reading)
+- `stabsread.c` from gdb (reading)
+- `dbxread.c` from gdb (reading)
 - `dbxout.c` from gcc (writing)
 - `stab.def` from gcc (symbol codes)
-- `include/coff/sym.h` from gcc (mdebug headers)
 
 ## JSON Format
 
