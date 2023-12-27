@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.0
+
+- Added support for ELF and SNDLL symbol tables.
+- Rewrote core symbol table data structures.
+- Overhauled the JSON format.
+- Massively reduced memory usage.
+- Reworked error handling.
+- Fixed a bunch of STABS parsing issues.
+- Demangle overloaded operator function names.
+- stdump: Added `identify` command.
+- stdump: Removed `--verbose` option (no one actually used that, right?).
+- stdump: Dropped support for legacy command aliases (e.g. `print_types` instead of `types`).
+- stdump: Fixed issue where the `mdebug` option would display some sizes as counts.
+- stdump: Demangling is now performed automatically unless `--mangled` is passed.
+- uncc: Improve how pointers to global variables in other global variable data is printed.
+- Probably lots more I'm forgetting!
+
 ## v1.2.1
 
 - Fixed detection of bitfields where the underlying type is a typedef.

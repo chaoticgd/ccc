@@ -1,0 +1,1 @@
+Put your test executables here and then you can run `./bin/tests testdata/` to check that CCC doesn't crash on any of them. Those that are checked into the git repository will also be tested by the CI system. The included files were built using the old homebrew PS2 toolchain (GCC 3.2.3).

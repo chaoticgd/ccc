@@ -1,0 +1,63 @@
+// This file is part of the Chaos Compiler Collection.
+// SPDX-License-Identifier: MIT
+
+#pragma once
+
+#include "symbol_file.h"
+#include "symbol_database.h"
+
+namespace ccc {
+
+// Determine which symbol tables are present in a given file.
+
+enum SymbolTableFormat {
+	SYMTAB = 0, // Standard ELF symbol table
+	MDEBUG = 1, // The infamous Third Eye symbol table
+	DWARF  = 2, // DWARF 1 symbol table
+	SNDLL  = 3  // SNDLL linker symbols
+};
+
+struct SymbolTableFormatInfo {
+	SymbolTableFormat format;
+	const char* format_name;
+	const char* section_name;
+	u32 utility;
+};
+
+extern const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[];
+extern const u32 SYMBOL_TABLE_FORMAT_COUNT;
+
+const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format);
+const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name);
+const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name);
+
+enum ImporterFlags {
+	NO_IMPORTER_FLAGS = 0,
+	DONT_DEDUPLICATE_TYPES = (1 << 0),
+	NO_ACCESS_SPECIFIERS = (1 << 1),
+	NO_MEMBER_FUNCTIONS = (1 << 2),
+	NO_GENERATED_MEMBER_FUNCTIONS = (1 << 3),
+	// Make bad STABS type lookups on the type number fatal. This is useful for
+	// running the tests.
+	STRICT_PARSING = (1 << 4)
+};
+
+struct SymbolTableConfig {
+	std::optional<std::string> section;
+	std::optional<SymbolTableFormat> format;
+	u32 importer_flags = NO_IMPORTER_FLAGS;
+	DemanglerFunctions demangler;
+};
+
+// The main high-level parsing function for the entire library. Return the
+// handle of the newly created symbol source on success, or an invalid handle if
+// no symbol table was found.
+Result<SymbolSourceHandle> import_symbol_table(
+	SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config);
+
+Result<void> print_headers(FILE* out, const SymbolFile& file, const SymbolTableConfig& config);
+
+Result<void> print_symbols(
+	FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals);
+
+}

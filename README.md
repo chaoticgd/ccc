@@ -1,6 +1,6 @@
 # Chaos Compiler Collection
 
-A set of tools for reverse engineering PS2 games with .mdebug symbols.
+A library and set of command line tools for parsing debugging symbols from PS2 games. The 1.x series of releases are focused on STABS symbols in .mdebug sections, however the version on the main branch can also parse standard ELF symbols and SNDLL linker symbols. DWARF support is planned.
 
 ## Tools
 
@@ -46,41 +46,60 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ## Project Structure
 
-	demangle.cpp: See above.
-	objdump.cpp: See above.
-	stdump.cpp: See above.
-	uncc.cpp: See above.
-	ccc/analysis.cpp: Runs all the different analysis passes.
-	ccc/ast.cpp: Defines a C++ AST structure.
-	ccc/data_refinement.cpp: Convert global variable data into a structured AST.
-	ccc/dependency.cpp: Try to infer information about which types belong to which files.
-	ccc/elf.cpp: Parses ELF files.
-	ccc/insn.cpp: Parses EE core MIPS instructions.
-	ccc/mdebug.cpp: Read the .mdebug symbol table section.
-	ccc/module.cpp: Provides data structures for representing programs.
-	ccc/opcodes.h: Enums for different types of EE core MIPS opcodes.
-	ccc/print_cpp.cpp: Prints out AST nodes as C++ code.
-	ccc/print_json.cpp: Prints out AST nodes as JSON.
-	ccc/registers.cpp: Enums for EE core MIPS registers.
-	ccc/stabs.cpp: Parses STABS types.
-	ccc/stabs_to_ast.cpp: Converts parsed STABS types into an AST.
-	ccc/symbols.cpp: Parses the STABS and non-STABS symbols.
-	ccc/tables.cpp: Table of EE core MIPS instructions.
-	ccc/util.cpp: Miscellaneous utilities.
-	platform/file.cpp: Utility functions for reading files.
+	src/demangle.cpp: See above.
+	src/objdump.cpp: See above.
+	src/stdump.cpp: See above.
+	src/uncc.cpp: See above.
+	src/ccc/ast.cpp: Defines a C++ AST structure for types.
+	src/ccc/ast_json.cpp: Reads/writes the AST structure as JSON.
+	src/ccc/data_refinement.cpp: Converts global variable data into structured initializer lists and literals.
+	src/ccc/dependency.cpp: Tries to infer information about which types belong to which files.
+	src/ccc/elf.cpp: Parses ELF files.
+	src/ccc/elf_symtab.cpp: Parses the ELF symbol table.
+	src/ccc/mdebug_analysis.cpp: Accepts a stream of symbols and imports the data.
+	src/ccc/mdebug_importer.cpp: Top-level file for parsing .mdebug symbol tables.
+	src/ccc/mdebug_section.cpp: Parses the .mdebug binary format.
+	src/ccc/mdebug_symbols.cpp: Parses symbols from the .mdebug section.
+	src/ccc/print_cpp.cpp: Prints out AST nodes as C++ code.
+	src/ccc/registers.cpp: Enums for EE core MIPS registers.
+	src/ccc/sndll.cpp: Parses SNDLL files and imports symbols.
+	src/ccc/stabs.cpp: Parses STABS types.
+	src/ccc/stabs_to_ast.cpp: Converts parsed STABS types into an AST.
+	src/ccc/symbol_database.cpp: Data structures for storing symbols in memory.
+	src/ccc/symbol_file.cpp: Top-level file for parsing files containing symbol tables.
+	src/ccc/symbol_json.cpp: Reads/writes the symbol database as JSON.
+	src/ccc/symbol_table.cpp: Top-level file for parsing symbol tables.
+	src/ccc/util.cpp: Miscellaneous utilities.
+	src/mips/insn.cpp: Parses EE core MIPS instructions.
+	src/mips/opcodes.h: Enums for different types of EE core MIPS opcodes.
+	src/mips/tables.cpp: Table of EE core MIPS instructions.
+	src/platform/file.cpp: Utility functions for reading files.
 	
 ## Resources
+
+### DWARF (.debug) Section
+
+- [DWARF Debugging Information Format](https://dwarfstd.org/doc/dwarf_1_1_0.pdf) / [in-repo mirror](docs/dwarf_1_1_0.pdf) / [archive.org mirror](https://web.archive.org/web/20230702091554/https://dwarfstd.org/doc/dwarf_1_1_0.pdf)
+
+### MIPS Debug (.mdebug) Section
 
 - [Third Eye Software and the MIPS symbol table (Peter Rowell)](http://datahedron.com/mips.html) / [in-repo mirror](docs/ThirdEyeSoftwareAndTheMIPSSymbolTable.html) / [archive.org mirror](https://web.archive.org/web/20230605005654/http://datahedron.com/mips.html)
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://www.prevanders.net/Mdebug.ps) / [in-repo mirror](docs/Mdebug.ps) / [archive.org mirror](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992) / [in-repo mirror](docs/MIPSProgrammingGuide.pdf)
-- [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / [in-repo mirror](docs/STABS.html) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
+- Tru64 UNIX Object File and Symbol Table Format Specification, Symbol Table Chapter
+	- Version 5.1 (Compaq Computer Corporation, 2000) / [in-repo mirror](docs/tru64coff.pdf)
+	- Version 5.0 (Compaq Computer Corporation, 1999) / [in-repo mirror](docs/OBJSPEC.PDF)
 - `mdebugread.c` from gdb (reading)
-- `dbxread.c` from gdb (reading)
+- `include/coff/sym.h` from binutils (headers)
+
+### STABS
+
+- [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / [in-repo mirror](docs/STABS.html) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
 - `stabs.c` from binutils (reading)
+- `stabsread.c` from gdb (reading)
+- `dbxread.c` from gdb (reading)
 - `dbxout.c` from gcc (writing)
 - `stab.def` from gcc (symbol codes)
-- `include/coff/sym.h` from gcc (mdebug headers)
 
 ## JSON Format
 
@@ -88,7 +107,8 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 | Format Version | Release | Changes |
 | - | - | - |
-| 7 | v1.{0,1,2} | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
+| 8 | | Overhauled the format based on the structure of the new symbol database. An error AST node type has been added. The data, function definition, initializer list, source file and variable AST node types have been removed and replaced. |
+| 7 | v1.x | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
 | 6 | | Removed order property. |
 | 5 | | Added pointer_to_data_member node type. Added optional is_volatile property to all nodes. Added is_by_reference property to variable storage objects. |
 | 4 | | Added optional is_const property to all nodes. Added anonymous_reference type names, where the type name is not valid but the type number is. |
@@ -98,4 +118,4 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ## License
 
-All the code is MIT licensed, with the exception of the code in the `demanglegnu` directory, which is taken from the GNU libiberty library and is licensed under the LGPL. This license is included in the form of the `DemanglerLicense.txt` file. A copy of the GNU GPL is also included in the form of the `DemanglerLicenseSupplementGPL.txt` file.
+All the code is MIT licensed, with the exception of the code in the `src/demanglegnu` directory, which is taken from the GNU libiberty library and is licensed under the LGPL. This license is included in the form of the `DemanglerLicense.txt` file. A copy of the GNU GPL is also included in the form of the `DemanglerLicenseSupplementGPL.txt` file.

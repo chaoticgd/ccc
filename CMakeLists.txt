@@ -24,7 +24,7 @@ endif()
 if(MSVC)
 	# TODO
 else()
-	set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall")
+	set(CMAKE_CXX_FLAGS_DEBUG "-O3 -ggdb -Wall")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 	add_link_options($<$<CONFIG:RELEASE>:-s>)
 endif()
@@ -32,66 +32,100 @@ endif()
 include(cmake/version_finder.cmake)
 
 add_library(ccc STATIC
-	ccc/analysis.cpp
-	ccc/analysis.h
-	ccc/ast.cpp
-	ccc/ast.h
-	ccc/data_refinement.cpp
-	ccc/data_refinement.h
-	ccc/dependency.cpp
-	ccc/dependency.h
-	ccc/elf.cpp
-	ccc/elf.h
-	ccc/insn.cpp
-	ccc/insn.h
-	ccc/mdebug.cpp
-	ccc/mdebug.h
-	ccc/module.cpp
-	ccc/module.h
-	ccc/print_cpp.cpp
-	ccc/print_cpp.h
-	ccc/print_json.cpp
-	ccc/print_json.h
-	ccc/registers.cpp
-	ccc/registers.h
-	ccc/stabs.cpp
-	ccc/stabs.h
-	ccc/stabs_to_ast.cpp
-	ccc/stabs_to_ast.h
-	ccc/symbols.cpp
-	ccc/symbols.h
-	ccc/tables.cpp
-	ccc/tables.h
-	ccc/util.cpp
-	ccc/util.h
+	src/ccc/ast.cpp
+	src/ccc/ast.h
+	src/ccc/ast_json.cpp
+	src/ccc/ast_json.h
+	src/ccc/data_refinement.cpp
+	src/ccc/data_refinement.h
+	src/ccc/dependency.cpp
+	src/ccc/dependency.h
+	src/ccc/elf.cpp
+	src/ccc/elf.h
+	src/ccc/elf_symtab.cpp
+	src/ccc/elf_symtab.h
+	src/ccc/mdebug_analysis.cpp
+	src/ccc/mdebug_analysis.h
+	src/ccc/mdebug_importer.cpp
+	src/ccc/mdebug_importer.h
+	src/ccc/mdebug_section.cpp
+	src/ccc/mdebug_section.h
+	src/ccc/mdebug_symbols.cpp
+	src/ccc/mdebug_symbols.h
+	src/ccc/print_cpp.cpp
+	src/ccc/print_cpp.h
+	src/ccc/registers.cpp
+	src/ccc/registers.h
+	src/ccc/sndll.cpp
+	src/ccc/sndll.h
+	src/ccc/stabs.cpp
+	src/ccc/stabs.h
+	src/ccc/stabs_to_ast.cpp
+	src/ccc/stabs_to_ast.h
+	src/ccc/symbol_database.cpp
+	src/ccc/symbol_database.h
+	src/ccc/symbol_file.cpp
+	src/ccc/symbol_file.h
+	src/ccc/symbol_json.cpp
+	src/ccc/symbol_json.h
+	src/ccc/symbol_table.cpp
+	src/ccc/symbol_table.h
+	src/ccc/util.cpp
+	src/ccc/util.h
+)
+target_link_libraries(ccc rapidjson)
+
+add_library(ccc_mips STATIC
+	src/mips/insn.cpp
+	src/mips/insn.h
+	src/mips/opcodes.h
+	src/mips/tables.cpp
+	src/mips/tables.h
 )
 
 add_library(ccc_platform STATIC
-	platform/file.cpp
-	platform/file.h
+	src/platform/file.cpp
+	src/platform/file.h
 )
 
-add_executable(demangle demangle.cpp)
-target_link_libraries(demangle ccc demanglegnu versioninfo)
+set(TEST_SOURCES
+	test/demangler_tests.cpp
+	test/ccc/mdebug_importer_tests.cpp
+	test/ccc/stabs_tests.cpp
+	test/ccc/symbol_database_tests.cpp
+)
 
-add_executable(objdump objdump.cpp)
-target_link_libraries(objdump ccc ccc_platform versioninfo)
+add_executable(demangle src/demangle.cpp)
+target_link_libraries(demangle ccc demanglegnu ccc_versioninfo)
 
-add_executable(stdump stdump.cpp)
-target_link_libraries(stdump ccc ccc_platform versioninfo)
-add_test(NAME stdump_test COMMAND stdump test ${CMAKE_SOURCE_DIR}/test)
+add_executable(objdump src/objdump.cpp)
+target_link_libraries(objdump ccc ccc_mips ccc_platform ccc_versioninfo)
 
-add_executable(uncc uncc.cpp)
-target_link_libraries(uncc ccc ccc_platform demanglegnu versioninfo)
+add_executable(stdump src/stdump.cpp)
+target_link_libraries(stdump ccc ccc_platform ccc_versioninfo demanglegnu)
+
+add_executable(uncc src/uncc.cpp)
+target_link_libraries(uncc ccc ccc_platform ccc_versioninfo demanglegnu)
+
+add_executable(tests src/tests.cpp ${TEST_SOURCES})
+target_include_directories(tests PUBLIC src/)
+target_link_libraries(tests ccc ccc_platform ccc_versioninfo demanglegnu gtest)
+add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/testdata)
 
 if(WIN32)
-	target_sources(demangle PUBLIC ccc.manifest)
-	target_sources(objdump PUBLIC ccc.manifest)
-	target_sources(stdump PUBLIC ccc.manifest)
-	target_sources(uncc PUBLIC ccc.manifest)
+	target_sources(demangle PUBLIC src/ccc.manifest)
+	target_sources(objdump PUBLIC src/ccc.manifest)
+	target_sources(stdump PUBLIC src/ccc.manifest)
+	target_sources(uncc PUBLIC src/ccc.manifest)
+	target_sources(tests PUBLIC src/ccc.manifest)
 endif()
 
-add_subdirectory(demanglegnu)
+add_subdirectory(thirdparty/demanglegnu)
+
+set(gtest_force_shared_crt on)
+add_subdirectory(thirdparty/googletest)
+
+add_subdirectory(thirdparty/rapidjson)
 
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
@@ -102,7 +136,9 @@ set(RELEASE_CONTENTS
 	"${CMAKE_SOURCE_DIR}/ghidra_scripts/CCCDecompileAllFunctions.java"
 	"${CMAKE_SOURCE_DIR}/README.md"
 	"${CMAKE_SOURCE_DIR}/License.txt"
-	"${CMAKE_SOURCE_DIR}/demanglegnu/DemanglerLicense.txt"
-	"${CMAKE_SOURCE_DIR}/demanglegnu/DemanglerLicenseSupplementGPL.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicense.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseSupplementGPL.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/googletest/GoogleTestLicense.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/rapidjson/RapidJSONLicense.txt"
 )
-include(cmake/zip_crafter.cmake)
+include(cmake/release_crafter.cmake)
