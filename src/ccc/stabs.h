@@ -369,7 +369,6 @@ struct StabsBuiltInType : StabsType {
 extern const char* STAB_TRUNCATED_ERROR_MESSAGE;
 
 Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input);
-std::optional<char> eat_char(const char*& input);
 std::optional<s32> parse_number_s32(const char*& input);
 std::optional<s64> parse_number_s64(const char*& input);
 std::optional<std::string> parse_stabs_identifier(const char*& input, char terminator);
