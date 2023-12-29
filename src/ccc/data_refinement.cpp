@@ -233,10 +233,10 @@ static Result<RefinedData> refine_pointer_or_reference(
 	
 	std::string string;
 	if(address != 0) {
-		FunctionHandle function_handle = context.database.functions.first_handle_from_address(address);
+		FunctionHandle function_handle = context.database.functions.first_handle_from_starting_address(address);
 		const Function* function_symbol = context.database.functions.symbol_from_handle(function_handle);
 		
-		GlobalVariableHandle global_variable_handle = context.database.global_variables.first_handle_from_address(address);
+		GlobalVariableHandle global_variable_handle = context.database.global_variables.first_handle_from_starting_address(address);
 		const GlobalVariable* global_variable_symbol = context.database.global_variables.symbol_from_handle(global_variable_handle);
 		
 		if(function_symbol) {

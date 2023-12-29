@@ -396,7 +396,7 @@ static void print_sections(FILE* out, const Options& options)
 		}
 		
 		u32 section_start = section.address().value;
-		u32 section_end = section.address().value + section.size;
+		u32 section_end = section.address().value + section.size();
 		
 		fprintf(out, "%s:\n", section.name().c_str());
 		

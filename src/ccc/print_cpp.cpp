@@ -194,7 +194,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	name.identifier = &symbol.name();
 	
 	if(m_config.print_storage_information) {
-		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size);
+		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size());
 	}
 	
 	// Print out the storage class, return type and function name.

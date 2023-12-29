@@ -126,7 +126,7 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 {
 	if(m_state == IN_FUNCTION_BEGINNING) {
 		CCC_CHECK(m_current_function, "END TEXT symbol outside of function.");
-		m_current_function->size = function_size;
+		m_current_function->set_size(function_size);
 		m_state = IN_FUNCTION_END;
 	}
 	

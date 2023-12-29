@@ -5,7 +5,6 @@
 
 #include <map>
 #include <variant>
-#include <unordered_map>
 
 #include "util.h"
 
@@ -136,10 +135,9 @@ public:
 	std::span<SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range);
 	std::span<const SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range) const;
 	
-	using AddressToHandleMap = std::unordered_multimap<u32, SymbolHandle<SymbolType>>;
-	using NameToHandleMap = std::unordered_multimap<std::string, SymbolHandle<SymbolType>>;
+	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>>;
+	using NameToHandleMap = std::multimap<std::string, SymbolHandle<SymbolType>>;
 	
-	// For iterating over all the symbols with a given name.
 	template <typename Iterator>
 	class Iterators {
 	public:
@@ -155,11 +153,15 @@ public:
 	using AddressToHandleMapIterators = Iterators<typename AddressToHandleMap::const_iterator>;
 	using NameToHandleMapIterators = Iterators<typename NameToHandleMap::const_iterator>;
 	
-	AddressToHandleMapIterators handles_from_address(Address address) const;
+	AddressToHandleMapIterators handles_from_starting_address(Address address) const;
+	SymbolHandle<SymbolType> first_handle_from_starting_address(Address address) const;
 	NameToHandleMapIterators handles_from_name(const std::string& name) const;
-	
-	SymbolHandle<SymbolType> first_handle_from_address(Address address) const;
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
+	
+	// Find a symbol that contains the provided address. For example, this can
+	// be used to figure out which function an instruction belongs to.
+	SymbolType* symbol_from_contained_address(Address address);
+	const SymbolType* symbol_from_contained_address(Address address) const;
 	
 	// Convert handles to underlying array indices, for the JSON code.
 	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
@@ -203,6 +205,12 @@ protected:
 	// Destroy a range of symbols given indices.
 	u32 destroy_symbols_impl(size_t begin_index, size_t end_index);
 	
+	// We need to perform some arithmetic on the address to use it as a key so
+	// that we can use std::multimap<>::lower_bound to lookup symbols by
+	// addresses other than their starting address. For example, we want to be
+	// able to answer queries like "What function contains this address?".
+	u32 swizzle_address(u32 address) const;
+	
 	// Keep the address map in sync with the symbol list.
 	void link_address_map(SymbolType& symbol);
 	void unlink_address_map(SymbolType& symbol);
@@ -237,8 +245,11 @@ public:
 	
 	const std::string& name() const { return m_name; }
 	u32 raw_handle() const { return m_handle; }
-	Address address() const { return m_address; }
 	SymbolSourceHandle source() const { return m_source; }
+	
+	Address address() const { return m_address; }
+	u32 size() const { return m_size; }
+	void set_size(u32 size) { m_size = size; }
 	
 	ast::Node* type() { return m_type; }
 	const ast::Node* type() const { return m_type; }
@@ -246,17 +257,19 @@ public:
 	
 	u32 generation() const { return m_generation; }
 	
-	// This MUST be called after the type variable has been modified via the
-	// type() accessor above. For the set_type function this is done for you.
+	// This MUST be called after any AST nodes have been created/deleted/moved.
+	// For the set_type function this is done for you.
 	void invalidate_node_handles() { m_generation++; }
 	
 protected:
 	u32 m_handle = (u32) -1;
-	Address m_address;
 	SymbolSourceHandle m_source;
-	u32 m_generation = 0;
+	Address m_address;
+	u32 m_size = 0;
 	std::string m_name;
 	ast::Node* m_type = nullptr;
+	u32 m_generation = 0;
+	u32 m_pad;
 };
 
 // Variable storage types. This is different to whether the variable is a
@@ -349,7 +362,6 @@ public:
 		std::string relative_path;
 	};
 	
-	u32 size = 0;
 	std::string relative_path;
 	StorageClass storage_class;
 	std::vector<LineNumberPair> line_numbers;
@@ -439,8 +451,6 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	SectionHandle handle() const { return m_handle; }
-	
-	u32 size = 0;
 };
 
 class SourceFile : public Symbol {
@@ -495,7 +505,7 @@ public:
 	SymbolList<SymbolSource> symbol_sources;
 	
 	// Check if a symbol has already been added to the database.
-	bool symbol_exists_at_address(Address address) const;
+	bool symbol_exists_with_starting_address(Address address) const;
 	
 	// Destroy all the symbols in the symbol database.
 	void clear();

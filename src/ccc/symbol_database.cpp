@@ -93,10 +93,21 @@ std::span<const SymbolType> SymbolList<SymbolType>::optional_span(std::optional<
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_address(Address address) const
+typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_starting_address(Address address) const
 {
-	auto iterators = m_address_to_handle.equal_range(address.value);
+	auto iterators = m_address_to_handle.equal_range(swizzle_address(address.value));
 	return {iterators.first, iterators.second};
+}
+
+template <typename SymbolType>
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_address(Address address) const
+{
+	auto iterator = m_address_to_handle.find(swizzle_address(address.value));
+	if(iterator != m_address_to_handle.end()) {
+		return iterator->second;
+	} else {
+		return SymbolHandle<SymbolType>();
+	}
 }
 
 template <typename SymbolType>
@@ -107,25 +118,33 @@ typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_address(Address address) const
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
 {
-	auto handles = handles_from_address(address);
-	if(handles.begin() != handles.end()) {
-		return handles.begin()->second;
+	auto iterator = m_name_to_handle.find(name);
+	if(iterator != m_name_to_handle.end()) {
+		return iterator->second;
 	} else {
 		return SymbolHandle<SymbolType>();
 	}
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
+SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address)
 {
-	auto handles = handles_from_name(name);
-	if(handles.begin() != handles.end()) {
-		return handles.begin()->second;
-	} else {
-		return SymbolHandle<SymbolType>();
+	auto iterator = m_address_to_handle.lower_bound(swizzle_address(address.value));
+	if(iterator != m_address_to_handle.end()) {
+		SymbolType* symbol = symbol_from_handle(iterator->second);
+		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {
+			return symbol;
+		}
 	}
+	return nullptr;
+}
+
+template <typename SymbolType>
+const SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address) const
+{
+	return const_cast<SymbolList<SymbolType>*>(this)->symbol_from_contained_address(address);
 }
 
 template <typename SymbolType>
@@ -319,10 +338,16 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 }
 
 template <typename SymbolType>
+u32 SymbolList<SymbolType>::swizzle_address(u32 address) const
+{
+	return ~address;
+}
+
+template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
-		m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
+		m_address_to_handle.emplace(swizzle_address(symbol.m_address.value), symbol.m_handle);
 	}
 }
 
@@ -330,7 +355,7 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
+		auto iterators = m_address_to_handle.equal_range(swizzle_address(symbol.m_address.value));
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
 			if(iterator->second == symbol.m_handle) {
 				m_address_to_handle.erase(iterator);
@@ -498,10 +523,10 @@ void SourceFile::set_globals_variables(
 
 // *****************************************************************************
 
-bool SymbolDatabase::symbol_exists_at_address(Address address) const
+bool SymbolDatabase::symbol_exists_with_starting_address(Address address) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
-		if(symbol_list.first_handle_from_address(address).valid()) { \
+		if(symbol_list.first_handle_from_starting_address(address).valid()) { \
 			return true; \
 		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
