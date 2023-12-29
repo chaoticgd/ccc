@@ -39,6 +39,8 @@ static Result<SymbolDatabase> run_importer(const char* name, const mdebug::File&
 	} \
 	static void mdebug_importer_test_##name(SymbolDatabase& database)
 
+#define STABS_CODE(code) ((code) + 0x8f300)
+
 // ee-g++ -gstabs
 // enum Enum {};
 MDEBUG_IMPORTER_TEST(Enum,

@@ -118,8 +118,6 @@ struct Symbol {
 	}
 };
 
-#define STABS_CODE(code) ((code) + 0x8f300)
-
 enum class SourceLanguage {
 	C,
 	CPP,
