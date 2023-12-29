@@ -24,7 +24,7 @@ Result<StabsSymbol> parse_stabs_symbol(const char*& input)
 	
 	StabsSymbol symbol;
 	
-	Result<std::string> name = parse_dodgy_stabs_identifier(input);
+	Result<std::string> name = parse_dodgy_stabs_identifier(input, ':');
 	CCC_RETURN_IF_ERROR(name);
 	
 	symbol.name = *name;
@@ -221,7 +221,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			auto enum_type = std::make_unique<StabsEnumType>(type_number);
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
-				std::optional<std::string> name = parse_stabs_identifier(input);
+				std::optional<std::string> name = parse_stabs_identifier(input, ':');
 				CCC_CHECK(name.has_value(), "Cannot parse enum field name.");
 				
 				CCC_EXPECT_CHAR(input, ':', "enum");
@@ -278,11 +278,11 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			
 			CCC_EXPECT_CHAR(input, ';', "range type descriptor");
 			
-			std::optional<std::string> low = parse_stabs_identifier(input);
+			std::optional<std::string> low = parse_stabs_identifier(input, ';');
 			CCC_CHECK(low.has_value(), "Cannot parse low part of range.");
 			CCC_EXPECT_CHAR(input, ';', "low range value");
 			
-			std::optional<std::string> high = parse_stabs_identifier(input);
+			std::optional<std::string> high = parse_stabs_identifier(input, ';');
 			CCC_CHECK(high.has_value(), "Cannot parse high part of range.");
 			CCC_EXPECT_CHAR(input, ';', "high range value");
 			
@@ -376,7 +376,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 					return CCC_FAILURE("Invalid cross reference type '%c'.", cross_reference->type);
 			}
 			
-			Result<std::string> identifier = parse_dodgy_stabs_identifier(input);
+			Result<std::string> identifier = parse_dodgy_stabs_identifier(input, ':');
 			CCC_RETURN_IF_ERROR(identifier);
 			cross_reference->identifier = std::move(*identifier);
 			
@@ -537,7 +537,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		const char* before_field = input;
 		StabsStructOrUnionType::Field field;
 		
-		Result<std::string> name = parse_dodgy_stabs_identifier(input);
+		Result<std::string> name = parse_dodgy_stabs_identifier(input, ':');
 		CCC_RETURN_IF_ERROR(name);
 		field.name = std::move(*name);
 		
@@ -582,7 +582,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			input++;
 			field.is_static = true;
 			
-			std::optional<std::string> type_name = parse_stabs_identifier(input);
+			std::optional<std::string> type_name = parse_stabs_identifier(input, ';');
 			CCC_CHECK(type_name.has_value(), "Cannot parse static field type name.");
 
 			field.type_name = std::move(*type_name);
@@ -632,7 +632,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 		}
 		StabsStructOrUnionType::MemberFunctionSet member_function_set;
 		
-		std::optional<std::string> name = parse_stabs_identifier(input);
+		std::optional<std::string> name = parse_stabs_identifier(input, ':');
 		CCC_CHECK(name.has_value(), "Cannot parse member function name.");
 		member_function_set.name = std::move(*name);
 		
@@ -651,7 +651,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			function.type = std::move(*type);
 			
 			CCC_EXPECT_CHAR(input, ':', "member function");
-			std::optional<std::string> identifier = parse_stabs_identifier(input);
+			std::optional<std::string> identifier = parse_stabs_identifier(input, ';');
 			CCC_CHECK(identifier.has_value(), "Invalid member function identifier.");
 
 			CCC_EXPECT_CHAR(input, ';', "member function");
@@ -763,11 +763,11 @@ std::optional<s64> parse_number_s64(const char*& input)
 	return value;
 }
 
-std::optional<std::string> parse_stabs_identifier(const char*& input)
+std::optional<std::string> parse_stabs_identifier(const char*& input, char terminator)
 {
 	const char* begin = input;
 	for(; *input != '\0'; input++) {
-		if(*input == ':' || *input == ';') {
+		if(*input == terminator) {
 			return std::string(begin, input);
 		}
 	}
@@ -778,7 +778,7 @@ std::optional<std::string> parse_stabs_identifier(const char*& input)
 // separator '::' even if the field terminator is supposed to be a colon, as
 // well as the raw contents of character literals. See test/ccc/stabs_tests.cpp
 // for some examples.
-Result<std::string> parse_dodgy_stabs_identifier(const char*& input)
+Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char terminator)
 {
 	const char* begin = input;
 	s32 template_depth = 0;
@@ -808,7 +808,7 @@ Result<std::string> parse_dodgy_stabs_identifier(const char*& input)
 			template_depth--;
 		}
 		
-		if((*input == ':' && template_depth == 0) || *input == ';') {
+		if(*input == terminator && template_depth == 0) {
 			return std::string(begin, input);
 		}
 	}

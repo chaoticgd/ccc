@@ -372,8 +372,8 @@ Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input
 std::optional<char> eat_char(const char*& input);
 std::optional<s32> parse_number_s32(const char*& input);
 std::optional<s64> parse_number_s64(const char*& input);
-std::optional<std::string> parse_stabs_identifier(const char*& input);
-Result<std::string> parse_dodgy_stabs_identifier(const char*& input);
+std::optional<std::string> parse_stabs_identifier(const char*& input, char terminator);
+Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char terminator);
 const char* stabs_field_visibility_to_string(StabsStructOrUnionType::Visibility visibility);
 
 }
