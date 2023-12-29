@@ -165,7 +165,8 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 			symbol.name_colon_type.type->descriptor != StabsTypeDescriptor::ENUM;
 	}
 	
-	for(ParsedSymbol& symbol : symbols) {
+	for(size_t i = 0; i < symbols.size(); i++) {
+		ParsedSymbol& symbol = symbols[i];
 		if(symbol.type != ParsedSymbolType::NAME_COLON_TYPE) {
 			continue;
 		}
@@ -186,7 +187,7 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 		
 		if(type.descriptor.has_value() && type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
 			auto referenced_index = stabs_type_number_to_symbol.find(type.as<StabsTypeReferenceType>().type->type_number);
-			if(referenced_index != stabs_type_number_to_symbol.end()) {
+			if(referenced_index != stabs_type_number_to_symbol.end() && referenced_index->second != i) {
 				ParsedSymbol& referenced = symbols[referenced_index->second];
 				
 				if(referenced.name_colon_type.name == " ") {

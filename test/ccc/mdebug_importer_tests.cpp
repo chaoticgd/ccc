@@ -150,6 +150,38 @@ MDEBUG_IMPORTER_TEST(StrangeStruct,
 	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_TYPEDEF);
 }
 
+// Synthetic example.
+MDEBUG_IMPORTER_TEST(VexxingVoid,
+	({
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "VexxingVoid:t1=1"},
+	}))
+{
+	EXPECT_EQ(database.data_types.size(), 1);
+	DataTypeHandle handle = database.data_types.first_handle_from_name("VexxingVoid");
+	DataType* data_type = database.data_types.symbol_from_handle(handle);
+	ASSERT_TRUE(data_type && data_type->type());
+	EXPECT_EQ(data_type->type()->descriptor, ast::BUILTIN);
+	EXPECT_EQ(data_type->type()->as<ast::BuiltIn>().bclass, ast::BuiltInClass::VOID);
+}
+
+// ee-g++ -gstabs
+// typedef void* VillanousVoid;
+MDEBUG_IMPORTER_TEST(VillanousVoid,
+	({
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "__builtin_va_list:t(0,22)=*(0,23)=(0,23)"},
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "VillanousVoid:t(1,1)=(0,22)"},
+	}))
+{
+	EXPECT_EQ(database.data_types.size(), 2);
+	DataTypeHandle handle = database.data_types.first_handle_from_name("VillanousVoid");
+	DataType* data_type = database.data_types.symbol_from_handle(handle);
+	ASSERT_TRUE(data_type && data_type->type());
+	ASSERT_EQ(data_type->type()->descriptor, ast::POINTER_OR_REFERENCE);
+	ast::PointerOrReference& pointer = data_type->type()->as<ast::PointerOrReference>();
+	ASSERT_EQ(pointer.value_type->descriptor, ast::BUILTIN);
+	EXPECT_EQ(pointer.value_type->as<ast::BuiltIn>().bclass, ast::BuiltInClass::VOID);
+}
+
 // ee-g++ -gstabs
 // void SimpleFunction() {}
 MDEBUG_IMPORTER_TEST(SimpleFunction,

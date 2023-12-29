@@ -17,6 +17,7 @@ struct MemberFunctionInfo {
 	bool is_operator_member_function = false;
 };
 
+static bool is_void_like(const StabsType& type);
 static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
 static Result<std::unique_ptr<ast::Node>> field_to_ast(
 	const StabsStructOrUnionType::Field& field,
@@ -66,10 +67,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		bool is_name_empty = type.name == "" || type.name == " ";
 		// Cross references will be handled below.
 		bool is_cross_reference = type.descriptor == StabsTypeDescriptor::CROSS_REFERENCE;
-		// Unfortunately, a common case seems to be that __builtin_va_list is
-		// indistinguishable from void*, so we prevent it from being output to
-		// avoid confusion.
-		bool is_void = type.name == "void" || type.name == "__builtin_va_list";
+		bool is_void = is_void_like(type);
 		if((substitute_type_name || try_substitute) && !is_name_empty && !is_cross_reference && !is_void) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
@@ -436,6 +434,28 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	
 	CCC_CHECK(result, "Result of stabs_type_to_ast call is nullptr.");
 	return result;
+}
+
+static bool is_void_like(const StabsType& type)
+{
+	// Unfortunately, a common case seems to be that various types (most
+	// commonly __builtin_va_list) are indistinguishable from void or void*, so
+	// we have to output them as a void built-in.
+	if(type.descriptor.has_value()) {
+		switch(*type.descriptor) {
+			case StabsTypeDescriptor::POINTER: {
+				return is_void_like(*type.as<StabsPointerType>().value_type.get());
+			}
+			case StabsTypeDescriptor::TYPE_REFERENCE: {
+				return type.as<StabsTypeReferenceType>().type->type_number == type.type_number;
+			}
+			default: {
+				break;
+			}
+		}
+	}
+	
+	return false;
 }
 
 static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
