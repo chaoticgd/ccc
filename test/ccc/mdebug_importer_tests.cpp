@@ -151,13 +151,13 @@ MDEBUG_IMPORTER_TEST(StrangeStruct,
 }
 
 // Synthetic example.
-MDEBUG_IMPORTER_TEST(VexxingVoid,
+MDEBUG_IMPORTER_TEST(VexingVoid,
 	({
-		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "VexxingVoid:t1=1"},
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "VexingVoid:t1=1"},
 	}))
 {
 	EXPECT_EQ(database.data_types.size(), 1);
-	DataTypeHandle handle = database.data_types.first_handle_from_name("VexxingVoid");
+	DataTypeHandle handle = database.data_types.first_handle_from_name("VexingVoid");
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::BUILTIN);
