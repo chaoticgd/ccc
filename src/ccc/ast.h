@@ -40,7 +40,7 @@ struct Node {
 	const NodeDescriptor descriptor;
 	u8 is_const : 1 = false;
 	u8 is_volatile : 1 = false;
-	u8 is_base_class : 1 = false;
+	u8 is_virtual_base_class : 1 = false;
 	u8 is_vtable_pointer : 1 = false;
 	u8 is_constructor_or_destructor : 1 = false;
 	u8 is_special_member_function : 1 = false;

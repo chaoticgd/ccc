@@ -545,6 +545,9 @@ void CppPrinter::ast_node(
 					if(base_class.access_specifier != ast::AS_PUBLIC) {
 						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
 					}
+					if(base_class.is_virtual_base_class) {
+						fprintf(out, "virtual ");
+					}
 					VariableName dummy;
 					ast_node(base_class, dummy, 0, indentation_level + 1, database);
 					if(i != struct_or_union.base_classes.size() - 1) {

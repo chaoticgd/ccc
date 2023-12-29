@@ -32,7 +32,7 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.StartObject();
 	
 	json.Key("version");
-	json.Int(8);
+	json.Int(9);
 	
 	#define CCC_X(SymbolType, symbol_list) \
 		if(!std::is_same_v<SymbolType, SymbolSource>) { \

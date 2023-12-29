@@ -12,6 +12,7 @@ static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input);
+static Result<StabsStructOrUnionType::Visibility> parse_visibility_character(const char*& input);
 STABS_DEBUG(static void print_field(const StabsStructOrUnionType::Field& field);)
 
 const char* STAB_TRUNCATED_ERROR_MESSAGE =
@@ -297,25 +298,32 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			STABS_DEBUG_PRINTF("struct {\n");
 			
 			std::optional<s64> struct_size = parse_number_s64(input);
-			CCC_CHECK(struct_size.has_value(), "Cannot parse struct size.");
+			CCC_CHECK(struct_size.has_value(), "Failed to parse struct size.");
 			struct_type->size = *struct_size;
 			
 			if(*input == '!') {
 				input++;
 				std::optional<s32> base_class_count = parse_number_s32(input);
-				CCC_CHECK(base_class_count.has_value(), "Cannot parse base class count.");
+				CCC_CHECK(base_class_count.has_value(), "Failed to parse base class count.");
 				
 				CCC_EXPECT_CHAR(input, ',', "base class section");
 				
 				for(s64 i = 0; i < *base_class_count; i++) {
 					StabsStructOrUnionType::BaseClass base_class;
 					
-					char visibility = *(input++);
-					CCC_CHECK(visibility != '\0', "Cannot parse base class visibility.");
-					base_class.visibility = (StabsStructOrUnionType::Visibility) visibility;
+					char is_virtual = *(input++);
+					switch(is_virtual) {
+						case '0': base_class.is_virtual = false; break;
+						case '1': base_class.is_virtual = true; break;
+						default: return CCC_FAILURE("Failed to parse base class (virtual character).");
+					}
+					
+					Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);
+					CCC_RETURN_IF_ERROR(visibility);
+					base_class.visibility = *visibility;
 					
 					std::optional<s32> offset = parse_number_s32(input);
-					CCC_CHECK(offset.has_value(), "Cannot parse base class offset.");
+					CCC_CHECK(offset.has_value(), "Failed to parse base class offset.");
 					base_class.offset = (s32) *offset;
 					
 					CCC_EXPECT_CHAR(input, ',', "base class section");
@@ -546,9 +554,9 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		if(*input == '/') {
 			input++;
 			
-			char visibility = *(input++);
-			CCC_CHECK(visibility != '\0', "Cannot parse field visibility.");
-			field.visibility = (StabsStructOrUnionType::Visibility) visibility;
+			Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);
+			CCC_RETURN_IF_ERROR(visibility);
+			field.visibility = *visibility;
 			
 			switch(field.visibility) {
 				case StabsStructOrUnionType::Visibility::NONE:
@@ -657,19 +665,9 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 
 			CCC_EXPECT_CHAR(input, ';', "member function");
 			
-			char visibility = *(input++);
-			CCC_CHECK(visibility != '\0', "Cannot parse member function visibility.");
-			function.visibility = (StabsStructOrUnionType::Visibility) visibility;
-			
-			switch(function.visibility) {
-				case StabsStructOrUnionType::Visibility::PRIVATE:
-				case StabsStructOrUnionType::Visibility::PROTECTED:
-				case StabsStructOrUnionType::Visibility::PUBLIC:
-				case StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT:
-					break;
-				default:
-					return CCC_FAILURE("Invalid visibility for member function.");
-			}
+			Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);
+			CCC_RETURN_IF_ERROR(visibility);
+			function.visibility = *visibility;
 			
 			char modifiers = *(input++);
 			CCC_CHECK(modifiers != '\0', "Cannot parse member function modifiers.");
@@ -732,6 +730,20 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 		member_functions.emplace_back(std::move(member_function_set));
 	}
 	return member_functions;
+}
+
+static Result<StabsStructOrUnionType::Visibility> parse_visibility_character(const char*& input)
+{
+	char visibility = *(input++);
+	switch(visibility) {
+		case '0': return StabsStructOrUnionType::Visibility::PRIVATE;
+		case '1': return StabsStructOrUnionType::Visibility::PROTECTED;
+		case '2': return StabsStructOrUnionType::Visibility::PUBLIC;
+		case '9': return StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT;
+		default: break;
+	}
+	
+	return CCC_FAILURE("Failed to parse base class (visibility character).");
 }
 
 std::optional<s32> parse_number_s32(const char*& input)

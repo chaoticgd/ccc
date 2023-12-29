@@ -267,9 +267,12 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 					force_substitute);
 				CCC_RETURN_IF_ERROR(base_class);
 				
-				(*base_class)->is_base_class = true;
 				(*base_class)->offset_bytes = stabs_base_class.offset;
 				(*base_class)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_base_class.visibility), state.importer_flags);
+				
+				if(stabs_base_class.is_virtual) {
+					(*base_class)->is_virtual_base_class = true;
+				}
 				
 				struct_or_union->base_classes.emplace_back(std::move(*base_class));
 			}

@@ -187,14 +187,15 @@ struct StabsRangeType : StabsType {
 
 struct StabsStructOrUnionType : StabsType {
 	enum class Visibility : u8 {
-		NONE = '\0',
-		PRIVATE = '0',
-		PROTECTED = '1',
-		PUBLIC = '2',
-		PUBLIC_OPTIMIZED_OUT = '9'
+		NONE,
+		PRIVATE,
+		PROTECTED,
+		PUBLIC,
+		PUBLIC_OPTIMIZED_OUT
 	};
 
 	struct BaseClass {
+		bool is_virtual;
 		Visibility visibility;
 		s32 offset = -1;
 		std::unique_ptr<StabsType> type;
