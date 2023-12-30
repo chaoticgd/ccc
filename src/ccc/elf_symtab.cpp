@@ -110,6 +110,8 @@ static Result<void> import_symbols(
 				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(string, source, address);
 				CCC_RETURN_IF_ERROR(global_variable);
 				
+				(*global_variable)->set_size(symbol->size);
+				
 				break;
 			}
 			case SymbolType::FUNC: {
@@ -198,6 +200,5 @@ static const char* symbol_visibility_to_string(SymbolVisibility visibility)
 	}
 	return "ERROR";
 }
-
 
 }
