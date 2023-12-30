@@ -232,10 +232,10 @@ class Symbol {
 public:
 	Symbol();
 	Symbol(const Symbol& rhs) = delete;
-	Symbol(Symbol&& rhs);
+	Symbol(Symbol&& rhs) = default;
 	~Symbol();
 	Symbol& operator=(const Symbol& rhs) = delete;
-	Symbol& operator=(Symbol&& rhs);
+	Symbol& operator=(Symbol&& rhs) = default;
 	
 	const std::string& name() const { return m_name; }
 	u32 raw_handle() const { return m_handle; }
@@ -245,8 +245,8 @@ public:
 	u32 size() const { return m_size; }
 	void set_size(u32 size) { m_size = size; }
 	
-	ast::Node* type() { return m_type; }
-	const ast::Node* type() const { return m_type; }
+	ast::Node* type() { return m_type.get(); }
+	const ast::Node* type() const { return m_type.get(); }
 	void set_type(std::unique_ptr<ast::Node> type);
 	
 	u32 generation() const { return m_generation; }
@@ -261,7 +261,7 @@ protected:
 	Address m_address;
 	u32 m_size = 0;
 	std::string m_name;
-	ast::Node* m_type = nullptr;
+	std::unique_ptr<ast::Node> m_type;
 	u32 m_generation = 0;
 	u32 m_pad;
 };

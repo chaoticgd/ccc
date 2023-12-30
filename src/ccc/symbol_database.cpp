@@ -388,29 +388,10 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 // *****************************************************************************
 
 Symbol::Symbol() {}
-
-Symbol::Symbol(Symbol&& rhs) {
-	m_handle = std::exchange(rhs.m_handle, (u32) -1);
-	m_source = std::exchange(rhs.m_source, SymbolSourceHandle());
-	m_name = std::move(rhs.m_name);
-	m_type = std::exchange(rhs.m_type, nullptr);
-}
-
-Symbol::~Symbol() {
-	delete m_type;
-}
-
-Symbol& Symbol::operator=(Symbol&& rhs) {
-	m_handle = std::exchange(rhs.m_handle, (u32) -1);
-	m_source = std::exchange(rhs.m_source, SymbolSourceHandle());
-	m_name = std::move(rhs.m_name);
-	m_type = std::exchange(rhs.m_type, nullptr);
-	return *this;
-}
+Symbol::~Symbol() {}
 
 void Symbol::set_type(std::unique_ptr<ast::Node> type) {
-	delete m_type;
-	m_type = type.release();
+	m_type = std::move(type);
 	invalidate_node_handles();
 }
 
