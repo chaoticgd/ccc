@@ -168,7 +168,7 @@ TEST(CCCSymbolDatabase, SymbolFromContainedAddress)
 	Result<FunctionHandle> c = create_function(database, (*source)->handle(), "c", 0x3000, 0x1000);
 	CCC_GTEST_FAIL_IF_ERROR(c);
 	
-	Result<FunctionHandle> d = create_function(database, (*source)->handle(), "c", 0x5000, 0x1000);
+	Result<FunctionHandle> d = create_function(database, (*source)->handle(), "d", 0x5000, 0x1000);
 	CCC_GTEST_FAIL_IF_ERROR(d);
 	
 	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x0000)), FunctionHandle());

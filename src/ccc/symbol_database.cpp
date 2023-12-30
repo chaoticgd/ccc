@@ -95,14 +95,14 @@ std::span<const SymbolType> SymbolList<SymbolType>::optional_span(std::optional<
 template <typename SymbolType>
 typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_starting_address(Address address) const
 {
-	auto iterators = m_address_to_handle.equal_range(swizzle_address(address.value));
+	auto iterators = m_address_to_handle.equal_range(address.value);
 	return {iterators.first, iterators.second};
 }
 
 template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_address(Address address) const
 {
-	auto iterator = m_address_to_handle.find(swizzle_address(address.value));
+	auto iterator = m_address_to_handle.find(address.value);
 	if(iterator != m_address_to_handle.end()) {
 		return iterator->second;
 	} else {
@@ -131,10 +131,10 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const st
 template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address)
 {
-	auto iterator = m_address_to_handle.lower_bound(swizzle_address(address.value));
+	auto iterator = m_address_to_handle.lower_bound(address.value);
 	if(iterator != m_address_to_handle.end()) {
 		SymbolType* symbol = symbol_from_handle(iterator->second);
-		if(symbol && address.value >= symbol->m_address.value && address.value < symbol->m_address.value + symbol->m_size) {
+		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {
 			return symbol;
 		}
 	}
@@ -338,16 +338,10 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 }
 
 template <typename SymbolType>
-u32 SymbolList<SymbolType>::swizzle_address(u32 address) const
-{
-	return ~address;
-}
-
-template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
-		m_address_to_handle.emplace(swizzle_address(symbol.m_address.value), symbol.m_handle);
+		m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
 	}
 }
 
@@ -355,7 +349,7 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		auto iterators = m_address_to_handle.equal_range(swizzle_address(symbol.m_address.value));
+		auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
 			if(iterator->second == symbol.m_handle) {
 				m_address_to_handle.erase(iterator);

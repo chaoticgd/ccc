@@ -135,7 +135,7 @@ public:
 	std::span<SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range);
 	std::span<const SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range) const;
 	
-	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>>;
+	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>, std::greater<u32>>;
 	using NameToHandleMap = std::multimap<std::string, SymbolHandle<SymbolType>>;
 	
 	template <typename Iterator>
@@ -204,12 +204,6 @@ protected:
 	
 	// Destroy a range of symbols given indices.
 	u32 destroy_symbols_impl(size_t begin_index, size_t end_index);
-	
-	// We need to perform some arithmetic on the address to use it as a key so
-	// that we can use std::multimap<>::lower_bound to lookup symbols by
-	// addresses other than their starting address. For example, we want to be
-	// able to answer queries like "What function contains this instruction?".
-	u32 swizzle_address(u32 address) const;
 	
 	// Keep the address map in sync with the symbol list.
 	void link_address_map(SymbolType& symbol);
