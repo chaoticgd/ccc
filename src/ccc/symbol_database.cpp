@@ -134,7 +134,7 @@ SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address addres
 	auto iterator = m_address_to_handle.lower_bound(swizzle_address(address.value));
 	if(iterator != m_address_to_handle.end()) {
 		SymbolType* symbol = symbol_from_handle(iterator->second);
-		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {
+		if(symbol && address.value >= symbol->m_address.value && address.value < symbol->m_address.value + symbol->m_size) {
 			return symbol;
 		}
 	}

@@ -208,7 +208,7 @@ protected:
 	// We need to perform some arithmetic on the address to use it as a key so
 	// that we can use std::multimap<>::lower_bound to lookup symbols by
 	// addresses other than their starting address. For example, we want to be
-	// able to answer queries like "What function contains this address?".
+	// able to answer queries like "What function contains this instruction?".
 	u32 swizzle_address(u32 address) const;
 	
 	// Keep the address map in sync with the symbol list.
