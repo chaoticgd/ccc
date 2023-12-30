@@ -120,8 +120,8 @@ MDEBUG_IMPORTER_TEST(TypedefedStruct,
 }
 
 // ee-g++ -gstabs
-// typedef struct NamedTypedefStruct {} NamedTypedefStruct;
-MDEBUG_IMPORTER_TEST(NamedTypedefStruct,
+// typedef struct NamedTypedefedStruct {} NamedTypedefedStruct;
+MDEBUG_IMPORTER_TEST(NamedTypedefedStruct,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "NamedTypedefedStruct:T(1,1)=s1;"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "NamedTypedefedStruct:t(1,1)"},
