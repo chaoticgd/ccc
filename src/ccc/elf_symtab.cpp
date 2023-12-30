@@ -93,7 +93,7 @@ static Result<void> import_symbols(
 			continue;
 		}
 		
-		if(ignore_existing_symbols && database.symbol_exists_at_address(address)) {
+		if(ignore_existing_symbols && database.symbol_exists_with_starting_address(address)) {
 			continue;
 		}
 		
@@ -116,7 +116,7 @@ static Result<void> import_symbols(
 				Result<Function*> function = database.functions.create_symbol(string, source, address);
 				CCC_RETURN_IF_ERROR(function);
 				
-				(*function)->size = symbol->size;
+				(*function)->set_size(symbol->size);
 				
 				break;
 			}

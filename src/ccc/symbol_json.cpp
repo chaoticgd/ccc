@@ -32,7 +32,7 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.StartObject();
 	
 	json.Key("version");
-	json.Int(8);
+	json.Int(9);
 	
 	#define CCC_X(SymbolType, symbol_list) \
 		if(!std::is_same_v<SymbolType, SymbolSource>) { \
@@ -68,6 +68,11 @@ static void write_symbol_list(
 		if(symbol.address().valid()) {
 			json.Key("address");
 			json.Uint(symbol.address().value);
+		}
+		
+		if(symbol.size() != 0) {
+			json.Key("size");
+			json.Uint(symbol.size());
 		}
 		
 		write_json(json, symbol, database);
@@ -139,11 +144,6 @@ static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDat
 
 static void write_json(JsonWriter& json, const Function& symbol, const SymbolDatabase& database)
 {
-	if(symbol.size != 0) {
-		json.Key("size");
-		json.Uint(symbol.size);
-	}
-	
 	if(!symbol.relative_path.empty()) {
 		json.Key("relative_path");
 		json.String(symbol.relative_path);
@@ -247,10 +247,6 @@ static void write_json(JsonWriter& json, const ParameterVariable& symbol, const 
 
 static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database)
 {
-	if(symbol.size != 0) {
-		json.Key("size");
-		json.Uint(symbol.size);
-	}
 }
 
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database)

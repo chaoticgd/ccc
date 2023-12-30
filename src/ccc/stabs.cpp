@@ -12,6 +12,7 @@ static bool validate_symbol_descriptor(StabsSymbolDescriptor descriptor);
 static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input);
+static Result<StabsStructOrUnionType::Visibility> parse_visibility_character(const char*& input);
 STABS_DEBUG(static void print_field(const StabsStructOrUnionType::Field& field);)
 
 const char* STAB_TRUNCATED_ERROR_MESSAGE =
@@ -24,7 +25,7 @@ Result<StabsSymbol> parse_stabs_symbol(const char*& input)
 	
 	StabsSymbol symbol;
 	
-	Result<std::string> name = parse_dodgy_stabs_identifier(input);
+	Result<std::string> name = parse_dodgy_stabs_identifier(input, ':');
 	CCC_RETURN_IF_ERROR(name);
 	
 	symbol.name = *name;
@@ -34,9 +35,9 @@ Result<StabsSymbol> parse_stabs_symbol(const char*& input)
 	if((*input >= '0' && *input <= '9') || *input == '(') {
 		symbol.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
 	} else {
-		std::optional<char> symbol_descriptor = eat_char(input);
-		CCC_CHECK(symbol_descriptor.has_value(), "Cannot parse symbol descriptor.");
-		symbol.descriptor = (StabsSymbolDescriptor) *symbol_descriptor;
+		char symbol_descriptor = *(input++);
+		CCC_CHECK(symbol_descriptor != '\0', "Cannot parse symbol descriptor.");
+		symbol.descriptor = (StabsSymbolDescriptor) symbol_descriptor;
 	}
 	CCC_CHECK(validate_symbol_descriptor(symbol.descriptor),
 		"Invalid symbol descriptor '%c'.",
@@ -185,9 +186,9 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 	if((*input >= '0' && *input <= '9') || *input == '(') {
 		descriptor = StabsTypeDescriptor::TYPE_REFERENCE;
 	} else {
-		std::optional<char> descriptor_char = eat_char(input);
-		CCC_CHECK(descriptor_char.has_value(), "Cannot parse type descriptor.");
-		descriptor = (StabsTypeDescriptor) *descriptor_char;
+		char descriptor_char = *(input++);
+		CCC_CHECK(descriptor_char != '\0', "Cannot parse type descriptor.");
+		descriptor = (StabsTypeDescriptor) descriptor_char;
 	}
 	
 	std::unique_ptr<StabsType> out_type;
@@ -221,7 +222,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			auto enum_type = std::make_unique<StabsEnumType>(type_number);
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
-				std::optional<std::string> name = parse_stabs_identifier(input);
+				std::optional<std::string> name = parse_stabs_identifier(input, ':');
 				CCC_CHECK(name.has_value(), "Cannot parse enum field name.");
 				
 				CCC_EXPECT_CHAR(input, ':', "enum");
@@ -278,11 +279,11 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			
 			CCC_EXPECT_CHAR(input, ';', "range type descriptor");
 			
-			std::optional<std::string> low = parse_stabs_identifier(input);
+			std::optional<std::string> low = parse_stabs_identifier(input, ';');
 			CCC_CHECK(low.has_value(), "Cannot parse low part of range.");
 			CCC_EXPECT_CHAR(input, ';', "low range value");
 			
-			std::optional<std::string> high = parse_stabs_identifier(input);
+			std::optional<std::string> high = parse_stabs_identifier(input, ';');
 			CCC_CHECK(high.has_value(), "Cannot parse high part of range.");
 			CCC_EXPECT_CHAR(input, ';', "high range value");
 			
@@ -297,24 +298,32 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			STABS_DEBUG_PRINTF("struct {\n");
 			
 			std::optional<s64> struct_size = parse_number_s64(input);
-			CCC_CHECK(struct_size.has_value(), "Cannot parse struct size.");
+			CCC_CHECK(struct_size.has_value(), "Failed to parse struct size.");
 			struct_type->size = *struct_size;
 			
 			if(*input == '!') {
 				input++;
 				std::optional<s32> base_class_count = parse_number_s32(input);
-				CCC_CHECK(base_class_count.has_value(), "Cannot parse base class count.");
+				CCC_CHECK(base_class_count.has_value(), "Failed to parse base class count.");
+				
 				CCC_EXPECT_CHAR(input, ',', "base class section");
+				
 				for(s64 i = 0; i < *base_class_count; i++) {
 					StabsStructOrUnionType::BaseClass base_class;
-					eat_char(input);
 					
-					std::optional<char> visibility = eat_char(input);
-					CCC_CHECK(visibility.has_value(), "Cannot parse base class visibility.");
-					base_class.visibility = (StabsStructOrUnionType::Visibility) *visibility;
+					char is_virtual = *(input++);
+					switch(is_virtual) {
+						case '0': base_class.is_virtual = false; break;
+						case '1': base_class.is_virtual = true; break;
+						default: return CCC_FAILURE("Failed to parse base class (virtual character).");
+					}
+					
+					Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);
+					CCC_RETURN_IF_ERROR(visibility);
+					base_class.visibility = *visibility;
 					
 					std::optional<s32> offset = parse_number_s32(input);
-					CCC_CHECK(offset.has_value(), "Cannot parse base class offset.");
+					CCC_CHECK(offset.has_value(), "Failed to parse base class offset.");
 					base_class.offset = (s32) *offset;
 					
 					CCC_EXPECT_CHAR(input, ',', "base class section");
@@ -365,10 +374,10 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 		case StabsTypeDescriptor::CROSS_REFERENCE: { // x
 			auto cross_reference = std::make_unique<StabsCrossReferenceType>(type_number);
 			
-			std::optional<char> c = eat_char(input);
-			CCC_CHECK(c.has_value(), "Cannot parse cross reference type.");
+			char cross_reference_type = *(input++);
+			CCC_CHECK(cross_reference_type != '\0', "Cannot parse cross reference type.");
 			
-			switch(*c) {
+			switch(cross_reference_type) {
 				case 'e': cross_reference->type = ast::ForwardDeclaredType::ENUM; break;
 				case 's': cross_reference->type = ast::ForwardDeclaredType::STRUCT; break;
 				case 'u': cross_reference->type = ast::ForwardDeclaredType::UNION; break;
@@ -376,7 +385,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 					return CCC_FAILURE("Invalid cross reference type '%c'.", cross_reference->type);
 			}
 			
-			Result<std::string> identifier = parse_dodgy_stabs_identifier(input);
+			Result<std::string> identifier = parse_dodgy_stabs_identifier(input, ':');
 			CCC_RETURN_IF_ERROR(identifier);
 			cross_reference->identifier = std::move(*identifier);
 			
@@ -537,7 +546,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		const char* before_field = input;
 		StabsStructOrUnionType::Field field;
 		
-		Result<std::string> name = parse_dodgy_stabs_identifier(input);
+		Result<std::string> name = parse_dodgy_stabs_identifier(input, ':');
 		CCC_RETURN_IF_ERROR(name);
 		field.name = std::move(*name);
 		
@@ -545,9 +554,9 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		if(*input == '/') {
 			input++;
 			
-			std::optional<char> visibility = eat_char(input);
-			CCC_CHECK(visibility.has_value(), "Cannot parse field visibility.");
-			field.visibility = (StabsStructOrUnionType::Visibility) *visibility;
+			Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);
+			CCC_RETURN_IF_ERROR(visibility);
+			field.visibility = *visibility;
 			
 			switch(field.visibility) {
 				case StabsStructOrUnionType::Visibility::NONE:
@@ -582,7 +591,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			input++;
 			field.is_static = true;
 			
-			std::optional<std::string> type_name = parse_stabs_identifier(input);
+			std::optional<std::string> type_name = parse_stabs_identifier(input, ';');
 			CCC_CHECK(type_name.has_value(), "Cannot parse static field type name.");
 
 			field.type_name = std::move(*type_name);
@@ -632,7 +641,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 		}
 		StabsStructOrUnionType::MemberFunctionSet member_function_set;
 		
-		std::optional<std::string> name = parse_stabs_identifier(input);
+		std::optional<std::string> name = parse_stabs_identifier(input, ':');
 		CCC_CHECK(name.has_value(), "Cannot parse member function name.");
 		member_function_set.name = std::move(*name);
 		
@@ -651,28 +660,18 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			function.type = std::move(*type);
 			
 			CCC_EXPECT_CHAR(input, ':', "member function");
-			std::optional<std::string> identifier = parse_stabs_identifier(input);
+			std::optional<std::string> identifier = parse_stabs_identifier(input, ';');
 			CCC_CHECK(identifier.has_value(), "Invalid member function identifier.");
 
 			CCC_EXPECT_CHAR(input, ';', "member function");
 			
-			std::optional<char> visibility = eat_char(input);
-			CCC_CHECK(visibility.has_value(), "Cannot parse member function visibility.");
-			function.visibility = (StabsStructOrUnionType::Visibility) *visibility;
+			Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);
+			CCC_RETURN_IF_ERROR(visibility);
+			function.visibility = *visibility;
 			
-			switch(function.visibility) {
-				case StabsStructOrUnionType::Visibility::PRIVATE:
-				case StabsStructOrUnionType::Visibility::PROTECTED:
-				case StabsStructOrUnionType::Visibility::PUBLIC:
-				case StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT:
-					break;
-				default:
-					return CCC_FAILURE("Invalid visibility for member function.");
-			}
-			
-			std::optional<char> modifiers = eat_char(input);
-			CCC_CHECK(modifiers.has_value(), "Cannot parse member function modifiers.");
-			switch(*modifiers) {
+			char modifiers = *(input++);
+			CCC_CHECK(modifiers != '\0', "Cannot parse member function modifiers.");
+			switch(modifiers) {
 				case 'A':
 					function.is_const = false;
 					function.is_volatile = false;
@@ -696,9 +695,9 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 					return CCC_FAILURE("Invalid member function modifiers.");
 			}
 			
-			std::optional<char> flag = eat_char(input);
-			CCC_CHECK(flag.has_value(), "Cannot parse member function type.");
-			switch(*flag) {
+			char flag = *(input++);
+			CCC_CHECK(flag != '\0', "Cannot parse member function type.");
+			switch(flag) {
 				case '.': { // normal member function
 					function.modifier = ast::MemberFunctionModifier::NONE;
 					break;
@@ -733,12 +732,18 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 	return member_functions;
 }
 
-std::optional<char> eat_char(const char*& input)
+static Result<StabsStructOrUnionType::Visibility> parse_visibility_character(const char*& input)
 {
-	if(*input == '\0') {
-		return std::nullopt;
+	char visibility = *(input++);
+	switch(visibility) {
+		case '0': return StabsStructOrUnionType::Visibility::PRIVATE;
+		case '1': return StabsStructOrUnionType::Visibility::PROTECTED;
+		case '2': return StabsStructOrUnionType::Visibility::PUBLIC;
+		case '9': return StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT;
+		default: break;
 	}
-	return *(input++);
+	
+	return CCC_FAILURE("Failed to parse base class (visibility character).");
 }
 
 std::optional<s32> parse_number_s32(const char*& input)
@@ -763,11 +768,11 @@ std::optional<s64> parse_number_s64(const char*& input)
 	return value;
 }
 
-std::optional<std::string> parse_stabs_identifier(const char*& input)
+std::optional<std::string> parse_stabs_identifier(const char*& input, char terminator)
 {
 	const char* begin = input;
 	for(; *input != '\0'; input++) {
-		if(*input == ':' || *input == ';') {
+		if(*input == terminator) {
 			return std::string(begin, input);
 		}
 	}
@@ -778,7 +783,7 @@ std::optional<std::string> parse_stabs_identifier(const char*& input)
 // separator '::' even if the field terminator is supposed to be a colon, as
 // well as the raw contents of character literals. See test/ccc/stabs_tests.cpp
 // for some examples.
-Result<std::string> parse_dodgy_stabs_identifier(const char*& input)
+Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char terminator)
 {
 	const char* begin = input;
 	s32 template_depth = 0;
@@ -808,7 +813,7 @@ Result<std::string> parse_dodgy_stabs_identifier(const char*& input)
 			template_depth--;
 		}
 		
-		if((*input == ':' && template_depth == 0) || *input == ';') {
+		if(*input == terminator && template_depth == 0) {
 			return std::string(begin, input);
 		}
 	}

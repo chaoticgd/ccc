@@ -45,6 +45,10 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		json.Key("is_volatile");
 		json.Bool(node.is_volatile);
 	}
+	if(node.is_virtual_base_class) {
+		json.Key("is_virtual_base_class");
+		json.Bool(node.is_virtual_base_class);
+	}
 	if(node.is_vtable_pointer) {
 		json.Key("is_vtable_pointer");
 		json.Bool(node.is_vtable_pointer);

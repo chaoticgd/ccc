@@ -86,6 +86,21 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 		}
 	});
 	
+	// Propagate the size information to the global variable symbols.
+	for(GlobalVariable& global_variable : database.global_variables) {
+		if(global_variable.type() && global_variable.type()->computed_size_bytes > -1) {
+			global_variable.set_size((u32) global_variable.type()->computed_size_bytes);
+		}
+	}
+	
+	// Propagate the size information to the static local variable symbols.
+	for(LocalVariable& local_variable : database.local_variables) {
+		bool is_static_local = std::holds_alternative<GlobalStorage>(local_variable.storage);
+		if(is_static_local && local_variable.type() && local_variable.type()->computed_size_bytes > -1) {
+			local_variable.set_size((u32) local_variable.type()->computed_size_bytes);
+		}
+	}
+	
 	return Result<void>();
 }
 

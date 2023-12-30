@@ -187,14 +187,15 @@ struct StabsRangeType : StabsType {
 
 struct StabsStructOrUnionType : StabsType {
 	enum class Visibility : u8 {
-		NONE = '\0',
-		PRIVATE = '0',
-		PROTECTED = '1',
-		PUBLIC = '2',
-		PUBLIC_OPTIMIZED_OUT = '9'
+		NONE,
+		PRIVATE,
+		PROTECTED,
+		PUBLIC,
+		PUBLIC_OPTIMIZED_OUT
 	};
 
 	struct BaseClass {
+		bool is_virtual;
 		Visibility visibility;
 		s32 offset = -1;
 		std::unique_ptr<StabsType> type;
@@ -369,11 +370,10 @@ struct StabsBuiltInType : StabsType {
 extern const char* STAB_TRUNCATED_ERROR_MESSAGE;
 
 Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input);
-std::optional<char> eat_char(const char*& input);
 std::optional<s32> parse_number_s32(const char*& input);
 std::optional<s64> parse_number_s64(const char*& input);
-std::optional<std::string> parse_stabs_identifier(const char*& input);
-Result<std::string> parse_dodgy_stabs_identifier(const char*& input);
+std::optional<std::string> parse_stabs_identifier(const char*& input, char terminator);
+Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char terminator);
 const char* stabs_field_visibility_to_string(StabsStructOrUnionType::Visibility visibility);
 
 }

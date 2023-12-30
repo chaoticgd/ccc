@@ -194,7 +194,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	name.identifier = &symbol.name();
 	
 	if(m_config.print_storage_information) {
-		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size);
+		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size());
 	}
 	
 	// Print out the storage class, return type and function name.
@@ -544,6 +544,9 @@ void CppPrinter::ast_node(
 					offset(base_class, 0);
 					if(base_class.access_specifier != ast::AS_PUBLIC) {
 						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
+					}
+					if(base_class.is_virtual_base_class) {
+						fprintf(out, "virtual ");
 					}
 					VariableName dummy;
 					ast_node(base_class, dummy, 0, indentation_level + 1, database);

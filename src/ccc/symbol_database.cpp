@@ -3,8 +3,6 @@
 
 #include "symbol_database.h"
 
-#include <utility>
-
 #include "ast.h"
 
 namespace ccc {
@@ -93,10 +91,21 @@ std::span<const SymbolType> SymbolList<SymbolType>::optional_span(std::optional<
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_address(Address address) const
+typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_starting_address(Address address) const
 {
 	auto iterators = m_address_to_handle.equal_range(address.value);
 	return {iterators.first, iterators.second};
+}
+
+template <typename SymbolType>
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_address(Address address) const
+{
+	auto iterator = m_address_to_handle.find(address.value);
+	if(iterator != m_address_to_handle.end()) {
+		return iterator->second;
+	} else {
+		return SymbolHandle<SymbolType>();
+	}
 }
 
 template <typename SymbolType>
@@ -107,25 +116,33 @@ typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_address(Address address) const
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
 {
-	auto handles = handles_from_address(address);
-	if(handles.begin() != handles.end()) {
-		return handles.begin()->second;
+	auto iterator = m_name_to_handle.find(name);
+	if(iterator != m_name_to_handle.end()) {
+		return iterator->second;
 	} else {
 		return SymbolHandle<SymbolType>();
 	}
 }
 
 template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
+SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address)
 {
-	auto handles = handles_from_name(name);
-	if(handles.begin() != handles.end()) {
-		return handles.begin()->second;
-	} else {
-		return SymbolHandle<SymbolType>();
+	auto iterator = m_address_to_handle.lower_bound(address.value);
+	if(iterator != m_address_to_handle.end()) {
+		SymbolType* symbol = symbol_from_handle(iterator->second);
+		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {
+			return symbol;
+		}
 	}
+	return nullptr;
+}
+
+template <typename SymbolType>
+const SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address) const
+{
+	return const_cast<SymbolList<SymbolType>*>(this)->symbol_from_contained_address(address);
 }
 
 template <typename SymbolType>
@@ -369,29 +386,10 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 // *****************************************************************************
 
 Symbol::Symbol() {}
-
-Symbol::Symbol(Symbol&& rhs) {
-	m_handle = std::exchange(rhs.m_handle, (u32) -1);
-	m_source = std::exchange(rhs.m_source, SymbolSourceHandle());
-	m_name = std::move(rhs.m_name);
-	m_type = std::exchange(rhs.m_type, nullptr);
-}
-
-Symbol::~Symbol() {
-	delete m_type;
-}
-
-Symbol& Symbol::operator=(Symbol&& rhs) {
-	m_handle = std::exchange(rhs.m_handle, (u32) -1);
-	m_source = std::exchange(rhs.m_source, SymbolSourceHandle());
-	m_name = std::move(rhs.m_name);
-	m_type = std::exchange(rhs.m_type, nullptr);
-	return *this;
-}
+Symbol::~Symbol() {}
 
 void Symbol::set_type(std::unique_ptr<ast::Node> type) {
-	delete m_type;
-	m_type = type.release();
+	m_type = std::move(type);
 	invalidate_node_handles();
 }
 
@@ -498,10 +496,10 @@ void SourceFile::set_globals_variables(
 
 // *****************************************************************************
 
-bool SymbolDatabase::symbol_exists_at_address(Address address) const
+bool SymbolDatabase::symbol_exists_with_starting_address(Address address) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
-		if(symbol_list.first_handle_from_address(address).valid()) { \
+		if(symbol_list.first_handle_from_starting_address(address).valid()) { \
 			return true; \
 		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X

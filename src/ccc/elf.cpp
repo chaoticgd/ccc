@@ -157,7 +157,7 @@ Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, 
 		Result<Section*> symbol = database.sections.create_symbol(section.name, (*source)->handle(), section.address);
 		CCC_RETURN_IF_ERROR(symbol);
 		
-		(*symbol)->size = section.size;
+		(*symbol)->set_size(section.size);
 	}
 	
 	return (*source)->handle();

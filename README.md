@@ -107,6 +107,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 | Format Version | Release | Changes |
 | - | - | - |
+| 9 | | Added optional is_virtual_base_class property to nodes in base class lists. |
 | 8 | | Overhauled the format based on the structure of the new symbol database. An error AST node type has been added. The data, function definition, initializer list, source file and variable AST node types have been removed and replaced. |
 | 7 | v1.x | Base classes are now no longer doubly nested inside two JSON objects. Added acccess_specifier property. |
 | 6 | | Removed order property. |

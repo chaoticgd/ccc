@@ -83,7 +83,9 @@ TEST(CCCSymbolDatabase, HandleFromAddress)
 {
 	SymbolDatabase database;
 	FunctionHandle handles[10];
+	
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
 	
 	// Create the symbols.
 	for(u32 address = 0; address < 10; address++) {
@@ -94,14 +96,16 @@ TEST(CCCSymbolDatabase, HandleFromAddress)
 	
 	// Make sure we can look them up by their address.
 	for(u32 address = 0; address < 10; address++) {
-		EXPECT_EQ(database.functions.first_handle_from_address(address), handles[address]);
+		EXPECT_EQ(database.functions.first_handle_from_starting_address(address), handles[address]);
 	}
 }
 
 TEST(CCCSymbolDatabase, HandlesFromName)
 {
 	SymbolDatabase database;
+	
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
 	
 	// Create the symbols.
 	Result<DataType*> a = database.data_types.create_symbol("A", (*source)->handle());
@@ -130,17 +134,66 @@ TEST(CCCSymbolDatabase, HandlesFromName)
 	EXPECT_EQ(ds.begin(), ds.end());
 }
 
+static Result<FunctionHandle> create_function(SymbolDatabase& database, SymbolSourceHandle source, const char* name, Address address, u32 size)
+{
+	Result<Function*> function = database.functions.create_symbol("a", source, address);
+	CCC_RETURN_IF_ERROR(function);
+	CCC_CHECK(*function, "*function");
+	(*function)->set_size(size);
+	return (*function)->handle();
+}
+
+static FunctionHandle handle_from_function(Function* function)
+{
+	if(function) {
+		return function->handle();
+	} else {
+		return FunctionHandle();
+	}
+}
+
+TEST(CCCSymbolDatabase, SymbolFromContainedAddress)
+{
+	SymbolDatabase database;
+	
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<FunctionHandle> a = create_function(database, (*source)->handle(), "a", 0x1000, 0x1000);
+	CCC_GTEST_FAIL_IF_ERROR(a);
+	
+	Result<FunctionHandle> b = create_function(database, (*source)->handle(), "b", 0x2000, 0x1500);
+	CCC_GTEST_FAIL_IF_ERROR(b);
+	
+	Result<FunctionHandle> c = create_function(database, (*source)->handle(), "c", 0x3000, 0x1000);
+	CCC_GTEST_FAIL_IF_ERROR(c);
+	
+	Result<FunctionHandle> d = create_function(database, (*source)->handle(), "d", 0x5000, 0x1000);
+	CCC_GTEST_FAIL_IF_ERROR(d);
+	
+	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x0000)), FunctionHandle());
+	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x1000)), *a);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x2000)), *b);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x3000)), *c);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x4000)), FunctionHandle());
+	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x5000)), *d);
+	
+}
+
 TEST(CCCSymbolDatabase, MoveSymbol)
 {
 	SymbolDatabase database;
+	
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
 	Result<Function*> function = database.functions.create_symbol("func", (*source)->handle(), 0x1000);
+	CCC_GTEST_FAIL_IF_ERROR(function);
+	
 	EXPECT_TRUE(database.functions.move_symbol((*function)->handle(), 0x2000));
 	
-	EXPECT_TRUE(database.functions.first_handle_from_address(0x2000).valid());
-	EXPECT_FALSE(database.functions.first_handle_from_address(0x1000).valid());
+	EXPECT_TRUE(database.functions.first_handle_from_starting_address(0x2000).valid());
+	EXPECT_FALSE(database.functions.first_handle_from_starting_address(0x1000).valid());
 }
 
 TEST(CCCSymbolDatabase, RenameSymbol)
