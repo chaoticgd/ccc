@@ -3,8 +3,6 @@
 
 #include "symbol_database.h"
 
-#include <utility>
-
 #include "ast.h"
 
 namespace ccc {
