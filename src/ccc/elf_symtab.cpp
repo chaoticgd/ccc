@@ -3,6 +3,8 @@
 
 #include "elf_symtab.h"
 
+#include "symbol_table.h"
+
 namespace ccc::elf {
 
 enum class SymbolBind : u8 {
@@ -45,44 +47,20 @@ CCC_PACKED_STRUCT(Symbol,
 	SymbolVisibility visibility() const { return (SymbolVisibility) (other & 0x3); }
 )
 
-static Result<void> import_symbols(
-	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const ElfSection& section,
-	const ElfFile& elf,
-	bool ignore_existing_symbols);
-
 static const char* symbol_bind_to_string(SymbolBind bind);
 static const char* symbol_type_to_string(SymbolType type);
 static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 
-Result<SymbolSourceHandle> import_symbol_table(
-	SymbolDatabase& database, const ElfSection& section, const ElfFile& elf, bool ignore_existing_symbols)
-{
-	Result<SymbolSource*> source = database.symbol_sources.create_symbol(section.name, SymbolSourceHandle());
-	CCC_RETURN_IF_ERROR(source);
-	
-	Result<void> result = import_symbols(database, (*source)->handle(), section, elf, ignore_existing_symbols);
-	if(!result.success()) {
-		database.destroy_symbols_from_source((*source)->handle());
-		return result;
-	}
-	
-	return (*source)->handle();
-}
-
-static Result<void> import_symbols(
+Result<void> import_symbols(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
-	const ElfSection& section,
-	const ElfFile& elf,
-	bool ignore_existing_symbols)
+	std::span<const u8> symtab,
+	std::span<const u8> strtab,
+	u32 importer_flags)
 {
-	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
-	
-	for(u32 i = 0; i < section.size / sizeof(Symbol); i++) {
-		const Symbol* symbol = get_packed<Symbol>(elf.image, section.offset + i * sizeof(Symbol));
-		CCC_CHECK(symbol, "Data for '%s' section beyond end of file.", section.name.c_str());
+	for(u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
+		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));
+		CCC_ASSERT(symbol);
 		
 		Address address;
 		if(symbol->value != 0) {
@@ -93,11 +71,11 @@ static Result<void> import_symbols(
 			continue;
 		}
 		
-		if(ignore_existing_symbols && database.symbol_exists_with_starting_address(address)) {
+		if((importer_flags & IGNORE_EXISTING_SYMBOLS) != 0 && database.symbol_exists_with_starting_address(address)) {
 			continue;
 		}
 		
-		const char* string = get_string(elf.image, elf.sections[section.link].offset + symbol->name);
+		const char* string = get_string(strtab, symbol->name);
 		CCC_CHECK(string, "Symbol string out of range.");
 		
 		switch(symbol->type()) {
@@ -135,24 +113,20 @@ static Result<void> import_symbols(
 	return Result<void>();
 }
 
-Result<void> print_symbol_table(FILE* out, const ElfSection& section, const ElfFile& elf)
+Result<void> print_symbol_table(FILE* out, std::span<const u8> symtab, std::span<const u8> strtab)
 {
-	CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
-	
 	fprintf(out, "   Num:    Value  Size Type    Bind   Vis      Ndx Name\n");
 	
-	for(u32 i = 0; i < section.size / sizeof(Symbol); i++) {
-		const Symbol* symbol = get_packed<Symbol>(elf.image, section.offset + i * sizeof(Symbol));
-		CCC_CHECK(symbol, "Data for '%s' section beyond end of file.", section.name.c_str());
+	for(u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
+		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));
+		CCC_ASSERT(symbol);
 		
 		const char* type = symbol_type_to_string(symbol->type());
 		const char* bind = symbol_bind_to_string(symbol->bind());
 		const char* visibility = symbol_visibility_to_string(symbol->visibility());
 		
-		const char* string = get_string(elf.image, elf.sections[section.link].offset + symbol->name);
+		const char* string = get_string(strtab, symbol->name);
 		CCC_CHECK(string, "Symbol string out of range.");
-		
-		CCC_CHECK(section.link < elf.sections.size(), "Link field of '%s' section header is out of range.", section.name.c_str());
 		
 		fprintf(out, "%6u: %08x %5u %-7s %-7s %-7s %3u %s\n",
 			i, symbol->value, symbol->size, type, bind, visibility, symbol->shndx, string);

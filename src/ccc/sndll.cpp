@@ -48,7 +48,6 @@ CCC_PACKED_STRUCT(SNDLLSymbolHeader,
 
 static Result<SNDLLFile> parse_sndll_common(
 	std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version);
-static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source);
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type);
 
 Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
@@ -107,21 +106,7 @@ static Result<SNDLLFile> parse_sndll_common(
 	return sndll;
 }
 
-Result<SymbolSourceHandle> import_sndll_symbol_table(SymbolDatabase& database, const SNDLLFile& sndll)
-{
-	Result<SymbolSource*> source = database.symbol_sources.create_symbol("SNDLL Linker Symbols", SymbolSourceHandle());
-	CCC_RETURN_IF_ERROR(source);
-	
-	Result<void> result = import_sndll_symbols(database, sndll, (*source)->handle());
-	if(!result.success()) {
-		database.destroy_symbols_from_source((*source)->handle());
-		return result;
-	}
-	
-	return (*source)->handle();
-}
-
-static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source)
+Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source)
 {
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
 		if(symbol.value != 0 && !symbol.string.empty()) {

@@ -58,21 +58,27 @@ int main(int argc, char** argv)
 	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<ElfFile> elf = parse_elf_file(std::move(*image));
-	CCC_EXIT_IF_ERROR(elf);
+	Result<ElfFile> elf_result = parse_elf_file(std::move(*image));
+	CCC_EXIT_IF_ERROR(elf_result);
 	
-	SymbolTableConfig config;
-	config.demangler.cplus_demangle = cplus_demangle;
-	config.demangler.cplus_demangle_opname = cplus_demangle_opname;
+	Result<std::unique_ptr<ElfSymbolFile>> symbol_file = std::make_unique<ElfSymbolFile>(std::move(*elf_result));
+	CCC_EXIT_IF_ERROR(symbol_file);
+	
+	DemanglerFunctions demangler;
+	demangler.cplus_demangle = cplus_demangle;
+	demangler.cplus_demangle_opname = cplus_demangle_opname;
+	
+	Result<std::vector<std::unique_ptr<SymbolTable>>> symbol_tables = (*symbol_file)->get_all_symbol_tables();
+	CCC_EXIT_IF_ERROR(symbol_tables);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = import_symbol_table(database, *elf, config);
+	Result<SymbolSourceHandle> symbol_source = import_symbol_tables(database, *symbol_tables, NO_IMPORTER_FLAGS, demangler);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	map_types_to_files_based_on_this_pointers(database);
 	map_types_to_files_based_on_reference_count(database);
 	
-	std::vector<ElfFile*> elves{&(*elf)};
+	std::vector<ElfFile*> elves{&((*symbol_file)->m_elf)};
 	
 	mdebug::fill_in_pointers_to_member_function_definitions(database);
 	

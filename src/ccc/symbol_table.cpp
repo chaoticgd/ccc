@@ -3,23 +3,18 @@
 
 #include "symbol_table.h"
 
+#include "elf.h"
 #include "elf_symtab.h"
 #include "mdebug_importer.h"
 #include "mdebug_section.h"
+#include "sndll.h"
 
 namespace ccc {
 
-Result<SymbolSourceHandle> import_elf_symbol_table(
-	SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config);
-static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(
-	const ElfFile& elf, const SymbolTableConfig& config);
-static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config);
-
 const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
-	{SYMTAB, "symtab", ".symtab", 2},
-	{MDEBUG, "mdebug", ".mdebug", 3},
-	{DWARF, "dwarf", ".debug", 0},
-	{SNDLL, "sndll", ".sndata", 1}
+	{MDEBUG, "mdebug", ".mdebug"},
+	{SYMTAB, "symtab", ".symtab"},
+	{SNDLL, "sndll", ".sndata"}
 };
 const u32 SYMBOL_TABLE_FORMAT_COUNT = CCC_ARRAY_SIZE(SYMBOL_TABLE_FORMATS);
 
@@ -53,213 +48,183 @@ const SymbolTableFormatInfo* symbol_table_format_from_section(const char* sectio
 	return nullptr;
 }
 
-Result<SymbolSourceHandle> import_symbol_table(
-	SymbolDatabase& database, const SymbolFile& file, const SymbolTableConfig& config)
-{
-	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
-		return import_elf_symbol_table(database, *elf, config);
-	}
-	
-	if(const SNDLLFile* sndll = std::get_if<SNDLLFile>(&file)) {
-		Result<void> result = check_sndll_config_is_valid(config);
-		CCC_RETURN_IF_ERROR(result);
-		
-		return import_sndll_symbol_table(database, *sndll);
-	}
-	
-	return CCC_FAILURE("Invalid symbol file.");
-}
+// *****************************************************************************
 
-Result<SymbolSourceHandle> import_elf_symbol_table(
-	SymbolDatabase& database, const ElfFile& elf, const SymbolTableConfig& config)
+Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
+	const ElfSection& section, const ElfFile& elf, SymbolTableFormat format)
 {
-	auto section_and_format = get_section_and_format(elf, config);
-	CCC_RETURN_IF_ERROR(section_and_format);
-	const ElfSection* section = section_and_format->first;
-	SymbolTableFormat format = section_and_format->second;
-	
-	if(!section) {
-		// No symbol table is present.
-		return SymbolSourceHandle();
-	}
-	
-	SymbolSourceHandle source;
-	
+	std::unique_ptr<SymbolTable> symbol_table;
 	switch(format) {
-		case SYMTAB: {
-			Result<SymbolSourceHandle> source_result = elf::import_symbol_table(database, *section, elf, false);
-			CCC_RETURN_IF_ERROR(source_result);
-			source = *source_result;
-			
+		case MDEBUG: {
+			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.offset, section.name);
 			break;
 		}
-		case MDEBUG: {
-			Result<SymbolSourceHandle> source_result = mdebug::import_symbol_table(
-				database, elf.image, section->offset, config.importer_flags, config.demangler);
-			CCC_RETURN_IF_ERROR(source_result);
-			source = *source_result;
+		case SYMTAB: {
+			CCC_CHECK(section.offset + section.size <= elf.image.size(),
+				"Section '%s' out of range.", section.name.c_str());
+			std::span<const u8> data = std::span(elf.image).subspan(section.offset, section.size);
 			
+			CCC_CHECK(section.link != 0, "Section '%s' has no linked string table.", section.name.c_str());
+			CCC_CHECK(section.link < elf.sections.size(),
+				"Section '%s' has out of range link field.", section.name.c_str());
+			const ElfSection& linked_section = elf.sections[section.link];
+			
+			CCC_CHECK(linked_section.offset + linked_section.size <= elf.image.size(),
+				"Linked section '%s' out of range.", linked_section.name.c_str());
+			std::span<const u8> linked_data = std::span(elf.image).subspan(linked_section.offset, linked_section.size);
+			
+			symbol_table = std::make_unique<SymtabSymbolTable>(data, linked_data, section.name);
 			break;
 		}
 		case SNDLL: {
-			std::span<const u8> section_data = std::span(elf.image).subspan(section->offset, section->size);
+			CCC_CHECK(section.offset + section.size <= elf.image.size(),
+				"Section '%s' out of range.", section.name.c_str());
+			std::span<const u8> data = std::span(elf.image).subspan(section.offset, section.size);
 			
-			const u32* magic = get_packed<u32>(section_data, 0);
-			if(!magic || *magic == 0) {
-				CCC_WARN("Section '%s' is empty.", section->name.c_str());
-				break;
-			}
+			Result<SNDLLFile> file = parse_sndll_file(data, section.address);
+			CCC_RETURN_IF_ERROR(file);
 			
-			Result<SNDLLFile> sndll = parse_sndll_file(section_data, section->address);
-			CCC_RETURN_IF_ERROR(sndll);
-			
-			Result<SymbolSourceHandle> source_result = import_sndll_symbol_table(database, *sndll);
-			CCC_RETURN_IF_ERROR(source_result);
-			source = *source_result;
-			
+			symbol_table = std::make_unique<SNDLLSymbolTable>(
+				std::make_shared<SNDLLFile>(std::move(*file)), section.name);
 			break;
 		}
-		default: {
-			return CCC_FAILURE("The selected symbol table format isn't supported.");
-		}
 	}
 	
-	return source;
+	return symbol_table;
 }
 
-Result<void> print_headers(FILE* out, const SymbolFile& file, const SymbolTableConfig& config)
+Result<SymbolSourceRange> import_symbol_tables(
+	SymbolDatabase& database,
+	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
+	u32 importer_flags,
+	DemanglerFunctions demangler)
 {
-	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
-		auto section_and_format = get_section_and_format(*elf, config);
-		CCC_RETURN_IF_ERROR(section_and_format);
-		const ElfSection* section = section_and_format->first;
-		SymbolTableFormat format = section_and_format->second;
+	SymbolSourceRange symbol_sources;
+	
+	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
+		Result<SymbolSource*> source = database.symbol_sources.create_symbol(symbol_table->name(), SymbolSourceHandle());
+		CCC_RETURN_IF_ERROR(source);
+		SymbolSourceHandle source_handle = (*source)->handle();
 		
-		if(!section) {
-			return CCC_FAILURE("No symbol table.");
+		Result<void> result = symbol_table->import_symbol_table(database, source_handle, importer_flags, demangler);
+		if(!result.success()) {
+			database.destroy_symbols_from_source(source_handle);
+			return source;
 		}
-		
-		switch(format) {
-			case MDEBUG: {
-				mdebug::SymbolTableReader reader;
-				
-				Result<void> reader_result = reader.init(elf->image, section->offset);
-				CCC_RETURN_IF_ERROR(reader_result);
-				
-				reader.print_header(out);
-				
-				return Result<void>();
-			}
-			default: {
-				break;
-			}
-		}
+		symbol_sources.expand_to_include(source_handle);
 	}
 	
-	return CCC_FAILURE("No headers to print.");
+	return symbol_sources;
 }
 
-Result<void> print_symbols(
-	FILE* out, const SymbolFile& file, const SymbolTableConfig& config, bool print_locals, bool print_externals)
+MdebugSymbolTable::MdebugSymbolTable(std::span<const u8> image, s32 section_offset, std::string section_name)
+	: m_image(image), m_section_offset(section_offset), m_section_name(std::move(section_name)) {}
+
+std::string MdebugSymbolTable::name() const
 {
-	if(const ElfFile* elf = std::get_if<ElfFile>(&file)) {
-		auto section_and_format = get_section_and_format(*elf, config);
-		CCC_RETURN_IF_ERROR(section_and_format);
-		const ElfSection* section = section_and_format->first;
-		SymbolTableFormat format = section_and_format->second;
-		
-		if(!section) {
-			return CCC_FAILURE("No symbol table.");
-		}
-		
-		switch(format) {
-			case SYMTAB: {
-				Result<void> symbtab_result = elf::print_symbol_table(out, *section, *elf);
-				CCC_RETURN_IF_ERROR(symbtab_result);
-				
-				break;
-			}
-			case MDEBUG: {
-				mdebug::SymbolTableReader reader;
-				Result<void> reader_result = reader.init(elf->image, section->offset);
-				CCC_RETURN_IF_ERROR(reader_result);
-				
-				Result<void> print_result = reader.print_symbols(out, print_locals, print_externals);
-				CCC_RETURN_IF_ERROR(print_result);
-				
-				break;
-			}
-			case SNDLL: {
-				std::span<const u8> section_data = std::span(elf->image).subspan(section->offset, section->size);
-				Result<SNDLLFile> sndll = parse_sndll_file(section_data, section->address);
-				CCC_RETURN_IF_ERROR(sndll);
-				
-				print_sndll_symbols(out, *sndll);
-				
-				break;
-			}
-			default: {
-				return CCC_FAILURE("The selected symbol table format isn't supported.");
-			}
-		}
-	}
+	return m_section_name;
+}
+
+Result<void> MdebugSymbolTable::import_symbol_table(
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const u32 importer_flags,
+	DemanglerFunctions demangler) const
+{
+	return mdebug::import_symbol_table(
+		database, m_image, m_section_offset, source, importer_flags, demangler);
+}
+
+Result<void> MdebugSymbolTable::print_headers(FILE* out) const
+{
+	mdebug::SymbolTableReader reader;
 	
-	if(const SNDLLFile* sndll = std::get_if<SNDLLFile>(&file)) {
-		Result<void> result = check_sndll_config_is_valid(config);
-		CCC_RETURN_IF_ERROR(result);
-		
-		print_sndll_symbols(out, *sndll);
-	}
+	Result<void> reader_result = reader.init(m_image, m_section_offset);
+	CCC_RETURN_IF_ERROR(reader_result);
+	
+	reader.print_header(out);
 	
 	return Result<void>();
 }
 
-static Result<std::pair<const ElfSection*, SymbolTableFormat>> get_section_and_format(
-	const ElfFile& elf, const SymbolTableConfig& config)
+Result<void> MdebugSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
 {
-	const ElfSection* section = nullptr;
-	SymbolTableFormat format = SYMTAB;
+	mdebug::SymbolTableReader reader;
+	Result<void> reader_result = reader.init(m_image, m_section_offset);
+	CCC_RETURN_IF_ERROR(reader_result);
 	
-	if(config.section.has_value()) {
-		section = elf.lookup_section(config.section->c_str());
-		CCC_CHECK(section, "No '%s' section found.", config.section->c_str());
-		
-		if(config.format.has_value()) {
-			format = *config.format;
-		} else {
-			const SymbolTableFormatInfo* format_info = symbol_table_format_from_section(section->name.c_str());
-			CCC_CHECK(format_info, "Cannot determine symbol table format from section name.");
-			
-			format = format_info->format;
-		}
-	} else {
-		// Find the most useful symbol table.
-		u32 current_utility = 0;
-		for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
-			const SymbolTableFormatInfo& info = SYMBOL_TABLE_FORMATS[i];
-			if((!config.format.has_value() || info.format == *config.format) && info.utility > current_utility) {
-				const ElfSection* current_section = elf.lookup_section(info.section_name);
-				if(current_section) {
-					section = current_section;
-					format = info.format;
-					current_utility = info.utility;
-				}
-			}
-		}
-		
-		if(config.format.has_value()) {
-			format = *config.format;
-		}
-	}
+	Result<void> print_result = reader.print_symbols(out, print_locals, print_externals);
+	CCC_RETURN_IF_ERROR(print_result);
 	
-	return std::make_pair(section, format);
+	return Result<void>();
 }
 
-static Result<void> check_sndll_config_is_valid(const SymbolTableConfig& config)
+// *****************************************************************************
+
+SymtabSymbolTable::SymtabSymbolTable(std::span<const u8> symtab, std::span<const u8> strtab, std::string section_name)
+	: m_symtab(symtab), m_strtab(strtab), m_section_name(std::move(section_name)) {}
+
+std::string SymtabSymbolTable::name() const
 {
-	CCC_CHECK(!config.section.has_value(), "ELF section specified for SNDLL file.");
-	CCC_CHECK(!config.format.has_value() || *config.format == SNDLL,
-		"Symbol table format specified for SNDLL file is not 'sndll'.");
+	return m_section_name;
+}
+
+Result<void> SymtabSymbolTable::import_symbol_table(
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const u32 importer_flags,
+	DemanglerFunctions demangler) const
+{
+	return elf::import_symbols(database, source, m_symtab, m_strtab, importer_flags);
+}
+
+Result<void> SymtabSymbolTable::print_headers(FILE* out) const
+{
+	return Result<void>();
+}
+
+Result<void> SymtabSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+{
+	Result<void> symbtab_result = elf::print_symbol_table(out, m_symtab, m_strtab);
+	CCC_RETURN_IF_ERROR(symbtab_result);
+	
+	return Result<void>();
+}
+
+// *****************************************************************************
+
+SNDLLSymbolTable::SNDLLSymbolTable(std::shared_ptr<SNDLLFile> sndll, std::string fallback_name)
+	: m_sndll(std::move(sndll)), m_fallback_name(std::move(fallback_name)) {}
+
+std::string SNDLLSymbolTable::name() const
+{
+	if(!m_sndll->elf_path.empty()) {
+		return "SNDLL: " + m_sndll->elf_path;
+	} else if(!m_fallback_name.empty()) {
+		return "SNDLL: " + m_fallback_name;
+	} else {
+		return "SNDLL";
+	}
+}
+
+Result<void> SNDLLSymbolTable::import_symbol_table(
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const u32 importer_flags,
+	DemanglerFunctions demangler) const
+{
+	return import_sndll_symbols(database, *m_sndll, source);
+}
+
+Result<void> SNDLLSymbolTable::print_headers(FILE* out) const
+{
+	return Result<void>();
+}
+
+Result<void> SNDLLSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+{
+	print_sndll_symbols(out, *m_sndll);
+	
 	return Result<void>();
 }
 

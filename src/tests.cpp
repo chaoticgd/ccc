@@ -39,16 +39,17 @@ static int main_test(const fs::path& input_directory)
 			Result<std::vector<u8>> image = platform::read_binary_file(entry.path());
 			CCC_EXIT_IF_ERROR(image);
 			
-			Result<SymbolFile> symbol_file = parse_symbol_file(*image);
+			Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(*image);
 			if(symbol_file.success()) {
 				SymbolDatabase database;
 				
-				SymbolTableConfig importer_config;
-				importer_config.importer_flags = STRICT_PARSING;
-				importer_config.demangler.cplus_demangle = cplus_demangle;
-				importer_config.demangler.cplus_demangle_opname = cplus_demangle_opname;
+				Result<std::vector<std::unique_ptr<SymbolTable>>> symbol_tables = (*symbol_file)->get_all_symbol_tables();
 				
-				Result<SymbolSourceHandle> handle = import_symbol_table(database, *symbol_file, importer_config);
+				DemanglerFunctions demangler;
+				demangler.cplus_demangle = cplus_demangle;
+				demangler.cplus_demangle_opname = cplus_demangle_opname;
+				
+				Result<SymbolSourceHandle> handle = import_symbol_tables(database, *symbol_tables, STRICT_PARSING, demangler);
 				CCC_EXIT_IF_ERROR(handle);
 			} else {
 				printf("%s", symbol_file.error().message.c_str());
