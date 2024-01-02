@@ -117,6 +117,8 @@ Result<SymbolSourceRange> import_symbol_tables(
 	return symbol_sources;
 }
 
+// *****************************************************************************
+
 MdebugSymbolTable::MdebugSymbolTable(std::span<const u8> image, s32 section_offset, std::string section_name)
 	: m_image(image), m_section_offset(section_offset), m_section_name(std::move(section_name)) {}
 

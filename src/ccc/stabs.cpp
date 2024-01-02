@@ -578,7 +578,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		field.type = std::move(*type);
 		
 		if(field.name.size() >= 1 && field.name[0] == '$') {
-			// Virtual table pointers that don't specify a size.
+			// Virtual function table pointers and virtual base class pointers.
 			CCC_EXPECT_CHAR(input, ',', "field type");
 			
 			std::optional<s32> offset_bits = parse_number_s32(input);
@@ -805,7 +805,7 @@ Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char termin
 		}
 		
 		// Keep track of the template depth so we know when to expect the
-		// terminating colon.
+		// terminator character.
 		if(*input == '<') {
 			template_depth++;
 		}
