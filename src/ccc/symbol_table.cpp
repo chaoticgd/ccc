@@ -103,15 +103,19 @@ Result<SymbolSourceRange> import_symbol_tables(
 	
 	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
 		Result<SymbolSource*> source = database.symbol_sources.create_symbol(symbol_table->name(), SymbolSourceHandle());
-		CCC_RETURN_IF_ERROR(source);
+		if(!source.success()) {
+			database.destroy_symbols_from_sources(symbol_sources);
+			return source;
+		}
+		
 		SymbolSourceHandle source_handle = (*source)->handle();
+		symbol_sources.expand_to_include(source_handle);
 		
 		Result<void> result = symbol_table->import_symbol_table(database, source_handle, importer_flags, demangler);
 		if(!result.success()) {
-			database.destroy_symbols_from_source(source_handle);
+			database.destroy_symbols_from_sources(symbol_sources);
 			return source;
 		}
-		symbol_sources.expand_to_include(source_handle);
 	}
 	
 	return symbol_sources;

@@ -295,13 +295,13 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range)
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle source)
+void SymbolList<SymbolType>::destroy_symbols_from_sources(SymbolSourceRange sources)
 {
 	for(size_t i = 0; i < m_symbols.size(); i++) {
-		if(m_symbols[i].m_source == source) {
+		if(m_symbols[i].m_source >= sources.first && m_symbols[i].m_source <= sources.last) {
 			size_t end;
 			for(end = i + 1; end < m_symbols.size(); end++) {
-				if(m_symbols[end].m_source != source) {
+				if(m_symbols[i].m_source >= sources.first && m_symbols[i].m_source <= sources.last) {
 					break;
 				}
 			}
@@ -535,9 +535,9 @@ void SymbolDatabase::clear()
 	#undef CCC_X
 }
 
-void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source)
+void SymbolDatabase::destroy_symbols_from_sources(SymbolSourceRange sources)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_sources(sources);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }

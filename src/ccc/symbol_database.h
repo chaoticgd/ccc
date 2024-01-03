@@ -194,9 +194,10 @@ public:
 	// Destroy all the symbols in a given range.
 	u32 destroy_symbols(SymbolRange<SymbolType> range);
 	
-	// Destroy all the symbols from a given symbol source. For example, you can
-	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_source(SymbolSourceHandle source);
+	// Destroy all the symbols with symbol source handles within a given range.
+	// For example, you can use this to free a symbol table without destroying
+	// user-defined symbols.
+	void destroy_symbols_from_sources(SymbolSourceRange sources);
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
 	// worry about dangling handles.
@@ -511,7 +512,7 @@ public:
 	
 	// Destroy all the symbols from a given symbol source. For example, you can
 	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_source(SymbolSourceHandle source);
+	void destroy_symbols_from_sources(SymbolSourceRange sources);
 	
 	// Deduplicate matching data types with the same name. May replace the
 	// existing data type with the new one if the new one is better.
