@@ -136,17 +136,6 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 		file.command_line_path = command_line_path;
 	}
 	
-	// Try to detect the source language.
-	std::string lower_name = file.command_line_path;
-	for(char& c : lower_name) c = tolower(c);
-	if(lower_name.ends_with(".c")) {
-		file.detected_language = SourceLanguage::C;
-	} else if(lower_name.ends_with(".cpp") || lower_name.ends_with(".cc") || lower_name.ends_with(".cxx")) {
-		file.detected_language = SourceLanguage::CPP;
-	} else if(lower_name.ends_with(".s") || lower_name.ends_with(".asm")) {
-		file.detected_language = SourceLanguage::ASSEMBLY;
-	}
-	
 	// Parse local symbols.
 	for(s64 j = 0; j < fd_header->symbol_count; j++) {
 		u64 symbol_offset = m_hdrr->local_symbols_offset + (fd_header->isym_base + j) * sizeof(SymbolHeader) + m_fudge_offset;
