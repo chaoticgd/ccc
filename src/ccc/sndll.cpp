@@ -81,7 +81,10 @@ static Result<SNDLLFile> parse_sndll_common(
 	sndll.version = version;
 	
 	if(common.elf_path) {
-		sndll.elf_path = get_string(image, common.elf_path);
+		const char* elf_path = get_string(image, common.elf_path);
+		if(elf_path) {
+			sndll.elf_path = elf_path;
+		}
 	}
 	
 	CCC_CHECK(common.symbol_count < (32 * 1024 * 1024) / sizeof(SNDLLSymbol), "SNDLL symbol count is too high.");
