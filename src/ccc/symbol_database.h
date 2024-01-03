@@ -110,7 +110,8 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 enum SymbolFlags {
 	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
-	WITH_NAME_MAP = 1 << 1
+	WITH_NAME_MAP = 1 << 1,
+	NAME_NEEDS_DEMANGLING = 1 << 2
 };
 
 template <typename SymbolType>
@@ -176,6 +177,10 @@ public:
 	// Create a new symbol. If it's a SymbolSource symbol, source can be left
 	// empty, otherwise it has to be valid.
 	Result<SymbolType*> create_symbol(std::string name, SymbolSourceHandle source, Address address = Address());
+	
+	// Create a new symbol, and demangle the name while you're at it.
+	Result<SymbolType*> create_demangled_symbol(
+		std::string name, DemanglerFunctions demangler, SymbolSourceHandle source, Address address = Address());
 	
 	// Update the address of a symbol without changing its handle.
 	bool move_symbol(SymbolHandle<SymbolType> handle, Address new_address);
@@ -332,7 +337,7 @@ class Function : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
 	static constexpr const char* NAME = "Function";
-	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
+	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
 	
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
@@ -376,7 +381,7 @@ class GlobalVariable : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
 	static constexpr const char* NAME = "Global Variable";
-	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
 	
 	GlobalVariableHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; };

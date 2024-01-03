@@ -177,7 +177,7 @@ Result<void> SymtabSymbolTable::import_symbol_table(
 	const u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
-	return elf::import_symbols(database, source, m_symtab, m_strtab, importer_flags);
+	return elf::import_symbols(database, source, m_symtab, m_strtab, importer_flags, demangler);
 }
 
 Result<void> SymtabSymbolTable::print_headers(FILE* out) const
@@ -215,7 +215,7 @@ Result<void> SNDLLSymbolTable::import_symbol_table(
 	const u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
-	return import_sndll_symbols(database, *m_sndll, source);
+	return import_sndll_symbols(database, *m_sndll, source, demangler);
 }
 
 Result<void> SNDLLSymbolTable::print_headers(FILE* out) const

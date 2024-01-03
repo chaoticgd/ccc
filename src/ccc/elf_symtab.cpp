@@ -56,7 +56,8 @@ Result<void> import_symbols(
 	SymbolSourceHandle source,
 	std::span<const u8> symtab,
 	std::span<const u8> strtab,
-	u32 importer_flags)
+	u32 importer_flags,
+	DemanglerFunctions demangler)
 {
 	for(u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
 		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));
@@ -80,12 +81,12 @@ Result<void> import_symbols(
 		
 		switch(symbol->type()) {
 			case SymbolType::NOTYPE: {
-				Result<Label*> label = database.labels.create_symbol(string, source, address);
+				Result<Label*> label = database.labels.create_demangled_symbol(string, demangler, source, address);
 				CCC_RETURN_IF_ERROR(label);
 				break;
 			}
 			case SymbolType::OBJECT: {
-				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(string, source, address);
+				Result<GlobalVariable*> global_variable = database.global_variables.create_demangled_symbol(string, demangler, source, address);
 				CCC_RETURN_IF_ERROR(global_variable);
 				
 				(*global_variable)->set_size(symbol->size);
@@ -93,7 +94,7 @@ Result<void> import_symbols(
 				break;
 			}
 			case SymbolType::FUNC: {
-				Result<Function*> function = database.functions.create_symbol(string, source, address);
+				Result<Function*> function = database.functions.create_demangled_symbol(string, demangler, source, address);
 				CCC_RETURN_IF_ERROR(function);
 				
 				(*function)->set_size(symbol->size);

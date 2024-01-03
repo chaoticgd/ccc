@@ -52,20 +52,9 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 Result<void> LocalSymbolTableAnalyser::global_variable(
 	const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location)
 {
-	std::optional<std::string> demangled_name = demangle_name(mangled_name);
-	std::string name;
-	if(demangled_name.has_value()) {
-		name = std::move(*demangled_name);
-	} else {
-		name = std::move(mangled_name);
-	}
-	
-	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(name, m_context.symbol_source, address);
+	Result<GlobalVariable*> global = m_database.global_variables.create_demangled_symbol(
+		mangled_name, m_context.demangler, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(global);
-	
-	if(demangled_name.has_value()) {
-		(*global)->set_mangled_name(mangled_name);
-	}
 	
 	m_global_variables.expand_to_include((*global)->handle());
 	
@@ -284,21 +273,10 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	std::optional<std::string> demangled_name = demangle_name(mangled_name);
-	std::string name;
-	if(demangled_name.has_value()) {
-		name = std::move(*demangled_name);
-	} else {
-		name = std::move(mangled_name);
-	}
-	
-	Result<Function*> function = m_database.functions.create_symbol(std::move(name), m_context.symbol_source, address);
+	Result<Function*> function = m_database.functions.create_demangled_symbol(
+		mangled_name, m_context.demangler, m_context.symbol_source, address);
 	CCC_RETURN_IF_ERROR(function);
 	m_current_function = *function;
-	
-	if(demangled_name.has_value()) {
-		m_current_function->set_mangled_name(std::move(mangled_name));
-	}
 	
 	m_functions.expand_to_include(m_current_function->handle());
 	
@@ -309,19 +287,6 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	}
 	
 	return Result<void>();
-}
-
-std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* mangled_name)
-{
-	if(m_context.demangler.cplus_demangle) {
-		const char* demangled_name = m_context.demangler.cplus_demangle(mangled_name, 0);
-		if(demangled_name) {
-			std::string name = demangled_name;
-			free((void*) demangled_name);
-			return name;
-		}
-	}
-	return std::nullopt;
 }
 
 std::optional<GlobalStorageLocation> symbol_class_to_global_variable_location(SymbolClass symbol_class)

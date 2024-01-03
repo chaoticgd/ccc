@@ -69,8 +69,6 @@ public:
 	
 	Result<void> create_function(const char* mangled_name, Address address);
 	
-	std::optional<std::string> demangle_name(const char* name);
-	
 protected:
 	enum AnalysisState {
 		NOT_IN_FUNCTION,

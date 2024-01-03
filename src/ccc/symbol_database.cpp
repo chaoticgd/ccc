@@ -215,6 +215,27 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 }
 
 template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_demangled_symbol(
+	std::string name, DemanglerFunctions demangler, SymbolSourceHandle source, Address address)
+{
+	if(demangler.cplus_demangle) {
+		const char* demangled_name = demangler.cplus_demangle(name.c_str(), 0);
+		if(demangled_name) {
+			Result<SymbolType*> symbol = create_symbol(demangled_name, source, address);
+			free((void*) demangled_name);
+			if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+				if(symbol.success()) {
+					(*symbol)->set_mangled_name(name);
+				}
+			}
+			return symbol;
+		}
+	}
+	
+	return create_symbol(name, source, address);
+}
+
+template <typename SymbolType>
 bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Address new_address)
 {
 	SymbolType* symbol = symbol_from_handle(handle);
