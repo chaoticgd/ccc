@@ -10,13 +10,8 @@ using namespace ccc;
 
 enum Flags {
 	NO_FLAGS = 0,
-	FLAG_PER_FILE = 1 << 0,
-	FLAG_OMIT_ACCESS_SPECIFIERS = 1 << 1,
-	FLAG_OMIT_MEMBER_FUNCTIONS = 1 << 2,
-	FLAG_INCLUDE_GENERATED_FUNCTIONS = 1 << 3,
-	FLAG_LOCAL_SYMBOLS = 1 << 4,
-	FLAG_EXTERNAL_SYMBOLS = 1 << 5,
-	FLAG_MANGLED = 1 << 6
+	FLAG_LOCAL_SYMBOLS = 1 << 0,
+	FLAG_EXTERNAL_SYMBOLS = 1 << 1,
 };
 
 struct Options {
@@ -24,6 +19,7 @@ struct Options {
 	fs::path input_file;
 	fs::path output_file;
 	u32 flags = NO_FLAGS;
+	u32 importer_flags = NO_IMPORTER_FLAGS;
 	std::vector<SymbolTableLocation> sections;
 };
 
@@ -44,7 +40,6 @@ static void print_sections(FILE* out, const Options& options);
 static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const Options& options);
 static std::vector<std::unique_ptr<SymbolTable>> select_symbol_tables(
 	SymbolFile& symbol_file, const std::vector<SymbolTableLocation>& sections);
-static u32 command_line_flags_to_importer_flags(u32 flags);
 static Options parse_command_line_arguments(int argc, char** argv);
 static void print_help(FILE* out);
 static const char* get_version();
@@ -52,7 +47,7 @@ static const char* get_version();
 struct StdumpCommand {
 	void (*function)(FILE* out, const Options& options);
 	const char* name;
-	std::initializer_list<const char*> help_text;
+	std::vector<const char*> help_text;
 };
 
 static const StdumpCommand commands[] = {
@@ -67,16 +62,7 @@ static const StdumpCommand commands[] = {
 		"Print all the global variables recovered from the symbol table as C++."
 	}},
 	{print_types, "types", {
-		"Print all the types recovered from the symbol table as C++.",
-		"",
-		"--per-file                    Do not deduplicate types from files.",
-		"",
-		"--omit-access-specifiers      Do not print access specifiers.",
-		"",
-		"--omit-member-functions       Do not print member functions.",
-		"",
-		"--include-generated-functions Include member functions that are likely",
-		"                              auto-generated."
+		"Print all the types recovered from the symbol table as C++."
 	}},
 	{print_type_graph, "type_graph", {
 		"Print out a dependency graph of all the types in graphviz DOT format."
@@ -86,9 +72,7 @@ static const StdumpCommand commands[] = {
 		"include other symbols where their type is not recoverable."
 	}},
 	{print_json, "json", {
-		"Print all of the above as JSON.",
-		"",
-		"--per-file                    Do not deduplicate types from files."
+		"Print all of the above as JSON."
 	}},
 	{print_symbols, "symbols", {
 		"Print all of the symbols in a given symbol table.",
@@ -265,7 +249,7 @@ static void print_types(FILE* out, const Options& options)
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
-	if((options.flags & FLAG_PER_FILE) == 0) {
+	if((options.flags & DONT_DEDUPLICATE_TYPES) == 0) {
 		print_types_deduplicated(out, database, options);
 	} else {
 		print_types_per_file(out, database, options);
@@ -416,15 +400,11 @@ static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file
 	
 	std::vector<std::unique_ptr<SymbolTable>> symbol_tables = select_symbol_tables(*symbol_file, options.sections);
 	
-	u32 importer_flags = command_line_flags_to_importer_flags(options.flags);
-	
 	DemanglerFunctions demangler;
-	if((options.flags & FLAG_MANGLED) == 0) {
-		demangler.cplus_demangle = cplus_demangle;
-		demangler.cplus_demangle_opname = cplus_demangle_opname;
-	}
+	demangler.cplus_demangle = cplus_demangle;
+	demangler.cplus_demangle_opname = cplus_demangle_opname;
 	
-	Result<SymbolSourceRange> symbol_sources = import_symbol_tables(database, symbol_tables, importer_flags, demangler);
+	Result<SymbolSourceRange> symbol_sources = import_symbol_tables(database, symbol_tables, options.importer_flags, demangler);
 	CCC_EXIT_IF_ERROR(symbol_sources);
 	
 	return database;
@@ -444,16 +424,6 @@ static std::vector<std::unique_ptr<SymbolTable>> select_symbol_tables(
 		symbol_tables = std::move(*symbol_tables_result);
 	}
 	return symbol_tables;
-}
-
-static u32 command_line_flags_to_importer_flags(u32 flags)
-{
-	u32 importer_flags = NO_IMPORTER_FLAGS;
-	if(flags & FLAG_PER_FILE) importer_flags |= DONT_DEDUPLICATE_TYPES;
-	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) importer_flags |= NO_ACCESS_SPECIFIERS;
-	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) importer_flags |= NO_MEMBER_FUNCTIONS;
-	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) importer_flags |= NO_GENERATED_MEMBER_FUNCTIONS;
-	return importer_flags;
 }
 
 static Options parse_command_line_arguments(int argc, char** argv)
@@ -476,20 +446,14 @@ static Options parse_command_line_arguments(int argc, char** argv)
 	bool input_path_provided = false;
 	for(s32 i = 2; i < argc; i++) {
 		const char* arg = argv[i];
-		if(strcmp(arg, "--per-file") == 0) {
-			options.flags |= FLAG_PER_FILE;
-		} else if(strcmp(arg, "--omit-access-specifiers") == 0) {
-			options.flags |= FLAG_OMIT_ACCESS_SPECIFIERS;
-		} else if(strcmp(arg, "--omit-member-functions") == 0) {
-			options.flags |= FLAG_OMIT_MEMBER_FUNCTIONS;
-		} else if(strcmp(arg, "--include-generated-functions") == 0) {
-			options.flags |= FLAG_INCLUDE_GENERATED_FUNCTIONS;
+		
+		u32 importer_flag = parse_importer_flag(arg);
+		if(importer_flag != NO_IMPORTER_FLAGS) {
+			options.importer_flags |= importer_flag;
 		} else if(strcmp(arg, "--locals") == 0) {
 			options.flags |= FLAG_LOCAL_SYMBOLS;
 		} else if(strcmp(arg, "--externals") == 0) {
 			options.flags |= FLAG_EXTERNAL_SYMBOLS;
-		} else if(strcmp(arg, "--mangled") == 0) {
-			options.flags |= FLAG_MANGLED;
 		} else if(strcmp(arg, "--output") == 0) {
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];
@@ -542,7 +506,7 @@ static void print_help(FILE* out)
 	fprintf(out, "\n");
 	fprintf(out, "  --output <output file>        Write the output to the file specified instead\n");
 	fprintf(out, "                                of to the standard output.\n");
-	fprintf(out, "                                \n");
+	fprintf(out, "\n");
 	
 	s32 column;
 	fprintf(out, "  --section <section> <format>  Explicitly specify a symbol table to load. This\n");
@@ -550,7 +514,7 @@ static void print_help(FILE* out)
 	fprintf(out, "                                multiple symbol tables to load. If this option\n");
 	fprintf(out, "                                is not used, all recognized symbol tables will\n");
 	fprintf(out, "                                be loaded.\n");
-	fprintf(out, "                                \n");
+	fprintf(out, "\n");
 	const char* common_section_names_are = "Common section names are: ";
 	fprintf(out, "                                %s", common_section_names_are);
 	column = 32 + strlen(common_section_names_are);
@@ -570,7 +534,7 @@ static void print_help(FILE* out)
 	}
 	
 	const char* possible_options_are = "Possible formats are: ";
-	fprintf(out, "                                \n");
+	fprintf(out, "\n");
 	fprintf(out, "                                %s", possible_options_are);
 	column = 32 + strlen(possible_options_are);
 	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
@@ -587,13 +551,14 @@ static void print_help(FILE* out)
 		}
 		column += strlen(format.format_name) + 2;
 	}
-	fprintf(out, "                                \n");
-	fprintf(out, "  --mangled                     Don't demangle function names, global variable\n");
-	fprintf(out, "                                names, or overloaded operator names.\n");
+	fprintf(out, "\n");
+	fprintf(out, "Importer Options:\n");
+	print_importer_flags_help(out);
 }
 
 extern const char* git_tag;
 
-static const char* get_version() {
+static const char* get_version()
+{
 	return (git_tag && strlen(git_tag) > 0) ? git_tag : "development version";
 }

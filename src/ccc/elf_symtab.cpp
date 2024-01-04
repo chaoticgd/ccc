@@ -72,7 +72,7 @@ Result<void> import_symbols(
 			continue;
 		}
 		
-		if((importer_flags & IGNORE_EXISTING_SYMBOLS) != 0 && database.symbol_exists_with_starting_address(address)) {
+		if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && database.symbol_exists_with_starting_address(address)) {
 			continue;
 		}
 		

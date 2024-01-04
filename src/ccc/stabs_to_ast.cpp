@@ -699,7 +699,7 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 		}
 	}
 	
-	if(only_special_functions && (state.importer_flags & NO_GENERATED_MEMBER_FUNCTIONS)) {
+	if(only_special_functions && (state.importer_flags & INCLUDE_GENERATED_MEMBER_FUNCTIONS) == 0) {
 		return std::vector<std::unique_ptr<ast::Node>>();
 	}
 	

@@ -27,8 +27,14 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*symbol.name_colon_type.type.get(), nullptr, m_stabs_to_ast_state, 0, false, false);
 	CCC_RETURN_IF_ERROR(node);
 	
+	bool is_struct = (*node)->descriptor == ast::STRUCT_OR_UNION && (*node)->as<ast::StructOrUnion>().is_struct;
+	bool force_typedef =
+		((m_context.importer_flags & TYPEDEF_ALL_ENUMS) && (*node)->descriptor == ast::ENUM) ||
+		((m_context.importer_flags & TYPEDEF_ALL_STRUCTS) && (*node)->descriptor == ast::STRUCT_OR_UNION && is_struct) ||
+		((m_context.importer_flags & TYPEDEF_ALL_UNIONS) && (*node)->descriptor == ast::STRUCT_OR_UNION && !is_struct);
+	
 	(*node)->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
-	if(symbol.is_typedef) {
+	if(symbol.is_typedef || force_typedef) {
 		(*node)->storage_class = STORAGE_CLASS_TYPEDEF;
 	}
 	
