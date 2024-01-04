@@ -8,10 +8,11 @@ namespace ccc {
 const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 	{DONT_DEDUPLICATE_SYMBOLS, "--dont-deduplicate-symbols", {
 		"Do not deduplicate matching symbols from",
-		"different symbol tables."
+		"different symbol tables. This options has no",
+		"effect on data types."
 	}},
 	{DONT_DEDUPLICATE_TYPES, "--dont-deduplicate-types", {
-		"Do not deduplicate types from different",
+		"Do not deduplicate data types from different",
 		"translation units."
 	}},
 	{DONT_DEMANGLE_NAMES, "--dont-demangle-names", {
@@ -25,7 +26,7 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 	{NO_ACCESS_SPECIFIERS, "--no-access-specifiers", {
 		"Do not print access specifiers."
 	}},
-	{NO_MEMBER_FUNCTIONS, "-no-member-functions", {
+	{NO_MEMBER_FUNCTIONS, "--no-member-functions", {
 		"Do not print member functions."
 	}},
 	{STRICT_PARSING, "--strict", {
