@@ -81,11 +81,16 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 				"Section '%s' out of range.", section.name.c_str());
 			std::span<const u8> data = std::span(elf.image).subspan(section.offset, section.size);
 			
-			Result<SNDLLFile> file = parse_sndll_file(data, section.address);
-			CCC_RETURN_IF_ERROR(file);
+			if(data.size() >= 4 && data[0] != '\0') {
+				Result<SNDLLFile> file = parse_sndll_file(data, section.address);
+				CCC_RETURN_IF_ERROR(file);
+				
+				symbol_table = std::make_unique<SNDLLSymbolTable>(
+					std::make_shared<SNDLLFile>(std::move(*file)), section.name);
+			} else {
+				CCC_WARN("Invalid SNDLL section.");
+			}
 			
-			symbol_table = std::make_unique<SNDLLSymbolTable>(
-				std::make_shared<SNDLLFile>(std::move(*file)), section.name);
 			break;
 		}
 	}

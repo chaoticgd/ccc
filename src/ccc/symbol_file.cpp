@@ -50,7 +50,9 @@ Result<std::vector<std::unique_ptr<SymbolTable>>> ElfSymbolFile::get_all_symbol_
 		if(section) {
 			Result<std::unique_ptr<SymbolTable>> symbol_table = create_elf_symbol_table(*section, m_elf, info.format);
 			CCC_RETURN_IF_ERROR(symbol_table);
-			symbol_tables.emplace_back(std::move(*symbol_table));
+			if(*symbol_table) {
+				symbol_tables.emplace_back(std::move(*symbol_table));
+			}
 		}
 	}
 	
@@ -68,7 +70,9 @@ Result<std::vector<std::unique_ptr<SymbolTable>>> ElfSymbolFile::get_symbol_tabl
 		
 		Result<std::unique_ptr<SymbolTable>> symbol_table = create_elf_symbol_table(*section, m_elf, location.format);
 		CCC_RETURN_IF_ERROR(symbol_table);
-		symbol_tables.emplace_back(std::move(*symbol_table));
+		if(*symbol_table) {
+			symbol_tables.emplace_back(std::move(*symbol_table));
+		}
 	}
 	
 	return symbol_tables;

@@ -58,6 +58,7 @@ public:
 struct ElfSection;
 struct ElfFile;
 
+// Create a symbol table from an ELF section. The return value may be null.
 Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	const ElfSection& section, const ElfFile& elf, SymbolTableFormat format);
 
