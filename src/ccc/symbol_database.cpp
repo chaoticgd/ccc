@@ -199,7 +199,10 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	
 	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
 		if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
-			const char* demangled_name = demangler.cplus_demangle(name.c_str(), 0);
+			int demangler_flags = 0;
+			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= 1 << 0;
+			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= 1 << 5;
+			const char* demangled_name = demangler.cplus_demangle(name.c_str(), demangler_flags);
 			if(demangled_name) {
 				Result<SymbolType*> symbol = create_symbol(demangled_name, source, address);
 				free((void*) demangled_name);

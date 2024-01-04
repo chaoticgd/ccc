@@ -6,6 +6,13 @@
 namespace ccc {
 
 const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
+	{DEMANGLE_PARAMETERS, "--demangle-parameters", {
+		"Include parameters in demangled function names."
+	}},
+	{DEMANGLE_RETURN_TYPE, "--demangle-return-type", {
+		"Include return types at the end of demangled",
+		"function names if they're available."
+	}},
 	{DONT_DEDUPLICATE_SYMBOLS, "--dont-deduplicate-symbols", {
 		"Do not deduplicate matching symbols from",
 		"different symbol tables. This options has no",
