@@ -72,7 +72,7 @@ int main(int argc, char** argv)
 	CCC_EXIT_IF_ERROR(symbol_tables);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceHandle> symbol_source = import_symbol_tables(database, *symbol_tables, NO_IMPORTER_FLAGS, demangler);
+	Result<SymbolSourceRange> symbol_source = import_symbol_tables(database, *symbol_tables, NO_IMPORTER_FLAGS, demangler);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	map_types_to_files_based_on_this_pointers(database);

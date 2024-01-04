@@ -44,12 +44,13 @@ static int main_test(const fs::path& input_directory)
 				SymbolDatabase database;
 				
 				Result<std::vector<std::unique_ptr<SymbolTable>>> symbol_tables = (*symbol_file)->get_all_symbol_tables();
+				CCC_EXIT_IF_ERROR(symbol_tables);
 				
 				DemanglerFunctions demangler;
 				demangler.cplus_demangle = cplus_demangle;
 				demangler.cplus_demangle_opname = cplus_demangle_opname;
 				
-				Result<SymbolSourceHandle> handle = import_symbol_tables(database, *symbol_tables, STRICT_PARSING, demangler);
+				Result<SymbolSourceRange> handle = import_symbol_tables(database, *symbol_tables, STRICT_PARSING, demangler);
 				CCC_EXIT_IF_ERROR(handle);
 			} else {
 				printf("%s", symbol_file.error().message.c_str());

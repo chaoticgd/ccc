@@ -114,7 +114,7 @@ Result<SymbolSourceRange> import_symbol_tables(
 		Result<void> result = symbol_table->import_symbol_table(database, source_handle, importer_flags, demangler);
 		if(!result.success()) {
 			database.destroy_symbols_from_sources(symbol_sources);
-			return source;
+			return result;
 		}
 	}
 	
