@@ -12,7 +12,7 @@ extern const char* git_tag;
 int main(int argc, char** argv)
 {
 	if(argc == 2 && !(strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
-		const char* demangled = cplus_demangle(argv[1], DMGL_NO_OPTS);
+		const char* demangled = cplus_demangle(argv[1], DMGL_PARAMS | DMGL_RET_POSTFIX);
 		CCC_CHECK_FATAL(demangled, "Cannot demangle input!");
 		printf("%s", demangled);
 		return 0;
