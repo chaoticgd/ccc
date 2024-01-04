@@ -44,6 +44,8 @@ add_library(ccc STATIC
 	src/ccc/elf.h
 	src/ccc/elf_symtab.cpp
 	src/ccc/elf_symtab.h
+	src/ccc/importer_flags.cpp
+	src/ccc/importer_flags.h
 	src/ccc/mdebug_analysis.cpp
 	src/ccc/mdebug_analysis.h
 	src/ccc/mdebug_importer.cpp

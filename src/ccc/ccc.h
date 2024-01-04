@@ -9,6 +9,7 @@
 #include "dependency.h"
 #include "elf.h"
 #include "elf_symtab.h"
+#include "importer_flags.h"
 #include "mdebug_importer.h"
 #include "mdebug_section.h"
 #include "mdebug_symbols.h"

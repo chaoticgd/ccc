@@ -101,6 +101,11 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 
 Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, const AnalysisContext& context)
 {
+	// If this flag isn't set then the version of SymbolList<>::create_symbol
+	// that takes the importer_flags parameter may return nullptr. We don't care
+	// about this case for .mdebug sections so just make sure it never happens.
+	CCC_ASSERT(context.importer_flags & DONT_DEDUPLICATE_SYMBOLS);
+	
 	Result<SourceFile*> source_file = database.source_files.create_symbol(input.full_path, context.symbol_source);
 	CCC_RETURN_IF_ERROR(source_file);
 	

@@ -38,7 +38,11 @@ struct SNDLLFile {
 Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address = Address());
 
 Result<void> import_sndll_symbols(
-	SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source, DemanglerFunctions demangler);
+	SymbolDatabase& database,
+	const SNDLLFile& sndll,
+	SymbolSourceHandle source,
+	u32 importer_flags,
+	DemanglerFunctions demangler);
 
 void print_sndll_symbols(FILE* out, const SNDLLFile& sndll);
 

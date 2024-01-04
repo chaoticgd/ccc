@@ -58,9 +58,10 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 Result<void> LocalSymbolTableAnalyser::global_variable(
 	const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location)
 {
-	Result<GlobalVariable*> global = m_database.global_variables.create_demangled_symbol(
-		mangled_name, m_context.demangler, m_context.symbol_source, address);
+	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(
+		mangled_name, m_context.symbol_source, address, m_context.importer_flags, m_context.demangler);
 	CCC_RETURN_IF_ERROR(global);
+	CCC_ASSERT(*global);
 	
 	m_global_variables.expand_to_include((*global)->handle());
 	
@@ -279,9 +280,10 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	Result<Function*> function = m_database.functions.create_demangled_symbol(
-		mangled_name, m_context.demangler, m_context.symbol_source, address);
+	Result<Function*> function = m_database.functions.create_symbol(
+		mangled_name, m_context.symbol_source, address, m_context.importer_flags, m_context.demangler);
 	CCC_RETURN_IF_ERROR(function);
+	CCC_ASSERT(*function);
 	m_current_function = *function;
 	
 	m_functions.expand_to_include(m_current_function->handle());

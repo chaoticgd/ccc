@@ -3,8 +3,8 @@
 
 #include "ast.h"
 
+#include "importer_flags.h"
 #include "symbol_database.h"
-#include "symbol_table.h"
 
 namespace ccc::ast {
 

@@ -110,21 +110,25 @@ static Result<SNDLLFile> parse_sndll_common(
 }
 
 Result<void> import_sndll_symbols(
-	SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source, DemanglerFunctions demangler)
+	SymbolDatabase& database,
+	const SNDLLFile& sndll,
+	SymbolSourceHandle source, 
+	u32 importer_flags,
+	DemanglerFunctions demangler)
 {
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
 		if(symbol.value != 0 && !symbol.string.empty()) {
 			switch(symbol.type) {
 				case SNDLLSymbolType::RELATIVE:
 				case SNDLLSymbolType::WEAK: {
-					Result<Label*> result = database.labels.create_demangled_symbol(
-						symbol.string, demangler, source, sndll.address.get_or_zero() + symbol.value);
+					Result<Label*> result = database.labels.create_symbol(
+						symbol.string, source, sndll.address.get_or_zero() + symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(result);
 					break;
 				}
 				case SNDLLSymbolType::ABSOLUTE: {
-					Result<Label*> result = database.labels.create_demangled_symbol(
-						symbol.string, demangler, source, symbol.value);
+					Result<Label*> result = database.labels.create_symbol(
+						symbol.string, source, symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(result);
 					break;
 				}

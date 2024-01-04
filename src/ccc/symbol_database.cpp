@@ -4,6 +4,7 @@
 #include "symbol_database.h"
 
 #include "ast.h"
+#include "importer_flags.h"
 
 namespace ccc {
 
@@ -186,6 +187,36 @@ s32 SymbolList<SymbolType>::size() const
 }
 
 template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
+	std::string name, SymbolSourceHandle source, Address address, u32 importer_flags, DemanglerFunctions demangler)
+{
+	if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && address.valid()) {
+		SymbolHandle<SymbolType> existing_handle = first_handle_from_starting_address(address);
+		if(existing_handle.valid()) {
+			return nullptr;
+		}
+	}
+	
+	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+		if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
+			const char* demangled_name = demangler.cplus_demangle(name.c_str(), 0);
+			if(demangled_name) {
+				Result<SymbolType*> symbol = create_symbol(demangled_name, source, address);
+				free((void*) demangled_name);
+				if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+					if(symbol.success()) {
+						(*symbol)->set_mangled_name(name);
+					}
+				}
+				return symbol;
+			}
+		}
+	}
+	
+	return create_symbol(name, source, address);
+}
+
+template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address)
 {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::NAME);
@@ -212,27 +243,6 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	link_name_map(symbol);
 	
 	return &symbol;
-}
-
-template <typename SymbolType>
-Result<SymbolType*> SymbolList<SymbolType>::create_demangled_symbol(
-	std::string name, DemanglerFunctions demangler, SymbolSourceHandle source, Address address)
-{
-	if(demangler.cplus_demangle) {
-		const char* demangled_name = demangler.cplus_demangle(name.c_str(), 0);
-		if(demangled_name) {
-			Result<SymbolType*> symbol = create_symbol(demangled_name, source, address);
-			free((void*) demangled_name);
-			if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
-				if(symbol.success()) {
-					(*symbol)->set_mangled_name(name);
-				}
-			}
-			return symbol;
-		}
-	}
-	
-	return create_symbol(name, source, address);
 }
 
 template <typename SymbolType>

@@ -3,12 +3,12 @@
 
 #pragma once
 
+#include "importer_flags.h"
 #include "mdebug_section.h"
 #include "mdebug_symbols.h"
 #include "stabs.h"
 #include "stabs_to_ast.h"
 #include "symbol_database.h"
-#include "symbol_table.h"
 
 namespace ccc::mdebug {
 	

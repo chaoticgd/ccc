@@ -3,7 +3,7 @@
 
 #include "elf_symtab.h"
 
-#include "symbol_table.h"
+#include "importer_flags.h"
 
 namespace ccc::elf {
 
@@ -72,32 +72,35 @@ Result<void> import_symbols(
 			continue;
 		}
 		
-		if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && database.symbol_exists_with_starting_address(address)) {
-			continue;
-		}
-		
 		const char* string = get_string(strtab, symbol->name);
 		CCC_CHECK(string, "Symbol string out of range.");
 		
 		switch(symbol->type()) {
 			case SymbolType::NOTYPE: {
-				Result<Label*> label = database.labels.create_demangled_symbol(string, demangler, source, address);
+				Result<Label*> label = database.labels.create_symbol(
+					string, source, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(label);
 				break;
 			}
 			case SymbolType::OBJECT: {
-				Result<GlobalVariable*> global_variable = database.global_variables.create_demangled_symbol(string, demangler, source, address);
+				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
+					string, source, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(global_variable);
 				
-				(*global_variable)->set_size(symbol->size);
+				if(*global_variable) {
+					(*global_variable)->set_size(symbol->size);
+				}
 				
 				break;
 			}
 			case SymbolType::FUNC: {
-				Result<Function*> function = database.functions.create_demangled_symbol(string, demangler, source, address);
+				Result<Function*> function = database.functions.create_symbol(
+					string, source, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(function);
 				
-				(*function)->set_size(symbol->size);
+				if(*function) {
+					(*function)->set_size(symbol->size);
+				}
 				
 				break;
 			}
