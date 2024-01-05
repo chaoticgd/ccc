@@ -43,7 +43,7 @@ Result<std::vector<std::unique_ptr<SymbolTable>>> ElfSymbolFile::get_all_symbol_
 {
 	std::vector<std::unique_ptr<SymbolTable>> symbol_tables;
 	
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& info = SYMBOL_TABLE_FORMATS[i];
 		
 		const ElfSection* section = m_elf.lookup_section(info.section_name);

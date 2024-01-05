@@ -11,16 +11,15 @@
 
 namespace ccc {
 
-const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[] = {
+const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS = {
 	{MDEBUG, "mdebug", ".mdebug"},
 	{SYMTAB, "symtab", ".symtab"},
 	{SNDLL, "sndll", ".sndata"}
 };
-const u32 SYMBOL_TABLE_FORMAT_COUNT = CCC_ARRAY_SIZE(SYMBOL_TABLE_FORMATS);
 
 const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format)
 {
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		if(SYMBOL_TABLE_FORMATS[i].format == format) {
 			return &SYMBOL_TABLE_FORMATS[i];
 		}
@@ -30,7 +29,7 @@ const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat for
 
 const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name)
 {
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		if(strcmp(SYMBOL_TABLE_FORMATS[i].format_name, format_name) == 0) {
 			return &SYMBOL_TABLE_FORMATS[i];
 		}
@@ -40,7 +39,7 @@ const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_na
 
 const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name)
 {
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		if(strcmp(SYMBOL_TABLE_FORMATS[i].section_name, section_name) == 0) {
 			return &SYMBOL_TABLE_FORMATS[i];
 		}

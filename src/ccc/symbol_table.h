@@ -22,8 +22,7 @@ struct SymbolTableFormatInfo {
 };
 
 // All the supported symbol table formats, sorted from best to worst.
-extern const SymbolTableFormatInfo SYMBOL_TABLE_FORMATS[];
-extern const u32 SYMBOL_TABLE_FORMAT_COUNT;
+extern const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS;
 
 const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format);
 const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name);

@@ -115,7 +115,7 @@ static void identify_symbol_tables(FILE* out, const Options& options)
 	if(fs::is_regular_file(options.input_file)) {
 		identify_symbol_tables_in_file(out, nullptr, nullptr, options.input_file);
 	} else if(fs::is_directory(options.input_file)) {
-		std::vector<u32> totals(SYMBOL_TABLE_FORMAT_COUNT, 0);
+		std::vector<u32> totals(SYMBOL_TABLE_FORMATS.size(), 0);
 		u32 unknown_total = 0;
 		
 		for(auto entry : fs::recursive_directory_iterator(options.input_file)) {
@@ -126,7 +126,7 @@ static void identify_symbol_tables(FILE* out, const Options& options)
 		
 		fprintf(out, "\n");
 		fprintf(out, "Totals:\n");
-		for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+		for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 			fprintf(out, "  %4d %s sections\n", totals[i], SYMBOL_TABLE_FORMATS[i].section_name);
 		}
 		fprintf(out, "  %4d unknown\n", unknown_total);
@@ -154,7 +154,7 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 			CCC_EXIT_IF_ERROR(elf);
 			
 			bool print_none = true;
-			for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+			for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 				if(elf->lookup_section(SYMBOL_TABLE_FORMATS[i].section_name)) {
 					fprintf(out, " %s", SYMBOL_TABLE_FORMATS[i].section_name);
 					if(totals) {
@@ -518,14 +518,14 @@ static void print_help(FILE* out)
 	const char* common_section_names_are = "Common section names are: ";
 	fprintf(out, "                                %s", common_section_names_are);
 	column = 32 + strlen(common_section_names_are);
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if(column + strlen(format.section_name) + 2 > 80) {
 			fprintf(out, "\n                                ");
 			column = 32;
 		}
 		fprintf(out, "%s", format.section_name);
-		if(i + 1 == SYMBOL_TABLE_FORMAT_COUNT) {
+		if(i + 1 == SYMBOL_TABLE_FORMATS.size()) {
 			fprintf(out, ".\n");
 		} else {
 			fprintf(out, ", ");
@@ -537,14 +537,14 @@ static void print_help(FILE* out)
 	fprintf(out, "\n");
 	fprintf(out, "                                %s", possible_options_are);
 	column = 32 + strlen(possible_options_are);
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(u32 i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if(column + strlen(format.format_name) + 2 > 80) {
 			fprintf(out, "\n                                ");
 			column = 32;
 		}
 		fprintf(out, "%s", format.format_name);
-		if(i + 1 == SYMBOL_TABLE_FORMAT_COUNT) {
+		if(i + 1 == SYMBOL_TABLE_FORMATS.size()) {
 			fprintf(out, ".\n");
 		} else {
 			fprintf(out, ", ");
