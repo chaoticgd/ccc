@@ -43,6 +43,8 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	
 	if(m_context.importer_flags & DONT_DEDUPLICATE_TYPES) {
 		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
+		CCC_RETURN_IF_ERROR(data_type);
+		
 		m_source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 		(*data_type)->set_type(std::move(*node));
 		
