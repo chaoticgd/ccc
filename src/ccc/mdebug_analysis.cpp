@@ -24,7 +24,8 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address tex
 
 Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 {
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*symbol.name_colon_type.type.get(), nullptr, m_stabs_to_ast_state, 0, false, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(
+		*symbol.name_colon_type.type.get(), nullptr, m_stabs_to_ast_state, 0, false, false);
 	CCC_RETURN_IF_ERROR(node);
 	
 	bool is_struct = (*node)->descriptor == ast::STRUCT_OR_UNION && (*node)->as<ast::StructOrUnion>().is_struct;
@@ -50,7 +51,8 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 		
 		(*data_type)->files = {m_source_file.handle()};
 	} else {
-		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), number, name, m_source_file, m_context.symbol_source);
+		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(
+			std::move(*node), number, name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
 	}
 	
