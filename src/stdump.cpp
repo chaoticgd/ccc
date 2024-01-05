@@ -511,9 +511,11 @@ static void print_help(FILE* out)
 	s32 column;
 	fprintf(out, "  --section <section> <format>  Explicitly specify a symbol table to load. This\n");
 	fprintf(out, "                                option can be used multiple times to specify\n");
-	fprintf(out, "                                multiple symbol tables to load. If this option\n");
-	fprintf(out, "                                is not used, all recognized symbol tables will\n");
-	fprintf(out, "                                be loaded.\n");
+	fprintf(out, "                                multiple symbol tables to load. The symbol\n");
+	fprintf(out, "                                tables specified first, on the left side of the\n");
+	fprintf(out, "                                command line, will be given higher priority. If\n");
+	fprintf(out, "                                this option is not used, all recognized symbol\n");
+	fprintf(out, "                                tables will be loaded.\n");
 	fprintf(out, "\n");
 	const char* common_section_names_are = "Common section names are: ";
 	fprintf(out, "                                %s", common_section_names_are);
