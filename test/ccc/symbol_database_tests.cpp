@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 #include "ccc/ast.h"
+#include "ccc/importer_flags.h"
 #include "ccc/symbol_database.h"
 
 using namespace ccc;
@@ -178,6 +179,30 @@ TEST(CCCSymbolDatabase, SymbolFromContainedAddress)
 	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x4000)), FunctionHandle());
 	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x5000)), *d);
 	
+}
+
+TEST(CCCSymbolDatabase, CreateSymbol)
+{
+	SymbolDatabase database;
+	
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<Function*> a = database.functions.create_symbol("func_x", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	CCC_GTEST_FAIL_IF_ERROR(a);
+	EXPECT_TRUE(*a);
+	
+	// Make sure that we can create multiple symbols with a different name at
+	// the same address.
+	Result<Function*> b = database.functions.create_symbol("func_y", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	CCC_GTEST_FAIL_IF_ERROR(b);
+	EXPECT_TRUE(*b);
+	
+	// Make sure that if the symbol has the same name and the same address that
+	// it will be deduplicated (and that the existing symbol will be used).
+	Result<Function*> c = database.functions.create_symbol("func_y", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	CCC_GTEST_FAIL_IF_ERROR(c);
+	EXPECT_FALSE(*c);
 }
 
 TEST(CCCSymbolDatabase, MoveSymbol)

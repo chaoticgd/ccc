@@ -190,33 +190,47 @@ template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	std::string name, SymbolSourceHandle source, Address address, u32 importer_flags, DemanglerFunctions demangler)
 {
-	if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && address.valid()) {
-		SymbolHandle<SymbolType> existing_handle = first_handle_from_starting_address(address);
-		if(existing_handle.valid()) {
-			return nullptr;
-		}
-	}
+	static const int DMGL_PARAMS = 1 << 0;
+	static const int DMGL_RET_POSTFIX = 1 << 5;
 	
+	std::string demangled_name;
 	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
 		if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
 			int demangler_flags = 0;
-			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= 1 << 0;
-			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= 1 << 5;
-			const char* demangled_name = demangler.cplus_demangle(name.c_str(), demangler_flags);
-			if(demangled_name) {
-				Result<SymbolType*> symbol = create_symbol(demangled_name, source, address);
-				free((void*) demangled_name);
-				if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
-					if(symbol.success()) {
-						(*symbol)->set_mangled_name(name);
-					}
-				}
-				return symbol;
+			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
+			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
+			const char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
+			if(demangled_name_ptr) {
+				demangled_name = demangled_name_ptr;
+				free((void*) demangled_name_ptr);
 			}
 		}
 	}
 	
-	return create_symbol(name, source, address);
+	std::string& non_mangled_name = demangled_name.empty() ? name : demangled_name;
+	
+	// Since we parse all the symbol tables in a file, we're gonna encounter
+	// duplicate symbols for functions and global variables. This logic filters
+	// out said symbols.
+	if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && address.valid()) {
+		for(const auto& [existing_address, existing_handle] : handles_from_starting_address(address)) {
+			SymbolType* existing_symbol = symbol_from_handle(existing_handle);
+			if(existing_symbol && existing_symbol->name() == non_mangled_name) {
+				return nullptr;
+			}
+		}
+	}
+	
+	Result<SymbolType*> symbol = create_symbol(non_mangled_name, source, address);
+	CCC_RETURN_IF_ERROR(symbol);
+	
+	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+		if(!demangled_name.empty()) {
+			(*symbol)->set_mangled_name(name);
+		}
+	}
+	
+	return symbol;
 }
 
 template <typename SymbolType>
