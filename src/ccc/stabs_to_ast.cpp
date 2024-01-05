@@ -3,7 +3,7 @@
 
 #include "stabs_to_ast.h"
 
-#include "symbol_table.h"
+#include "importer_flags.h"
 
 #define AST_DEBUG(...) //__VA_ARGS__
 #define AST_DEBUG_PRINTF(...) AST_DEBUG(printf(__VA_ARGS__);)
@@ -28,7 +28,10 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth);
 static MemberFunctionInfo check_member_function(
-	const std::string& mangled_name, std::string_view type_name_no_template_args, const DemanglerFunctions& demangler);
+	const std::string& mangled_name,
+	std::string_view type_name_no_template_args,
+	const DemanglerFunctions& demangler,
+	u32 importer_flags);
 
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	const StabsType& type,
@@ -666,7 +669,8 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	bool only_special_functions = true;
 	
 	for(const StabsStructOrUnionType::MemberFunctionSet& function_set : type.member_functions) {
-		MemberFunctionInfo info = check_member_function(function_set.name, type_name_no_template_args, state.demangler);
+		MemberFunctionInfo info = check_member_function(
+			function_set.name, type_name_no_template_args, state.demangler, state.importer_flags);
 		
 		if(!info.is_special_member_function) {
 			only_special_functions = false;
@@ -699,7 +703,7 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 		}
 	}
 	
-	if(only_special_functions && (state.importer_flags & NO_GENERATED_MEMBER_FUNCTIONS)) {
+	if(only_special_functions && (state.importer_flags & INCLUDE_GENERATED_MEMBER_FUNCTIONS) == 0) {
 		return std::vector<std::unique_ptr<ast::Node>>();
 	}
 	
@@ -707,13 +711,16 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 }
 
 static MemberFunctionInfo check_member_function(
-	const std::string& mangled_name, std::string_view type_name_no_template_args, const DemanglerFunctions& demangler)
+	const std::string& mangled_name,
+	std::string_view type_name_no_template_args,
+	const DemanglerFunctions& demangler,
+	u32 importer_flags)
 {
 	MemberFunctionInfo info;
 	
 	// Some compiler versions output gcc opnames for overloaded operators
 	// instead of their proper names.
-	if(demangler.cplus_demangle_opname) {
+	if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle_opname) {
 		char* demangled_name = demangler.cplus_demangle_opname(mangled_name.c_str(), 0);
 		if(demangled_name) {
 			info.name = demangled_name;

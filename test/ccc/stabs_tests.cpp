@@ -170,7 +170,16 @@ STABS_TEST(DefaultMemberFunctions,
 		"__base_ctor::(1,7)=#(1,1),(0,23),(1,4),(1,5),(0,23);:_ZN22DefaultMemberFunctionsC2ERKS_;2A.;"
 		"__comp_ctor::(1,7):_ZN22DefaultMemberFunctionsC1ERKS_;2A.;"
 		"__base_ctor::(1,8)=#(1,1),(0,23),(1,4),(0,23);:_ZN22DefaultMemberFunctionsC2Ev;2A.;"
-		"__comp_ctor::(1,8):_ZN22DefaultMemberFunctionsC1Ev;2A.;;") {}
+		"__comp_ctor::(1,8):_ZN22DefaultMemberFunctionsC1Ev;2A.;;")
+{
+	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
+	ASSERT_EQ(struct_type.member_functions.size(), 5);
+	EXPECT_EQ(struct_type.member_functions[0].name, "operator=");
+	EXPECT_EQ(struct_type.member_functions[1].name, "__base_ctor");
+	EXPECT_EQ(struct_type.member_functions[2].name, "__comp_ctor");
+	EXPECT_EQ(struct_type.member_functions[3].name, "__base_ctor");
+	EXPECT_EQ(struct_type.member_functions[4].name, "__comp_ctor");
+}
 
 // ee-g++ -gstabs+
 // class FirstBaseClass {};
@@ -183,7 +192,13 @@ STABS_TEST(MultipleInheritance,
 		"__base_ctor::(1,23)=#(1,17),(0,23),(1,20),(1,21),(0,23);:_ZN19MultipleInheritanceC2ERKS_;2A.;"
 		"__comp_ctor::(1,23):_ZN19MultipleInheritanceC1ERKS_;2A.;"
 		"__base_ctor::(1,24)=#(1,17),(0,23),(1,20),(0,23);:_ZN19MultipleInheritanceC2Ev;2A.;"
-		"__comp_ctor::(1,24):_ZN19MultipleInheritanceC1Ev;2A.;;") {}
+		"__comp_ctor::(1,24):_ZN19MultipleInheritanceC1Ev;2A.;;")
+{
+	StabsStructType& struct_type = symbol.type->as<StabsStructType>();
+	ASSERT_EQ(struct_type.base_classes.size(), 2);
+	EXPECT_EQ(struct_type.base_classes[0].type->type_number.type, 1);
+	EXPECT_EQ(struct_type.base_classes[1].type->type_number.type, 9);
+}
 
 // ee-g++ -gstabs
 // struct ForwardDeclared;

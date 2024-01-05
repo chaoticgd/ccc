@@ -118,19 +118,11 @@ struct Symbol {
 	}
 };
 
-enum class SourceLanguage {
-	C,
-	CPP,
-	ASSEMBLY,
-	UNKNOWN
-};
-
 struct File {
 	std::vector<Symbol> symbols;
 	std::string working_dir; // The working directory of GCC.
 	std::string command_line_path; // The source file path passed on the command line to GCC.
 	std::string full_path; // The full combined path.
-	SourceLanguage detected_language = SourceLanguage::UNKNOWN;
 };
 
 class SymbolTableReader {

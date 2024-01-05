@@ -3,12 +3,12 @@
 
 #pragma once
 
+#include "importer_flags.h"
 #include "mdebug_section.h"
 #include "mdebug_symbols.h"
 #include "stabs.h"
 #include "stabs_to_ast.h"
 #include "symbol_database.h"
-#include "symbol_table.h"
 
 namespace ccc::mdebug {
 	
@@ -68,8 +68,6 @@ public:
 	Result<void> finish();
 	
 	Result<void> create_function(const char* mangled_name, Address address);
-	
-	std::optional<std::string> demangle_name(const char* name);
 	
 protected:
 	enum AnalysisState {

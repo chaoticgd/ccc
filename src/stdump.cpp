@@ -10,13 +10,8 @@ using namespace ccc;
 
 enum Flags {
 	NO_FLAGS = 0,
-	FLAG_PER_FILE = 1 << 0,
-	FLAG_OMIT_ACCESS_SPECIFIERS = 1 << 1,
-	FLAG_OMIT_MEMBER_FUNCTIONS = 1 << 2,
-	FLAG_INCLUDE_GENERATED_FUNCTIONS = 1 << 3,
-	FLAG_LOCAL_SYMBOLS = 1 << 4,
-	FLAG_EXTERNAL_SYMBOLS = 1 << 5,
-	FLAG_MANGLED = 1 << 6
+	FLAG_LOCAL_SYMBOLS = 1 << 0,
+	FLAG_EXTERNAL_SYMBOLS = 1 << 1,
 };
 
 struct Options {
@@ -24,8 +19,8 @@ struct Options {
 	fs::path input_file;
 	fs::path output_file;
 	u32 flags = NO_FLAGS;
-	std::optional<std::string> section;
-	std::optional<SymbolTableFormat> format;
+	u32 importer_flags = NO_IMPORTER_FLAGS;
+	std::vector<SymbolTableLocation> sections;
 };
 
 static void identify_symbol_tables(FILE* out, const Options& options);
@@ -40,10 +35,11 @@ static void print_labels(FILE* out, const Options& options);
 static void print_json(FILE* out, const Options& options);
 static void print_symbols(FILE* out, const Options& options);
 static void print_headers(FILE* out, const Options& options);
-static u32 command_line_flags_to_importer_flags(u32 flags);
 static void print_files(FILE* out, const Options& options);
 static void print_sections(FILE* out, const Options& options);
-static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options);
+static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const Options& options);
+static std::vector<std::unique_ptr<SymbolTable>> select_symbol_tables(
+	SymbolFile& symbol_file, const std::vector<SymbolTableLocation>& sections);
 static Options parse_command_line_arguments(int argc, char** argv);
 static void print_help(FILE* out);
 static const char* get_version();
@@ -51,7 +47,7 @@ static const char* get_version();
 struct StdumpCommand {
 	void (*function)(FILE* out, const Options& options);
 	const char* name;
-	std::initializer_list<const char*> help_text;
+	std::vector<const char*> help_text;
 };
 
 static const StdumpCommand commands[] = {
@@ -66,13 +62,7 @@ static const StdumpCommand commands[] = {
 		"Print all the global variables recovered from the symbol table as C++."
 	}},
 	{print_types, "types", {
-		"Print all the types recovered from the symbol table as C++.",
-		"",
-		"--per-file                    Do not deduplicate types from files.",
-		"--omit-access-specifiers      Do not print access specifiers.",
-		"--omit-member-functions       Do not print member functions.",
-		"--include-generated-functions Include member functions that are likely",
-		"                              auto-generated."
+		"Print all the types recovered from the symbol table as C++."
 	}},
 	{print_type_graph, "type_graph", {
 		"Print out a dependency graph of all the types in graphviz DOT format."
@@ -82,14 +72,13 @@ static const StdumpCommand commands[] = {
 		"include other symbols where their type is not recoverable."
 	}},
 	{print_json, "json", {
-		"Print all of the above as JSON.",
-		"",
-		"--per-file                    Do not deduplicate types from files."
+		"Print all of the above as JSON."
 	}},
 	{print_symbols, "symbols", {
 		"Print all of the symbols in a given symbol table.",
 		"",
 		"--locals                      Only print local .mdebug symbols.",
+		"",
 		"--externals                   Only print external .mdebug symbols."
 	}},
 	{print_headers, "headers", {
@@ -126,7 +115,7 @@ static void identify_symbol_tables(FILE* out, const Options& options)
 	if(fs::is_regular_file(options.input_file)) {
 		identify_symbol_tables_in_file(out, nullptr, nullptr, options.input_file);
 	} else if(fs::is_directory(options.input_file)) {
-		std::vector<u32> totals(SYMBOL_TABLE_FORMAT_COUNT, 0);
+		std::vector<u32> totals(SYMBOL_TABLE_FORMATS.size(), 0);
 		u32 unknown_total = 0;
 		
 		for(auto entry : fs::recursive_directory_iterator(options.input_file)) {
@@ -137,7 +126,7 @@ static void identify_symbol_tables(FILE* out, const Options& options)
 		
 		fprintf(out, "\n");
 		fprintf(out, "Totals:\n");
-		for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+		for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 			fprintf(out, "  %4d %s sections\n", totals[i], SYMBOL_TABLE_FORMATS[i].section_name);
 		}
 		fprintf(out, "  %4d unknown\n", unknown_total);
@@ -165,7 +154,7 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 			CCC_EXIT_IF_ERROR(elf);
 			
 			bool print_none = true;
-			for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+			for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 				if(elf->lookup_section(SYMBOL_TABLE_FORMATS[i].section_name)) {
 					fprintf(out, " %s", SYMBOL_TABLE_FORMATS[i].section_name);
 					if(totals) {
@@ -203,7 +192,7 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 
 static void print_functions(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	CppPrinterConfig config;
@@ -230,7 +219,7 @@ static void print_functions(FILE* out, const Options& options)
 
 static void print_globals(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	CppPrinterConfig config;
@@ -257,10 +246,10 @@ static void print_globals(FILE* out, const Options& options)
 
 static void print_types(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
-	if((options.flags & FLAG_PER_FILE) == 0) {
+	if((options.flags & DONT_DEDUPLICATE_TYPES) == 0) {
 		print_types_deduplicated(out, database, options);
 	} else {
 		print_types_per_file(out, database, options);
@@ -299,7 +288,7 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 
 static void print_type_graph(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	TypeDependencyAdjacencyList graph = build_type_dependency_graph(database);
@@ -308,7 +297,7 @@ static void print_type_graph(FILE* out, const Options& options)
 
 static void print_labels(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	for(const Label& label : database.labels) {
@@ -318,7 +307,7 @@ static void print_labels(FILE* out, const Options& options)
 
 static void print_json(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	rapidjson::StringBuffer buffer;
 	JsonWriter writer(buffer);
@@ -331,22 +320,22 @@ static void print_symbols(FILE* out, const Options& options)
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<SymbolFile> symbol_file = parse_symbol_file(*image);
+	Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(symbol_file);
 	
-	SymbolTableConfig config;
-	config.section = options.section;
-	config.format = options.format;
+	std::vector<std::unique_ptr<SymbolTable>> symbol_tables = select_symbol_tables(**symbol_file, options.sections);
 	
 	bool print_locals = options.flags & FLAG_LOCAL_SYMBOLS;
 	bool print_externals = options.flags & FLAG_EXTERNAL_SYMBOLS;
-	if(!print_locals && ! print_externals) {
+	if(!print_locals && !print_externals) {
 		print_locals = true;
 		print_externals = true;
 	}
 	
-	Result<void> print_result = print_symbols(out, *symbol_file, config, print_locals, print_externals);
-	CCC_EXIT_IF_ERROR(print_result);
+	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
+		Result<void> result = symbol_table->print_symbols(out, print_locals, print_externals);
+		CCC_EXIT_IF_ERROR(result);
+	}
 }
 
 static void print_headers(FILE* out, const Options& options)
@@ -354,30 +343,20 @@ static void print_headers(FILE* out, const Options& options)
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<SymbolFile> symbol_file = parse_symbol_file(*image);
+	Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(symbol_file);
 	
-	SymbolTableConfig config;
-	config.section = options.section;
-	config.format = options.format;
+	std::vector<std::unique_ptr<SymbolTable>> symbol_tables = select_symbol_tables(**symbol_file, options.sections);
 	
-	Result<void> print_result = print_headers(out, *symbol_file, config);
-	CCC_EXIT_IF_ERROR(print_result);
-}
-
-static u32 command_line_flags_to_importer_flags(u32 flags)
-{
-	u32 importer_flags = NO_IMPORTER_FLAGS;
-	if(flags & FLAG_PER_FILE) importer_flags |= DONT_DEDUPLICATE_TYPES;
-	if(flags & FLAG_OMIT_ACCESS_SPECIFIERS) importer_flags |= NO_ACCESS_SPECIFIERS;
-	if(flags & FLAG_OMIT_MEMBER_FUNCTIONS) importer_flags |= NO_MEMBER_FUNCTIONS;
-	if(!(flags & FLAG_INCLUDE_GENERATED_FUNCTIONS)) importer_flags |= NO_GENERATED_MEMBER_FUNCTIONS;
-	return importer_flags;
+	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
+		Result<void> result = symbol_table->print_headers(out);
+		CCC_EXIT_IF_ERROR(result);
+	}
 }
 
 static void print_files(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	for(const SourceFile& source_file : database.source_files) {
@@ -387,7 +366,7 @@ static void print_files(FILE* out, const Options& options)
 
 static void print_sections(FILE* out, const Options& options)
 {
-	SymbolFile symbol_file;
+	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	for(const Section& section : database.sections) {
@@ -408,36 +387,43 @@ static void print_sections(FILE* out, const Options& options)
 	}
 }
 
-static SymbolDatabase read_symbol_table(SymbolFile& symbol_file, const Options& options)
+static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const Options& options)
 {
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<SymbolFile> symbol_file_result = parse_symbol_file(std::move(*image));
+	Result<std::unique_ptr<SymbolFile>> symbol_file_result = parse_symbol_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(symbol_file_result);
 	symbol_file = std::move(*symbol_file_result);
 	
 	SymbolDatabase database;
 	
-	if(ElfFile* elf = std::get_if<ElfFile>(&symbol_file)) {
-		Result<SymbolSourceHandle> sections_source = import_elf_section_headers(database, *elf);
-		CCC_EXIT_IF_ERROR(sections_source);
-	}
+	std::vector<std::unique_ptr<SymbolTable>> symbol_tables = select_symbol_tables(*symbol_file, options.sections);
 	
-	SymbolTableConfig config;
-	config.section = options.section;
-	config.format = options.format;
-	config.importer_flags = command_line_flags_to_importer_flags(options.flags);
+	DemanglerFunctions demangler;
+	demangler.cplus_demangle = cplus_demangle;
+	demangler.cplus_demangle_opname = cplus_demangle_opname;
 	
-	if((options.flags & FLAG_MANGLED) == 0) {
-		config.demangler.cplus_demangle = cplus_demangle;
-		config.demangler.cplus_demangle_opname = cplus_demangle_opname;
-	}
-	
-	Result<SymbolSourceHandle> symbol_source = import_symbol_table(database, symbol_file, config);
-	CCC_EXIT_IF_ERROR(symbol_source);
+	Result<SymbolSourceRange> symbol_sources = import_symbol_tables(database, symbol_tables, options.importer_flags, demangler);
+	CCC_EXIT_IF_ERROR(symbol_sources);
 	
 	return database;
+}
+
+static std::vector<std::unique_ptr<SymbolTable>> select_symbol_tables(
+	SymbolFile& symbol_file, const std::vector<SymbolTableLocation>& sections)
+{
+	std::vector<std::unique_ptr<SymbolTable>> symbol_tables;
+	if(!sections.empty()) {
+		Result<std::vector<std::unique_ptr<SymbolTable>>> symbol_tables_result = symbol_file.get_symbol_tables_from_sections(sections);
+		CCC_EXIT_IF_ERROR(symbol_tables_result);
+		symbol_tables = std::move(*symbol_tables_result);
+	} else {
+		Result<std::vector<std::unique_ptr<SymbolTable>>> symbol_tables_result = symbol_file.get_all_symbol_tables();
+		CCC_EXIT_IF_ERROR(symbol_tables_result);
+		symbol_tables = std::move(*symbol_tables_result);
+	}
+	return symbol_tables;
 }
 
 static Options parse_command_line_arguments(int argc, char** argv)
@@ -460,20 +446,14 @@ static Options parse_command_line_arguments(int argc, char** argv)
 	bool input_path_provided = false;
 	for(s32 i = 2; i < argc; i++) {
 		const char* arg = argv[i];
-		if(strcmp(arg, "--per-file") == 0) {
-			options.flags |= FLAG_PER_FILE;
-		} else if(strcmp(arg, "--omit-access-specifiers") == 0) {
-			options.flags |= FLAG_OMIT_ACCESS_SPECIFIERS;
-		} else if(strcmp(arg, "--omit-member-functions") == 0) {
-			options.flags |= FLAG_OMIT_MEMBER_FUNCTIONS;
-		} else if(strcmp(arg, "--include-generated-functions") == 0) {
-			options.flags |= FLAG_INCLUDE_GENERATED_FUNCTIONS;
+		
+		u32 importer_flag = parse_importer_flag(arg);
+		if(importer_flag != NO_IMPORTER_FLAGS) {
+			options.importer_flags |= importer_flag;
 		} else if(strcmp(arg, "--locals") == 0) {
 			options.flags |= FLAG_LOCAL_SYMBOLS;
 		} else if(strcmp(arg, "--externals") == 0) {
 			options.flags |= FLAG_EXTERNAL_SYMBOLS;
-		} else if(strcmp(arg, "--mangled") == 0) {
-			options.flags |= FLAG_MANGLED;
 		} else if(strcmp(arg, "--output") == 0) {
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];
@@ -481,19 +461,14 @@ static Options parse_command_line_arguments(int argc, char** argv)
 				CCC_FATAL("No output path specified.");
 			}
 		} else if(strcmp(arg, "--section") == 0) {
-			if(i + 1 < argc) {
-				options.section = argv[++i];
+			if(i + 2 < argc) {
+				SymbolTableLocation& section = options.sections.emplace_back();
+				section.section_name = argv[++i];
+				section.format = symbol_table_format_from_name(argv[++i])->format;
+			} else if(i + 1 < argc) {
+				CCC_FATAL("Missing format after --section.");
 			} else {
-				CCC_FATAL("No section name specified.");
-			}
-		} else if(strcmp(arg, "--format") == 0) {
-			if(i + 1 < argc) {
-				std::string format = argv[++i];
-				const SymbolTableFormatInfo* info = symbol_table_format_from_name(format.c_str());
-				CCC_CHECK_FATAL(info, "Invalid symbol table format specified.");
-				options.format = info->format;
-			} else {
-				CCC_FATAL("No section name specified.");
+				CCC_FATAL("Missing section name after --section.");
 			}
 		} else if(strncmp(arg, "--", 2) == 0) {
 			CCC_FATAL("Unknown option '%s'.", arg);
@@ -531,21 +506,28 @@ static void print_help(FILE* out)
 	fprintf(out, "\n");
 	fprintf(out, "  --output <output file>        Write the output to the file specified instead\n");
 	fprintf(out, "                                of to the standard output.\n");
+	fprintf(out, "\n");
 	
 	s32 column;
-	
-	fprintf(out, "  --section <section name>      Choose which symbol table you want to read from.\n");
+	fprintf(out, "  --section <section> <format>  Explicitly specify a symbol table to load. This\n");
+	fprintf(out, "                                option can be used multiple times to specify\n");
+	fprintf(out, "                                multiple symbol tables to load. The symbol\n");
+	fprintf(out, "                                tables specified first, on the left side of the\n");
+	fprintf(out, "                                command line, will be given higher priority. If\n");
+	fprintf(out, "                                this option is not used, all recognized symbol\n");
+	fprintf(out, "                                tables will be loaded.\n");
+	fprintf(out, "\n");
 	const char* common_section_names_are = "Common section names are: ";
 	fprintf(out, "                                %s", common_section_names_are);
 	column = 32 + strlen(common_section_names_are);
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if(column + strlen(format.section_name) + 2 > 80) {
 			fprintf(out, "\n                                ");
 			column = 32;
 		}
 		fprintf(out, "%s", format.section_name);
-		if(i + 1 == SYMBOL_TABLE_FORMAT_COUNT) {
+		if(i + 1 == SYMBOL_TABLE_FORMATS.size()) {
 			fprintf(out, ".\n");
 		} else {
 			fprintf(out, ", ");
@@ -553,30 +535,35 @@ static void print_help(FILE* out)
 		column += strlen(format.section_name) + 2;
 	}
 	
-	fprintf(out, "  --format <format name>        Explicitly specify the symbol table format.\n");
-	const char* possible_options_are = "Possible options are: ";
+	const char* possible_options_are = "Possible formats are: ";
+	fprintf(out, "\n");
 	fprintf(out, "                                %s", possible_options_are);
 	column = 32 + strlen(possible_options_are);
-	for(u32 i = 0; i < SYMBOL_TABLE_FORMAT_COUNT; i++) {
+	for(u32 i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if(column + strlen(format.format_name) + 2 > 80) {
 			fprintf(out, "\n                                ");
 			column = 32;
 		}
 		fprintf(out, "%s", format.format_name);
-		if(i + 1 == SYMBOL_TABLE_FORMAT_COUNT) {
+		if(i + 1 == SYMBOL_TABLE_FORMATS.size()) {
 			fprintf(out, ".\n");
 		} else {
 			fprintf(out, ", ");
 		}
 		column += strlen(format.format_name) + 2;
 	}
-	fprintf(out, "  --mangled                     Don't demangle function names, global variable\n");
-	fprintf(out, "                                names, or overloaded operator names.\n");
+	fprintf(out, "\n");
+	fprintf(out, "Importer Options:\n");
+	print_importer_flags_help(out);
+	printf("\n");
+	printf("The demangler library used is licensed under the LGPL, the rest is MIT licensed.\n");
+	printf("See the License.txt and DemanglerLicense.txt files for more information.\n");
 }
 
 extern const char* git_tag;
 
-static const char* get_version() {
+static const char* get_version()
+{
 	return (git_tag && strlen(git_tag) > 0) ? git_tag : "development version";
 }

@@ -131,19 +131,9 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
 	
 	s32 raw_path_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + m_fudge_offset;
-	Result<const char*> command_line_path = get_string(m_elf, raw_path_offset);
-	CCC_RETURN_IF_ERROR(command_line_path);
-	file.command_line_path = *command_line_path;
-	
-	// Try to detect the source language.
-	std::string lower_name = file.command_line_path;
-	for(char& c : lower_name) c = tolower(c);
-	if(lower_name.ends_with(".c")) {
-		file.detected_language = SourceLanguage::C;
-	} else if(lower_name.ends_with(".cpp") || lower_name.ends_with(".cc") || lower_name.ends_with(".cxx")) {
-		file.detected_language = SourceLanguage::CPP;
-	} else if(lower_name.ends_with(".s") || lower_name.ends_with(".asm")) {
-		file.detected_language = SourceLanguage::ASSEMBLY;
+	const char* command_line_path = get_string(m_elf, raw_path_offset);
+	if(command_line_path) {
+		file.command_line_path = command_line_path;
 	}
 	
 	// Parse local symbols.
@@ -327,9 +317,9 @@ static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8>
 {
 	Symbol symbol;
 	
-	Result<const char*> string = get_string(elf, strings_offset + header.iss);
-	CCC_RETURN_IF_ERROR(string);
-	symbol.string = *string;
+	const char* string = get_string(elf, strings_offset + header.iss);
+	CCC_CHECK(string, "Symbol has invalid string.");
+	symbol.string = string;
 	
 	symbol.value = header.value;
 	symbol.symbol_type = (SymbolType) header.st;

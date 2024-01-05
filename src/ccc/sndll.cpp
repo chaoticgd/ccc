@@ -48,7 +48,6 @@ CCC_PACKED_STRUCT(SNDLLSymbolHeader,
 
 static Result<SNDLLFile> parse_sndll_common(
 	std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version);
-static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source);
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type);
 
 Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
@@ -82,7 +81,10 @@ static Result<SNDLLFile> parse_sndll_common(
 	sndll.version = version;
 	
 	if(common.elf_path) {
-		sndll.elf_path = get_string(image, common.elf_path);
+		const char* elf_path = get_string(image, common.elf_path);
+		if(elf_path) {
+			sndll.elf_path = elf_path;
+		}
 	}
 	
 	CCC_CHECK(common.symbol_count < (32 * 1024 * 1024) / sizeof(SNDLLSymbol), "SNDLL symbol count is too high.");
@@ -107,33 +109,26 @@ static Result<SNDLLFile> parse_sndll_common(
 	return sndll;
 }
 
-Result<SymbolSourceHandle> import_sndll_symbol_table(SymbolDatabase& database, const SNDLLFile& sndll)
-{
-	Result<SymbolSource*> source = database.symbol_sources.create_symbol("SNDLL Linker Symbols", SymbolSourceHandle());
-	CCC_RETURN_IF_ERROR(source);
-	
-	Result<void> result = import_sndll_symbols(database, sndll, (*source)->handle());
-	if(!result.success()) {
-		database.destroy_symbols_from_source((*source)->handle());
-		return result;
-	}
-	
-	return (*source)->handle();
-}
-
-static Result<void> import_sndll_symbols(SymbolDatabase& database, const SNDLLFile& sndll, SymbolSourceHandle source)
+Result<void> import_sndll_symbols(
+	SymbolDatabase& database,
+	const SNDLLFile& sndll,
+	SymbolSourceHandle source, 
+	u32 importer_flags,
+	DemanglerFunctions demangler)
 {
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
 		if(symbol.value != 0 && !symbol.string.empty()) {
 			switch(symbol.type) {
 				case SNDLLSymbolType::RELATIVE:
 				case SNDLLSymbolType::WEAK: {
-					Result<Label*> result = database.labels.create_symbol(symbol.string, source, sndll.address.get_or_zero() + symbol.value);
+					Result<Label*> result = database.labels.create_symbol(
+						symbol.string, source, sndll.address.get_or_zero() + symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(result);
 					break;
 				}
 				case SNDLLSymbolType::ABSOLUTE: {
-					Result<Label*> result = database.labels.create_symbol(symbol.string, source, symbol.value);
+					Result<Label*> result = database.labels.create_symbol(
+						symbol.string, source, symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(result);
 					break;
 				}

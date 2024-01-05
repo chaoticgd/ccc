@@ -9,12 +9,13 @@ static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHan
 static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
 
-Result<SymbolSourceHandle> import_symbol_table(
+Result<void> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
-	u32 importer_flags, const
-	DemanglerFunctions& demangler)
+	SymbolSourceHandle source,
+	u32 importer_flags,
+	const DemanglerFunctions& demangler)
 {
 	SymbolTableReader reader;
 	
@@ -23,9 +24,6 @@ Result<SymbolSourceHandle> import_symbol_table(
 	
 	Result<std::vector<mdebug::Symbol>> external_symbols = reader.parse_external_symbols();
 	CCC_RETURN_IF_ERROR(external_symbols);
-	
-	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(".mdebug", SymbolSourceHandle());
-	CCC_RETURN_IF_ERROR(symbol_source);
 	
 	// The addresses of the global variables aren't present in the local symbol
 	// table, so here we extract them from the external table.
@@ -41,17 +39,14 @@ Result<SymbolSourceHandle> import_symbol_table(
 	AnalysisContext context;
 	context.reader = &reader;
 	context.globals = &globals;
-	context.symbol_source = (*symbol_source)->handle();
+	context.symbol_source = (source);
 	context.importer_flags = importer_flags;
 	context.demangler = demangler;
 	
 	Result<void> result = import_files(database, context);
-	if(!result.success()) {
-		database.destroy_symbols_from_source((*symbol_source)->handle());
-		return result;
-	}
+	CCC_RETURN_IF_ERROR(result);
 	
-	return (*symbol_source)->handle();
+	return Result<void>();
 }
 
 Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context)
@@ -106,6 +101,11 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 
 Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, const AnalysisContext& context)
 {
+	// If this flag isn't set then the version of SymbolList<>::create_symbol
+	// that takes the importer_flags parameter may return nullptr. We don't care
+	// about this case for .mdebug sections so just make sure it never happens.
+	CCC_ASSERT(context.importer_flags & DONT_DEDUPLICATE_SYMBOLS);
+	
 	Result<SourceFile*> source_file = database.source_files.create_symbol(input.full_path, context.symbol_source);
 	CCC_RETURN_IF_ERROR(source_file);
 	

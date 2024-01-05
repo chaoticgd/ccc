@@ -36,7 +36,7 @@ Result<StabsSymbol> parse_stabs_symbol(const char*& input)
 		symbol.descriptor = StabsSymbolDescriptor::LOCAL_VARIABLE;
 	} else {
 		char symbol_descriptor = *(input++);
-		CCC_CHECK(symbol_descriptor != '\0', "Cannot parse symbol descriptor.");
+		CCC_CHECK(symbol_descriptor != '\0', "Failed to parse symbol descriptor.");
 		symbol.descriptor = (StabsSymbolDescriptor) symbol_descriptor;
 	}
 	CCC_CHECK(validate_symbol_descriptor(symbol.descriptor),
@@ -150,12 +150,12 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 		input++;
 		
 		std::optional<s32> file_index = parse_number_s32(input);
-		CCC_CHECK(file_index.has_value(), "Cannot parse type number (file index).");
+		CCC_CHECK(file_index.has_value(), "Failed to parse type number (file index).");
 		
 		CCC_EXPECT_CHAR(input, ',', "type number");
 		
 		std::optional<s32> type_index = parse_number_s32(input);
-		CCC_CHECK(type_index.has_value(), "Cannot parse type number (type index).");
+		CCC_CHECK(type_index.has_value(), "Failed to parse type number (type index).");
 		
 		CCC_EXPECT_CHAR(input, ')', "type number");
 		
@@ -171,7 +171,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 		// the more common case for games.
 		
 		std::optional<s32> type_index = parse_number_s32(input);
-		CCC_CHECK(type_index.has_value(), "Cannot parse type number.");
+		CCC_CHECK(type_index.has_value(), "Failed to parse type number.");
 		type_number.type = *type_index;
 		
 		if(*input != '=') {
@@ -187,7 +187,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 		descriptor = StabsTypeDescriptor::TYPE_REFERENCE;
 	} else {
 		char descriptor_char = *(input++);
-		CCC_CHECK(descriptor_char != '\0', "Cannot parse type descriptor.");
+		CCC_CHECK(descriptor_char != '\0', "Failed to parse type descriptor.");
 		descriptor = (StabsTypeDescriptor) descriptor_char;
 	}
 	
@@ -223,12 +223,12 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			STABS_DEBUG_PRINTF("enum {\n");
 			while(*input != ';') {
 				std::optional<std::string> name = parse_stabs_identifier(input, ':');
-				CCC_CHECK(name.has_value(), "Cannot parse enum field name.");
+				CCC_CHECK(name.has_value(), "Failed to parse enum field name.");
 				
 				CCC_EXPECT_CHAR(input, ':', "enum");
 				
 				std::optional<s32> value = parse_number_s32(input);
-				CCC_CHECK(value.has_value(), "Cannot parse enum value.");
+				CCC_CHECK(value.has_value(), "Failed to parse enum value.");
 				
 				enum_type->fields.emplace_back(*value, std::move(*name));
 				
@@ -280,11 +280,11 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			CCC_EXPECT_CHAR(input, ';', "range type descriptor");
 			
 			std::optional<std::string> low = parse_stabs_identifier(input, ';');
-			CCC_CHECK(low.has_value(), "Cannot parse low part of range.");
+			CCC_CHECK(low.has_value(), "Failed to parse low part of range.");
 			CCC_EXPECT_CHAR(input, ';', "low range value");
 			
 			std::optional<std::string> high = parse_stabs_identifier(input, ';');
-			CCC_CHECK(high.has_value(), "Cannot parse high part of range.");
+			CCC_CHECK(high.has_value(), "Failed to parse high part of range.");
 			CCC_EXPECT_CHAR(input, ';', "high range value");
 			
 			range->low = std::move(*low);
@@ -355,7 +355,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			STABS_DEBUG_PRINTF("union {\n");
 			
 			std::optional<s64> union_size = parse_number_s64(input);
-			CCC_CHECK(union_size.has_value(), "Cannot parse struct size.");
+			CCC_CHECK(union_size.has_value(), "Failed to parse struct size.");
 			union_type->size = *union_size;
 			
 			auto fields = parse_field_list(input);
@@ -375,7 +375,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			auto cross_reference = std::make_unique<StabsCrossReferenceType>(type_number);
 			
 			char cross_reference_type = *(input++);
-			CCC_CHECK(cross_reference_type != '\0', "Cannot parse cross reference type.");
+			CCC_CHECK(cross_reference_type != '\0', "Failed to parse cross reference type.");
 			
 			switch(cross_reference_type) {
 				case 'e': cross_reference->type = ast::ForwardDeclaredType::ENUM; break;
@@ -399,19 +399,19 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			auto fp_builtin = std::make_unique<StabsFloatingPointBuiltInType>(type_number);
 			
 			std::optional<s32> fpclass = parse_number_s32(input);
-			CCC_CHECK(fpclass.has_value(), "Cannot parse floating point built-in class.");
+			CCC_CHECK(fpclass.has_value(), "Failed to parse floating point built-in class.");
 			fp_builtin->fpclass = *fpclass;
 			
 			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
 			
 			std::optional<s32> bytes = parse_number_s32(input);
-			CCC_CHECK(bytes.has_value(), "Cannot parse floating point built-in.");
+			CCC_CHECK(bytes.has_value(), "Failed to parse floating point built-in.");
 			fp_builtin->bytes = *bytes;
 			
 			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
 			
 			std::optional<s32> value = parse_number_s32(input);
-			CCC_CHECK(value.has_value(), "Cannot parse floating point built-in.");
+			CCC_CHECK(value.has_value(), "Failed to parse floating point built-in.");
 			
 			CCC_EXPECT_CHAR(input, ';', "floating point builtin");
 			
@@ -499,7 +499,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 				input++;
 				
 				std::optional<s64> size_bits = parse_number_s64(input);
-				CCC_CHECK(size_bits.has_value(), "Cannot parse type attribute.")
+				CCC_CHECK(size_bits.has_value(), "Failed to parse type attribute.")
 				type_attribute->size_bits = *size_bits;
 				CCC_EXPECT_CHAR(input, ';', "type attribute");
 				
@@ -515,7 +515,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			auto built_in = std::make_unique<StabsBuiltInType>(type_number);
 			
 			std::optional<s64> type_id = parse_number_s64(input);
-			CCC_CHECK(type_id.has_value(), "Cannot parse built-in.");
+			CCC_CHECK(type_id.has_value(), "Failed to parse built-in.");
 			built_in->type_id = *type_id;
 			
 			CCC_EXPECT_CHAR(input, ';', "builtin");
@@ -578,11 +578,11 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 		field.type = std::move(*type);
 		
 		if(field.name.size() >= 1 && field.name[0] == '$') {
-			// Virtual table pointers that don't specify a size.
+			// Virtual function table pointers and virtual base class pointers.
 			CCC_EXPECT_CHAR(input, ',', "field type");
 			
 			std::optional<s32> offset_bits = parse_number_s32(input);
-			CCC_CHECK(offset_bits.has_value(), "Cannot parse field offset.");
+			CCC_CHECK(offset_bits.has_value(), "Failed to parse field offset.");
 			field.offset_bits = *offset_bits;
 			
 			CCC_EXPECT_CHAR(input, ';', "field offset");
@@ -592,7 +592,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			field.is_static = true;
 			
 			std::optional<std::string> type_name = parse_stabs_identifier(input, ';');
-			CCC_CHECK(type_name.has_value(), "Cannot parse static field type name.");
+			CCC_CHECK(type_name.has_value(), "Failed to parse static field type name.");
 
 			field.type_name = std::move(*type_name);
 			
@@ -602,13 +602,13 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			input++;
 			
 			std::optional<s32> offset_bits = parse_number_s32(input);
-			CCC_CHECK(offset_bits.has_value(), "Cannot parse field offset.");
+			CCC_CHECK(offset_bits.has_value(), "Failed to parse field offset.");
 			field.offset_bits = *offset_bits;
 			
 			CCC_EXPECT_CHAR(input, ',', "field offset");
 			
 			std::optional<s32> size_bits = parse_number_s32(input);
-			CCC_CHECK(size_bits.has_value(), "Cannot parse field size.");
+			CCC_CHECK(size_bits.has_value(), "Failed to parse field size.");
 			field.size_bits = *size_bits;
 			
 			CCC_EXPECT_CHAR(input, ';', "field size");
@@ -642,7 +642,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 		StabsStructOrUnionType::MemberFunctionSet member_function_set;
 		
 		std::optional<std::string> name = parse_stabs_identifier(input, ':');
-		CCC_CHECK(name.has_value(), "Cannot parse member function name.");
+		CCC_CHECK(name.has_value(), "Failed to parse member function name.");
 		member_function_set.name = std::move(*name);
 		
 		CCC_EXPECT_CHAR(input, ':', "member function");
@@ -670,7 +670,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			function.visibility = *visibility;
 			
 			char modifiers = *(input++);
-			CCC_CHECK(modifiers != '\0', "Cannot parse member function modifiers.");
+			CCC_CHECK(modifiers != '\0', "Failed to parse member function modifiers.");
 			switch(modifiers) {
 				case 'A':
 					function.is_const = false;
@@ -696,7 +696,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			}
 			
 			char flag = *(input++);
-			CCC_CHECK(flag != '\0', "Cannot parse member function type.");
+			CCC_CHECK(flag != '\0', "Failed to parse member function type.");
 			switch(flag) {
 				case '.': { // normal member function
 					function.modifier = ast::MemberFunctionModifier::NONE;
@@ -708,7 +708,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 				}
 				case '*': { // virtual member function
 					std::optional<s32> vtable_index = parse_number_s32(input);
-					CCC_CHECK(vtable_index.has_value(), "Cannot parse vtable index.");
+					CCC_CHECK(vtable_index.has_value(), "Failed to parse vtable index.");
 					function.vtable_index = *vtable_index;
 					
 					CCC_EXPECT_CHAR(input, ';', "virtual member function");
@@ -805,7 +805,7 @@ Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char termin
 		}
 		
 		// Keep track of the template depth so we know when to expect the
-		// terminating colon.
+		// terminator character.
 		if(*input == '<') {
 			template_depth++;
 		}

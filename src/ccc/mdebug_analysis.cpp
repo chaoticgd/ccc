@@ -24,11 +24,18 @@ Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address tex
 
 Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 {
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(*symbol.name_colon_type.type.get(), nullptr, m_stabs_to_ast_state, 0, false, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(
+		*symbol.name_colon_type.type.get(), nullptr, m_stabs_to_ast_state, 0, false, false);
 	CCC_RETURN_IF_ERROR(node);
 	
+	bool is_struct = (*node)->descriptor == ast::STRUCT_OR_UNION && (*node)->as<ast::StructOrUnion>().is_struct;
+	bool force_typedef =
+		((m_context.importer_flags & TYPEDEF_ALL_ENUMS) && (*node)->descriptor == ast::ENUM) ||
+		((m_context.importer_flags & TYPEDEF_ALL_STRUCTS) && (*node)->descriptor == ast::STRUCT_OR_UNION && is_struct) ||
+		((m_context.importer_flags & TYPEDEF_ALL_UNIONS) && (*node)->descriptor == ast::STRUCT_OR_UNION && !is_struct);
+	
 	(*node)->name = (symbol.name_colon_type.name == " ") ? "" : symbol.name_colon_type.name;
-	if(symbol.is_typedef) {
+	if(symbol.is_typedef || force_typedef) {
 		(*node)->storage_class = STORAGE_CLASS_TYPEDEF;
 	}
 	
@@ -37,12 +44,15 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	
 	if(m_context.importer_flags & DONT_DEDUPLICATE_TYPES) {
 		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
+		CCC_RETURN_IF_ERROR(data_type);
+		
 		m_source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 		(*data_type)->set_type(std::move(*node));
 		
 		(*data_type)->files = {m_source_file.handle()};
 	} else {
-		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(std::move(*node), number, name, m_source_file, m_context.symbol_source);
+		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(
+			std::move(*node), number, name, m_source_file, m_context.symbol_source);
 		CCC_RETURN_IF_ERROR(type);
 	}
 	
@@ -52,20 +62,10 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 Result<void> LocalSymbolTableAnalyser::global_variable(
 	const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location)
 {
-	std::optional<std::string> demangled_name = demangle_name(mangled_name);
-	std::string name;
-	if(demangled_name.has_value()) {
-		name = std::move(*demangled_name);
-	} else {
-		name = std::move(mangled_name);
-	}
-	
-	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(name, m_context.symbol_source, address);
+	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(
+		mangled_name, m_context.symbol_source, address, m_context.importer_flags, m_context.demangler);
 	CCC_RETURN_IF_ERROR(global);
-	
-	if(demangled_name.has_value()) {
-		(*global)->set_mangled_name(mangled_name);
-	}
+	CCC_ASSERT(*global);
 	
 	m_global_variables.expand_to_include((*global)->handle());
 	
@@ -284,21 +284,11 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	std::optional<std::string> demangled_name = demangle_name(mangled_name);
-	std::string name;
-	if(demangled_name.has_value()) {
-		name = std::move(*demangled_name);
-	} else {
-		name = std::move(mangled_name);
-	}
-	
-	Result<Function*> function = m_database.functions.create_symbol(std::move(name), m_context.symbol_source, address);
+	Result<Function*> function = m_database.functions.create_symbol(
+		mangled_name, m_context.symbol_source, address, m_context.importer_flags, m_context.demangler);
 	CCC_RETURN_IF_ERROR(function);
+	CCC_ASSERT(*function);
 	m_current_function = *function;
-	
-	if(demangled_name.has_value()) {
-		m_current_function->set_mangled_name(std::move(mangled_name));
-	}
 	
 	m_functions.expand_to_include(m_current_function->handle());
 	
@@ -309,19 +299,6 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	}
 	
 	return Result<void>();
-}
-
-std::optional<std::string> LocalSymbolTableAnalyser::demangle_name(const char* mangled_name)
-{
-	if(m_context.demangler.cplus_demangle) {
-		const char* demangled_name = m_context.demangler.cplus_demangle(mangled_name, 0);
-		if(demangled_name) {
-			std::string name = demangled_name;
-			free((void*) demangled_name);
-			return name;
-		}
-	}
-	return std::nullopt;
 }
 
 std::optional<GlobalStorageLocation> symbol_class_to_global_variable_location(SymbolClass symbol_class)

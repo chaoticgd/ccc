@@ -11,10 +11,11 @@ namespace ccc::mdebug {
 
 // Perform all the main analysis passes on the mdebug symbol table and convert
 // it to a set of C++ ASTs.
-Result<SymbolSourceHandle> import_symbol_table(
+Result<void> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
+	SymbolSourceHandle source,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler);
 Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context);

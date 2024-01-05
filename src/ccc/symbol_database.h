@@ -110,7 +110,8 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 enum SymbolFlags {
 	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
-	WITH_NAME_MAP = 1 << 1
+	WITH_NAME_MAP = 1 << 1,
+	NAME_NEEDS_DEMANGLING = 1 << 2
 };
 
 template <typename SymbolType>
@@ -173,6 +174,17 @@ public:
 	// Retrieve the number of symbols stored.
 	s32 size() const;
 	
+	// Create a new symbol if it doesn't already exist or
+	// DONT_DEDUPLICATE_SYMBOLS is set. If it's a SymbolSource symbol, source
+	// can be left empty, otherwise it has to be valid. The return value may
+	// be a null pointer unless DONT_DEDUPLICATE_SYMBOLS is set.
+	Result<SymbolType*> create_symbol(
+		std::string name,
+		SymbolSourceHandle source,
+		Address address,
+		u32 importer_flags,
+		DemanglerFunctions demangler);
+	
 	// Create a new symbol. If it's a SymbolSource symbol, source can be left
 	// empty, otherwise it has to be valid.
 	Result<SymbolType*> create_symbol(std::string name, SymbolSourceHandle source, Address address = Address());
@@ -189,9 +201,10 @@ public:
 	// Destroy all the symbols in a given range.
 	u32 destroy_symbols(SymbolRange<SymbolType> range);
 	
-	// Destroy all the symbols from a given symbol source. For example, you can
-	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_source(SymbolSourceHandle source);
+	// Destroy all the symbols with symbol source handles within a given range.
+	// For example, you can use this to free a symbol table without destroying
+	// user-defined symbols.
+	void destroy_symbols_from_sources(SymbolSourceRange sources);
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
 	// worry about dangling handles.
@@ -332,7 +345,7 @@ class Function : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
 	static constexpr const char* NAME = "Function";
-	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
+	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
 	
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
@@ -376,7 +389,7 @@ class GlobalVariable : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
 	static constexpr const char* NAME = "Global Variable";
-	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
 	
 	GlobalVariableHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; };
@@ -506,7 +519,7 @@ public:
 	
 	// Destroy all the symbols from a given symbol source. For example, you can
 	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_source(SymbolSourceHandle source);
+	void destroy_symbols_from_sources(SymbolSourceRange sources);
 	
 	// Deduplicate matching data types with the same name. May replace the
 	// existing data type with the new one if the new one is better.

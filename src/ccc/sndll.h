@@ -37,7 +37,13 @@ struct SNDLLFile {
 // addresses, otherwise they will be treated as file offsets.
 Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address = Address());
 
-Result<SymbolSourceHandle> import_sndll_symbol_table(SymbolDatabase& database, const SNDLLFile& sndll);
+Result<void> import_sndll_symbols(
+	SymbolDatabase& database,
+	const SNDLLFile& sndll,
+	SymbolSourceHandle source,
+	u32 importer_flags,
+	DemanglerFunctions demangler);
+
 void print_sndll_symbols(FILE* out, const SNDLLFile& sndll);
 
 }

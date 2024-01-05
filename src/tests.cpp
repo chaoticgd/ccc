@@ -1,6 +1,7 @@
 // This file is part of the Chaos Compiler Collection.
 // SPDX-License-Identifier: MIT
 
+#include <cstdio>
 #include <gtest/gtest.h>
 
 #include "ccc/ccc.h"
@@ -27,6 +28,12 @@ int main(int argc, char** argv)
 	return main_test(std::string(argv[1]));
 }
 
+#ifdef _WIN32
+	const char* compressor = "NUL";
+#else
+	const char* compressor = "/dev/null";
+#endif
+
 static int main_test(const fs::path& input_directory)
 {
 	CCC_CHECK_FATAL(fs::is_directory(input_directory), "Input path is not a directory.");
@@ -39,17 +46,40 @@ static int main_test(const fs::path& input_directory)
 			Result<std::vector<u8>> image = platform::read_binary_file(entry.path());
 			CCC_EXIT_IF_ERROR(image);
 			
-			Result<SymbolFile> symbol_file = parse_symbol_file(*image);
+			Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(*image);
 			if(symbol_file.success()) {
 				SymbolDatabase database;
 				
-				SymbolTableConfig importer_config;
-				importer_config.importer_flags = STRICT_PARSING;
-				importer_config.demangler.cplus_demangle = cplus_demangle;
-				importer_config.demangler.cplus_demangle_opname = cplus_demangle_opname;
+				Result<std::vector<std::unique_ptr<SymbolTable>>> symbol_tables = (*symbol_file)->get_all_symbol_tables();
+				CCC_EXIT_IF_ERROR(symbol_tables);
 				
-				Result<SymbolSourceHandle> handle = import_symbol_table(database, *symbol_file, importer_config);
+				DemanglerFunctions demangler;
+				demangler.cplus_demangle = cplus_demangle;
+				demangler.cplus_demangle_opname = cplus_demangle_opname;
+				
+				// Test the importers.
+				Result<SymbolSourceRange> handle = import_symbol_tables(database, *symbol_tables, STRICT_PARSING, demangler);
 				CCC_EXIT_IF_ERROR(handle);
+				
+				// Test the C++ printing code.
+				FILE* black_hole = fopen(compressor, "w");
+				CppPrinterConfig printer_config;
+				CppPrinter printer(black_hole, printer_config);
+				for(const DataType& data_type : database.data_types) {
+					printer.data_type(data_type, database);
+				}
+				for(const Function& function : database.functions) {
+					printer.function(function, database, nullptr);
+				}
+				for(const GlobalVariable& global_variable : database.global_variables) {
+					printer.global_variable(global_variable, database, nullptr);
+				}
+				fclose(black_hole);
+				
+				// Test the JSON writing code.
+				rapidjson::StringBuffer buffer;
+				JsonWriter writer(buffer);
+				write_json(writer, database);
 			} else {
 				printf("%s", symbol_file.error().message.c_str());
 			}

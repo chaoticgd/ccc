@@ -3,7 +3,7 @@
 
 #include "mdebug_symbols.h"
 
-#include "symbol_table.h"
+#include "importer_flags.h"
 
 namespace ccc::mdebug {
 

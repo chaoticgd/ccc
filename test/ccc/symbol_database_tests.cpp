@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 #include "ccc/ast.h"
+#include "ccc/importer_flags.h"
 #include "ccc/symbol_database.h"
 
 using namespace ccc;
@@ -180,6 +181,30 @@ TEST(CCCSymbolDatabase, SymbolFromContainedAddress)
 	
 }
 
+TEST(CCCSymbolDatabase, CreateSymbol)
+{
+	SymbolDatabase database;
+	
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	Result<Function*> a = database.functions.create_symbol("func_x", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	CCC_GTEST_FAIL_IF_ERROR(a);
+	EXPECT_TRUE(*a);
+	
+	// Make sure that we can create multiple symbols with a different name at
+	// the same address.
+	Result<Function*> b = database.functions.create_symbol("func_y", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	CCC_GTEST_FAIL_IF_ERROR(b);
+	EXPECT_TRUE(*b);
+	
+	// Make sure that if the symbol has the same name and the same address that
+	// it will be deduplicated (and that the existing symbol will be used).
+	Result<Function*> c = database.functions.create_symbol("func_y", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	CCC_GTEST_FAIL_IF_ERROR(c);
+	EXPECT_FALSE(*c);
+}
+
 TEST(CCCSymbolDatabase, MoveSymbol)
 {
 	SymbolDatabase database;
@@ -273,7 +298,7 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
 	}
 	
 	// Simulate freeing a symbol table while retaining user-defined symbols.
-	database.destroy_symbols_from_source(symbol_table_handle);
+	database.destroy_symbols_from_sources(symbol_table_handle);
 	
 	s32 user_symbols_remaining = 0;
 	for(const DataType& data_type : database.data_types) {

@@ -56,6 +56,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	src/ccc/dependency.cpp: Tries to infer information about which types belong to which files.
 	src/ccc/elf.cpp: Parses ELF files.
 	src/ccc/elf_symtab.cpp: Parses the ELF symbol table.
+	src/ccc/importer_flags.cpp: An enum and help information printing for importer configuration flags.
 	src/ccc/mdebug_analysis.cpp: Accepts a stream of symbols and imports the data.
 	src/ccc/mdebug_importer.cpp: Top-level file for parsing .mdebug symbol tables.
 	src/ccc/mdebug_section.cpp: Parses the .mdebug binary format.

@@ -4,6 +4,7 @@
 #include "symbol_database.h"
 
 #include "ast.h"
+#include "importer_flags.h"
 
 namespace ccc {
 
@@ -186,6 +187,53 @@ s32 SymbolList<SymbolType>::size() const
 }
 
 template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
+	std::string name, SymbolSourceHandle source, Address address, u32 importer_flags, DemanglerFunctions demangler)
+{
+	static const int DMGL_PARAMS = 1 << 0;
+	static const int DMGL_RET_POSTFIX = 1 << 5;
+	
+	std::string demangled_name;
+	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+		if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
+			int demangler_flags = 0;
+			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
+			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
+			const char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
+			if(demangled_name_ptr) {
+				demangled_name = demangled_name_ptr;
+				free((void*) demangled_name_ptr);
+			}
+		}
+	}
+	
+	std::string& non_mangled_name = demangled_name.empty() ? name : demangled_name;
+	
+	// Since we parse all the symbol tables in a file, we're gonna encounter
+	// duplicate symbols for functions and global variables. This logic filters
+	// out said symbols.
+	if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && address.valid()) {
+		for(const auto& [existing_address, existing_handle] : handles_from_starting_address(address)) {
+			SymbolType* existing_symbol = symbol_from_handle(existing_handle);
+			if(existing_symbol && existing_symbol->name() == non_mangled_name) {
+				return nullptr;
+			}
+		}
+	}
+	
+	Result<SymbolType*> symbol = create_symbol(non_mangled_name, source, address);
+	CCC_RETURN_IF_ERROR(symbol);
+	
+	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+		if(!demangled_name.empty()) {
+			(*symbol)->set_mangled_name(name);
+		}
+	}
+	
+	return symbol;
+}
+
+template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address)
 {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::NAME);
@@ -274,13 +322,13 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range)
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle source)
+void SymbolList<SymbolType>::destroy_symbols_from_sources(SymbolSourceRange sources)
 {
 	for(size_t i = 0; i < m_symbols.size(); i++) {
-		if(m_symbols[i].m_source == source) {
+		if(m_symbols[i].m_source >= sources.first && m_symbols[i].m_source <= sources.last) {
 			size_t end;
 			for(end = i + 1; end < m_symbols.size(); end++) {
-				if(m_symbols[end].m_source != source) {
+				if(m_symbols[i].m_source >= sources.first && m_symbols[i].m_source <= sources.last) {
 					break;
 				}
 			}
@@ -339,7 +387,9 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
-		m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
+		if(symbol.m_address.valid()) {
+			m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
+		}
 	}
 }
 
@@ -347,11 +397,13 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
-		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
-			if(iterator->second == symbol.m_handle) {
-				m_address_to_handle.erase(iterator);
-				break;
+		if(symbol.m_address.valid()) {
+			auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
+			for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
+				if(iterator->second == symbol.m_handle) {
+					m_address_to_handle.erase(iterator);
+					break;
+				}
 			}
 		}
 	}
@@ -514,9 +566,9 @@ void SymbolDatabase::clear()
 	#undef CCC_X
 }
 
-void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source)
+void SymbolDatabase::destroy_symbols_from_sources(SymbolSourceRange sources)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_sources(sources);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }
