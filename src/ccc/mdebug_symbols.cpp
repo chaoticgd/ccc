@@ -54,8 +54,11 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 								parsed.raw = &symbol;
 								parsed.name_colon_type = std::move(*parse_result);
 							} else if(parse_result.error().message == STAB_TRUNCATED_ERROR_MESSAGE) {
-								// Symbol truncated, probably due to a GCC bug.
+								// Symbol truncated due to a GCC bug. Report a
+								// warning and try to tolerate further faults
+								// caused as a result of this.
 								CCC_WARN("%s Symbol string: %s", STAB_TRUNCATED_ERROR_MESSAGE, string);
+								importer_flags &= ~STRICT_PARSING;
 							} else {
 								return parse_result;
 							}
