@@ -8,6 +8,12 @@
 
 using namespace ccc;
 
+struct Options {
+	fs::path elf_path;
+	fs::path output_path;
+	u32 importer_flags = NO_IMPORTER_FLAGS;
+};
+
 struct FunctionsFile {
 	std::string contents;
 	std::map<u32, std::span<char>> functions;
@@ -33,21 +39,19 @@ static void write_h_file(
 	const std::vector<SourceFileHandle>& files);
 static bool needs_lost_and_found_file(const SymbolDatabase& database);
 static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database);
+static Options parse_command_line_arguments(int argc, char** argv);
 static void print_help(int argc, char** argv);
 
 int main(int argc, char** argv)
 {
-	if(argc != 3) {
-		print_help(argc, argv);
+	Options options = parse_command_line_arguments(argc, argv);
+	if(options.elf_path.empty()) {
 		return 1;
 	}
 	
-	fs::path elf_path = std::string(argv[1]);
-	fs::path output_path = std::string(argv[2]);
-	
-	CCC_CHECK_FATAL(fs::is_directory(output_path), "Output path needs to be a directory!");
-	fs::path sources_file_path = output_path/"SOURCES.txt";
-	fs::path functions_file_path = output_path/"FUNCTIONS.txt";
+	CCC_CHECK_FATAL(fs::is_directory(options.output_path), "Output path needs to be a directory!");
+	fs::path sources_file_path = options.output_path/"SOURCES.txt";
+	fs::path functions_file_path = options.output_path/"FUNCTIONS.txt";
 	
 	std::vector<std::string> source_paths = parse_sources_file(sources_file_path);
 	FunctionsFile functions_file;
@@ -55,7 +59,7 @@ int main(int argc, char** argv)
 		functions_file = parse_functions_file(functions_file_path);
 	}
 	
-	Result<std::vector<u8>> image = platform::read_binary_file(elf_path);
+	Result<std::vector<u8>> image = platform::read_binary_file(options.elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
 	Result<ElfFile> elf_result = parse_elf_file(std::move(*image));
@@ -72,7 +76,7 @@ int main(int argc, char** argv)
 	CCC_EXIT_IF_ERROR(symbol_tables);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceRange> symbol_source = import_symbol_tables(database, *symbol_tables, NO_IMPORTER_FLAGS, demangler);
+	Result<SymbolSourceRange> symbol_source = import_symbol_tables(database, *symbol_tables, options.importer_flags, demangler);
 	CCC_EXIT_IF_ERROR(symbol_source);
 	
 	map_types_to_files_based_on_this_pointers(database);
@@ -102,8 +106,8 @@ int main(int argc, char** argv)
 		fs::path relative_header_path = relative_path;
 		relative_header_path.replace_extension(".h");
 		
-		fs::path path = output_path/fs::path(relative_path);
-		fs::path header_path = output_path/relative_header_path;
+		fs::path path = options.output_path/fs::path(relative_path);
+		fs::path header_path = options.output_path/relative_header_path;
 		
 		fs::create_directories(path.parent_path());
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
@@ -127,7 +131,7 @@ int main(int argc, char** argv)
 	// Write out a lost+found file for types that can't be mapped to a specific
 	// source file if we need it.
 	if(needs_lost_and_found_file(database)) {
-		write_lost_and_found_file(output_path/"lost+found.h", database);
+		write_lost_and_found_file(options.output_path/"lost+found.h", database);
 	}
 }
 
@@ -386,6 +390,32 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 	fclose(out);
 }
 
+static Options parse_command_line_arguments(int argc, char** argv)
+{
+	Options options;
+	s32 positional = 0;
+	for(s32 i = 1; i < argc; i++) {
+		u32 importer_flag = parse_importer_flag(argv[i]);
+		if(importer_flag != NO_IMPORTER_FLAGS) {
+			options.importer_flags |= importer_flag;
+		} else if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+			print_help(argc, argv);
+			return Options();
+		} else if(positional == 0) {
+			options.elf_path = argv[i];
+			positional++;
+		} else if(positional == 1) {
+			options.output_path = argv[i];
+			positional++;
+		} else {
+			CCC_FATAL("Too many arguments.");
+		}
+	}
+	CCC_CHECK_FATAL(!options.elf_path.empty(), "No ELF path specified.");
+	CCC_CHECK_FATAL(!options.output_path.empty(), "No output path specified.");
+	return options;
+}
+
 extern const char* git_tag;
 
 static void print_help(int argc, char** argv)
@@ -393,7 +423,10 @@ static void print_help(int argc, char** argv)
 	printf("uncc %s -- https://github.com/chaoticgd/ccc\n",
 		(strlen(git_tag) > 0) ? git_tag : "development version");
 	printf("\n");
-	printf("usage: %s <input elf> <output directory>\n", (argc > 0) ? argv[0] : "uncc");
+	printf("usage: %s [options] <input elf> <output directory>\n", (argc > 0) ? argv[0] : "uncc");
+	printf( "\n");
+	printf("Importer Options:\n");
+	print_importer_flags_help(stdout);
 	printf("\n");
 	printf("The demangler library used is licensed under the LGPL, the rest is MIT licensed.\n");
 	printf("See the License.txt and DemanglerLicense.txt files for more information.\n");

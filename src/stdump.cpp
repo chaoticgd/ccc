@@ -556,6 +556,9 @@ static void print_help(FILE* out)
 	fprintf(out, "\n");
 	fprintf(out, "Importer Options:\n");
 	print_importer_flags_help(out);
+	printf("\n");
+	printf("The demangler library used is licensed under the LGPL, the rest is MIT licensed.\n");
+	printf("See the License.txt and DemanglerLicense.txt files for more information.\n");
 }
 
 extern const char* git_tag;
