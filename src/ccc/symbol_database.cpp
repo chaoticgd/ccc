@@ -387,7 +387,9 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
-		m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
+		if(symbol.m_address.valid()) {
+			m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
+		}
 	}
 }
 
@@ -395,11 +397,13 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
-		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
-			if(iterator->second == symbol.m_handle) {
-				m_address_to_handle.erase(iterator);
-				break;
+		if(symbol.m_address.valid()) {
+			auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
+			for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
+				if(iterator->second == symbol.m_handle) {
+					m_address_to_handle.erase(iterator);
+					break;
+				}
 			}
 		}
 	}
