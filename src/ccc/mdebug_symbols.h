@@ -27,6 +27,6 @@ struct ParsedSymbol {
 	bool is_typedef = false;
 };
 
-Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32 importer_flags);
+Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& importer_flags);
 
 }

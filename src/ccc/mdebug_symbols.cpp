@@ -9,7 +9,7 @@ namespace ccc::mdebug {
 
 static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols);
 
-Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32 importer_flags)
+Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol>& input, u32& importer_flags)
 {
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
