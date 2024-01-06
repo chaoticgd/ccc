@@ -238,4 +238,33 @@ Result<void> SNDLLSymbolTable::print_symbols(FILE* out, bool print_locals, bool 
 	return Result<void>();
 }
 
+// *****************************************************************************
+
+ElfSectionHeadersSymbolTable::ElfSectionHeadersSymbolTable(const ElfFile& elf)
+	: m_elf(elf) {}
+
+std::string ElfSectionHeadersSymbolTable::name() const
+{
+	return "ELF Section Headers";
+}
+
+Result<void> ElfSectionHeadersSymbolTable::import_symbol_table(
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const u32 importer_flags,
+	DemanglerFunctions demangler) const
+{
+	return import_elf_section_headers(database, m_elf, source);
+}
+
+Result<void> ElfSectionHeadersSymbolTable::print_headers(FILE* out) const
+{
+	return Result<void>();
+}
+
+Result<void> ElfSectionHeadersSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+{
+	return Result<void>();
+}
+
 }

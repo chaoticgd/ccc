@@ -148,19 +148,17 @@ Result<ElfFile> parse_elf_file(std::vector<u8> image)
 	return elf;
 }
 
-Result<SymbolSourceHandle> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf)
+Result<void> import_elf_section_headers(
+	SymbolDatabase& database, const ElfFile& elf, SymbolSourceHandle source)
 {
-	Result<SymbolSource*> source = database.symbol_sources.create_symbol("ELF Headers", SymbolSourceHandle());
-	CCC_RETURN_IF_ERROR(source);
-	
 	for(const ElfSection& section : elf.sections) {
-		Result<Section*> symbol = database.sections.create_symbol(section.name, (*source)->handle(), section.address);
+		Result<Section*> symbol = database.sections.create_symbol(section.name, source, section.address);
 		CCC_RETURN_IF_ERROR(symbol);
 		
 		(*symbol)->set_size(section.size);
 	}
 	
-	return (*source)->handle();
+	return Result<void>();
 }
 
 Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves)

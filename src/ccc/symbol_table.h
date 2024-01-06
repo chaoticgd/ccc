@@ -128,4 +128,22 @@ protected:
 	std::string m_fallback_name;
 };
 
+class ElfSectionHeadersSymbolTable : public SymbolTable {
+public:
+	ElfSectionHeadersSymbolTable(const ElfFile& elf);
+	
+	std::string name() const override;
+	
+	Result<void> import_symbol_table(
+		SymbolDatabase& database,
+		SymbolSourceHandle source,
+		const u32 importer_flags,
+		DemanglerFunctions demangler) const override;
+	
+	Result<void> print_headers(FILE* out) const override;
+	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
+protected:
+	const ElfFile& m_elf;
+};
+
 }
