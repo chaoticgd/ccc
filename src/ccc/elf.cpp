@@ -126,7 +126,7 @@ Result<ElfFile> parse_elf_file(std::vector<u8> image)
 		section.type = section_header->type;
 		section.offset = section_header->offset;
 		section.size = section_header->size;
-		if(section.address != 0) {
+		if(section_header->addr != 0) {
 			section.address = section_header->addr;
 		}
 		section.link = section_header->link;
