@@ -34,14 +34,11 @@ public:
 	
 	virtual std::string name() const = 0;
 	
-	// The main high-level import function for the entire library. This parses a
-	// symbol table from the data parameter in the specified format and imports
-	// all the symbols into the passed database. The link_data parameter is for
-	// linked ELF sections, e.g. the .strtab that goes with a .symtab.
-	virtual Result<void> import_symbol_table(
+	// Imports this symbol table into the passed database.
+	virtual Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
-		const u32 importer_flags,
+		u32 importer_flags,
 		DemanglerFunctions demangler) const = 0;
 	
 	// Print out all the field in the header structure if one exists.
@@ -74,8 +71,11 @@ public:
 	
 	std::string name() const override;
 	
-	Result<void> import_symbol_table(
-		SymbolDatabase& database, SymbolSourceHandle source, const u32 importer_flags, DemanglerFunctions demangler) const override;
+	Result<void> import(
+		SymbolDatabase& database,
+		SymbolSourceHandle source,
+		u32 importer_flags,
+		DemanglerFunctions demangler) const override;
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
 	
@@ -91,10 +91,10 @@ public:
 	
 	std::string name() const override;
 	
-	Result<void> import_symbol_table(
+	Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
-		const u32 importer_flags,
+		u32 importer_flags,
 		DemanglerFunctions demangler) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
@@ -114,10 +114,10 @@ public:
 	
 	std::string name() const override;
 	
-	Result<void> import_symbol_table(
+	Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
-		const u32 importer_flags,
+		u32 importer_flags,
 		DemanglerFunctions demangler) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
@@ -126,6 +126,24 @@ public:
 protected:
 	std::shared_ptr<SNDLLFile> m_sndll;
 	std::string m_fallback_name;
+};
+
+class ElfSectionHeadersSymbolTable : public SymbolTable {
+public:
+	ElfSectionHeadersSymbolTable(const ElfFile& elf);
+	
+	std::string name() const override;
+	
+	Result<void> import(
+		SymbolDatabase& database,
+		SymbolSourceHandle source,
+		u32 importer_flags,
+		DemanglerFunctions demangler) const override;
+	
+	Result<void> print_headers(FILE* out) const override;
+	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
+protected:
+	const ElfFile& m_elf;
 };
 
 }

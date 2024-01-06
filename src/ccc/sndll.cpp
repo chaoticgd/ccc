@@ -112,7 +112,7 @@ static Result<SNDLLFile> parse_sndll_common(
 Result<void> import_sndll_symbols(
 	SymbolDatabase& database,
 	const SNDLLFile& sndll,
-	SymbolSourceHandle source, 
+	SymbolSourceHandle source,
 	u32 importer_flags,
 	DemanglerFunctions demangler)
 {

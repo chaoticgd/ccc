@@ -115,7 +115,7 @@ Result<SymbolSourceRange> import_symbol_tables(
 		SymbolSourceHandle source_handle = (*source)->handle();
 		symbol_sources.expand_to_include(source_handle);
 		
-		Result<void> result = symbol_table->import_symbol_table(database, source_handle, importer_flags, demangler);
+		Result<void> result = symbol_table->import(database, source_handle, importer_flags, demangler);
 		if(!result.success()) {
 			database.destroy_symbols_from_sources(symbol_sources);
 			return result;
@@ -135,10 +135,10 @@ std::string MdebugSymbolTable::name() const
 	return m_section_name;
 }
 
-Result<void> MdebugSymbolTable::import_symbol_table(
+Result<void> MdebugSymbolTable::import(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
-	const u32 importer_flags,
+	u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
 	return mdebug::import_symbol_table(
@@ -179,10 +179,10 @@ std::string SymtabSymbolTable::name() const
 	return m_section_name;
 }
 
-Result<void> SymtabSymbolTable::import_symbol_table(
+Result<void> SymtabSymbolTable::import(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
-	const u32 importer_flags,
+	u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
 	return elf::import_symbols(database, source, m_symtab, m_strtab, importer_flags, demangler);
@@ -217,10 +217,10 @@ std::string SNDLLSymbolTable::name() const
 	}
 }
 
-Result<void> SNDLLSymbolTable::import_symbol_table(
+Result<void> SNDLLSymbolTable::import(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
-	const u32 importer_flags,
+	u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
 	return import_sndll_symbols(database, *m_sndll, source, importer_flags, demangler);
@@ -235,6 +235,35 @@ Result<void> SNDLLSymbolTable::print_symbols(FILE* out, bool print_locals, bool 
 {
 	print_sndll_symbols(out, *m_sndll);
 	
+	return Result<void>();
+}
+
+// *****************************************************************************
+
+ElfSectionHeadersSymbolTable::ElfSectionHeadersSymbolTable(const ElfFile& elf)
+	: m_elf(elf) {}
+
+std::string ElfSectionHeadersSymbolTable::name() const
+{
+	return "ELF Section Headers";
+}
+
+Result<void> ElfSectionHeadersSymbolTable::import(
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	u32 importer_flags,
+	DemanglerFunctions demangler) const
+{
+	return import_elf_section_headers(database, m_elf, source);
+}
+
+Result<void> ElfSectionHeadersSymbolTable::print_headers(FILE* out) const
+{
+	return Result<void>();
+}
+
+Result<void> ElfSectionHeadersSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+{
 	return Result<void>();
 }
 
