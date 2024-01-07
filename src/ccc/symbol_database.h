@@ -357,7 +357,7 @@ public:
 	void set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
 	const std::string& mangled_name() const;
-	const void set_mangled_name(std::string mangled);
+	void set_mangled_name(std::string mangled);
 	
 	struct LineNumberPair {
 		Address address;
@@ -395,7 +395,7 @@ public:
 	SourceFileHandle source_file() const { return m_source_file; };
 	
 	const std::string& mangled_name() const;
-	const void set_mangled_name(std::string mangled);
+	void set_mangled_name(std::string mangled);
 	
 	GlobalStorage storage;
 	StorageClass storage_class;

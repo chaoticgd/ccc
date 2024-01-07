@@ -503,7 +503,7 @@ const std::string& Function::mangled_name() const
 	}
 }
 
-const void Function::set_mangled_name(std::string mangled)
+void Function::set_mangled_name(std::string mangled)
 {
 	m_mangled_name = std::move(mangled);
 }
@@ -517,7 +517,7 @@ const std::string& GlobalVariable::mangled_name() const
 	}
 }
 
-const void GlobalVariable::set_mangled_name(std::string mangled)
+void GlobalVariable::set_mangled_name(std::string mangled)
 {
 	m_mangled_name = std::move(mangled);
 }
