@@ -724,7 +724,7 @@ static MemberFunctionInfo check_member_function(
 		char* demangled_name = demangler.cplus_demangle_opname(mangled_name.c_str(), 0);
 		if(demangled_name) {
 			info.name = demangled_name;
-			free((void*) demangled_name);
+			free(reinterpret_cast<void*>(demangled_name));
 		}
 	}
 	if(info.name.empty()) {

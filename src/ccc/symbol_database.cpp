@@ -199,10 +199,10 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 			int demangler_flags = 0;
 			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
 			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
-			const char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
+			char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
 			if(demangled_name_ptr) {
 				demangled_name = demangled_name_ptr;
-				free((void*) demangled_name_ptr);
+				free(reinterpret_cast<void*>(demangled_name_ptr));
 			}
 		}
 	}
