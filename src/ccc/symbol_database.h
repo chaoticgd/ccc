@@ -357,7 +357,7 @@ public:
 	void set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
 	const std::string& mangled_name() const;
-	const void set_mangled_name(std::string mangled);
+	void set_mangled_name(std::string mangled);
 	
 	struct LineNumberPair {
 		Address address;
@@ -395,7 +395,7 @@ public:
 	SourceFileHandle source_file() const { return m_source_file; };
 	
 	const std::string& mangled_name() const;
-	const void set_mangled_name(std::string mangled);
+	void set_mangled_name(std::string mangled);
 	
 	GlobalStorage storage;
 	StorageClass storage_class;
@@ -511,6 +511,9 @@ public:
 	SymbolList<SourceFile> source_files;
 	SymbolList<SymbolSource> symbol_sources;
 	
+	// Sum up the symbol counts for each symbol list.
+	s32 symbol_count() const;
+	
 	// Check if a symbol has already been added to the database.
 	bool symbol_exists_with_starting_address(Address address) const;
 	
@@ -549,6 +552,7 @@ public:
 class NodeHandle {
 	friend SymbolDatabase;
 public:
+	NodeHandle();
 	template <typename SymbolType>
 	NodeHandle(SymbolType& symbol, const ast::Node* node);
 	
@@ -558,10 +562,10 @@ public:
 	const Symbol* lookup_symbol(SymbolDatabase& database) const;
 	
 protected:
-	SymbolDescriptor m_descriptor;
-	u32 m_symbol_handle;
-	const ast::Node* m_node;
-	u32 m_generation;
+	SymbolDescriptor m_descriptor = SymbolDescriptor::DATA_TYPE;
+	u32 m_symbol_handle = (u32) -1;
+	const ast::Node* m_node = nullptr;
+	u32 m_generation = 0;
 };
 
 }

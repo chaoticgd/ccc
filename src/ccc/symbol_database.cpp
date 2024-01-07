@@ -199,10 +199,10 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 			int demangler_flags = 0;
 			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
 			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
-			const char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
+			char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
 			if(demangled_name_ptr) {
 				demangled_name = demangled_name_ptr;
-				free((void*) demangled_name_ptr);
+				free(reinterpret_cast<void*>(demangled_name_ptr));
 			}
 		}
 	}
@@ -503,7 +503,7 @@ const std::string& Function::mangled_name() const
 	}
 }
 
-const void Function::set_mangled_name(std::string mangled)
+void Function::set_mangled_name(std::string mangled)
 {
 	m_mangled_name = std::move(mangled);
 }
@@ -517,7 +517,7 @@ const std::string& GlobalVariable::mangled_name() const
 	}
 }
 
-const void GlobalVariable::set_mangled_name(std::string mangled)
+void GlobalVariable::set_mangled_name(std::string mangled)
 {
 	m_mangled_name = std::move(mangled);
 }
@@ -547,6 +547,15 @@ void SourceFile::set_globals_variables(
 }
 
 // *****************************************************************************
+
+s32 SymbolDatabase::symbol_count() const
+{
+	s32 sum = 0;
+	#define CCC_X(SymbolType, symbol_list) sum += symbol_list.size();
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+	return sum;
+}
 
 bool SymbolDatabase::symbol_exists_with_starting_address(Address address) const
 {
@@ -672,6 +681,8 @@ bool SymbolDatabase::destroy_function(FunctionHandle handle)
 }
 
 // *****************************************************************************
+
+NodeHandle::NodeHandle() {}
 
 template <typename SymbolType>
 NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node)
