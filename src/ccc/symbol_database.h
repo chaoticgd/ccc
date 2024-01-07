@@ -511,6 +511,9 @@ public:
 	SymbolList<SourceFile> source_files;
 	SymbolList<SymbolSource> symbol_sources;
 	
+	// Sum up the symbol counts for each symbol list.
+	s32 symbol_count() const;
+	
 	// Check if a symbol has already been added to the database.
 	bool symbol_exists_with_starting_address(Address address) const;
 	

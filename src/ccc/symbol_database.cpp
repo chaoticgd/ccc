@@ -548,6 +548,15 @@ void SourceFile::set_globals_variables(
 
 // *****************************************************************************
 
+s32 SymbolDatabase::symbol_count() const
+{
+	s32 sum = 0;
+	#define CCC_X(SymbolType, symbol_list) sum += symbol_list.size();
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+	return sum;
+}
+
 bool SymbolDatabase::symbol_exists_with_starting_address(Address address) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
