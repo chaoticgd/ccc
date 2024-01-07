@@ -673,6 +673,8 @@ bool SymbolDatabase::destroy_function(FunctionHandle handle)
 
 // *****************************************************************************
 
+NodeHandle::NodeHandle() {}
+
 template <typename SymbolType>
 NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node)
 	: m_descriptor(SymbolType::DESCRIPTOR)

@@ -549,6 +549,7 @@ public:
 class NodeHandle {
 	friend SymbolDatabase;
 public:
+	NodeHandle();
 	template <typename SymbolType>
 	NodeHandle(SymbolType& symbol, const ast::Node* node);
 	
@@ -558,10 +559,10 @@ public:
 	const Symbol* lookup_symbol(SymbolDatabase& database) const;
 	
 protected:
-	SymbolDescriptor m_descriptor;
-	u32 m_symbol_handle;
-	const ast::Node* m_node;
-	u32 m_generation;
+	SymbolDescriptor m_descriptor = SymbolDescriptor::DATA_TYPE;
+	u32 m_symbol_handle = (u32) -1;
+	const ast::Node* m_node = nullptr;
+	u32 m_generation = 0;
 };
 
 }
