@@ -262,7 +262,7 @@ static void print_symbol(FILE* out, const Symbol& symbol) {
 	if(symbol_type_str) {
 		fprintf(out, "%-11s ", symbol_type_str);
 	} else {
-		fprintf(out, "ST(%7d) ", (u32) symbol.symbol_type);
+		fprintf(out, "ST(%7u) ", (u32) symbol.symbol_type);
 	}
 	const char* symbol_class_str = symbol_class(symbol.symbol_class);
 	if(symbol_class_str) {
@@ -270,12 +270,12 @@ static void print_symbol(FILE* out, const Symbol& symbol) {
 	} else if ((u32) symbol.symbol_class == 0) {
 		fprintf(out, "         ");
 	} else {
-		fprintf(out, "SC(%4d) ", (u32) symbol.symbol_class);
+		fprintf(out, "SC(%4u) ", (u32) symbol.symbol_class);
 	}
 	if(symbol.is_stabs()) {
 		fprintf(out, "%-8s ", stabs_code_to_string(symbol.code()));
 	} else {
-		fprintf(out, "SI(%4d) ", symbol.index);
+		fprintf(out, "SI(%4u) ", symbol.index);
 	}
 	fprintf(out, "%s\n", symbol.string);
 }
