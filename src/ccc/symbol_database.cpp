@@ -691,7 +691,7 @@ NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node)
 	, m_node(node)
 	, m_generation(symbol.generation()) {}
 
-const ast::Node* NodeHandle::lookup_node(SymbolDatabase& database) const {
+const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const {
 	const Symbol* symbol = lookup_symbol(database);
 	if(symbol && symbol->generation() == m_generation) {
 		return m_node;
@@ -700,7 +700,7 @@ const ast::Node* NodeHandle::lookup_node(SymbolDatabase& database) const {
 	}
 }
 
-const Symbol* NodeHandle::lookup_symbol(SymbolDatabase& database) const {
+const Symbol* NodeHandle::lookup_symbol(const SymbolDatabase& database) const {
 	switch(m_descriptor) {
 		#define CCC_X(SymbolType, symbol_list) \
 			case SymbolType::DESCRIPTOR: \
