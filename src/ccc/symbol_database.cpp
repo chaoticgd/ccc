@@ -685,7 +685,7 @@ bool SymbolDatabase::destroy_function(FunctionHandle handle)
 NodeHandle::NodeHandle() {}
 
 template <typename SymbolType>
-NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node)
+NodeHandle::NodeHandle(const SymbolType& symbol, const ast::Node* node)
 	: m_descriptor(SymbolType::DESCRIPTOR)
 	, m_symbol_handle(symbol.handle().value)
 	, m_node(node)
@@ -728,7 +728,7 @@ NodeHandle NodeHandle::handle_for_child(const ast::Node* child_node) const
 	return child_handle;
 }
 
-#define CCC_X(SymbolType, symbol_list) template NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node);
+#define CCC_X(SymbolType, symbol_list) template NodeHandle::NodeHandle(const SymbolType& symbol, const ast::Node* node);
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
