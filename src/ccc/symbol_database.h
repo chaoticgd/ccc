@@ -554,7 +554,7 @@ class NodeHandle {
 public:
 	NodeHandle();
 	template <typename SymbolType>
-	NodeHandle(SymbolType& symbol, const ast::Node* node);
+	NodeHandle(const SymbolType& symbol, const ast::Node* node);
 	
 	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
 	
