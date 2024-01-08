@@ -691,7 +691,13 @@ NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node)
 	, m_node(node)
 	, m_generation(symbol.generation()) {}
 
-const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const {
+bool NodeHandle::valid() const
+{
+	return m_symbol_handle != (u32) -1;
+}
+
+const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const
+{
 	const Symbol* symbol = lookup_symbol(database);
 	if(symbol && symbol->generation() == m_generation) {
 		return m_node;
@@ -700,7 +706,8 @@ const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const {
 	}
 }
 
-const Symbol* NodeHandle::lookup_symbol(const SymbolDatabase& database) const {
+const Symbol* NodeHandle::lookup_symbol(const SymbolDatabase& database) const
+{
 	switch(m_descriptor) {
 		#define CCC_X(SymbolType, symbol_list) \
 			case SymbolType::DESCRIPTOR: \
@@ -709,6 +716,16 @@ const Symbol* NodeHandle::lookup_symbol(const SymbolDatabase& database) const {
 		#undef CCC_X
 	}
 	return nullptr;
+}
+
+NodeHandle NodeHandle::handle_for_child(const ast::Node* child_node) const
+{
+	NodeHandle child_handle;
+	child_handle.m_descriptor = m_descriptor;
+	child_handle.m_symbol_handle = m_symbol_handle;
+	child_handle.m_node = child_node;
+	child_handle.m_generation = m_generation;
+	return child_handle;
 }
 
 #define CCC_X(SymbolType, symbol_list) template NodeHandle::NodeHandle(SymbolType& symbol, const ast::Node* node);
