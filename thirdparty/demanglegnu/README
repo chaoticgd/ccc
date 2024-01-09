@@ -1,4 +1,4 @@
-This code is taken from GNU binutils v2.31 and specifically the libiberty
+This code was taken from GNU binutils v2.31 and specifically the libiberty
 library which contains files licensed under the GPL and the LGPL.
 
 Some modifications have been made to fix a memory safety issue with the
