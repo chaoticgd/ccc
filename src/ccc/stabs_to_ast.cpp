@@ -175,8 +175,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			CCC_CHECK(end != high, "Failed to parse low part of range as integer.");
 			
 			if(high_value == 4294967295) {
-				// Some compilers wrote out a wrapped around value here for zero
-				// (or variable?) length arrays.
+				// Some compilers wrote out a wrapped around value here.
 				array->element_count = 0;
 			} else {
 				array->element_count = high_value + 1;
