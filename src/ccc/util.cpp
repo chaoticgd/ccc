@@ -26,10 +26,10 @@ Error format_error(const char* source_file, int source_line, const char* format,
 	return error;
 }
 
-void report_fatal_error(const Error& error)
+void report_error(const Error& error)
 {
 	if(custom_error_callback) {
-		custom_error_callback(error, ErrorSeverity::FATAL);
+		custom_error_callback(error, ErrorSeverity::ERROR);
 	} else {
 		fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n",
 			error.source_file, error.source_line, error.message.c_str());
