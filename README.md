@@ -120,4 +120,4 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ## License
 
-All the code is MIT licensed, with the exception of the code in the `src/demanglegnu` directory, which is taken from the GNU libiberty library and is licensed under the LGPL. This license is included in the form of the `DemanglerLicense.txt` file. A copy of the GNU GPL is also included in the form of the `DemanglerLicenseSupplementGPL.txt` file.
+The GNU demangler is used, which contains source files licensed under the GPL and the LGPL. RapidJSON is used under the MIT license. The GoogleTest library is used by the test suite under the 3-Clause BSD license.

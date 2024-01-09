@@ -428,6 +428,7 @@ static void print_help(int argc, char** argv)
 	printf("Importer Options:\n");
 	print_importer_flags_help(stdout);
 	printf("\n");
-	printf("The demangler library used is licensed under the LGPL, the rest is MIT licensed.\n");
-	printf("See the License.txt and DemanglerLicense.txt files for more information.\n");
+	printf("The GNU demangler is used, which contains source files licensed under the GPL\n");
+	printf("and the LGPL. RapidJSON is used under the MIT license. The GoogleTest library is\n");
+	printf("used by the test suite under the 3-Clause BSD license.\n");
 }
