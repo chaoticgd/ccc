@@ -120,4 +120,6 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ## License
 
+The source code for the CCC library and associated command line tools is released under the MIT license.
+
 The GNU demangler is used, which contains source files licensed under the GPL and the LGPL. RapidJSON is used under the MIT license. The GoogleTest library is used by the test suite under the 3-Clause BSD license.
