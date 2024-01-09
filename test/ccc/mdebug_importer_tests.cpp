@@ -7,7 +7,7 @@
 using namespace ccc;
 using namespace ccc::mdebug;
 
-// Tests for the whole .mdebug parsing and analysis pipeline. They are based on
+// Tests for the whole STABS parsing and analysis pipeline. They are based on
 // real compiler outputs from the old homebrew toolchain (GCC 3.2.3) except
 // where otherwise stated.
 

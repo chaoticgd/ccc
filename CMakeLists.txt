@@ -138,8 +138,8 @@ set(RELEASE_CONTENTS
 	"${CMAKE_SOURCE_DIR}/ghidra_scripts/CCCDecompileAllFunctions.java"
 	"${CMAKE_SOURCE_DIR}/README.md"
 	"${CMAKE_SOURCE_DIR}/License.txt"
-	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicense.txt"
-	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseSupplementGPL.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseGPL.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseLGPL.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/googletest/GoogleTestLicense.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/rapidjson/RapidJSONLicense.txt"
 )

@@ -46,28 +46,28 @@ struct Error {
 };
 
 enum class ErrorSeverity {
-	FATAL,
+	ERROR,
 	WARNING
 };
 
 typedef void (*CustomErrorCallback)(const Error& error, ErrorSeverity severity);
 
 Error format_error(const char* source_file, int source_line, const char* format, ...);
-void report_fatal_error(const Error& error);
+void report_error(const Error& error);
 void report_warning(const Error& warning);
 void set_custom_error_callback(CustomErrorCallback callback);
 
 #define CCC_FATAL(...) \
 	{ \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_fatal_error(error); \
+		ccc::report_error(error); \
 		exit(1); \
 	}
 	
 #define CCC_CHECK_FATAL(condition, ...) \
 	if(!(condition)) { \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_fatal_error(error); \
+		ccc::report_error(error); \
 		exit(1); \
 	}
 
@@ -174,7 +174,7 @@ public:
 
 #define CCC_EXIT_IF_ERROR(result) \
 	if(!(result).success()) { \
-		ccc::report_fatal_error((result).error()); \
+		ccc::report_error((result).error()); \
 		exit(1); \
 	}
 
