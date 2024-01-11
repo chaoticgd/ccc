@@ -10,8 +10,11 @@ if [ "$#" -ne 2 ]; then
 	exit 1
 fi
 
-GCC_DIR=$1
-OUT_DIR=$2
+GCC_DIR="$1"
+OUT_DIR="$2"
+
+mkdir -p "$OUT_DIR/"
+mkdir -p "$OUT_DIR/testsuite/"
 
 cp "$GCC_DIR/include/ansidecl.h" "$OUT_DIR/"
 cp "$GCC_DIR/include/demangle.h" "$OUT_DIR/"
