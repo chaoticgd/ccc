@@ -122,12 +122,12 @@ if(WIN32)
 	target_sources(tests PUBLIC src/ccc.manifest)
 endif()
 
-add_subdirectory(thirdparty/demanglegnu)
+add_subdirectory(thirdparty/demanglegnu EXCLUDE_FROM_ALL)
 
 set(gtest_force_shared_crt on)
-add_subdirectory(thirdparty/googletest)
+add_subdirectory(thirdparty/googletest EXCLUDE_FROM_ALL)
 
-add_subdirectory(thirdparty/rapidjson)
+add_subdirectory(thirdparty/rapidjson EXCLUDE_FROM_ALL)
 
 # All the files to be included in a release.
 set(RELEASE_CONTENTS

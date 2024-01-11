@@ -1,5 +1,5 @@
 /* Defs for interface to demanglers.
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2023 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public License
@@ -68,6 +68,17 @@ extern "C" {
 /* If none of these are set, use 'current_demangling_style' as the default. */
 #define DMGL_STYLE_MASK (DMGL_AUTO|DMGL_GNU|DMGL_LUCID|DMGL_ARM|DMGL_HP|DMGL_EDG|DMGL_GNU_V3|DMGL_JAVA|DMGL_GNAT|DMGL_DLANG|DMGL_RUST)
 
+/* Disable a limit on the depth of recursion in mangled strings.
+   Note if this limit is disabled then stack exhaustion is possible when
+   demangling pathologically complicated strings.  Bug reports about stack
+   exhaustion when the option is enabled will be rejected.  */  
+#define DMGL_NO_RECURSE_LIMIT (1 << 18)	
+
+/* If DMGL_NO_RECURSE_LIMIT is not enabled, then this is the value used as
+   the maximum depth of recursion allowed.  It should be enough for any
+   real-world mangled name.  */
+#define DEMANGLE_RECURSION_LIMIT 2048
+  
 /* Enumeration of possible demangling styles.
 
    Lucid and ARM styles are still kept logically distinct, even though
@@ -180,24 +191,11 @@ ada_demangle (const char *mangled, int options);
 extern char *
 dlang_demangle (const char *mangled, int options);
 
-/* Returns non-zero iff MANGLED is a rust mangled symbol.  MANGLED must
-   already have been demangled through cplus_demangle_v3.  If this function
-   returns non-zero then MANGLED can be demangled (in-place) using
-   RUST_DEMANGLE_SYM.  */
 extern int
-rust_is_mangled (const char *mangled);
+rust_demangle_callback (const char *mangled, int options,
+                        demangle_callbackref callback, void *opaque);
 
-/* Demangles SYM (in-place) if RUST_IS_MANGLED returned non-zero for SYM.
-   If RUST_IS_MANGLED returned zero for SYM then RUST_DEMANGLE_SYM might
-   replace characters that cannot be demangled with '?' and might truncate
-   SYM.  After calling RUST_DEMANGLE_SYM SYM might be shorter, but never
-   larger.  */
-extern void
-rust_demangle_sym (char *sym);
 
-/* Demangles MANGLED if it was GNU_V3 and then RUST mangled, otherwise
-   returns NULL. Uses CPLUS_DEMANGLE_V3, RUST_IS_MANGLED and
-   RUST_DEMANGLE_SYM.  Returns a new string that is owned by the caller.  */
 extern char *
 rust_demangle (const char *mangled, int options);
 
@@ -393,6 +391,9 @@ enum demangle_component_type
      template argument, and the right subtree is either NULL or
      another TEMPLATE_ARGLIST node.  */
   DEMANGLE_COMPONENT_TEMPLATE_ARGLIST,
+  /* A template parameter object (C++20).  The left subtree is the
+     corresponding template argument.  */
+  DEMANGLE_COMPONENT_TPARM_OBJ,
   /* An initializer list.  The left subtree is either an explicit type or
      NULL, and the right subtree is a DEMANGLE_COMPONENT_ARGLIST.  */
   DEMANGLE_COMPONENT_INITIALIZER_LIST,
@@ -439,6 +440,9 @@ enum demangle_component_type
      number which involves neither modifying the mangled string nor
      allocating a new copy of the literal in memory.  */
   DEMANGLE_COMPONENT_LITERAL_NEG,
+  /* A vendor's builtin expression.  The left subtree holds the
+     expression's name, and the right subtree is a argument list.  */
+  DEMANGLE_COMPONENT_VENDOR_EXPR,
   /* A libgcj compiled resource.  The left subtree is the name of the
      resource.  */
   DEMANGLE_COMPONENT_JAVA_RESOURCE,
@@ -477,7 +481,25 @@ enum demangle_component_type
   /* A cloned function.  */
   DEMANGLE_COMPONENT_CLONE,
   DEMANGLE_COMPONENT_NOEXCEPT,
-  DEMANGLE_COMPONENT_THROW_SPEC
+  DEMANGLE_COMPONENT_THROW_SPEC,
+
+  DEMANGLE_COMPONENT_STRUCTURED_BINDING,
+
+  DEMANGLE_COMPONENT_MODULE_NAME,
+  DEMANGLE_COMPONENT_MODULE_PARTITION,
+  DEMANGLE_COMPONENT_MODULE_ENTITY,
+  DEMANGLE_COMPONENT_MODULE_INIT,
+
+  DEMANGLE_COMPONENT_TEMPLATE_HEAD,
+  DEMANGLE_COMPONENT_TEMPLATE_TYPE_PARM,
+  DEMANGLE_COMPONENT_TEMPLATE_NON_TYPE_PARM,
+  DEMANGLE_COMPONENT_TEMPLATE_TEMPLATE_PARM,
+  DEMANGLE_COMPONENT_TEMPLATE_PACK_PARM,
+
+  /* A builtin type with argument.  This holds the builtin type
+     information.  */
+  DEMANGLE_COMPONENT_EXTENDED_BUILTIN_TYPE
+
 };
 
 /* Types which are only used internally.  */
@@ -499,6 +521,7 @@ struct demangle_component
      Initialize to zero.  Private to d_print_comp.
      All other fields are final after initialization.  */
   int d_printing;
+  int d_counting;
 
   union
   {
@@ -562,6 +585,15 @@ struct demangle_component
       /* Builtin type.  */
       const struct demangle_builtin_type_info *type;
     } s_builtin;
+
+    /* For DEMANGLE_COMPONENT_EXTENDED_BUILTIN_TYPE.  */
+    struct
+    {
+      /* Builtin type.  */
+      const struct demangle_builtin_type_info *type;
+      short arg;
+      char suffix;
+    } s_extended_builtin;
 
     /* For DEMANGLE_COMPONENT_SUB_STD.  */
     struct

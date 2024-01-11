@@ -1,5 +1,5 @@
 /* Demangler for GNU C++
-   Copyright (C) 1989-2018 Free Software Foundation, Inc.
+   Copyright (C) 1989-2023 Free Software Foundation, Inc.
    Written by James Clark (jjc@jclark.uucp)
    Rewritten by Fred Fish (fnf@cygnus.com) for ARM and Lucid demangling
    Modified by Satish Pai (pai@apollo.hp.com) for HP demangling
@@ -29,7 +29,9 @@ License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-/* This file exports two functions; cplus_mangle_opname and cplus_demangle.
+/* This file exports six functions; cplus_demangle_opname, cplus_mangle_opname,
+   cplus_demangle_set_style, cplus_demangle_name_to_style, cplus_demangle and
+   ada_demangle.
 
    This file imports xmalloc and xrealloc, which are like malloc and
    realloc except that they generate a fatal error if there is no
@@ -146,6 +148,7 @@ struct work_stuff
   int *proctypevec;     /* Indices of currently processed remembered typevecs.  */
   int proctypevec_size;
   int nproctypes;
+  unsigned int recursion_level;
 };
 
 #define PRINT_ANSI_QUALIFIERS (work -> options & DMGL_ANSI)
@@ -300,7 +303,7 @@ const struct demangler_engine libiberty_demanglers[] =
   {
     GNU_V3_DEMANGLING_STYLE_STRING,
     gnu_v3_demangling,
-    "GNU (g++) V3 ABI-style demangling"
+    "GNU (g++) V3 (Itanium C++ ABI) style demangling"
   }
   ,
   {
@@ -886,27 +889,20 @@ cplus_demangle (const char *mangled, int options)
   if ((work->options & DMGL_STYLE_MASK) == 0)
     work->options |= (int) current_demangling_style & DMGL_STYLE_MASK;
 
+  /* The Rust demangling is implemented elsewhere.
+     Legacy Rust symbols overlap with GNU_V3, so try Rust first.  */
+  if (RUST_DEMANGLING || AUTO_DEMANGLING)
+    {
+      ret = rust_demangle (mangled, work->options);
+      if (ret || RUST_DEMANGLING)
+        return ret;
+    }
+
   /* The V3 ABI demangling is implemented elsewhere.  */
-  if (GNU_V3_DEMANGLING || RUST_DEMANGLING || AUTO_DEMANGLING)
+  if (GNU_V3_DEMANGLING || AUTO_DEMANGLING)
     {
       ret = cplus_demangle_v3 (mangled, work->options);
-      if (GNU_V3_DEMANGLING)
-	return ret;
-
-      if (ret)
-	{
-	  /* Rust symbols are GNU_V3 mangled plus some extra subtitutions.
-	     The subtitutions are always smaller, so do in place changes.  */
-	  if (rust_is_mangled (ret))
-	    rust_demangle_sym (ret);
-	  else if (RUST_DEMANGLING)
-	    {
-	      free (ret);
-	      ret = NULL;
-	    }
-	}
-
-      if (ret || RUST_DEMANGLING)
+      if (ret || GNU_V3_DEMANGLING)
 	return ret;
     }
 
@@ -918,11 +914,11 @@ cplus_demangle (const char *mangled, int options)
     }
 
   if (GNAT_DEMANGLING)
-    return ada_demangle (mangled, options);
+    return ada_demangle (mangled, work->options);
 
   if (DLANG_DEMANGLING)
     {
-      ret = dlang_demangle (mangled, options);
+      ret = dlang_demangle (mangled, work->options);
       if (ret)
 	return ret;
     }
@@ -930,27 +926,6 @@ cplus_demangle (const char *mangled, int options)
   ret = internal_cplus_demangle (work, mangled);
   squangle_mop_up (work);
   return (ret);
-}
-
-char *
-rust_demangle (const char *mangled, int options)
-{
-  /* Rust symbols are GNU_V3 mangled plus some extra subtitutions.  */
-  char *ret = cplus_demangle_v3 (mangled, options);
-
-  /* The Rust subtitutions are always smaller, so do in place changes.  */
-  if (ret != NULL)
-    {
-      if (rust_is_mangled (ret))
-	rust_demangle_sym (ret);
-      else
-	{
-	  free (ret);
-	  ret = NULL;
-	}
-    }
-
-  return ret;
 }
 
 /* Demangle ada names.  The encoding is documented in gcc/ada/exp_dbug.ads.  */
@@ -1304,12 +1279,14 @@ squangle_mop_up (struct work_stuff *work)
       free ((char *) work -> btypevec);
       work->btypevec = NULL;
       work->bsize = 0;
+      work->numb = 0;
     }
   if (work -> ktypevec != NULL)
     {
       free ((char *) work -> ktypevec);
       work->ktypevec = NULL;
       work->ksize = 0;
+      work->numk = 0;
     }
 }
 
@@ -1343,8 +1320,15 @@ work_stuff_copy_to_from (struct work_stuff *to, struct work_stuff *from)
 
   for (i = 0; i < from->numk; i++)
     {
-      int len = strlen (from->ktypevec[i]) + 1;
+      int len;
 
+      if (from->ktypevec[i] == NULL)
+	{
+	  to->ktypevec[i] = NULL;
+	  continue;
+	}
+
+      len = strlen (from->ktypevec[i]) + 1;
       to->ktypevec[i] = XNEWVEC (char, len);
       memcpy (to->ktypevec[i], from->ktypevec[i], len);
     }
@@ -1354,8 +1338,15 @@ work_stuff_copy_to_from (struct work_stuff *to, struct work_stuff *from)
 
   for (i = 0; i < from->numb; i++)
     {
-      int len = strlen (from->btypevec[i]) + 1;
+      int len;
 
+      if (from->btypevec[i] == NULL)
+	{
+	  to->btypevec[i] = NULL;
+	  continue;
+	}
+
+      len = strlen (from->btypevec[i]) + 1;
       to->btypevec[i] = XNEWVEC (char , len);
       memcpy (to->btypevec[i], from->btypevec[i], len);
     }
@@ -1413,6 +1404,7 @@ delete_non_B_K_work_stuff (struct work_stuff *work)
 
       free ((char*) work->tmpl_argvec);
       work->tmpl_argvec = NULL;
+      work->ntmpl_args = 0;
     }
   if (work->previous_argument)
     {
@@ -4483,12 +4475,14 @@ remember_Btype (struct work_stuff *work, const char *start,
   char *tem;
 
   tem = XNEWVEC (char, len + 1);
-  memcpy (tem, start, len);
+  if (len > 0)
+    memcpy (tem, start, len);
   tem[len] = '\0';
   work -> btypevec[index] = tem;
 }
 
 /* Lose all the info related to B and K type codes. */
+
 static void
 forget_B_and_K_types (struct work_stuff *work)
 {
@@ -4514,6 +4508,7 @@ forget_B_and_K_types (struct work_stuff *work)
 	}
     }
 }
+
 /* Forget the remembered types, but not the type vector itself.  */
 
 static void
@@ -4708,6 +4703,16 @@ demangle_nested_args (struct work_stuff *work, const char **mangled,
   int result;
   int saved_nrepeats;
 
+  if ((work->options & DMGL_NO_RECURSE_LIMIT) == 0)
+    {
+      if (work->recursion_level > DEMANGLE_RECURSION_LIMIT)
+	/* FIXME: There ought to be a way to report
+	   that the recursion limit has been reached.  */
+	return 0;
+
+      work->recursion_level ++;
+    }
+
   /* The G++ name-mangling algorithm does not remember types on nested
      argument lists, unless -fsquangling is used, and in that case the
      type vector updated by remember_type is not used.  So, we turn
@@ -4733,6 +4738,9 @@ demangle_nested_args (struct work_stuff *work, const char **mangled,
   work->previous_argument = saved_previous_argument;
   --work->forgetting_types;
   work->nrepeats = saved_nrepeats;
+
+  if ((work->options & DMGL_NO_RECURSE_LIMIT) == 0)
+    --work->recursion_level;
 
   return result;
 }
