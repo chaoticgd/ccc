@@ -147,8 +147,9 @@ extern const struct demangler_engine
 extern char *
 cplus_demangle (const char *mangled, int options);
 
-extern int
-cplus_demangle_opname (const char *opname, char *result, int options);
+/* CCC: Allocate the result on the heap to prevent buffer overruns. */
+extern char *
+cplus_demangle_opname (const char *opname, int options);
 
 extern const char *
 cplus_mangle_opname (const char *opname, int options);
