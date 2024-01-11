@@ -29,6 +29,14 @@ License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+/* This file exports six functions; cplus_demangle_opname, cplus_mangle_opname,
+   cplus_demangle_set_style, cplus_demangle_name_to_style, cplus_demangle and
+   ada_demangle.
+
+   This file imports xmalloc and xrealloc, which are like malloc and
+   realloc except that they generate a fatal error if there is no
+   available memory.  */
+
 /* This file lives in both GCC and libiberty.  When making changes, please
    try not to break either.  */
 
