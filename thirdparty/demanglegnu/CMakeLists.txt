@@ -1,24 +1,27 @@
 add_library(demanglegnu STATIC
-	alloca.c
-	cp-demangle.c
-	cplus-dem.c
-	d-demangle.c
-	dyn-string.c
-	getopt1.c
-	getopt.c
-	rust-demangle.c
-	safe-ctype.c
-	xexit.c
-	xmalloc.c
-	xmemdup.c
-	xstrdup.c
+	src/alloca.c
+	src/cp-demangle.c
+	src/cplus-dem.c
+	src/d-demangle.c
+	src/dyn-string.c
+	src/getopt1.c
+	src/getopt.c
+	src/rust-demangle.c
+	src/safe-ctype.c
+	src/xexit.c
+	src/xmalloc.c
+	src/xmemdup.c
+	src/xstrdup.c
 )
-target_include_directories(demanglegnu PUBLIC .)
-target_compile_definitions(demanglegnu PRIVATE -DHAVE_LIMITS_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1)
+
+set(GNU_DEMANGLER_FLAGS -DHAVE_DECL_BASENAME=1 -DHAVE_LIMITS_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1)
+
+target_include_directories(demanglegnu PUBLIC include)
+target_compile_definitions(demanglegnu PUBLIC ${GNU_DEMANGLER_FLAGS})
 
 add_executable(demangler_fuzzer testsuite/demangler-fuzzer.c)
 add_executable(demangler_test testsuite/test-demangle.c)
 target_link_libraries(demangler_fuzzer demanglegnu)
 target_link_libraries(demangler_test demanglegnu)
-target_compile_definitions(demangler_fuzzer PRIVATE -DHAVE_LIMITS_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1)
-target_compile_definitions(demangler_test PRIVATE -DHAVE_LIMITS_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1)
+target_compile_definitions(demangler_fuzzer PUBLIC ${GNU_DEMANGLER_FLAGS})
+target_compile_definitions(demangler_test PUBLIC ${GNU_DEMANGLER_FLAGS})
