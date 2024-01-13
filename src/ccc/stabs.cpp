@@ -743,7 +743,7 @@ static Result<StabsStructOrUnionType::Visibility> parse_visibility_character(con
 		default: break;
 	}
 	
-	return CCC_FAILURE("Failed to parse base class (visibility character).");
+	return CCC_FAILURE("Failed to parse visibility character.");
 }
 
 std::optional<s32> parse_number_s32(const char*& input)
