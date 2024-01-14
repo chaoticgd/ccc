@@ -272,7 +272,7 @@ Result<void> LocalSymbolTableAnalyser::finish()
 	}
 	
 	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_database);
-	m_source_file.set_globals_variables(m_global_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
+	m_source_file.set_global_variables(m_global_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
 	
 	return Result<void>();
 }

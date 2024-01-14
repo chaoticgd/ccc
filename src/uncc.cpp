@@ -271,7 +271,7 @@ static void write_c_cpp_file(
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
-		GlobalVariableRange global_variables = source_file->globals_variables();
+		GlobalVariableRange global_variables = source_file->global_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
 			printer.global_variable(global_variable, database, &read_virtual_func);
 		}
@@ -334,7 +334,7 @@ static void write_h_file(
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
-		GlobalVariableRange global_variables = source_file->globals_variables();
+		GlobalVariableRange global_variables = source_file->global_variables();
 		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
 			printer.global_variable(global_variable, database, nullptr);
 			has_global = true;

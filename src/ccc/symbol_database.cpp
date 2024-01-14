@@ -534,13 +534,13 @@ void SourceFile::set_functions(
 	}
 }
 
-void SourceFile::set_globals_variables(
+void SourceFile::set_global_variables(
 	GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database)
 {
 	if(delete_old_symbols == DELETE_OLD_SYMBOLS) {
-		database.global_variables.destroy_symbols(m_globals_variables);
+		database.global_variables.destroy_symbols(m_global_variables);
 	}
-	m_globals_variables = range;
+	m_global_variables = range;
 	for(GlobalVariable& global_variable : database.global_variables.span(range)) {
 		global_variable.m_source_file = m_handle;
 	}
