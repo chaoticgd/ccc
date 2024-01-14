@@ -473,8 +473,8 @@ public:
 	FunctionRange functions() const { return m_functions; }
 	void set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
-	GlobalVariableRange globals_variables() const { return m_globals_variables; }
-	void set_globals_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
+	GlobalVariableRange global_variables() const { return m_global_variables; }
+	void set_global_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
 	
 	std::string working_dir;
 	std::string command_line_path;
@@ -484,7 +484,7 @@ public:
 	
 protected:
 	FunctionRange m_functions;
-	GlobalVariableRange m_globals_variables;
+	GlobalVariableRange m_global_variables;
 };
 
 class SymbolSource : public Symbol {

@@ -284,8 +284,8 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 		json.EndArray();
 	}
 	
-	if(symbol.globals_variables().valid()) {
-		auto [begin, end] = database.global_variables.index_pair_from_range(symbol.globals_variables());
+	if(symbol.global_variables().valid()) {
+		auto [begin, end] = database.global_variables.index_pair_from_range(symbol.global_variables());
 		json.Key("global_variables");
 		json.StartArray();
 		json.Uint(begin);
