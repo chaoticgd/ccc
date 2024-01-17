@@ -5,8 +5,14 @@
 
 namespace ccc::mdebug {
 
-static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags);
-static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags);
+static Result<void> resolve_type_names(
+	SymbolDatabase& database, SymbolSourceHandle source, const Module* module_symbol, u32 importer_flags);
+static Result<void> resolve_type_name(
+	ast::TypeName& type_name,
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const Module* module_symbol,
+	u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
 
 Result<void> import_symbol_table(
@@ -14,6 +20,7 @@ Result<void> import_symbol_table(
 	std::span<const u8> elf,
 	s32 section_offset,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler)
 {
@@ -39,7 +46,8 @@ Result<void> import_symbol_table(
 	AnalysisContext context;
 	context.reader = &reader;
 	context.globals = &globals;
-	context.symbol_source = (source);
+	context.symbol_source = source;
+	context.module_symbol = module_symbol;
 	context.importer_flags = importer_flags;
 	context.demangler = demangler;
 	
@@ -71,7 +79,7 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 	}
 	
 	// Lookup data types and store data type handles in type names.
-	Result<void> type_name_result = resolve_type_names(database, context.symbol_source, context.importer_flags);
+	Result<void> type_name_result = resolve_type_names(database, context.symbol_source, context.module_symbol, context.importer_flags);
 	CCC_RETURN_IF_ERROR(type_name_result);
 	
 	// Compute the size in bytes of all the AST nodes.
@@ -106,7 +114,8 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	// about this case for .mdebug sections so just make sure it never happens.
 	CCC_ASSERT(context.importer_flags & DONT_DEDUPLICATE_SYMBOLS);
 	
-	Result<SourceFile*> source_file = database.source_files.create_symbol(input.full_path, context.symbol_source);
+	Result<SourceFile*> source_file = database.source_files.create_symbol(
+		input.full_path, context.symbol_source, context.module_symbol);
 	CCC_RETURN_IF_ERROR(source_file);
 	
 	(*source_file)->working_dir = input.working_dir;
@@ -274,14 +283,15 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	return Result<void>();
 }
 
-static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags)
+static Result<void> resolve_type_names(
+	SymbolDatabase& database, SymbolSourceHandle source, const Module* module_symbol, u32 importer_flags)
 {
 	Result<void> result;
 	database.for_each_symbol([&](ccc::Symbol& symbol) {
 		if(symbol.source() == source && symbol.type()) {
 			ast::for_each_node(*symbol.type(), ast::PREORDER_TRAVERSAL, [&](ast::Node& node) {
 				if(node.descriptor == ast::TYPE_NAME) {
-					Result<void> type_name_result = resolve_type_name(node.as<ast::TypeName>(), database, source, importer_flags);
+					Result<void> type_name_result = resolve_type_name(node.as<ast::TypeName>(), database, source, module_symbol, importer_flags);
 					if(!type_name_result.success()) {
 						result = std::move(type_name_result);
 					}
@@ -293,7 +303,12 @@ static Result<void> resolve_type_names(SymbolDatabase& database, SymbolSourceHan
 	return result;
 }
 
-static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& database, SymbolSourceHandle source, u32 importer_flags)
+static Result<void> resolve_type_name(
+	ast::TypeName& type_name,
+	SymbolDatabase& database,
+	SymbolSourceHandle source,
+	const Module* module_symbol,
+	u32 importer_flags)
 {
 	ast::TypeName::UnresolvedStabs* unresolved_stabs = type_name.unresolved_stabs.get();
 	if(!unresolved_stabs) {
@@ -368,7 +383,7 @@ static Result<void> resolve_type_name(ast::TypeName& type_name, SymbolDatabase& 
 	}
 	
 	if(forward_declared_node) {
-		Result<DataType*> forward_declared_type = database.data_types.create_symbol(unresolved_stabs->type_name, source);
+		Result<DataType*> forward_declared_type = database.data_types.create_symbol(unresolved_stabs->type_name, source, module_symbol);
 		CCC_RETURN_IF_ERROR(forward_declared_type);
 		
 		(*forward_declared_type)->set_type(std::move(forward_declared_node));

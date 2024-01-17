@@ -12,9 +12,9 @@
 namespace ccc {
 
 const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS = {
-	{MDEBUG, "mdebug", ".mdebug"},
-	{SYMTAB, "symtab", ".symtab"},
-	{SNDLL, "sndll", ".sndata"}
+	{MDEBUG, "mdebug", ".mdebug"}, // The infamous Third Eye symbol table.
+	{SYMTAB, "symtab", ".symtab"}, // The standard ELF symbol table.
+	{SNDLL, "sndll", ".sndata"}    // The SNDLL symbol table.
 };
 
 const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format)
@@ -55,7 +55,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	std::unique_ptr<SymbolTable> symbol_table;
 	switch(format) {
 		case MDEBUG: {
-			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.offset, section.name);
+			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.offset);
 			break;
 		}
 		case SYMTAB: {
@@ -72,7 +72,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 				"Linked section '%s' out of range.", linked_section.name.c_str());
 			std::span<const u8> linked_data = std::span(elf.image).subspan(linked_section.offset, linked_section.size);
 			
-			symbol_table = std::make_unique<SymtabSymbolTable>(data, linked_data, section.name);
+			symbol_table = std::make_unique<SymtabSymbolTable>(data, linked_data);
 			break;
 		}
 		case SNDLL: {
@@ -84,8 +84,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 				Result<SNDLLFile> file = parse_sndll_file(data, section.address);
 				CCC_RETURN_IF_ERROR(file);
 				
-				symbol_table = std::make_unique<SNDLLSymbolTable>(
-					std::make_shared<SNDLLFile>(std::move(*file)), section.name);
+				symbol_table = std::make_unique<SNDLLSymbolTable>(std::make_shared<SNDLLFile>(std::move(*file)));
 			} else {
 				CCC_WARN("Invalid SNDLL section.");
 			}
@@ -97,52 +96,58 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	return symbol_table;
 }
 
-Result<SymbolSourceRange> import_symbol_tables(
+Result<ModuleHandle> import_symbol_tables(
 	SymbolDatabase& database,
+	std::string module_name,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	u32 importer_flags,
 	DemanglerFunctions demangler)
 {
-	SymbolSourceRange symbol_sources;
+	Result<SymbolSourceHandle> module_source = database.get_symbol_source("Symbol Table Importer");
+	CCC_RETURN_IF_ERROR(module_source);
+	
+	Result<Module*> module_symbol = database.modules.create_symbol(std::move(module_name), *module_source, nullptr);
+	CCC_RETURN_IF_ERROR(module_symbol);
 	
 	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
-		Result<SymbolSource*> source = database.symbol_sources.create_symbol(symbol_table->name(), SymbolSourceHandle());
+		// Find a symbol source object with the right name, or create one if one
+		// doesn't already exist.
+		Result<SymbolSourceHandle> source = database.get_symbol_source(symbol_table->name());
 		if(!source.success()) {
-			database.destroy_symbols_from_sources(symbol_sources);
+			database.destroy_symbols_from_modules((*module_symbol)->handle());
 			return source;
 		}
 		
-		SymbolSourceHandle source_handle = (*source)->handle();
-		symbol_sources.expand_to_include(source_handle);
-		
-		Result<void> result = symbol_table->import(database, source_handle, importer_flags, demangler);
+		// Import the symbol table.
+		Result<void> result = symbol_table->import(database, *source, *module_symbol, importer_flags, demangler);
 		if(!result.success()) {
-			database.destroy_symbols_from_sources(symbol_sources);
+			database.destroy_symbols_from_modules((*module_symbol)->handle());
 			return result;
 		}
 	}
 	
-	return symbol_sources;
+	return (*module_symbol)->handle();
 }
 
 // *****************************************************************************
 
-MdebugSymbolTable::MdebugSymbolTable(std::span<const u8> image, s32 section_offset, std::string section_name)
-	: m_image(image), m_section_offset(section_offset), m_section_name(std::move(section_name)) {}
+MdebugSymbolTable::MdebugSymbolTable(std::span<const u8> image, s32 section_offset)
+	: m_image(image), m_section_offset(section_offset) {}
 
-std::string MdebugSymbolTable::name() const
+const char* MdebugSymbolTable::name() const
 {
-	return m_section_name;
+	return "MIPS Debug Symbol Table";
 }
 
 Result<void> MdebugSymbolTable::import(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
 	return mdebug::import_symbol_table(
-		database, m_image, m_section_offset, source, importer_flags | DONT_DEDUPLICATE_SYMBOLS, demangler);
+		database, m_image, m_section_offset, source, module_symbol, importer_flags | DONT_DEDUPLICATE_SYMBOLS, demangler);
 }
 
 Result<void> MdebugSymbolTable::print_headers(FILE* out) const
@@ -171,21 +176,22 @@ Result<void> MdebugSymbolTable::print_symbols(FILE* out, bool print_locals, bool
 
 // *****************************************************************************
 
-SymtabSymbolTable::SymtabSymbolTable(std::span<const u8> symtab, std::span<const u8> strtab, std::string section_name)
-	: m_symtab(symtab), m_strtab(strtab), m_section_name(std::move(section_name)) {}
+SymtabSymbolTable::SymtabSymbolTable(std::span<const u8> symtab, std::span<const u8> strtab)
+	: m_symtab(symtab), m_strtab(strtab) {}
 
-std::string SymtabSymbolTable::name() const
+const char* SymtabSymbolTable::name() const
 {
-	return m_section_name;
+	return "ELF Symbol Table";
 }
 
 Result<void> SymtabSymbolTable::import(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
-	return elf::import_symbols(database, source, m_symtab, m_strtab, importer_flags, demangler);
+	return elf::import_symbols(database, source, module_symbol, m_symtab, m_strtab, importer_flags, demangler);
 }
 
 Result<void> SymtabSymbolTable::print_headers(FILE* out) const
@@ -203,27 +209,22 @@ Result<void> SymtabSymbolTable::print_symbols(FILE* out, bool print_locals, bool
 
 // *****************************************************************************
 
-SNDLLSymbolTable::SNDLLSymbolTable(std::shared_ptr<SNDLLFile> sndll, std::string fallback_name)
-	: m_sndll(std::move(sndll)), m_fallback_name(std::move(fallback_name)) {}
+SNDLLSymbolTable::SNDLLSymbolTable(std::shared_ptr<SNDLLFile> sndll)
+	: m_sndll(std::move(sndll)) {}
 
-std::string SNDLLSymbolTable::name() const
+const char* SNDLLSymbolTable::name() const
 {
-	if(!m_sndll->elf_path.empty()) {
-		return "SNDLL: " + m_sndll->elf_path;
-	} else if(!m_fallback_name.empty()) {
-		return "SNDLL: " + m_fallback_name;
-	} else {
-		return "SNDLL";
-	}
+	return "SNDLL Symbol Table";
 }
 
 Result<void> SNDLLSymbolTable::import(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
-	return import_sndll_symbols(database, *m_sndll, source, importer_flags, demangler);
+	return import_sndll_symbols(database, *m_sndll, source, module_symbol, importer_flags, demangler);
 }
 
 Result<void> SNDLLSymbolTable::print_headers(FILE* out) const
@@ -243,7 +244,7 @@ Result<void> SNDLLSymbolTable::print_symbols(FILE* out, bool print_locals, bool 
 ElfSectionHeadersSymbolTable::ElfSectionHeadersSymbolTable(const ElfFile& elf)
 	: m_elf(elf) {}
 
-std::string ElfSectionHeadersSymbolTable::name() const
+const char* ElfSectionHeadersSymbolTable::name() const
 {
 	return "ELF Section Headers";
 }
@@ -251,10 +252,11 @@ std::string ElfSectionHeadersSymbolTable::name() const
 Result<void> ElfSectionHeadersSymbolTable::import(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	u32 importer_flags,
 	DemanglerFunctions demangler) const
 {
-	return import_elf_section_headers(database, m_elf, source);
+	return import_elf_section_headers(database, m_elf, source, module_symbol);
 }
 
 Result<void> ElfSectionHeadersSymbolTable::print_headers(FILE* out) const

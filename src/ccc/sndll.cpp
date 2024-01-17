@@ -113,6 +113,7 @@ Result<void> import_sndll_symbols(
 	SymbolDatabase& database,
 	const SNDLLFile& sndll,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	u32 importer_flags,
 	DemanglerFunctions demangler)
 {
@@ -121,15 +122,17 @@ Result<void> import_sndll_symbols(
 			switch(symbol.type) {
 				case SNDLLSymbolType::RELATIVE:
 				case SNDLLSymbolType::WEAK: {
-					Result<Label*> result = database.labels.create_symbol(
-						symbol.string, source, sndll.address.get_or_zero() + symbol.value, importer_flags, demangler);
-					CCC_RETURN_IF_ERROR(result);
+					Result<Label*> label = database.labels.create_symbol(
+						symbol.string, source, module_symbol, sndll.address.get_or_zero() + symbol.value, importer_flags, demangler);
+					CCC_RETURN_IF_ERROR(label);
+					
 					break;
 				}
 				case SNDLLSymbolType::ABSOLUTE: {
-					Result<Label*> result = database.labels.create_symbol(
-						symbol.string, source, symbol.value, importer_flags, demangler);
-					CCC_RETURN_IF_ERROR(result);
+					Result<Label*> label = database.labels.create_symbol(
+						symbol.string, source, module_symbol,symbol.value, importer_flags, demangler);
+					CCC_RETURN_IF_ERROR(label);
+					
 					break;
 				}
 				case SNDLLSymbolType::NIL:

@@ -320,7 +320,8 @@ static void print_symbols(FILE* out, const Options& options)
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(std::move(*image));
+	Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(
+		std::move(*image), options.input_file.filename().string());
 	CCC_EXIT_IF_ERROR(symbol_file);
 	
 	std::vector<std::unique_ptr<SymbolTable>> symbol_tables = select_symbol_tables(**symbol_file, options.sections);
@@ -343,7 +344,8 @@ static void print_headers(FILE* out, const Options& options)
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(std::move(*image));
+	Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(
+		std::move(*image), options.input_file.filename().string());
 	CCC_EXIT_IF_ERROR(symbol_file);
 	
 	std::vector<std::unique_ptr<SymbolTable>> symbol_tables = select_symbol_tables(**symbol_file, options.sections);
@@ -392,7 +394,8 @@ static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<std::unique_ptr<SymbolFile>> symbol_file_result = parse_symbol_file(std::move(*image));
+	Result<std::unique_ptr<SymbolFile>> symbol_file_result = parse_symbol_file(
+		std::move(*image), options.input_file.filename().string());
 	CCC_EXIT_IF_ERROR(symbol_file_result);
 	symbol_file = std::move(*symbol_file_result);
 	
@@ -404,8 +407,9 @@ static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file
 	demangler.cplus_demangle = cplus_demangle;
 	demangler.cplus_demangle_opname = cplus_demangle_opname;
 	
-	Result<SymbolSourceRange> symbol_sources = import_symbol_tables(database, symbol_tables, options.importer_flags, demangler);
-	CCC_EXIT_IF_ERROR(symbol_sources);
+	Result<ModuleHandle> module_handle = import_symbol_tables(
+		database, symbol_file->name(), symbol_tables, options.importer_flags, demangler);
+	CCC_EXIT_IF_ERROR(module_handle);
 	
 	return database;
 }

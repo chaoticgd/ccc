@@ -22,6 +22,7 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database);
+static void write_json(JsonWriter& json, const Module& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database);
@@ -73,6 +74,11 @@ static void write_symbol_list(
 		if(symbol.size() != 0) {
 			json.Key("size");
 			json.Uint(symbol.size());
+		}
+		
+		if(symbol.module_handle().valid()) {
+			json.Key("module");
+			json.Uint(database.modules.index_from_handle(symbol.module_handle()));
 		}
 		
 		write_json(json, symbol, database);
@@ -229,6 +235,8 @@ static void write_json(JsonWriter& json, const LocalVariable& symbol, const Symb
 	}
 }
 
+static void write_json(JsonWriter& json, const Module& symbol, const SymbolDatabase& database) {}
+
 static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database)
 {
 	if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&symbol.storage)) {
@@ -245,9 +253,7 @@ static void write_json(JsonWriter& json, const ParameterVariable& symbol, const 
 	}
 }
 
-static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database)
-{
-}
+static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database) {}
 
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database)
 {

@@ -46,7 +46,7 @@ static int main_test(const fs::path& input_directory)
 			Result<std::vector<u8>> image = platform::read_binary_file(entry.path());
 			CCC_EXIT_IF_ERROR(image);
 			
-			Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(*image);
+			Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(*image, entry.path().filename().string());
 			if(symbol_file.success()) {
 				SymbolDatabase database;
 				
@@ -58,7 +58,7 @@ static int main_test(const fs::path& input_directory)
 				demangler.cplus_demangle_opname = cplus_demangle_opname;
 				
 				// Test the importers.
-				Result<SymbolSourceRange> handle = import_symbol_tables(database, *symbol_tables, STRICT_PARSING, demangler);
+				Result<ModuleHandle> handle = import_symbol_tables(database, (*symbol_file)->name(), *symbol_tables, STRICT_PARSING, demangler);
 				CCC_EXIT_IF_ERROR(handle);
 				
 				// Test the C++ printing code.

@@ -32,12 +32,13 @@ class SymbolTable {
 public:
 	virtual ~SymbolTable() {}
 	
-	virtual std::string name() const = 0;
+	virtual const char* name() const = 0;
 	
 	// Imports this symbol table into the passed database.
 	virtual Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
+		const Module* module_symbol,
 		u32 importer_flags,
 		DemanglerFunctions demangler) const = 0;
 	
@@ -58,22 +59,25 @@ struct ElfFile;
 Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	const ElfSection& section, const ElfFile& elf, SymbolTableFormat format);
 
-// Utility function to call import_symbol_table on all the passed symbol tables.
-Result<SymbolSourceRange> import_symbol_tables(
+// Utility function to call import_symbol_table on all the passed symbol tables
+// and to generate a module handle.
+Result<ModuleHandle> import_symbol_tables(
 	SymbolDatabase& database,
+	std::string module_name,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	u32 importer_flags,
 	DemanglerFunctions demangler);
 
 class MdebugSymbolTable : public SymbolTable {
 public:
-	MdebugSymbolTable(std::span<const u8> image, s32 section_offset, std::string section_name);
+	MdebugSymbolTable(std::span<const u8> image, s32 section_offset);
 	
-	std::string name() const override;
+	const char* name() const override;
 	
 	Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
+		const Module* module_symbol,
 		u32 importer_flags,
 		DemanglerFunctions demangler) const override;
 	Result<void> print_headers(FILE* out) const override;
@@ -82,18 +86,18 @@ public:
 protected:
 	std::span<const u8> m_image;
 	s32 m_section_offset;
-	std::string m_section_name;
 };
 
 class SymtabSymbolTable : public SymbolTable {
 public:
-	SymtabSymbolTable(std::span<const u8> symtab, std::span<const u8> strtab, std::string section_name);
+	SymtabSymbolTable(std::span<const u8> symtab, std::span<const u8> strtab);
 	
-	std::string name() const override;
+	const char* name() const override;
 	
 	Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
+		const Module* module_symbol,
 		u32 importer_flags,
 		DemanglerFunctions demangler) const override;
 	
@@ -103,20 +107,20 @@ public:
 protected:
 	std::span<const u8> m_symtab;
 	std::span<const u8> m_strtab;
-	std::string m_section_name;
 };
 
 struct SNDLLFile;
 
 class SNDLLSymbolTable : public SymbolTable {
 public:
-	SNDLLSymbolTable(std::shared_ptr<SNDLLFile> sndll, std::string fallback_name);
+	SNDLLSymbolTable(std::shared_ptr<SNDLLFile> sndll);
 	
-	std::string name() const override;
+	const char* name() const override;
 	
 	Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
+		const Module* module_symbol,
 		u32 importer_flags,
 		DemanglerFunctions demangler) const override;
 	
@@ -125,18 +129,18 @@ public:
 	
 protected:
 	std::shared_ptr<SNDLLFile> m_sndll;
-	std::string m_fallback_name;
 };
 
 class ElfSectionHeadersSymbolTable : public SymbolTable {
 public:
 	ElfSectionHeadersSymbolTable(const ElfFile& elf);
 	
-	std::string name() const override;
+	const char* name() const override;
 	
 	Result<void> import(
 		SymbolDatabase& database,
 		SymbolSourceHandle source,
+		const Module* module_symbol,
 		u32 importer_flags,
 		DemanglerFunctions demangler) const override;
 	

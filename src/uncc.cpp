@@ -65,7 +65,8 @@ int main(int argc, char** argv)
 	Result<ElfFile> elf_result = parse_elf_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf_result);
 	
-	Result<std::unique_ptr<ElfSymbolFile>> symbol_file = std::make_unique<ElfSymbolFile>(std::move(*elf_result));
+	Result<std::unique_ptr<ElfSymbolFile>> symbol_file = std::make_unique<ElfSymbolFile>(
+		std::move(*elf_result), options.elf_path.filename().string());
 	CCC_EXIT_IF_ERROR(symbol_file);
 	
 	DemanglerFunctions demangler;
@@ -76,8 +77,9 @@ int main(int argc, char** argv)
 	CCC_EXIT_IF_ERROR(symbol_tables);
 	
 	SymbolDatabase database;
-	Result<SymbolSourceRange> symbol_source = import_symbol_tables(database, *symbol_tables, options.importer_flags, demangler);
-	CCC_EXIT_IF_ERROR(symbol_source);
+	Result<ModuleHandle> module_handle = import_symbol_tables(
+		database, (*symbol_file)->name(), *symbol_tables, options.importer_flags, demangler);
+	CCC_EXIT_IF_ERROR(module_handle);
 	
 	map_types_to_files_based_on_this_pointers(database);
 	map_types_to_files_based_on_reference_count(database);

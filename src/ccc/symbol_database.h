@@ -11,26 +11,26 @@
 namespace ccc {
 
 // Define an X macro for all the symbol types.
-
 #define CCC_FOR_EACH_SYMBOL_TYPE_DO_X \
 	CCC_X(DataType, data_types) \
 	CCC_X(Function, functions) \
 	CCC_X(GlobalVariable, global_variables) \
 	CCC_X(Label, labels) \
 	CCC_X(LocalVariable, local_variables) \
+	CCC_X(Module, modules) \
 	CCC_X(ParameterVariable, parameter_variables) \
 	CCC_X(Section, sections) \
 	CCC_X(SourceFile, source_files) \
 	CCC_X(SymbolSource, symbol_sources)
 
 // Define an enum for all the symbol types.
-
 enum class SymbolDescriptor {
 	DATA_TYPE,
 	FUNCTION,
 	GLOBAL_VARIABLE,
 	LABEL,
 	LOCAL_VARIABLE,
+	MODULE,
 	PARAMETER_VARIABLE,
 	SECTION,
 	SOURCE_FILE,
@@ -38,7 +38,6 @@ enum class SymbolDescriptor {
 };
 
 // Forward declare all the different types of symbol table objects.
-
 #define CCC_X(SymbolType, symbol_list) class SymbolType;
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
@@ -47,7 +46,6 @@ class SymbolDatabase;
 
 // Define strongly typed handles for all of the symbol table objects. These are
 // here to solve the problem of dangling references to symbols.
-
 template <typename SymbolType>
 struct SymbolHandle {
 	u32 value = (u32) -1;
@@ -68,7 +66,6 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 
 // Define range types for all of the symbol table objects. Note that the last
 // member actually points to the last real element in the range.
-
 template <typename SymbolType>
 struct SymbolRange {
 	SymbolHandle<SymbolType> first;
@@ -104,9 +101,6 @@ struct SymbolRange {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-// A container base class for symbols of a given type that maintains maps of
-// their names.
-
 enum SymbolFlags {
 	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
@@ -114,6 +108,8 @@ enum SymbolFlags {
 	NAME_NEEDS_DEMANGLING = 1 << 2
 };
 
+// A container base class for symbols of a given type that maintains maps of
+// their names.
 template <typename SymbolType>
 class SymbolList {
 public:
@@ -181,13 +177,15 @@ public:
 	Result<SymbolType*> create_symbol(
 		std::string name,
 		SymbolSourceHandle source,
+		const Module* module_symbol,
 		Address address,
 		u32 importer_flags,
 		DemanglerFunctions demangler);
 	
 	// Create a new symbol. If it's a SymbolSource symbol, source can be left
 	// empty, otherwise it has to be valid.
-	Result<SymbolType*> create_symbol(std::string name, SymbolSourceHandle source, Address address = Address());
+	Result<SymbolType*> create_symbol(
+		std::string name, SymbolSourceHandle source, const Module* module_symbol = nullptr, Address address = Address());
 	
 	// Update the address of a symbol without changing its handle.
 	bool move_symbol(SymbolHandle<SymbolType> handle, Address new_address);
@@ -201,10 +199,15 @@ public:
 	// Destroy all the symbols in a given range.
 	u32 destroy_symbols(SymbolRange<SymbolType> range);
 	
-	// Destroy all the symbols with symbol source handles within a given range.
-	// For example, you can use this to free a symbol table without destroying
-	// user-defined symbols.
-	void destroy_symbols_from_sources(SymbolSourceRange sources);
+	// Destroy all the symbols that have symbol source handles within a given
+	// range. For example, you can use this to free a symbol table without
+	// destroying user-defined symbols.
+	void destroy_symbols_from_sources(SymbolSourceRange source_range);
+	
+	// Destroy all the symbols that have module handles within a given range.
+	// For example, you can use this to free all the symbols imported from
+	// symbol tables for a given module.
+	void destroy_symbols_from_modules(ModuleRange module_range);
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
 	// worry about dangling handles.
@@ -238,7 +241,6 @@ enum ShouldDeleteOldSymbols {
 };
 
 // Base class for all the symbols.
-
 class Symbol {
 	template <typename SymbolType>
 	friend class SymbolList;
@@ -268,6 +270,8 @@ public:
 	// For the set_type function this is done for you.
 	void invalidate_node_handles() { m_generation++; }
 	
+	ModuleHandle module_handle() const { return m_module; }
+	
 protected:
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
@@ -276,7 +280,7 @@ protected:
 	std::string m_name;
 	std::unique_ptr<ast::Node> m_type;
 	u32 m_generation = 0;
-	u32 m_pad;
+	ModuleHandle m_module;
 };
 
 // Variable storage types. This is different to whether the variable is a
@@ -433,6 +437,15 @@ protected:
 	FunctionHandle m_function;
 };
 
+class Module : public Symbol {
+public:
+	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::MODULE;
+	static constexpr const char* NAME = "Module";
+	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
+	
+	ModuleHandle handle() const { return m_handle; }
+};
+
 class ParameterVariable : public Symbol {
 	friend Function;
 	friend SymbolList<ParameterVariable>;
@@ -492,13 +505,12 @@ class SymbolSource : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
 	static constexpr const char* NAME = "Symbol Source";
-	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
+	static constexpr u32 FLAGS = WITH_NAME_MAP;
 	
 	SymbolSourceHandle handle() const { return m_handle; }
 };
 
 // The symbol database itself. This owns all the symbols.
-
 class SymbolDatabase {
 public:
 	SymbolList<DataType> data_types;
@@ -506,6 +518,7 @@ public:
 	SymbolList<GlobalVariable> global_variables;
 	SymbolList<Label> labels;
 	SymbolList<LocalVariable> local_variables;
+	SymbolList<Module> modules;
 	SymbolList<ParameterVariable> parameter_variables;
 	SymbolList<Section> sections;
 	SymbolList<SourceFile> source_files;
@@ -517,12 +530,22 @@ public:
 	// Check if a symbol has already been added to the database.
 	bool symbol_exists_with_starting_address(Address address) const;
 	
+	// Finds a symbol source object with the given name or creates one if it
+	// doesn't already exist.
+	Result<SymbolSourceHandle> get_symbol_source(const std::string& name);
+	
 	// Destroy all the symbols in the symbol database.
 	void clear();
 	
-	// Destroy all the symbols from a given symbol source. For example, you can
-	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_sources(SymbolSourceRange sources);
+	// Destroy all the symbols that have symbol source handles within a given
+	// range. For example, you can use this to free a symbol table without
+	// destroying user-defined symbols.
+	void destroy_symbols_from_sources(SymbolSourceRange source_range);
+	
+	// Destroy all the symbols that have module handles within a given range.
+	// For example, you can use this to free all the symbols imported from
+	// symbol tables for a given module.
+	void destroy_symbols_from_modules(ModuleRange module_range);
 	
 	// Deduplicate matching data types with the same name. May replace the
 	// existing data type with the new one if the new one is better.
@@ -530,7 +553,9 @@ public:
 		std::unique_ptr<ast::Node> node,
 		StabsTypeNumber number,
 		const char* name,
-		SourceFile& source_file,SymbolSourceHandle source);
+		SourceFile& source_file,
+		SymbolSourceHandle source,
+		const Module* module_symbol);
 	
 	// Destroy a function handle as well as all parameter variables and local
 	// variables it associated with it.
@@ -548,7 +573,6 @@ public:
 };
 
 // Define a strongly typed handle to an AST node.
-
 class NodeHandle {
 	friend SymbolDatabase;
 public:
