@@ -38,6 +38,9 @@ public:
 	Result<std::vector<std::unique_ptr<SymbolTable>>> get_symbol_tables_from_sections(
 		const std::vector<SymbolTableLocation>& sections) const override;
 	
+	const ElfFile& elf() const;
+	
+protected:
 	ElfFile m_elf;
 	std::string m_name;
 };

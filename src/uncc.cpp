@@ -31,7 +31,7 @@ static void write_c_cpp_file(
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files,
 	const FunctionsFile& functions_file,
-	const std::vector<ElfFile*>& elves);
+	const std::vector<const ElfFile*>& elves);
 static void write_h_file(
 	const fs::path& path,
 	std::string relative_path,
@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 	map_types_to_files_based_on_this_pointers(database);
 	map_types_to_files_based_on_reference_count(database);
 	
-	std::vector<ElfFile*> elves{&((*symbol_file)->m_elf)};
+	std::vector<const ElfFile*> elves{&((*symbol_file)->elf())};
 	
 	mdebug::fill_in_pointers_to_member_function_definitions(database);
 	
@@ -237,7 +237,7 @@ static void write_c_cpp_file(
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files,
 	const FunctionsFile& functions_file,
-	const std::vector<ElfFile*>& elves)
+	const std::vector<const ElfFile*>& elves)
 {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");

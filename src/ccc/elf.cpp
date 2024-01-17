@@ -161,7 +161,7 @@ Result<void> import_elf_section_headers(
 	return Result<void>();
 }
 
-Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<ElfFile*>& elves)
+Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<const ElfFile*>& elves)
 {
 	while(size > 0) {
 		bool mapped = false;

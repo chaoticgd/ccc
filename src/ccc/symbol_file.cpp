@@ -85,6 +85,11 @@ Result<std::vector<std::unique_ptr<SymbolTable>>> ElfSymbolFile::get_symbol_tabl
 	return symbol_tables;
 }
 
+const ElfFile& ElfSymbolFile::elf() const
+{
+	return m_elf;
+}
+
 SNDLLSymbolFile::SNDLLSymbolFile(SNDLLFile sndll)
 	: m_sndll(std::move(sndll)) {}
 

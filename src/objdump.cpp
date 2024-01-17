@@ -18,7 +18,7 @@ int main(int argc, char** argv)
 	Result<ElfFile> elf = parse_elf_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf);
 	
-	std::vector<ElfFile*> elves{&(*elf)};
+	std::vector<const ElfFile*> elves{&(*elf)};
 	
 	const ElfSection* text = elf->lookup_section(".text");
 	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
