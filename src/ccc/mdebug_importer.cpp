@@ -114,21 +114,6 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	// about this case for .mdebug sections so just make sure it never happens.
 	CCC_ASSERT(context.importer_flags & DONT_DEDUPLICATE_SYMBOLS);
 	
-	Result<SourceFile*> source_file = database.source_files.create_symbol(
-		input.full_path, context.symbol_source, context.module_symbol);
-	CCC_RETURN_IF_ERROR(source_file);
-	
-	(*source_file)->working_dir = input.working_dir;
-	(*source_file)->command_line_path = input.command_line_path;
-	
-	// Sometimes the INFO symbols contain information about what toolchain
-	// version was used for building the executable.
-	for(const mdebug::Symbol& symbol : input.symbols) {
-		if(symbol.symbol_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
-			(*source_file)->toolchain_version_info.emplace(symbol.string);
-		}
-	}
-	
 	// Parse the stab strings into a data structure that's vaguely
 	// one-to-one with the text-based representation.
 	u32 importer_flags_for_this_file = context.importer_flags;
@@ -141,6 +126,30 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	for(const ParsedSymbol& symbol : *symbols) {
 		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			symbol.name_colon_type.type->enumerate_numbered_types(stabs_types);
+		}
+	}
+	
+	// Find the address of the source file.
+	Address text_address;
+	for(const ParsedSymbol& symbol : *symbols) {
+		if(symbol.type == ParsedSymbolType::SOURCE_FILE) {
+			text_address = symbol.raw->value;
+			break;
+		}
+	}
+	
+	Result<SourceFile*> source_file = database.source_files.create_symbol(
+		input.full_path, context.symbol_source, context.module_symbol, text_address);
+	CCC_RETURN_IF_ERROR(source_file);
+	
+	(*source_file)->working_dir = input.working_dir;
+	(*source_file)->command_line_path = input.command_line_path;
+	
+	// Sometimes the INFO symbols contain information about what toolchain
+	// version was used for building the executable.
+	for(const mdebug::Symbol& symbol : input.symbols) {
+		if(symbol.symbol_class == mdebug::SymbolClass::INFO && strcmp(symbol.string, "@stabs") != 0) {
+			(*source_file)->toolchain_version_info.emplace(symbol.string);
 		}
 	}
 	

@@ -478,7 +478,7 @@ class SourceFile : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SOURCE_FILE;
 	static constexpr const char* NAME = "Source File";
-	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	SourceFileHandle handle() const { return m_handle; }
 	const std::string& full_path() const { return name(); }
@@ -491,7 +491,6 @@ public:
 	
 	std::string working_dir;
 	std::string command_line_path;
-	Address text_address = 0;
 	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
 	std::set<std::string> toolchain_version_info;
 	

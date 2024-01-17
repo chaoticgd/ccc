@@ -33,7 +33,7 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.StartObject();
 	
 	json.Key("version");
-	json.Int(9);
+	json.Int(10);
 	
 	#define CCC_X(SymbolType, symbol_list) \
 		if(!std::is_same_v<SymbolType, SymbolSource>) { \
@@ -265,11 +265,6 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 	if(!symbol.command_line_path.empty()) {
 		json.Key("command_line_path");
 		json.String(symbol.command_line_path);
-	}
-	
-	if(symbol.text_address != 0) {
-		json.Key("text_address");
-		json.Uint(symbol.text_address.value);
 	}
 	
 	if(!symbol.toolchain_version_info.empty()) {

@@ -382,7 +382,7 @@ static void print_sections(FILE* out, const Options& options)
 		fprintf(out, "%s:\n", section.name().c_str());
 		
 		for(const SourceFile& source_file : database.source_files) {
-			if(source_file.text_address.valid() && source_file.text_address >= section_start && source_file.text_address < section_end) {
+			if(source_file.address().valid() && source_file.address() >= section_start && source_file.address() < section_end) {
 				fprintf(out, "\t%s\n", source_file.full_path().c_str());
 			}
 		}

@@ -14,7 +14,6 @@ Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic)
 
 Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address text_address)
 {
-	m_source_file.text_address = text_address;
 	if(m_next_relative_path.empty()) {
 		m_next_relative_path = m_source_file.command_line_path;
 	}
@@ -238,7 +237,7 @@ Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset)
 {
 	for(LocalVariableHandle local_variable_handle : m_pending_local_variables) {
 		if(LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
-			local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
+			local_variable->live_range.low = m_source_file.address().value + begin_offset;
 		}
 	}
 	
@@ -255,7 +254,7 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset)
 	std::vector<LocalVariableHandle>& variables = m_blocks.back();
 	for(LocalVariableHandle local_variable_handle : variables) {
 		if(LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
-			local_variable->live_range.high = m_source_file.text_address.value + end_offset;
+			local_variable->live_range.high = m_source_file.address().value + end_offset;
 		}
 	}
 	
