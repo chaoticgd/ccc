@@ -22,6 +22,7 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database);
+static void write_json(JsonWriter& json, const Module& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database);
@@ -32,7 +33,7 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.StartObject();
 	
 	json.Key("version");
-	json.Int(9);
+	json.Int(10);
 	
 	#define CCC_X(SymbolType, symbol_list) \
 		if(!std::is_same_v<SymbolType, SymbolSource>) { \
@@ -73,6 +74,11 @@ static void write_symbol_list(
 		if(symbol.size() != 0) {
 			json.Key("size");
 			json.Uint(symbol.size());
+		}
+		
+		if(symbol.module_handle().valid()) {
+			json.Key("module");
+			json.Uint(database.modules.index_from_handle(symbol.module_handle()));
 		}
 		
 		write_json(json, symbol, database);
@@ -229,6 +235,8 @@ static void write_json(JsonWriter& json, const LocalVariable& symbol, const Symb
 	}
 }
 
+static void write_json(JsonWriter& json, const Module& symbol, const SymbolDatabase& database) {}
+
 static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database)
 {
 	if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&symbol.storage)) {
@@ -245,9 +253,7 @@ static void write_json(JsonWriter& json, const ParameterVariable& symbol, const 
 	}
 }
 
-static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database)
-{
-}
+static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database) {}
 
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database)
 {
@@ -259,11 +265,6 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 	if(!symbol.command_line_path.empty()) {
 		json.Key("command_line_path");
 		json.String(symbol.command_line_path);
-	}
-	
-	if(symbol.text_address != 0) {
-		json.Key("text_address");
-		json.Uint(symbol.text_address.value);
 	}
 	
 	if(!symbol.toolchain_version_info.empty()) {

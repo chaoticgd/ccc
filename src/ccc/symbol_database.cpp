@@ -188,7 +188,7 @@ s32 SymbolList<SymbolType>::size() const
 
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
-	std::string name, SymbolSourceHandle source, Address address, u32 importer_flags, DemanglerFunctions demangler)
+	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address, u32 importer_flags, DemanglerFunctions demangler)
 {
 	static const int DMGL_PARAMS = 1 << 0;
 	static const int DMGL_RET_POSTFIX = 1 << 5;
@@ -221,7 +221,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 		}
 	}
 	
-	Result<SymbolType*> symbol = create_symbol(non_mangled_name, source, address);
+	Result<SymbolType*> symbol = create_symbol(non_mangled_name, source, module_symbol, address);
 	CCC_RETURN_IF_ERROR(symbol);
 	
 	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
@@ -234,7 +234,8 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 }
 
 template <typename SymbolType>
-Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, SymbolSourceHandle source, Address address)
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
+	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address)
 {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::NAME);
 	
@@ -244,7 +245,6 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	
 	symbol.m_handle = handle;
 	symbol.m_name = std::move(name);
-	symbol.m_address = address;
 	
 	if constexpr(std::is_same_v<SymbolType, SymbolSource>) {
 		// It doesn't make sense for the calling code to provide a symbol source
@@ -254,6 +254,19 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name, Symb
 	} else {
 		CCC_ASSERT(source.valid());
 		symbol.m_source = source;
+	}
+	
+	if constexpr(std::is_same_v<SymbolType, Module>) {
+		// It doesn't make sense for the calling code to provide a module as an
+		// argument if we're creating a module symbol, so we set the module of
+		// the new symbol to its own handle.
+		symbol.m_address = address;
+		symbol.m_module = handle;
+	} else if(module_symbol) {
+		symbol.m_address = address.add_base_address(module_symbol->address());
+		symbol.m_module = module_symbol->handle();
+	} else {
+		symbol.m_address = address;
 	}
 	
 	link_address_map(symbol);
@@ -322,13 +335,30 @@ u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range)
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_sources(SymbolSourceRange sources)
+void SymbolList<SymbolType>::destroy_symbols_from_sources(SymbolSourceRange source_range)
 {
 	for(size_t i = 0; i < m_symbols.size(); i++) {
-		if(m_symbols[i].m_source >= sources.first && m_symbols[i].m_source <= sources.last) {
+		if(m_symbols[i].m_source >= source_range.first && m_symbols[i].m_source <= source_range.last) {
 			size_t end;
 			for(end = i + 1; end < m_symbols.size(); end++) {
-				if(m_symbols[i].m_source >= sources.first && m_symbols[i].m_source <= sources.last) {
+				if(m_symbols[i].m_source >= source_range.first && m_symbols[i].m_source <= source_range.last) {
+					break;
+				}
+			}
+			destroy_symbols_impl(i, end);
+			i--;
+		}
+	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::destroy_symbols_from_modules(ModuleRange module_range)
+{
+	for(size_t i = 0; i < m_symbols.size(); i++) {
+		if(m_symbols[i].m_module >= module_range.first && m_symbols[i].m_module <= module_range.last) {
+			size_t end;
+			for(end = i + 1; end < m_symbols.size(); end++) {
+				if(m_symbols[i].m_module >= module_range.first && m_symbols[i].m_module <= module_range.last) {
 					break;
 				}
 			}
@@ -568,6 +598,17 @@ bool SymbolDatabase::symbol_exists_with_starting_address(Address address) const
 	return false;
 }
 
+Result<SymbolSourceHandle> SymbolDatabase::get_symbol_source(const std::string& name)
+{
+	SymbolSourceHandle handle = symbol_sources.first_handle_from_name(name);
+	if(!handle.valid()) {
+		Result<SymbolSource*> source = symbol_sources.create_symbol(name, SymbolSourceHandle(), nullptr);
+		CCC_RETURN_IF_ERROR(source);
+		handle = (*source)->handle();
+	}
+	return handle;
+}
+
 void SymbolDatabase::clear()
 {
 	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
@@ -575,9 +616,16 @@ void SymbolDatabase::clear()
 	#undef CCC_X
 }
 
-void SymbolDatabase::destroy_symbols_from_sources(SymbolSourceRange sources)
+void SymbolDatabase::destroy_symbols_from_sources(SymbolSourceRange source_range)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_sources(sources);
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_sources(source_range);
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+}
+
+void SymbolDatabase::destroy_symbols_from_modules(ModuleRange module_range)
+{
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_modules(module_range);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }
@@ -587,13 +635,14 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 	StabsTypeNumber number,
 	const char* name,
 	SourceFile& source_file,
-	SymbolSourceHandle source)
+	SymbolSourceHandle source,
+	const Module* module_symbol)
 {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
 	if(types_with_same_name.begin() == types_with_same_name.end()) {
 		// No types with this name have previously been processed.
-		Result<DataType*> data_type = data_types.create_symbol(name, source);
+		Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
 		CCC_RETURN_IF_ERROR(data_type);
 		
 		(*data_type)->files = {source_file.handle()};
@@ -617,6 +666,19 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			// anything else.
 			if(existing_type->source() != source) {
 				continue;
+			}
+			
+			// We don't want to merge together types from different modules so
+			// we can destroy all the types from one module without breaking
+			// anything else.
+			if(module_symbol) {
+				if(existing_type->module_handle() != module_symbol->module_handle()) {
+					continue;
+				}
+			} else {
+				if(existing_type->module_handle().valid()) {
+					continue;
+				}
 			}
 			
 			CCC_ASSERT(existing_type->type());
@@ -647,7 +709,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 		if(!match) {
 			// This type doesn't match the others with the same name that have
 			// already been processed.
-			Result<DataType*> data_type = data_types.create_symbol(name, source);
+			Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
 			CCC_RETURN_IF_ERROR(data_type);
 			
 			(*data_type)->files = {source_file.handle()};

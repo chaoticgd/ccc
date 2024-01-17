@@ -5,7 +5,7 @@
 
 namespace ccc {
 
-Result<std::unique_ptr<SymbolFile>> parse_symbol_file(std::vector<u8> image)
+Result<std::unique_ptr<SymbolFile>> parse_symbol_file(std::vector<u8> image, std::string file_name)
 {
 	const u32* magic = get_packed<u32>(image, 0);
 	CCC_CHECK(magic, "File too small.");
@@ -17,7 +17,7 @@ Result<std::unique_ptr<SymbolFile>> parse_symbol_file(std::vector<u8> image)
 			Result<ElfFile> elf = parse_elf_file(std::move(image));
 			CCC_RETURN_IF_ERROR(elf);
 			
-			symbol_file = std::make_unique<ElfSymbolFile>(std::move(*elf));
+			symbol_file = std::make_unique<ElfSymbolFile>(std::move(*elf), std::move(file_name));
 			break;
 		}
 		case CCC_FOURCC("SNR1"):
@@ -36,8 +36,13 @@ Result<std::unique_ptr<SymbolFile>> parse_symbol_file(std::vector<u8> image)
 	return symbol_file;
 }
 
-ElfSymbolFile::ElfSymbolFile(ElfFile elf)
-	: m_elf(std::move(elf)) {}
+ElfSymbolFile::ElfSymbolFile(ElfFile elf, std::string elf_name)
+	: m_elf(std::move(elf)), m_name(std::move(elf_name)) {}
+
+std::string ElfSymbolFile::name() const
+{
+	return m_name;
+}
 
 Result<std::vector<std::unique_ptr<SymbolTable>>> ElfSymbolFile::get_all_symbol_tables() const
 {
@@ -80,13 +85,23 @@ Result<std::vector<std::unique_ptr<SymbolTable>>> ElfSymbolFile::get_symbol_tabl
 	return symbol_tables;
 }
 
+const ElfFile& ElfSymbolFile::elf() const
+{
+	return m_elf;
+}
+
 SNDLLSymbolFile::SNDLLSymbolFile(SNDLLFile sndll)
 	: m_sndll(std::move(sndll)) {}
+
+std::string SNDLLSymbolFile::name() const
+{
+	return m_sndll.elf_path;
+}
 
 Result<std::vector<std::unique_ptr<SymbolTable>>> SNDLLSymbolFile::get_all_symbol_tables() const
 {
 	std::vector<std::unique_ptr<SymbolTable>> symbol_tables;
-	symbol_tables.emplace_back(std::make_unique<SNDLLSymbolTable>(std::make_shared<SNDLLFile>(std::move(m_sndll)), ""));
+	symbol_tables.emplace_back(std::make_unique<SNDLLSymbolTable>(std::make_shared<SNDLLFile>(std::move(m_sndll))));
 	return symbol_tables;
 }
 

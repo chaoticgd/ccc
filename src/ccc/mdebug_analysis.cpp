@@ -14,7 +14,6 @@ Result<void> LocalSymbolTableAnalyser::stab_magic(const char* magic)
 
 Result<void> LocalSymbolTableAnalyser::source_file(const char* path, Address text_address)
 {
-	m_source_file.text_address = text_address;
 	if(m_next_relative_path.empty()) {
 		m_next_relative_path = m_source_file.command_line_path;
 	}
@@ -43,7 +42,8 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	StabsTypeNumber number = symbol.name_colon_type.type->type_number;
 	
 	if(m_context.importer_flags & DONT_DEDUPLICATE_TYPES) {
-		Result<DataType*> data_type = m_database.data_types.create_symbol(name, m_context.symbol_source);
+		Result<DataType*> data_type = m_database.data_types.create_symbol(
+			name, m_context.symbol_source, m_context.module_symbol);
 		CCC_RETURN_IF_ERROR(data_type);
 		
 		m_source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
@@ -52,7 +52,7 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 		(*data_type)->files = {m_source_file.handle()};
 	} else {
 		Result<ccc::DataType*> type = m_database.create_data_type_if_unique(
-			std::move(*node), number, name, m_source_file, m_context.symbol_source);
+			std::move(*node), number, name, m_source_file, m_context.symbol_source, m_context.module_symbol);
 		CCC_RETURN_IF_ERROR(type);
 	}
 	
@@ -63,13 +63,11 @@ Result<void> LocalSymbolTableAnalyser::global_variable(
 	const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location)
 {
 	Result<GlobalVariable*> global = m_database.global_variables.create_symbol(
-		mangled_name, m_context.symbol_source, address, m_context.importer_flags, m_context.demangler);
+		mangled_name, m_context.symbol_source, m_context.module_symbol, address, m_context.importer_flags, m_context.demangler);
 	CCC_RETURN_IF_ERROR(global);
 	CCC_ASSERT(*global);
 	
 	m_global_variables.expand_to_include((*global)->handle());
-	
-	
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, nullptr, m_stabs_to_ast_state, 0, true, false);
 	CCC_RETURN_IF_ERROR(node);
@@ -171,8 +169,10 @@ Result<void> LocalSymbolTableAnalyser::parameter(
 {
 	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
 	
-	Result<ParameterVariable*> parameter_variable = m_database.parameter_variables.create_symbol(name, m_context.symbol_source);
+	Result<ParameterVariable*> parameter_variable = m_database.parameter_variables.create_symbol(
+		name, m_context.symbol_source, m_context.module_symbol);
 	CCC_RETURN_IF_ERROR(parameter_variable);
+	
 	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, nullptr, m_stabs_to_ast_state, 0, true, true);
@@ -199,8 +199,10 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 	}
 	
 	Address address = (desc == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) ? value : Address();
-	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(name, m_context.symbol_source, address);
+	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(
+		name, m_context.symbol_source, m_context.module_symbol, address);
 	CCC_RETURN_IF_ERROR(local_variable);
+	
 	m_current_local_variables.expand_to_include((*local_variable)->handle());
 	m_pending_local_variables.emplace_back((*local_variable)->handle());
 	
@@ -235,7 +237,7 @@ Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset)
 {
 	for(LocalVariableHandle local_variable_handle : m_pending_local_variables) {
 		if(LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
-			local_variable->live_range.low = m_source_file.text_address.value + begin_offset;
+			local_variable->live_range.low = m_source_file.address().value + begin_offset;
 		}
 	}
 	
@@ -252,7 +254,7 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset)
 	std::vector<LocalVariableHandle>& variables = m_blocks.back();
 	for(LocalVariableHandle local_variable_handle : variables) {
 		if(LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
-			local_variable->live_range.high = m_source_file.text_address.value + end_offset;
+			local_variable->live_range.high = m_source_file.address().value + end_offset;
 		}
 	}
 	
@@ -285,7 +287,7 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	}
 	
 	Result<Function*> function = m_database.functions.create_symbol(
-		mangled_name, m_context.symbol_source, address, m_context.importer_flags, m_context.demangler);
+		mangled_name, m_context.symbol_source, m_context.module_symbol, address, m_context.importer_flags, m_context.demangler);
 	CCC_RETURN_IF_ERROR(function);
 	CCC_ASSERT(*function);
 	m_current_function = *function;

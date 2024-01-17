@@ -60,7 +60,8 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 								CCC_WARN("%s Symbol string: %s", STAB_TRUNCATED_ERROR_MESSAGE, string);
 								importer_flags &= ~STRICT_PARSING;
 							} else {
-								return parse_result;
+								return CCC_FAILURE("%s Symbol string: %s",
+									parse_result.error().message.c_str(), string);
 							}
 						}
 					} else {

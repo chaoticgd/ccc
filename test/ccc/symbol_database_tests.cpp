@@ -90,7 +90,7 @@ TEST(CCCSymbolDatabase, HandleFromAddress)
 	
 	// Create the symbols.
 	for(u32 address = 0; address < 10; address++) {
-		Result<Function*> function = database.functions.create_symbol("", (*source)->handle(), address);
+		Result<Function*> function = database.functions.create_symbol("", (*source)->handle(), nullptr, address);
 		CCC_GTEST_FAIL_IF_ERROR(function);
 		handles[address] = (*function)->handle();
 	}
@@ -137,7 +137,7 @@ TEST(CCCSymbolDatabase, HandlesFromName)
 
 static Result<FunctionHandle> create_function(SymbolDatabase& database, SymbolSourceHandle source, const char* name, Address address, u32 size)
 {
-	Result<Function*> function = database.functions.create_symbol("a", source, address);
+	Result<Function*> function = database.functions.create_symbol("a", source, nullptr, address);
 	CCC_RETURN_IF_ERROR(function);
 	CCC_CHECK(*function, "*function");
 	(*function)->set_size(size);
@@ -188,19 +188,22 @@ TEST(CCCSymbolDatabase, CreateSymbol)
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
-	Result<Function*> a = database.functions.create_symbol("func_x", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	Result<Function*> a = database.functions.create_symbol(
+		"func_x", (*source)->handle(), nullptr, 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
 	CCC_GTEST_FAIL_IF_ERROR(a);
 	EXPECT_TRUE(*a);
 	
 	// Make sure that we can create multiple symbols with a different name at
 	// the same address.
-	Result<Function*> b = database.functions.create_symbol("func_y", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	Result<Function*> b = database.functions.create_symbol(
+		"func_y", (*source)->handle(), nullptr, 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
 	CCC_GTEST_FAIL_IF_ERROR(b);
 	EXPECT_TRUE(*b);
 	
 	// Make sure that if the symbol has the same name and the same address that
 	// it will be deduplicated (and that the existing symbol will be used).
-	Result<Function*> c = database.functions.create_symbol("func_y", (*source)->handle(), 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
+	Result<Function*> c = database.functions.create_symbol(
+		"func_y", (*source)->handle(), nullptr, 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
 	CCC_GTEST_FAIL_IF_ERROR(c);
 	EXPECT_FALSE(*c);
 }
@@ -212,7 +215,7 @@ TEST(CCCSymbolDatabase, MoveSymbol)
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
-	Result<Function*> function = database.functions.create_symbol("func", (*source)->handle(), 0x1000);
+	Result<Function*> function = database.functions.create_symbol("func", (*source)->handle(), nullptr, 0x1000);
 	CCC_GTEST_FAIL_IF_ERROR(function);
 	
 	EXPECT_TRUE(database.functions.move_symbol((*function)->handle(), 0x2000));
@@ -227,7 +230,7 @@ TEST(CCCSymbolDatabase, RenameSymbol)
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
-	Result<DataType*> data_type = database.data_types.create_symbol("Type1", (*source)->handle(), 0x1000);
+	Result<DataType*> data_type = database.data_types.create_symbol("Type1", (*source)->handle(), nullptr, 0x1000);
 	EXPECT_TRUE(database.data_types.rename_symbol((*data_type)->handle(), "Type2"));
 	
 	auto old_handles = database.data_types.handles_from_name("Type1");
@@ -350,12 +353,12 @@ TEST(CCCSymbolDatabase, DeduplicateEqualTypes)
 	
 	std::unique_ptr<ast::BuiltIn> first_type = std::make_unique<ast::BuiltIn>();
 	Result<DataType*> first_symbol = database.create_data_type_if_unique(
-		std::move(first_type), StabsTypeNumber{1,1}, "DataType", **file, (*source)->handle());
+		std::move(first_type), StabsTypeNumber{1,1}, "DataType", **file, (*source)->handle(), nullptr);
 	CCC_GTEST_FAIL_IF_ERROR(first_symbol);
 	
 	std::unique_ptr<ast::BuiltIn> second_type = std::make_unique<ast::BuiltIn>();
 	Result<DataType*> second_symbol = database.create_data_type_if_unique(
-		std::move(second_type), StabsTypeNumber{1,2}, "DataType", **file, (*source)->handle());
+		std::move(second_type), StabsTypeNumber{1,2}, "DataType", **file, (*source)->handle(), nullptr);
 	CCC_GTEST_FAIL_IF_ERROR(second_symbol);
 	
 	EXPECT_EQ(database.data_types.size(), 1);
@@ -374,7 +377,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	// Create a raw builtin type.
 	std::unique_ptr<ast::BuiltIn> underlying_type = std::make_unique<ast::BuiltIn>();
 	Result<DataType*> underlying_symbol = database.create_data_type_if_unique(
-		std::move(underlying_type), StabsTypeNumber{1,1}, "Underlying", **file, (*source)->handle());
+		std::move(underlying_type), StabsTypeNumber{1,1}, "Underlying", **file, (*source)->handle(), nullptr);
 	
 	// Create a typedef for that builtin.
 	std::unique_ptr<ast::TypeName> typedef_type = std::make_unique<ast::TypeName>();
@@ -385,7 +388,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	typedef_type->unresolved_stabs->stabs_type_number_file = 1;
 	typedef_type->unresolved_stabs->stabs_type_number_type = 1;
 	Result<DataType*> typedef_symbol = database.create_data_type_if_unique(
-		std::move(typedef_type), StabsTypeNumber{1,2}, "Typedef", **file, (*source)->handle());
+		std::move(typedef_type), StabsTypeNumber{1,2}, "Typedef", **file, (*source)->handle(), nullptr);
 	
 	// Create a struct referencing the builtin type directly.
 	std::unique_ptr<ast::StructOrUnion> struct_underlying_type = std::make_unique<ast::StructOrUnion>();
@@ -397,7 +400,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	member_underlying_type->unresolved_stabs->stabs_type_number_type = 1;
 	struct_underlying_type->fields.emplace_back(std::move(member_underlying_type));
 	Result<DataType*> struct_underlying_symbol = database.create_data_type_if_unique(
-		std::move(struct_underlying_type), StabsTypeNumber{1,3}, "WobblyStruct", **file, (*source)->handle());
+		std::move(struct_underlying_type), StabsTypeNumber{1,3}, "WobblyStruct", **file, (*source)->handle(), nullptr);
 	
 	// Create a struct referencing the builtin through the typedef.
 	std::unique_ptr<ast::StructOrUnion> struct_typedef_type = std::make_unique<ast::StructOrUnion>();
@@ -409,7 +412,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	member_typedef_type->unresolved_stabs->stabs_type_number_type = 2;
 	struct_typedef_type->fields.emplace_back(std::move(member_typedef_type));
 	Result<DataType*> struct_typedef_symbol = database.create_data_type_if_unique(
-		std::move(struct_typedef_type), StabsTypeNumber{1,4}, "WobblyStruct", **file, (*source)->handle());
+		std::move(struct_typedef_type), StabsTypeNumber{1,4}, "WobblyStruct", **file, (*source)->handle(), nullptr);
 	
 	// Validate that the two structs were deduplicated despite not being equal.
 	auto handles = database.data_types.handles_from_name("WobblyStruct");

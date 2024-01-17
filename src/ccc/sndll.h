@@ -41,6 +41,7 @@ Result<void> import_sndll_symbols(
 	SymbolDatabase& database,
 	const SNDLLFile& sndll,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	u32 importer_flags,
 	DemanglerFunctions demangler);
 

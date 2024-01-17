@@ -16,6 +16,7 @@ struct AnalysisContext {
 	const mdebug::SymbolTableReader* reader = nullptr;
 	const std::map<std::string, const mdebug::Symbol*>* globals;
 	SymbolSourceHandle symbol_source;
+	const Module* module_symbol = nullptr;
 	u32 importer_flags = NO_IMPORTER_FLAGS;
 	DemanglerFunctions demangler;
 };

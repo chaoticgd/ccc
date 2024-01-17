@@ -54,6 +54,7 @@ static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 Result<void> import_symbols(
 	SymbolDatabase& database,
 	SymbolSourceHandle source,
+	const Module* module_symbol,
 	std::span<const u8> symtab,
 	std::span<const u8> strtab,
 	u32 importer_flags,
@@ -78,13 +79,14 @@ Result<void> import_symbols(
 		switch(symbol->type()) {
 			case SymbolType::NOTYPE: {
 				Result<Label*> label = database.labels.create_symbol(
-					string, source, address, importer_flags, demangler);
+					string, source, module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(label);
+				
 				break;
 			}
 			case SymbolType::OBJECT: {
 				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
-					string, source, address, importer_flags, demangler);
+					string, source, module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(global_variable);
 				
 				if(*global_variable) {
@@ -95,7 +97,7 @@ Result<void> import_symbols(
 			}
 			case SymbolType::FUNC: {
 				Result<Function*> function = database.functions.create_symbol(
-					string, source, address, importer_flags, demangler);
+					string, source, module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(function);
 				
 				if(*function) {
@@ -105,7 +107,7 @@ Result<void> import_symbols(
 				break;
 			}
 			case SymbolType::FILE: {
-				Result<SourceFile*> source_file = database.source_files.create_symbol(string, source);
+				Result<SourceFile*> source_file = database.source_files.create_symbol(string, source, module_symbol);
 				CCC_RETURN_IF_ERROR(source_file);
 				
 				break;

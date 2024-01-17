@@ -235,6 +235,14 @@ struct Address {
 		}
 	}
 	
+	Address add_base_address(Address base_address) const {
+		if(valid()) {
+			return base_address.get_or_zero() + value;
+		} else {
+			return Address();
+		}
+	}
+	
 	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;
 };
 
