@@ -263,7 +263,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 		symbol.m_address = address;
 		symbol.m_module = handle;
 	} else if(module_symbol) {
-		symbol.m_address = address.add_base_address(module_symbol->address().value);
+		symbol.m_address = address.add_base_address(module_symbol->address());
 		symbol.m_module = module_symbol->handle();
 	} else {
 		symbol.m_address = address;

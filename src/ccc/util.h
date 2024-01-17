@@ -235,9 +235,9 @@ struct Address {
 		}
 	}
 	
-	Address add_base_address(u32 base_address) const {
+	Address add_base_address(Address base_address) const {
 		if(valid()) {
-			return base_address + value;
+			return base_address.get_or_zero() + value;
 		} else {
 			return Address();
 		}
