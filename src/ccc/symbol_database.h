@@ -326,6 +326,7 @@ struct StackStorage {
 
 // All the different types of symbol objects.
 
+// A C/C++ data type.
 class DataType : public Symbol {
 	friend SourceFile;
 	friend SymbolList<DataType>;
@@ -343,6 +344,7 @@ public:
 	bool only_defined_in_single_translation_unit : 1 = false;
 };
 
+// A function. The type stored is the return type.
 class Function : public Symbol {
 	friend SourceFile;
 	friend SymbolList<Function>;
@@ -387,6 +389,7 @@ protected:
 	std::string m_mangled_name;
 };
 
+// A global variable.
 class GlobalVariable : public Symbol {
 	friend SourceFile;
 	friend SymbolList<GlobalVariable>;
@@ -409,6 +412,8 @@ protected:
 	std::string m_mangled_name;
 };
 
+// A label. This could be a label defined in assembly, C/C++, or just a symbol
+// for which we cannot automatically determine its type (e.g. SNDLL symbols).
 class Label : public Symbol {
 	friend SymbolList<Label>;
 public:
@@ -419,6 +424,8 @@ public:
 	LabelHandle handle() const { return m_handle; }
 };
 
+// A local variable. This includes static local variables which have global
+// storage.
 class LocalVariable : public Symbol {
 	friend Function;
 	friend SymbolList<LocalVariable>;
@@ -437,6 +444,11 @@ protected:
 	FunctionHandle m_function;
 };
 
+// A program module e.g. an ELF file or an SNDLL file. Every symbol has a module
+// field indicating what module the symbol belongs to. This can be used to
+// delete all the symbols associated with a given module. Additionally, when a
+// valid module pointer is passed to SymbolList<>::create_symbol, the address of
+// the symbol will be added to the address of the new symbol.
 class Module : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::MODULE;
@@ -463,6 +475,7 @@ protected:
 	FunctionHandle m_function;
 };
 
+// An ELF section. These are created from the ELF section headers.
 class Section : public Symbol {
 	friend SymbolList<Section>;
 public:
@@ -473,6 +486,8 @@ public:
 	SectionHandle handle() const { return m_handle; }
 };
 
+// A source file (.c or .cpp file). One of these will be created for every
+// translation unit in the program (but only if debugging symbols are present).
 class SourceFile : public Symbol {
 	friend SymbolList<SourceFile>;
 public:
@@ -499,6 +514,9 @@ protected:
 	GlobalVariableRange m_global_variables;
 };
 
+// A symbol source. Every symbol has a symbol source field indicating how the
+// symbol was created. For example, the symbol table importers will each create
+// one of these (if it doesn't already exist).
 class SymbolSource : public Symbol {
 	friend SymbolList<SymbolSource>;
 public:
