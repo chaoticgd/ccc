@@ -413,7 +413,7 @@ protected:
 };
 
 // A label. This could be a label defined in assembly, C/C++, or just a symbol
-// for which we cannot automatically determine its type (e.g. SNDLL symbols).
+// that we can't automatically determine the type of (e.g. SNDLL symbols).
 class Label : public Symbol {
 	friend SymbolList<Label>;
 public:
@@ -453,11 +453,17 @@ class Module : public Symbol {
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::MODULE;
 	static constexpr const char* NAME = "Module";
-	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
+	static constexpr u32 FLAGS = WITH_NAME_MAP;
 	
 	ModuleHandle handle() const { return m_handle; }
+	
+	// These are used for IRX modules.
+	bool is_irx = false;
+	s32 version_major = -1;
+	s32 version_minor = -1;
 };
 
+// A parameter variable.
 class ParameterVariable : public Symbol {
 	friend Function;
 	friend SymbolList<ParameterVariable>;
