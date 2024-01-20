@@ -550,8 +550,10 @@ public:
 	// Sum up the symbol counts for each symbol list.
 	s32 symbol_count() const;
 	
-	// Check if a symbol has already been added to the database.
-	bool symbol_exists_with_starting_address(Address address) const;
+	// Find a symbol of any type that exists at the specified address. Symbols
+	// of the types specified higher up in the CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	// macro are checked for first.
+	const Symbol* first_symbol_from_starting_address(Address address) const;
 	
 	// Finds a symbol source object with the given name or creates one if it
 	// doesn't already exist.
