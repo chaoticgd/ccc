@@ -587,15 +587,19 @@ s32 SymbolDatabase::symbol_count() const
 	return sum;
 }
 
-bool SymbolDatabase::symbol_exists_with_starting_address(Address address) const
+const Symbol* SymbolDatabase::first_symbol_from_starting_address(Address address) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
-		if(symbol_list.first_handle_from_starting_address(address).valid()) { \
-			return true; \
+		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+			const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_starting_address(address); \
+			const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
+			if(symbol) { \
+				return symbol; \
+			} \
 		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
-	return false;
+	return nullptr;
 }
 
 Result<SymbolSourceHandle> SymbolDatabase::get_symbol_source(const std::string& name)
