@@ -108,8 +108,8 @@ enum SymbolFlags {
 	NAME_NEEDS_DEMANGLING = 1 << 2
 };
 
-// A container base class for symbols of a given type that maintains maps of
-// their names.
+// A container class for symbols of a given type that maintains maps of their
+// names and addresses depending on the value of SymbolType::FLAGS.
 template <typename SymbolType>
 class SymbolList {
 public:

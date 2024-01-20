@@ -85,12 +85,18 @@ Result<void> import_symbols(
 				break;
 			}
 			case SymbolType::OBJECT: {
-				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
-					string, source, module_symbol, address, importer_flags, demangler);
-				CCC_RETURN_IF_ERROR(global_variable);
-				
-				if(*global_variable) {
-					(*global_variable)->set_size(symbol->size);
+				if(symbol->size != 0) {
+					Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
+						string, source, module_symbol, address, importer_flags, demangler);
+					CCC_RETURN_IF_ERROR(global_variable);
+					
+					if(*global_variable) {
+						(*global_variable)->set_size(symbol->size);
+					}
+				} else {
+					Result<Label*> label = database.labels.create_symbol(
+						string, source, module_symbol, address, importer_flags, demangler);
+					CCC_RETURN_IF_ERROR(label);
 				}
 				
 				break;
