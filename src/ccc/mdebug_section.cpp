@@ -308,7 +308,7 @@ static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const Symbolic
 	// Try to fix it.
 	s32 fudge_offset = section_offset - (right_after_header - sizeof(SymbolicHeader));
 	if(fudge_offset != 0) {
-		CCC_WARN("The .mdebug section is probably corrupted, but I can try to fix it for you (fudge offset %d).", fudge_offset);
+		CCC_WARN("The .mdebug section was moved without updating its contents. Adjusting file offsets by %d bytes.", fudge_offset);
 	}
 	return fudge_offset;
 }
