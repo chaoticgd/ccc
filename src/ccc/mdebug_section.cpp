@@ -94,7 +94,7 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 )
 
 static void print_symbol(FILE* out, const Symbol& symbol);
-static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
+static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
 static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
 
 Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset)
@@ -106,7 +106,9 @@ Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset
 	CCC_CHECK(m_hdrr != nullptr, "MIPS debug section header out of bounds.");
 	CCC_CHECK(m_hdrr->magic == 0x7009, "Invalid symbolic header.");
 	
-	m_fudge_offset = get_corruption_fixing_fudge_offset(m_section_offset, *m_hdrr);
+	Result<s32> fudge_offset = get_corruption_fixing_fudge_offset(m_section_offset, *m_hdrr);
+	CCC_RETURN_IF_ERROR(fudge_offset);
+	m_fudge_offset = *fudge_offset;
 	
 	m_ready = true;
 	
@@ -171,10 +173,12 @@ Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const
 		u64 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
 		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(m_elf, sym_offset + m_fudge_offset);
 		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
+		
 		Result<Symbol> sym = get_symbol(external_header->symbol, m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
 		CCC_RETURN_IF_ERROR(sym);
 		external_symbols.emplace_back(std::move(*sym));
 	}
+	
 	return external_symbols;
 }
 
@@ -245,6 +249,7 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 			}
 		}
 	}
+	
 	if(print_externals) {
 		fprintf(out, "EXTERNAL SYMBOLS:\n");
 		Result<std::vector<Symbol>> external_symbols = parse_external_symbols();
@@ -253,17 +258,20 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 			print_symbol(out, symbol);
 		}
 	}
+	
 	return Result<void>();
 }
 
 static void print_symbol(FILE* out, const Symbol& symbol) {
 	fprintf(out, "    %8x ", symbol.value);
+	
 	const char* symbol_type_str = symbol_type(symbol.symbol_type);
 	if(symbol_type_str) {
 		fprintf(out, "%-11s ", symbol_type_str);
 	} else {
 		fprintf(out, "ST(%7u) ", (u32) symbol.symbol_type);
 	}
+	
 	const char* symbol_class_str = symbol_class(symbol.symbol_class);
 	if(symbol_class_str) {
 		fprintf(out, "%-4s ", symbol_class_str);
@@ -272,17 +280,21 @@ static void print_symbol(FILE* out, const Symbol& symbol) {
 	} else {
 		fprintf(out, "SC(%4u) ", (u32) symbol.symbol_class);
 	}
+	
 	if(symbol.is_stabs()) {
 		fprintf(out, "%-8s ", stabs_code_to_string(symbol.code()));
 	} else {
 		fprintf(out, "SI(%4u) ", symbol.index);
 	}
+	
 	fprintf(out, "%s\n", symbol.string);
 }
 
-static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)
+static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)
 {
-	// Test for corruption.
+	// GCC will always put the first part of the symbol table right after the
+	// header, so if the header says it's somewhere else we know the section has
+	// probably been moved without updating its contents.
 	s32 right_after_header = INT32_MAX;
 	if(hdrr.line_numbers_offset > 0) right_after_header = std::min(hdrr.line_numbers_offset, right_after_header);
 	if(hdrr.dense_numbers_offset > 0) right_after_header = std::min(hdrr.dense_numbers_offset, right_after_header);
@@ -296,20 +308,14 @@ static s32 get_corruption_fixing_fudge_offset(s32 section_offset, const Symbolic
 	if(hdrr.relative_file_descriptors_offset > 0) right_after_header = std::min(hdrr.relative_file_descriptors_offset, right_after_header);
 	if(hdrr.external_symbols_offset > 0) right_after_header = std::min(hdrr.external_symbols_offset, right_after_header);
 	
-	if(right_after_header == section_offset + (s32) sizeof(SymbolicHeader)) {
-		return 0; // It's probably fine.
-	}
+	CCC_CHECK(right_after_header >= 0 && right_after_header < INT32_MAX, "Invalid symbolic header.");
 	
-	if(right_after_header < 0 || right_after_header == INT32_MAX) {
-		CCC_WARN("The .mdebug section is probably corrupted and can't be automatically fixed.");
-		return 0; // It's probably not fine.
-	}
-	
-	// Try to fix it.
+	// Figure out how much we need to adjust all the file offsets by.
 	s32 fudge_offset = section_offset - (right_after_header - sizeof(SymbolicHeader));
 	if(fudge_offset != 0) {
-		CCC_WARN("The .mdebug section is probably corrupted, but I can try to fix it for you (fudge offset %d).", fudge_offset);
+		CCC_WARN("The .mdebug section was moved without updating its contents. Adjusting file offsets by %d bytes.", fudge_offset);
 	}
+	
 	return fudge_offset;
 }
 

@@ -237,7 +237,7 @@ template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address)
 {
-	CCC_CHECK(m_next_handle != UINT32_MAX, "Failed to allocate space for %s symbol.", SymbolType::NAME);
+	CCC_CHECK(m_next_handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
 	
 	u32 handle = m_next_handle++;
 	
