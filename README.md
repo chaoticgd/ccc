@@ -76,7 +76,11 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	src/mips/tables.cpp: Table of EE core MIPS instructions.
 	src/platform/file.cpp: Utility functions for reading files.
 	
-## Resources
+## Documentation
+
+### CCC
+
+- [Symbol Database](docs/symbol_database.md)
 
 ### DWARF (.debug) Section
 
