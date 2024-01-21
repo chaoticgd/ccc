@@ -292,7 +292,9 @@ static void print_symbol(FILE* out, const Symbol& symbol) {
 
 static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)
 {
-	// Test for corruption.
+	// GCC will always put the first part of the symbol table right after the
+	// header, so if the header says it's somewhere else we know the section has
+	// probably been moved without updating its contents.
 	s32 right_after_header = INT32_MAX;
 	if(hdrr.line_numbers_offset > 0) right_after_header = std::min(hdrr.line_numbers_offset, right_after_header);
 	if(hdrr.dense_numbers_offset > 0) right_after_header = std::min(hdrr.dense_numbers_offset, right_after_header);
@@ -308,7 +310,7 @@ static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const 
 	
 	CCC_CHECK(right_after_header >= 0 && right_after_header < INT32_MAX, "Invalid symbolic header.");
 	
-	// Try to fix it.
+	// Figure out how much we need to adjust all the file offsets by.
 	s32 fudge_offset = section_offset - (right_after_header - sizeof(SymbolicHeader));
 	if(fudge_offset != 0) {
 		CCC_WARN("The .mdebug section was moved without updating its contents. Adjusting file offsets by %d bytes.", fudge_offset);
