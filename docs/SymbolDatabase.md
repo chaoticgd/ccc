@@ -21,11 +21,11 @@ This design has the following advantages over raw indices:
 
 This design has the following advantages over stringing all the symbols
 together using shared pointers:
-- Easier to iterate over all objects of a given type.
-- Easier to convert to and from JSON. The symbol are all in a list and the
+- Easier to iterate over all symbols of a given type.
+- Easier to convert to and from JSON. The symbols are all in lists and the
   handles can be converted to indices.
-- Easier to implement undo/redo support. Objects can be recreated with the same
-  handle they had originally, while it may not be possible to reallocate objects
+- Easier to implement undo/redo support. Symbols can be recreated with the same
+  handle they had originally, while it may not be possible to reallocate symbols
   at the address they were at before.
 
 ## Maps
