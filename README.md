@@ -78,9 +78,9 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	
 ## Documentation
 
-### CCC
+### Chaos Compiler Collection
 
-- [Symbol Database](docs/symbol_database.md)
+- [Symbol Database](docs/SymbolDatabase.md)
 
 ### DWARF (.debug) Section
 
