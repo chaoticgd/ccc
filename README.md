@@ -97,6 +97,10 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 - `mdebugread.c` from gdb (reading)
 - `include/coff/sym.h` from binutils (headers)
 
+### MIPS EABI
+
+- [MIPS EABI](https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html) / [in-repo mirror](docs/mips_abi.txt) / [archive.org mirror](https://web.archive.org/web/20231222053837/https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html)
+
 ### STABS
 
 - [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / [in-repo mirror](docs/STABS.html) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
