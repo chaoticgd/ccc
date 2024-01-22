@@ -1,5 +1,9 @@
 # Symbol Database
 
+The symbol database provides a unified in-memory and on-disk representation for
+debugging symbols, including those imported from multiple different types of
+symbol tables, and those that are defined manually by the user.
+
 Many of the objects in the symbol database are similar to objects found in
 traditional relational databases. The symbol lists are the tables, the maps are
 the indexes, and the symbol handles are the keys.

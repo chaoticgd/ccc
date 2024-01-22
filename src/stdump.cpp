@@ -52,37 +52,37 @@ struct StdumpCommand {
 
 static const StdumpCommand commands[] = {
 	{identify_symbol_tables, "identify", {
-		"Identify the symbol tables present in the input file(s). If the input path",
+		"Identify the symbol table(s) present in the input file(s). If the input path",
 		"is a directory, it will be walked recursively."
 	}},
 	{print_functions, "functions", {
-		"Print all the functions recovered from the symbol table as C++."
+		"Print all the functions defined in the input symbol table(s) as C++."
 	}},
 	{print_globals, "globals", {
-		"Print all the global variables recovered from the symbol table as C++."
+		"Print all the global variables defined in the input symbol table(s) as C++."
 	}},
 	{print_types, "types", {
-		"Print all the types recovered from the symbol table as C++."
+		"Print all the types defined in the input symbol table(s) as C++."
 	}},
 	{print_type_graph, "type_graph", {
-		"Print out a dependency graph of all the types in graphviz DOT format."
+		"Print a dependency graph of all the types as a graphviz DOT file."
 	}},
 	{print_labels, "labels", {
-		"Print all the labels recovered from the symbol table. Note that this may",
-		"include other symbols where their type is not recoverable."
+		"Print all the labels defined in the input symbol table(s). Note that this",
+		"may include other symbols where their type is not recoverable."
 	}},
 	{print_json, "json", {
 		"Print all of the above as JSON."
 	}},
 	{print_symbols, "symbols", {
-		"Print all of the symbols in a given symbol table.",
+		"Print all the raw symbols in the input symbol table(s).",
 		"",
 		"--locals                      Only print local .mdebug symbols.",
 		"",
 		"--externals                   Only print external .mdebug symbols."
 	}},
 	{print_headers, "headers", {
-		"Print out the contents of the .mdebug header."
+		"Print the contents of the .mdebug header."
 	}},
 	{print_files, "files", {
 		"Print a list of all the source files."
