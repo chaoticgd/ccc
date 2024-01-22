@@ -52,7 +52,7 @@ struct StdumpCommand {
 
 static const StdumpCommand commands[] = {
 	{identify_symbol_tables, "identify", {
-		"Identify the symbol tables present in the input file(s). If the input path",
+		"Identify the symbol table(s) present in the input file(s). If the input path",
 		"is a directory, it will be walked recursively."
 	}},
 	{print_functions, "functions", {
