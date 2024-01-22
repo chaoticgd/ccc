@@ -99,7 +99,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ### MIPS EABI
 
-- [MIPS EABI](https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html) / [in-repo mirror](docs/mips_abi.txt) / [archive.org mirror](https://web.archive.org/web/20231222053837/https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html)
+- [MIPS EABI](https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html) / [in-repo mirror](docs/mips_eabi.txt) / [archive.org mirror](https://web.archive.org/web/20231222053837/https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html)
 
 ### STABS
 
