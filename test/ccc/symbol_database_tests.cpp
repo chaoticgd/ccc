@@ -80,7 +80,54 @@ TEST(CCCSymbolDatabase, SymbolListSpan)
 	}
 }
 
-TEST(CCCSymbolDatabase, HandleFromAddress)
+TEST(CCCSymbolDatabase, HandlesFromAddressRange)
+{
+	SymbolDatabase database;
+	FunctionHandle handles[20];
+	
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	// Create the symbols.
+	for(u32 address = 10; address < 20; address++) {
+		Result<Function*> function = database.functions.create_symbol("", (*source)->handle(), nullptr, address);
+		CCC_GTEST_FAIL_IF_ERROR(function);
+		handles[address] = (*function)->handle();
+	}
+	
+	// Try various address ranges.
+	auto empty_before = database.functions.handles_from_address_range(AddressRange(0, 10));
+	EXPECT_EQ(empty_before.begin(), empty_before.end());
+	
+	auto empty_after = database.functions.handles_from_address_range(AddressRange(21, 30));
+	EXPECT_EQ(empty_after.begin(), empty_after.end());
+	
+	auto empty_before_open = database.functions.handles_from_address_range(AddressRange(Address(), 10));
+	EXPECT_EQ(empty_before_open.begin(), empty_before_open.end());
+	
+	auto empty_after_open = database.functions.handles_from_address_range(AddressRange(21, Address()));
+	EXPECT_EQ(empty_after_open.begin(), empty_after_open.end());
+	
+	auto last = database.functions.handles_from_address_range(AddressRange(19, 30));
+	EXPECT_EQ(last.begin()->second, handles[19]);
+	
+	auto last_open = database.functions.handles_from_address_range(AddressRange(19, Address()));
+	EXPECT_EQ(last_open.begin()->second, handles[19]);
+	
+	auto first_half = database.functions.handles_from_address_range(AddressRange(5, 15));
+	EXPECT_EQ(first_half.begin()->second, handles[10]);
+	EXPECT_EQ(first_half.end()->second, handles[15]);
+	
+	auto second_half = database.functions.handles_from_address_range(AddressRange(15, 25));
+	EXPECT_EQ(second_half.begin()->second, handles[15]);
+	EXPECT_EQ((--second_half.end())->second, handles[19]);
+	
+	auto whole_range = database.functions.handles_from_address_range(AddressRange(10, 20));
+	EXPECT_EQ(whole_range.begin()->second, handles[10]);
+	EXPECT_EQ((--whole_range.end())->second, handles[19]);
+}
+
+TEST(CCCSymbolDatabase, HandleFromStartingAddress)
 {
 	SymbolDatabase database;
 	FunctionHandle handles[10];

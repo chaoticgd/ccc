@@ -99,6 +99,18 @@ typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolTy
 }
 
 template <typename SymbolType>
+typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_address_range(AddressRange range) const
+{
+	if(range.low.valid()) {
+		return {m_address_to_handle.lower_bound(range.low.value), m_address_to_handle.lower_bound(range.high.value)};
+	} else if(range.high.valid()) {
+		return {m_address_to_handle.begin(), m_address_to_handle.lower_bound(range.high.value)};
+	} else {
+		return {m_address_to_handle.end(), m_address_to_handle.end()};
+	}
+}
+
+template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_address(Address address) const
 {
 	auto iterator = m_address_to_handle.find(address.value);
@@ -130,7 +142,8 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const st
 template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address)
 {
-	auto iterator = m_address_to_handle.lower_bound(address.value);
+	auto iterator = m_address_to_handle.upper_bound(address.value);
+	iterator--; // Find the greatest element that is less than or equal to the address.
 	if(iterator != m_address_to_handle.end()) {
 		SymbolType* symbol = symbol_from_handle(iterator->second);
 		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {

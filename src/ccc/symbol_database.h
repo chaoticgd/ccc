@@ -132,7 +132,7 @@ public:
 	std::span<SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range);
 	std::span<const SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range) const;
 	
-	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>, std::greater<u32>>;
+	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>>;
 	using NameToHandleMap = std::multimap<std::string, SymbolHandle<SymbolType>>;
 	
 	template <typename Iterator>
@@ -151,6 +151,7 @@ public:
 	using NameToHandleMapIterators = Iterators<typename NameToHandleMap::const_iterator>;
 	
 	AddressToHandleMapIterators handles_from_starting_address(Address address) const;
+	AddressToHandleMapIterators handles_from_address_range(AddressRange range) const;
 	SymbolHandle<SymbolType> first_handle_from_starting_address(Address address) const;
 	NameToHandleMapIterators handles_from_name(const std::string& name) const;
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
@@ -259,6 +260,7 @@ public:
 	Address address() const { return m_address; }
 	u32 size() const { return m_size; }
 	void set_size(u32 size) { m_size = size; }
+	AddressRange address_range() const { return AddressRange(m_address, m_address.get_or_zero() + m_size); }
 	
 	ast::Node* type() { return m_type.get(); }
 	const ast::Node* type() const { return m_type.get(); }

@@ -226,7 +226,7 @@ static void write_json(JsonWriter& json, const LocalVariable& symbol, const Symb
 		write_json(json, *storage, database);
 	}
 	
-	if(symbol.live_range.valid()) {
+	if(symbol.live_range.low.valid() && symbol.live_range.high.valid()) {
 		json.Key("live_range");
 		json.StartArray();
 		json.Uint(symbol.live_range.low.value);

@@ -250,8 +250,11 @@ struct AddressRange {
 	Address low;
 	Address high;
 	
+	AddressRange() {}
+	AddressRange(Address address) : low(address), high(address) {}
+	AddressRange(Address l, Address h) : low(l), high(h) {}
+	
 	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
-	bool valid() const { return low.valid(); }
 };
 
 // These functions are to be used only for source file paths present in the
