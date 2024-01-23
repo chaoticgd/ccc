@@ -156,10 +156,10 @@ public:
 	NameToHandleMapIterators handles_from_name(const std::string& name) const;
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
 	
-	// Find a symbol that contains the provided address. For example, this can
-	// be used to figure out which function an instruction belongs to.
-	SymbolType* symbol_from_contained_address(Address address);
-	const SymbolType* symbol_from_contained_address(Address address) const;
+	// Find a symbol with an address range that contains the provided address.
+	// For example, to find which function an instruction belongs to.
+	SymbolType* symbol_overlapping_address(Address address);
+	const SymbolType* symbol_overlapping_address(Address address) const;
 	
 	// Convert handles to underlying array indices, for the JSON code.
 	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;

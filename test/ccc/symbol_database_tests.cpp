@@ -200,7 +200,7 @@ static FunctionHandle handle_from_function(Function* function)
 	}
 }
 
-TEST(CCCSymbolDatabase, SymbolFromContainedAddress)
+TEST(CCCSymbolDatabase, SymbolOverlappingAddress)
 {
 	SymbolDatabase database;
 	
@@ -219,12 +219,12 @@ TEST(CCCSymbolDatabase, SymbolFromContainedAddress)
 	Result<FunctionHandle> d = create_function(database, (*source)->handle(), "d", 0x5000, 0x1000);
 	CCC_GTEST_FAIL_IF_ERROR(d);
 	
-	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x0000)), FunctionHandle());
-	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x1000)), *a);
-	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x2000)), *b);
-	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x3000)), *c);
-	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x4000)), FunctionHandle());
-	EXPECT_EQ(handle_from_function(database.functions.symbol_from_contained_address(0x5000)), *d);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x0000)), FunctionHandle());
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x1000)), *a);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x2000)), *b);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x3000)), *c);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x4000)), FunctionHandle());
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x5000)), *d);
 	
 }
 
