@@ -143,8 +143,8 @@ template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address address)
 {
 	auto iterator = m_address_to_handle.upper_bound(address.value);
-	iterator--; // Find the greatest element that is less than or equal to the address.
-	if(iterator != m_address_to_handle.end()) {
+	if(iterator != m_address_to_handle.begin()) {
+		iterator--; // Find the greatest element that is less than or equal to the address.
 		SymbolType* symbol = symbol_from_handle(iterator->second);
 		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {
 			return symbol;

@@ -207,6 +207,8 @@ TEST(CCCSymbolDatabase, SymbolOverlappingAddress)
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0)), FunctionHandle());
+	
 	Result<FunctionHandle> a = create_function(database, (*source)->handle(), "a", 0x1000, 0x1000);
 	CCC_GTEST_FAIL_IF_ERROR(a);
 	
@@ -225,6 +227,7 @@ TEST(CCCSymbolDatabase, SymbolOverlappingAddress)
 	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x3000)), *c);
 	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x4000)), FunctionHandle());
 	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x5000)), *d);
+	EXPECT_EQ(handle_from_function(database.functions.symbol_overlapping_address(0x6000)), FunctionHandle());
 	
 }
 
