@@ -585,7 +585,7 @@ public:
 		const Module* module_symbol);
 	
 	// Destroy a function handle as well as all parameter variables and local
-	// variables it associated with it.
+	// variables associated with it.
 	bool destroy_function(FunctionHandle handle);
 	
 	template <typename Callback>
