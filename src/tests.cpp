@@ -58,7 +58,8 @@ static int main_test(const fs::path& input_directory)
 				demangler.cplus_demangle_opname = cplus_demangle_opname;
 				
 				// Test the importers.
-				Result<ModuleHandle> handle = import_symbol_tables(database, (*symbol_file)->name(), *symbol_tables, STRICT_PARSING, demangler);
+				Result<ModuleHandle> handle = import_symbol_tables(
+					database, (*symbol_file)->name(), *symbol_tables, STRICT_PARSING, demangler, nullptr);
 				CCC_EXIT_IF_ERROR(handle);
 				
 				// Test the C++ printing code.

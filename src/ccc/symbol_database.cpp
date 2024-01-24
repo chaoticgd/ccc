@@ -140,11 +140,11 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const st
 }
 
 template <typename SymbolType>
-SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address)
+SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address address)
 {
 	auto iterator = m_address_to_handle.upper_bound(address.value);
-	iterator--; // Find the greatest element that is less than or equal to the address.
-	if(iterator != m_address_to_handle.end()) {
+	if(iterator != m_address_to_handle.begin()) {
+		iterator--; // Find the greatest element that is less than or equal to the address.
 		SymbolType* symbol = symbol_from_handle(iterator->second);
 		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {
 			return symbol;
@@ -154,9 +154,9 @@ SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address addres
 }
 
 template <typename SymbolType>
-const SymbolType* SymbolList<SymbolType>::symbol_from_contained_address(Address address) const
+const SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address address) const
 {
-	return const_cast<SymbolList<SymbolType>*>(this)->symbol_from_contained_address(address);
+	return const_cast<SymbolList<SymbolType>*>(this)->symbol_overlapping_address(address);
 }
 
 template <typename SymbolType>
