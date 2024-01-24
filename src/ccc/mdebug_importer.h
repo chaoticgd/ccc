@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "mdebug_analysis.h"
 #include "mdebug_section.h"
 #include "symbol_database.h"
@@ -18,8 +20,9 @@ Result<void> import_symbol_table(
 	SymbolSourceHandle source,
 	const Module* module_symbol,
 	u32 importer_flags,
-	const DemanglerFunctions& demangler);
-Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context);
+	const DemanglerFunctions& demangler,
+	const std::atomic_bool* interrupt);
+Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context, const std::atomic_bool* interrupt);
 Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, const AnalysisContext& context);
 
 // Try to add pointers from member function declarations to their definitions

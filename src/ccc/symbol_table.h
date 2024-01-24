@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "symbol_database.h"
 
 namespace ccc {
@@ -40,7 +42,8 @@ public:
 		SymbolSourceHandle source,
 		const Module* module_symbol,
 		u32 importer_flags,
-		DemanglerFunctions demangler) const = 0;
+		DemanglerFunctions demangler,
+		const std::atomic_bool* interrupt) const = 0;
 	
 	// Print out all the field in the header structure if one exists.
 	virtual Result<void> print_headers(FILE* out) const = 0;
@@ -66,7 +69,8 @@ Result<ModuleHandle> import_symbol_tables(
 	std::string module_name,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	u32 importer_flags,
-	DemanglerFunctions demangler);
+	DemanglerFunctions demangler,
+	const std::atomic_bool* interrupt);
 
 class MdebugSymbolTable : public SymbolTable {
 public:
@@ -79,7 +83,8 @@ public:
 		SymbolSourceHandle source,
 		const Module* module_symbol,
 		u32 importer_flags,
-		DemanglerFunctions demangler) const override;
+		DemanglerFunctions demangler,
+		const std::atomic_bool* interrupt) const override;
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
 	
@@ -99,7 +104,8 @@ public:
 		SymbolSourceHandle source,
 		const Module* module_symbol,
 		u32 importer_flags,
-		DemanglerFunctions demangler) const override;
+		DemanglerFunctions demangler,
+		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
@@ -122,7 +128,8 @@ public:
 		SymbolSourceHandle source,
 		const Module* module_symbol,
 		u32 importer_flags,
-		DemanglerFunctions demangler) const override;
+		DemanglerFunctions demangler,
+		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
@@ -142,7 +149,8 @@ public:
 		SymbolSourceHandle source,
 		const Module* module_symbol,
 		u32 importer_flags,
-		DemanglerFunctions demangler) const override;
+		DemanglerFunctions demangler,
+		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;

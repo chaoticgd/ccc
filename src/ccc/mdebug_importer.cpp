@@ -22,7 +22,8 @@ Result<void> import_symbol_table(
 	SymbolSourceHandle source,
 	const Module* module_symbol,
 	u32 importer_flags,
-	const DemanglerFunctions& demangler)
+	const DemanglerFunctions& demangler,
+	const std::atomic_bool* interrupt)
 {
 	SymbolTableReader reader;
 	
@@ -51,18 +52,22 @@ Result<void> import_symbol_table(
 	context.importer_flags = importer_flags;
 	context.demangler = demangler;
 	
-	Result<void> result = import_files(database, context);
+	Result<void> result = import_files(database, context, interrupt);
 	CCC_RETURN_IF_ERROR(result);
 	
 	return Result<void>();
 }
 
-Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context)
+Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context, const std::atomic_bool* interrupt)
 {
 	Result<s32> file_count = context.reader->file_count();
 	CCC_RETURN_IF_ERROR(file_count);
 	
 	for(s32 i = 0; i < *file_count; i++) {
+		if(interrupt && *interrupt) {
+			return CCC_FAILURE("Operation interrupted by user.");
+		}
+		
 		Result<mdebug::File> file = context.reader->parse_file(i);
 		CCC_RETURN_IF_ERROR(file);
 		
