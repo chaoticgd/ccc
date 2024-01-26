@@ -724,8 +724,8 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			}
 		}
 		if(!match) {
-			// This type doesn't match the others with the same name that have
-			// already been processed.
+			// This type doesn't match any of the others with the same name
+			// that have already been processed.
 			Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
 			CCC_RETURN_IF_ERROR(data_type);
 			
