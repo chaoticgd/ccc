@@ -201,6 +201,48 @@ s32 SymbolList<SymbolType>::size() const
 
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
+	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address)
+{
+	CCC_CHECK(m_next_handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
+	
+	u32 handle = m_next_handle++;
+	
+	SymbolType& symbol = m_symbols.emplace_back();
+	
+	symbol.m_handle = handle;
+	symbol.m_name = std::move(name);
+	
+	if constexpr(std::is_same_v<SymbolType, SymbolSource>) {
+		// It doesn't make sense for the calling code to provide a symbol source
+		// handle as an argument if we're creating a symbol source symbol, so we
+		// set the source of the new symbol to its own handle.
+		symbol.m_source = handle;
+	} else {
+		CCC_ASSERT(source.valid());
+		symbol.m_source = source;
+	}
+	
+	if constexpr(std::is_same_v<SymbolType, Module>) {
+		// It doesn't make sense for the calling code to provide a module as an
+		// argument if we're creating a module symbol, so we set the module of
+		// the new symbol to its own handle.
+		symbol.m_address = address;
+		symbol.m_module = handle;
+	} else if(module_symbol) {
+		symbol.m_address = address.add_base_address(module_symbol->address());
+		symbol.m_module = module_symbol->handle();
+	} else {
+		symbol.m_address = address;
+	}
+	
+	link_address_map(symbol);
+	link_name_map(symbol);
+	
+	return &symbol;
+}
+
+template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address, u32 importer_flags, DemanglerFunctions demangler)
 {
 	static const int DMGL_PARAMS = 1 << 0;
@@ -244,48 +286,6 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	}
 	
 	return symbol;
-}
-
-template <typename SymbolType>
-Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
-	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address)
-{
-	CCC_CHECK(m_next_handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
-	
-	u32 handle = m_next_handle++;
-	
-	SymbolType& symbol = m_symbols.emplace_back();
-	
-	symbol.m_handle = handle;
-	symbol.m_name = std::move(name);
-	
-	if constexpr(std::is_same_v<SymbolType, SymbolSource>) {
-		// It doesn't make sense for the calling code to provide a symbol source
-		// handle as an argument if we're creating a symbol source symbol, so we
-		// set the source of the new symbol to its own handle.
-		symbol.m_source = handle;
-	} else {
-		CCC_ASSERT(source.valid());
-		symbol.m_source = source;
-	}
-	
-	if constexpr(std::is_same_v<SymbolType, Module>) {
-		// It doesn't make sense for the calling code to provide a module as an
-		// argument if we're creating a module symbol, so we set the module of
-		// the new symbol to its own handle.
-		symbol.m_address = address;
-		symbol.m_module = handle;
-	} else if(module_symbol) {
-		symbol.m_address = address.add_base_address(module_symbol->address());
-		symbol.m_module = module_symbol->handle();
-	} else {
-		symbol.m_address = address;
-	}
-	
-	link_address_map(symbol);
-	link_name_map(symbol);
-	
-	return &symbol;
 }
 
 template <typename SymbolType>

@@ -171,6 +171,11 @@ public:
 	// Retrieve the number of symbols stored.
 	s32 size() const;
 	
+	// Create a new symbol. If it's a SymbolSource symbol, source can be left
+	// empty, otherwise it has to be valid.
+	Result<SymbolType*> create_symbol(
+		std::string name, SymbolSourceHandle source, const Module* module_symbol = nullptr, Address address = Address());
+	
 	// Create a new symbol if it doesn't already exist or
 	// DONT_DEDUPLICATE_SYMBOLS is set. If it's a SymbolSource symbol, source
 	// can be left empty, otherwise it has to be valid. The return value may
@@ -182,11 +187,6 @@ public:
 		Address address,
 		u32 importer_flags,
 		DemanglerFunctions demangler);
-	
-	// Create a new symbol. If it's a SymbolSource symbol, source can be left
-	// empty, otherwise it has to be valid.
-	Result<SymbolType*> create_symbol(
-		std::string name, SymbolSourceHandle source, const Module* module_symbol = nullptr, Address address = Address());
 	
 	// Update the address of a symbol without changing its handle.
 	bool move_symbol(SymbolHandle<SymbolType> handle, Address new_address);
