@@ -37,9 +37,9 @@ together using shared pointers:
 The symbol list classes maintain maps that can be used to lookup a symbol by its
 address or name where that makes sense.
 
-In addition, you can lookup a symbol from an address that is contained by said
-symbol. For example, it is possible to find the function that an instruction
-belongs to by looking up its address.
+In addition, you can lookup a symbol from an address that it overlaps. For
+example, it is possible to find the function that an instruction belongs to by
+looking up its address.
 
 ## Modules
 
@@ -116,4 +116,5 @@ sum += functions.size();
 ...
 ```
 
-This way, if we wanted to add another type of symbol, we wouldn't have to modify the symbol count code above.
+This way, if we wanted to add another type of symbol, we wouldn't have to modify
+the symbol count code above.

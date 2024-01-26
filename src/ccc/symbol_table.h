@@ -85,6 +85,7 @@ public:
 		u32 importer_flags,
 		DemanglerFunctions demangler,
 		const std::atomic_bool* interrupt) const override;
+	
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
 	

@@ -201,54 +201,7 @@ s32 SymbolList<SymbolType>::size() const
 
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
-	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address, u32 importer_flags, DemanglerFunctions demangler)
-{
-	static const int DMGL_PARAMS = 1 << 0;
-	static const int DMGL_RET_POSTFIX = 1 << 5;
-	
-	std::string demangled_name;
-	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
-		if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
-			int demangler_flags = 0;
-			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
-			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
-			char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
-			if(demangled_name_ptr) {
-				demangled_name = demangled_name_ptr;
-				free(reinterpret_cast<void*>(demangled_name_ptr));
-			}
-		}
-	}
-	
-	std::string& non_mangled_name = demangled_name.empty() ? name : demangled_name;
-	
-	// Since we parse all the symbol tables in a file, we're gonna encounter
-	// duplicate symbols for functions and global variables. This logic filters
-	// out said symbols.
-	if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && address.valid()) {
-		for(const auto& [existing_address, existing_handle] : handles_from_starting_address(address)) {
-			SymbolType* existing_symbol = symbol_from_handle(existing_handle);
-			if(existing_symbol && existing_symbol->name() == non_mangled_name) {
-				return nullptr;
-			}
-		}
-	}
-	
-	Result<SymbolType*> symbol = create_symbol(non_mangled_name, source, module_symbol, address);
-	CCC_RETURN_IF_ERROR(symbol);
-	
-	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
-		if(!demangled_name.empty()) {
-			(*symbol)->set_mangled_name(name);
-		}
-	}
-	
-	return symbol;
-}
-
-template <typename SymbolType>
-Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
-	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address)
+	std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
 {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
 	
@@ -286,6 +239,60 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	link_name_map(symbol);
 	
 	return &symbol;
+}
+
+template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
+	std::string name, SymbolSourceHandle source, const Module* module_symbol)
+{
+	return create_symbol(name, Address(), source, module_symbol);
+}
+
+template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
+	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address, u32 importer_flags, DemanglerFunctions demangler)
+{
+	static const int DMGL_PARAMS = 1 << 0;
+	static const int DMGL_RET_POSTFIX = 1 << 5;
+	
+	std::string demangled_name;
+	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+		if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
+			int demangler_flags = 0;
+			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
+			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
+			char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
+			if(demangled_name_ptr) {
+				demangled_name = demangled_name_ptr;
+				free(reinterpret_cast<void*>(demangled_name_ptr));
+			}
+		}
+	}
+	
+	std::string& non_mangled_name = demangled_name.empty() ? name : demangled_name;
+	
+	// Since we parse all the symbol tables in a file, we're gonna encounter
+	// duplicate symbols for functions and global variables. This logic filters
+	// out said symbols.
+	if((importer_flags & DONT_DEDUPLICATE_SYMBOLS) == 0 && address.valid()) {
+		for(const auto& [existing_address, existing_handle] : handles_from_starting_address(address)) {
+			SymbolType* existing_symbol = symbol_from_handle(existing_handle);
+			if(existing_symbol && existing_symbol->name() == non_mangled_name) {
+				return nullptr;
+			}
+		}
+	}
+	
+	Result<SymbolType*> symbol = create_symbol(non_mangled_name, address, source, module_symbol);
+	CCC_RETURN_IF_ERROR(symbol);
+	
+	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+		if(!demangled_name.empty()) {
+			(*symbol)->set_mangled_name(name);
+		}
+	}
+	
+	return symbol;
 }
 
 template <typename SymbolType>
@@ -724,8 +731,8 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			}
 		}
 		if(!match) {
-			// This type doesn't match the others with the same name that have
-			// already been processed.
+			// This type doesn't match any of the others with the same name
+			// that have already been processed.
 			Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
 			CCC_RETURN_IF_ERROR(data_type);
 			

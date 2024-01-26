@@ -144,7 +144,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	}
 	
 	Result<SourceFile*> source_file = database.source_files.create_symbol(
-		input.full_path, context.symbol_source, context.module_symbol, text_address);
+		input.full_path, text_address, context.symbol_source, context.module_symbol);
 	CCC_RETURN_IF_ERROR(source_file);
 	
 	(*source_file)->working_dir = input.working_dir;

@@ -90,7 +90,7 @@ TEST(CCCSymbolDatabase, HandlesFromAddressRange)
 	
 	// Create the symbols.
 	for(u32 address = 10; address < 20; address++) {
-		Result<Function*> function = database.functions.create_symbol("", (*source)->handle(), nullptr, address);
+		Result<Function*> function = database.functions.create_symbol("", address, (*source)->handle(), nullptr);
 		CCC_GTEST_FAIL_IF_ERROR(function);
 		handles[address] = (*function)->handle();
 	}
@@ -137,7 +137,7 @@ TEST(CCCSymbolDatabase, HandleFromStartingAddress)
 	
 	// Create the symbols.
 	for(u32 address = 0; address < 10; address++) {
-		Result<Function*> function = database.functions.create_symbol("", (*source)->handle(), nullptr, address);
+		Result<Function*> function = database.functions.create_symbol("", address, (*source)->handle(), nullptr);
 		CCC_GTEST_FAIL_IF_ERROR(function);
 		handles[address] = (*function)->handle();
 	}
@@ -184,7 +184,7 @@ TEST(CCCSymbolDatabase, HandlesFromName)
 
 static Result<FunctionHandle> create_function(SymbolDatabase& database, SymbolSourceHandle source, const char* name, Address address, u32 size)
 {
-	Result<Function*> function = database.functions.create_symbol("a", source, nullptr, address);
+	Result<Function*> function = database.functions.create_symbol("a", address, source, nullptr);
 	CCC_RETURN_IF_ERROR(function);
 	CCC_CHECK(*function, "*function");
 	(*function)->set_size(size);
@@ -265,7 +265,7 @@ TEST(CCCSymbolDatabase, MoveSymbol)
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
-	Result<Function*> function = database.functions.create_symbol("func", (*source)->handle(), nullptr, 0x1000);
+	Result<Function*> function = database.functions.create_symbol("func", 0x1000, (*source)->handle(), nullptr);
 	CCC_GTEST_FAIL_IF_ERROR(function);
 	
 	EXPECT_TRUE(database.functions.move_symbol((*function)->handle(), 0x2000));
@@ -280,7 +280,7 @@ TEST(CCCSymbolDatabase, RenameSymbol)
 	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
-	Result<DataType*> data_type = database.data_types.create_symbol("Type1", (*source)->handle(), nullptr, 0x1000);
+	Result<DataType*> data_type = database.data_types.create_symbol("Type1", 0x1000, (*source)->handle(), nullptr);
 	EXPECT_TRUE(database.data_types.rename_symbol((*data_type)->handle(), "Type2"));
 	
 	auto old_handles = database.data_types.handles_from_name("Type1");
