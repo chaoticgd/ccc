@@ -174,7 +174,12 @@ public:
 	// Create a new symbol. If it's a SymbolSource symbol, source can be left
 	// empty, otherwise it has to be valid.
 	Result<SymbolType*> create_symbol(
-		std::string name, SymbolSourceHandle source, const Module* module_symbol = nullptr, Address address = Address());
+		std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol = nullptr);
+	
+	// Create a new symbol. Similar to the above, but for symbols that don't
+	// have addresses.
+	Result<SymbolType*> create_symbol(
+		std::string name, SymbolSourceHandle source, const Module* module_symbol = nullptr);
 	
 	// Create a new symbol if it doesn't already exist or
 	// DONT_DEDUPLICATE_SYMBOLS is set. If it's a SymbolSource symbol, source

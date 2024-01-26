@@ -201,7 +201,7 @@ s32 SymbolList<SymbolType>::size() const
 
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
-	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address)
+	std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
 {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
 	
@@ -243,6 +243,13 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
+	std::string name, SymbolSourceHandle source, const Module* module_symbol)
+{
+	return create_symbol(name, Address(), source, module_symbol);
+}
+
+template <typename SymbolType>
+Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address, u32 importer_flags, DemanglerFunctions demangler)
 {
 	static const int DMGL_PARAMS = 1 << 0;
@@ -276,7 +283,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 		}
 	}
 	
-	Result<SymbolType*> symbol = create_symbol(non_mangled_name, source, module_symbol, address);
+	Result<SymbolType*> symbol = create_symbol(non_mangled_name, address, source, module_symbol);
 	CCC_RETURN_IF_ERROR(symbol);
 	
 	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {

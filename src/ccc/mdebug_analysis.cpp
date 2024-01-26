@@ -200,7 +200,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 	
 	Address address = (desc == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) ? value : Address();
 	Result<LocalVariable*> local_variable = m_database.local_variables.create_symbol(
-		name, m_context.symbol_source, m_context.module_symbol, address);
+		name, address, m_context.symbol_source, m_context.module_symbol);
 	CCC_RETURN_IF_ERROR(local_variable);
 	
 	m_current_local_variables.expand_to_include((*local_variable)->handle());
