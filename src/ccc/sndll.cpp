@@ -47,10 +47,10 @@ CCC_PACKED_STRUCT(SNDLLSymbolHeader,
 )
 
 static Result<SNDLLFile> parse_sndll_common(
-	std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version);
+	std::span<const u8> image, Address address, bool symbols_relative, const SNDLLHeaderCommon& common, SNDLLVersion version);
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type);
 
-Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
+Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, bool symbols_relative)
 {
 	const u32* magic = get_packed<u32>(image, 0);
 	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.valid() ? "section" : "file");
@@ -60,12 +60,12 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
 		case '1': {
 			const SNDLLHeaderV1* header = get_packed<SNDLLHeaderV1>(image, 0);
 			CCC_CHECK(header, "File too small to contain SNDLL V1 header.");
-			return parse_sndll_common(image, address, header->common, SNDLL_V1);
+			return parse_sndll_common(image, address, symbols_relative, header->common, SNDLL_V1);
 		}
 		case '2': {
 			const SNDLLHeaderV2* header = get_packed<SNDLLHeaderV2>(image, 0);
 			CCC_CHECK(header, "File too small to contain SNDLL V2 header.");
-			return parse_sndll_common(image, address, header->common, SNDLL_V2);
+			return parse_sndll_common(image, address, symbols_relative, header->common, SNDLL_V2);
 		}
 	}
 	
@@ -73,11 +73,12 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address)
 }
 
 static Result<SNDLLFile> parse_sndll_common(
-	std::span<const u8> image, Address address, const SNDLLHeaderCommon& common, SNDLLVersion version)
+	std::span<const u8> image, Address address, bool symbols_relative, const SNDLLHeaderCommon& common, SNDLLVersion version)
 {
 	SNDLLFile sndll;
 	
 	sndll.address = address;
+	sndll.symbols_relative = symbols_relative;
 	sndll.version = version;
 	
 	if(common.elf_path) {
@@ -122,15 +123,17 @@ Result<void> import_sndll_symbols(
 			switch(symbol.type) {
 				case SNDLLSymbolType::RELATIVE:
 				case SNDLLSymbolType::WEAK: {
+					u32 base_address = sndll.symbols_relative ? sndll.address.get_or_zero() : 0;
+					
 					Result<Label*> label = database.labels.create_symbol(
-						symbol.string, source, module_symbol, sndll.address.get_or_zero() + symbol.value, importer_flags, demangler);
+						symbol.string, source, module_symbol, base_address + symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(label);
 					
 					break;
 				}
 				case SNDLLSymbolType::ABSOLUTE: {
 					Result<Label*> label = database.labels.create_symbol(
-						symbol.string, source, module_symbol,symbol.value, importer_flags, demangler);
+						symbol.string, source, module_symbol, symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(label);
 					
 					break;

@@ -81,7 +81,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 			std::span<const u8> data = std::span(elf.image).subspan(section.offset, section.size);
 			
 			if(data.size() >= 4 && data[0] != '\0') {
-				Result<SNDLLFile> file = parse_sndll_file(data, section.address);
+				Result<SNDLLFile> file = parse_sndll_file(data, section.address, false);
 				CCC_RETURN_IF_ERROR(file);
 				
 				symbol_table = std::make_unique<SNDLLSymbolTable>(std::make_shared<SNDLLFile>(std::move(*file)));
