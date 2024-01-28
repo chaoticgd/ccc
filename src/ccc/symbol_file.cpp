@@ -22,7 +22,7 @@ Result<std::unique_ptr<SymbolFile>> parse_symbol_file(std::vector<u8> image, std
 		}
 		case CCC_FOURCC("SNR1"):
 		case CCC_FOURCC("SNR2"): {
-			Result<SNDLLFile> sndll = parse_sndll_file(image);
+			Result<SNDLLFile> sndll = parse_sndll_file(image, Address(), true);
 			CCC_RETURN_IF_ERROR(sndll);
 			
 			symbol_file = std::make_unique<SNDLLSymbolFile>(std::move(*sndll));
