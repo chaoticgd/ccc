@@ -486,29 +486,40 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
 {
 	// Fill in pointers from member function declaration to corresponding definitions.
 	for(Function& function : database.functions) {
-		const std::string& demangled_name = function.name();
-		std::string::size_type name_separator_pos = demangled_name.find_last_of("::");
-		if(name_separator_pos != std::string::npos && name_separator_pos > 0) {
-			std::string function_name = demangled_name.substr(name_separator_pos + 1);
-			// This won't work for some template types, and that's okay.
-			std::string::size_type type_separator_pos = demangled_name.find_last_of("::", name_separator_pos - 2);
-			std::string type_name;
-			if(type_separator_pos != std::string::npos) {
-				type_name = demangled_name.substr(type_separator_pos + 1, name_separator_pos - type_separator_pos - 2);
-			} else {
-				type_name = demangled_name.substr(0, name_separator_pos - 1);
+		const std::string& qualified_name = function.name();
+		std::string::size_type name_separator_pos = qualified_name.find_last_of("::");
+		if(name_separator_pos == std::string::npos || name_separator_pos < 2) {
+			continue;
+		}
+			
+		std::string function_name = qualified_name.substr(name_separator_pos + 1);
+		
+		// This won't work for some template types.
+		std::string::size_type type_separator_pos = qualified_name.find_last_of("::", name_separator_pos - 2);
+		std::string type_name;
+		if(type_separator_pos != std::string::npos) {
+			type_name = qualified_name.substr(type_separator_pos + 1, name_separator_pos - type_separator_pos - 2);
+		} else {
+			type_name = qualified_name.substr(0, name_separator_pos - 1);
+		}
+		
+		for(const auto& name_handle : database.data_types.handles_from_name(type_name)) {
+			DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
+			if(!data_type || !data_type->type() || data_type->type()->descriptor != ast::STRUCT_OR_UNION) {
+				continue;
 			}
-			for(const auto& name_handle : database.data_types.handles_from_name(type_name)) {
-				DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
-				if(data_type && data_type->type() && data_type->type()->descriptor == ast::STRUCT_OR_UNION) {
-					ast::StructOrUnion& struct_or_union = data_type->type()->as<ast::StructOrUnion>();
-					for(std::unique_ptr<ast::Node>& declaration : struct_or_union.member_functions) {
-						if(declaration->name == function_name) {
-							declaration->as<ast::Function>().definition_handle = function.handle().value;
-							function.is_member_function_ish = true;
-						}
-					}
+				
+			ast::StructOrUnion& struct_or_union = data_type->type()->as<ast::StructOrUnion>();
+			for(std::unique_ptr<ast::Node>& declaration : struct_or_union.member_functions) {
+				if(declaration->name == function_name) {
+					declaration->as<ast::Function>().definition_handle = function.handle().value;
+					function.is_member_function_ish = true;
+					break;
 				}
+			}
+			
+			if(function.is_member_function_ish) {
+				break;
 			}
 		}
 	}

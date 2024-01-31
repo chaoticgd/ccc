@@ -608,7 +608,16 @@ public:
 class NodeHandle {
 	friend SymbolDatabase;
 public:
+	// Create an empty node handle.
 	NodeHandle();
+	
+	// Create a node handle that will always allow accesses to its node. You
+	// should only use this if you know the lifetime of the handle is a subset
+	// of the lifetime of the node.
+	NodeHandle(const ast::Node* node);
+	
+	// Create a node handle pointing to an AST node from a given symbol that
+	// will prevent accesses to the node if the symbol is deleted.
 	template <typename SymbolType>
 	NodeHandle(const SymbolType& symbol, const ast::Node* node);
 	

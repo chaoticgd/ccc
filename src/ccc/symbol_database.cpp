@@ -770,6 +770,9 @@ bool SymbolDatabase::destroy_function(FunctionHandle handle)
 
 NodeHandle::NodeHandle() {}
 
+NodeHandle::NodeHandle(const ast::Node* node)
+	: m_node(node) {}
+
 template <typename SymbolType>
 NodeHandle::NodeHandle(const SymbolType& symbol, const ast::Node* node)
 	: m_descriptor(SymbolType::DESCRIPTOR)
@@ -779,27 +782,30 @@ NodeHandle::NodeHandle(const SymbolType& symbol, const ast::Node* node)
 
 bool NodeHandle::valid() const
 {
-	return m_symbol_handle != (u32) -1;
+	return m_node != nullptr;
 }
 
 const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const
 {
-	const Symbol* symbol = lookup_symbol(database);
-	if(symbol && symbol->generation() == m_generation) {
-		return m_node;
-	} else {
-		return nullptr;
+	if(m_symbol_handle != (u32) -1) {
+		const Symbol* symbol = lookup_symbol(database);
+		if(!symbol || symbol->generation() != m_generation) {
+			return nullptr;
+		}
 	}
+	return m_node;
 }
 
 const Symbol* NodeHandle::lookup_symbol(const SymbolDatabase& database) const
 {
-	switch(m_descriptor) {
-		#define CCC_X(SymbolType, symbol_list) \
-			case SymbolType::DESCRIPTOR: \
-				return database.symbol_list.symbol_from_handle(m_symbol_handle);
-		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-		#undef CCC_X
+	if(m_symbol_handle != (u32) -1) {
+		switch(m_descriptor) {
+			#define CCC_X(SymbolType, symbol_list) \
+				case SymbolType::DESCRIPTOR: \
+					return database.symbol_list.symbol_from_handle(m_symbol_handle);
+			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+			#undef CCC_X
+		}
 	}
 	return nullptr;
 }

@@ -4,33 +4,12 @@ The symbol database provides a unified in-memory and on-disk representation for
 debugging symbols, including those imported from multiple different types of
 symbol tables, and those that are defined manually by the user.
 
-Many of the objects in the symbol database are similar to objects found in
-traditional relational databases. The symbol lists are the tables, the maps are
-the indexes, and the symbol handles are the keys.
-
-This enables relationships that would be hard to represent in a strictly
-hierarchical design. For example, if functions belonged to source files, how
-would you represent a function that isn't associated with any known source file?
-
 ## Handles
 
-Integer handles were chosen to represent keys. Symbols are stored in lists with
-other symbols of the same type, and are sorted by their symbol handles. When we
-need to lookup a symbol by its handle, a binary search is done on the list.
-
-This design has the following advantages over raw indices:
-- All the handles aren't invalidated when a symbol is deleted.
-- If a symbol a handle is pointing to no longer exists, when we lookup the
-  symbol the result will always be a null pointer.
-
-This design has the following advantages over stringing all the symbols
-together using shared pointers:
-- Easier to iterate over all symbols of a given type.
-- Easier to convert to and from JSON. The symbols are all in lists and the
-  handles can be converted to indices.
-- Easier to implement undo/redo support. Symbols can be recreated with the same
-  handle they had originally, while it may not be possible to reallocate symbols
-  at the address they were at before.
+Integer handles were chosen to represent references to symbols. These symbols
+are stored in lists with other symbols of the same type, and are sorted by their
+symbol handles. When we need to lookup a symbol by its handle, a binary search
+is done on the list.
 
 ## Maps
 
