@@ -45,9 +45,9 @@ struct Error {
 	s32 source_line;
 };
 
-enum class ErrorSeverity {
-	ERROR,
-	WARNING
+enum ErrorSeverity {
+	SEVERITY_ERROR,
+	SEVERITY_WARNING
 };
 
 typedef void (*CustomErrorCallback)(const Error& error, ErrorSeverity severity);
