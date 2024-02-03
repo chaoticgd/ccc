@@ -245,7 +245,7 @@ template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	std::string name, SymbolSourceHandle source, const Module* module_symbol)
 {
-	return create_symbol(name, Address(), source, module_symbol);
+	return create_symbol(std::move(name), Address(), source, module_symbol);
 }
 
 template <typename SymbolType>
