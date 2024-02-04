@@ -89,7 +89,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	if(force_substitute && can_compare_type_numbers && type.type_number == enclosing_struct->type_number) {
 		// It's probably a this parameter (or return type) for an unnamed type.
 		auto type_name = std::make_unique<ast::TypeName>();
-		type_name->source = ast::TypeNameSource::THIS;
+		type_name->source = ast::TypeNameSource::UNNAMED_THIS;
 		type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
 		type_name->unresolved_stabs->referenced_file_handle = state.file_handle;
 		type_name->unresolved_stabs->stabs_type_number_file = type.type_number.file;

@@ -179,8 +179,7 @@ struct StructOrUnion : Node {
 enum class TypeNameSource : u8 {
 	REFERENCE, // A STABS type reference.
 	CROSS_REFERENCE, // A STABS cross reference.
-	VOID, // The void type.
-	THIS // A this parameter (or return type) referencing an unnamed type.
+	UNNAMED_THIS // A this parameter (or return type) referencing an unnamed type.
 };
 
 const char* type_name_source_to_string(TypeNameSource source);

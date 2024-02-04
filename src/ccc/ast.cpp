@@ -35,8 +35,7 @@ const char* type_name_source_to_string(TypeNameSource source)
 	switch(source) {
 		case TypeNameSource::REFERENCE: return "reference";
 		case TypeNameSource::CROSS_REFERENCE: return "cross_reference";
-		case TypeNameSource::VOID: return "void";
-		case TypeNameSource::THIS: return "this";
+		case TypeNameSource::UNNAMED_THIS: return "this";
 	}
 	return "";
 }
