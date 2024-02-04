@@ -366,7 +366,7 @@ static Result<void> resolve_type_name(
 	// automatically generated member function of a nested struct trying to
 	// reference the struct (for the this parameter). We shouldn't create a
 	// forward declared type in this case.
-	if(type_name.source == ast::TypeNameSource::THIS) {
+	if(type_name.source == ast::TypeNameSource::UNNAMED_THIS) {
 		return Result<void>();
 	}
 	
@@ -445,7 +445,7 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 				node.computed_size_bytes = 4;
 				break;
 			}
-			case ast::ERROR: {
+			case ast::ERROR_NODE: {
 				break;
 			}
 			case ast::STRUCT_OR_UNION: {

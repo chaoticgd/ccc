@@ -88,7 +88,7 @@ static Result<RefinedData> refine_node(
 			
 			return data;
 		}
-		case ast::ERROR: {
+		case ast::ERROR_NODE: {
 			break;
 		}
 		case ast::FUNCTION: {
@@ -149,7 +149,7 @@ static Result<RefinedData> refine_builtin(
 	RefinedData data;
 	
 	switch(bclass) {
-		case ast::BuiltInClass::VOID: {
+		case ast::BuiltInClass::VOID_TYPE: {
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_8:

@@ -12,7 +12,7 @@ enum NodeDescriptor : u8 {
 	BITFIELD,
 	BUILTIN,
 	ENUM,
-	ERROR,
+	ERROR_NODE,
 	FUNCTION,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
@@ -102,7 +102,7 @@ struct BitField : Node {
 };
 
 enum class BuiltInClass {
-	VOID,
+	VOID_TYPE,
 	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
 	UNSIGNED_16, SIGNED_16,
 	UNSIGNED_32, SIGNED_32, FLOAT_32,
@@ -111,7 +111,7 @@ enum class BuiltInClass {
 };
 
 struct BuiltIn : Node {
-	BuiltInClass bclass = BuiltInClass::VOID;
+	BuiltInClass bclass = BuiltInClass::VOID_TYPE;
 	
 	BuiltIn() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
@@ -127,8 +127,8 @@ struct Enum : Node {
 struct Error : Node {
 	std::string message;
 	
-	Error() : Node(ERROR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = ERROR;
+	Error() : Node(ERROR_NODE) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = ERROR_NODE;
 };
 
 enum class MemberFunctionModifier {
@@ -179,8 +179,7 @@ struct StructOrUnion : Node {
 enum class TypeNameSource : u8 {
 	REFERENCE, // A STABS type reference.
 	CROSS_REFERENCE, // A STABS cross reference.
-	VOID, // The void type.
-	THIS // A this parameter (or return type) referencing an unnamed type.
+	UNNAMED_THIS // A this parameter (or return type) referencing an unnamed type.
 };
 
 const char* type_name_source_to_string(TypeNameSource source);
@@ -301,7 +300,7 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 		case ENUM: {
 			break;
 		}
-		case ERROR: {
+		case ERROR_NODE: {
 			break;
 		}
 		case FUNCTION: {

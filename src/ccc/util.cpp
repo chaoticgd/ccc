@@ -29,7 +29,7 @@ Error format_error(const char* source_file, int source_line, const char* format,
 void report_error(const Error& error)
 {
 	if(custom_error_callback) {
-		custom_error_callback(error, ErrorSeverity::ERROR);
+		custom_error_callback(error, ERROR_LEVEL_ERROR);
 	} else {
 		fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n",
 			error.source_file, error.source_line, error.message.c_str());
@@ -39,7 +39,7 @@ void report_error(const Error& error)
 void report_warning(const Error& warning)
 {
 	if(custom_error_callback) {
-		custom_error_callback(warning, ErrorSeverity::WARNING);
+		custom_error_callback(warning, ERROR_LEVEL_WARNING);
 	} else {
 		fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_MAGENTA "warning:" CCC_ANSI_COLOUR_OFF " %s\n",
 			warning.source_file, warning.source_line, warning.message.c_str());

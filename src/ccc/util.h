@@ -45,12 +45,12 @@ struct Error {
 	s32 source_line;
 };
 
-enum class ErrorSeverity {
-	ERROR,
-	WARNING
+enum ErrorLevel {
+	ERROR_LEVEL_ERROR,
+	ERROR_LEVEL_WARNING
 };
 
-typedef void (*CustomErrorCallback)(const Error& error, ErrorSeverity severity);
+typedef void (*CustomErrorCallback)(const Error& error, ErrorLevel level);
 
 Error format_error(const char* source_file, int source_line, const char* format, ...);
 void report_error(const Error& error);

@@ -393,7 +393,7 @@ void CppPrinter::ast_node(
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
 			switch(builtin.bclass) {
-				case ast::BuiltInClass::VOID:
+				case ast::BuiltInClass::VOID_TYPE:
 					fprintf(out, "void");
 					break;
 				case ast::BuiltInClass::UNSIGNED_128:
@@ -441,7 +441,7 @@ void CppPrinter::ast_node(
 			}
 			break;
 		}
-		case ast::ERROR: {
+		case ast::ERROR_NODE: {
 			fprintf(out, "CCC_ERROR(\"%s\")", node.as<ast::Error>().message.c_str());
 			break;
 		}
@@ -613,7 +613,7 @@ void CppPrinter::ast_node(
 			const DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
 			if(data_type) {
 				fprintf(out, "%s", data_type->name().c_str());
-			} else if(type_name.source == ast::TypeNameSource::THIS) {
+			} else if(type_name.source == ast::TypeNameSource::UNNAMED_THIS) {
 				fprintf(out, "CCC_THIS_TYPE");
 			} else {
 				fprintf(out, "CCC_ERROR(\"Invalid %s type name.\")", ast::type_name_source_to_string(type_name.source));

@@ -121,8 +121,8 @@ Result<void> import_sndll_symbols(
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
 		if(symbol.value != 0 && !symbol.string.empty()) {
 			switch(symbol.type) {
-				case SNDLLSymbolType::RELATIVE:
-				case SNDLLSymbolType::WEAK: {
+				case SNDLL_RELATIVE:
+				case SNDLL_WEAK: {
 					u32 base_address = sndll.symbols_relative ? sndll.address.get_or_zero() : 0;
 					
 					Result<Label*> label = database.labels.create_symbol(
@@ -131,15 +131,15 @@ Result<void> import_sndll_symbols(
 					
 					break;
 				}
-				case SNDLLSymbolType::ABSOLUTE: {
+				case SNDLL_ABSOLUTE: {
 					Result<Label*> label = database.labels.create_symbol(
 						symbol.string, source, module_symbol, symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(label);
 					
 					break;
 				}
-				case SNDLLSymbolType::NIL:
-				case SNDLLSymbolType::EXTERNAL:
+				case SNDLL_NIL:
+				case SNDLL_EXTERNAL:
 				default: {
 					break;
 				}
@@ -162,11 +162,11 @@ void print_sndll_symbols(FILE* out, const SNDLLFile& sndll)
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type)
 {
 	switch(type) {
-		case SNDLLSymbolType::NIL: return "NIL";
-		case SNDLLSymbolType::EXTERNAL: return "EXTERNAL";
-		case SNDLLSymbolType::RELATIVE: return "RELATIVE";
-		case SNDLLSymbolType::WEAK: return "WEAK";
-		case SNDLLSymbolType::ABSOLUTE: return "ABSOLUTE";
+		case SNDLL_NIL: return "NIL";
+		case SNDLL_EXTERNAL: return "EXTERNAL";
+		case SNDLL_RELATIVE: return "RELATIVE";
+		case SNDLL_WEAK: return "WEAK";
+		case SNDLL_ABSOLUTE: return "ABSOLUTE";
 	}
 	return "invalid";
 }

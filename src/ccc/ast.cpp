@@ -35,8 +35,7 @@ const char* type_name_source_to_string(TypeNameSource source)
 	switch(source) {
 		case TypeNameSource::REFERENCE: return "reference";
 		case TypeNameSource::CROSS_REFERENCE: return "cross_reference";
-		case TypeNameSource::VOID: return "void";
-		case TypeNameSource::THIS: return "this";
+		case TypeNameSource::UNNAMED_THIS: return "this";
 	}
 	return "";
 }
@@ -107,7 +106,7 @@ CompareResult compare_nodes(
 			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
 			break;
 		}
-		case ERROR: {
+		case ERROR_NODE: {
 			break;
 		}
 		case FUNCTION: {
@@ -298,7 +297,7 @@ const char* node_type_to_string(const Node& node)
 		case BITFIELD: return "bitfield";
 		case BUILTIN: return "builtin";
 		case ENUM: return "enum";
-		case ERROR: return "error";
+		case ERROR_NODE: return "error";
 		case FUNCTION: return "function";
 		case POINTER_OR_REFERENCE: {
 			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();
@@ -348,7 +347,7 @@ const char* access_specifier_to_string(AccessSpecifier specifier)
 const char* builtin_class_to_string(BuiltInClass bclass)
 {
 	switch(bclass) {
-		case BuiltInClass::VOID: return "void";
+		case BuiltInClass::VOID_TYPE: return "void";
 		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
 		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
 		case BuiltInClass::UNQUALIFIED_8: return "8-bit integer";
@@ -372,7 +371,7 @@ const char* builtin_class_to_string(BuiltInClass bclass)
 s32 builtin_class_size(BuiltInClass bclass)
 {
 	switch(bclass) {
-		case BuiltInClass::VOID: return 0;
+		case BuiltInClass::VOID_TYPE: return 0;
 		case BuiltInClass::UNSIGNED_8: return 1;
 		case BuiltInClass::SIGNED_8: return 1;
 		case BuiltInClass::UNQUALIFIED_8: return 1;
