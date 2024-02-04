@@ -393,7 +393,7 @@ void CppPrinter::ast_node(
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
 			switch(builtin.bclass) {
-				case ast::BuiltInClass::VOID:
+				case ast::BuiltInClass::VOID_TYPE:
 					fprintf(out, "void");
 					break;
 				case ast::BuiltInClass::UNSIGNED_128:

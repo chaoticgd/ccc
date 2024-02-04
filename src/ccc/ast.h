@@ -102,7 +102,7 @@ struct BitField : Node {
 };
 
 enum class BuiltInClass {
-	VOID,
+	VOID_TYPE,
 	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
 	UNSIGNED_16, SIGNED_16,
 	UNSIGNED_32, SIGNED_32, FLOAT_32,
@@ -111,7 +111,7 @@ enum class BuiltInClass {
 };
 
 struct BuiltIn : Node {
-	BuiltInClass bclass = BuiltInClass::VOID;
+	BuiltInClass bclass = BuiltInClass::VOID_TYPE;
 	
 	BuiltIn() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;

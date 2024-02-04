@@ -142,7 +142,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				// I still don't know why in STABS void is a reference to
 				// itself, maybe because I'm not a philosopher.
 				auto builtin = std::make_unique<ast::BuiltIn>();
-				builtin->bclass = ast::BuiltInClass::VOID;
+				builtin->bclass = ast::BuiltInClass::VOID_TYPE;
 				result = std::move(builtin);
 			}
 			break;

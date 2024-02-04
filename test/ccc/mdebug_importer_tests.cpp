@@ -163,7 +163,7 @@ MDEBUG_IMPORTER_TEST(VexingVoid,
 	DataType* data_type = database.data_types.symbol_from_handle(handle);
 	ASSERT_TRUE(data_type && data_type->type());
 	EXPECT_EQ(data_type->type()->descriptor, ast::BUILTIN);
-	EXPECT_EQ(data_type->type()->as<ast::BuiltIn>().bclass, ast::BuiltInClass::VOID);
+	EXPECT_EQ(data_type->type()->as<ast::BuiltIn>().bclass, ast::BuiltInClass::VOID_TYPE);
 }
 
 // ee-g++ -gstabs
@@ -181,7 +181,7 @@ MDEBUG_IMPORTER_TEST(VillanousVoid,
 	ASSERT_EQ(data_type->type()->descriptor, ast::POINTER_OR_REFERENCE);
 	ast::PointerOrReference& pointer = data_type->type()->as<ast::PointerOrReference>();
 	ASSERT_EQ(pointer.value_type->descriptor, ast::BUILTIN);
-	EXPECT_EQ(pointer.value_type->as<ast::BuiltIn>().bclass, ast::BuiltInClass::VOID);
+	EXPECT_EQ(pointer.value_type->as<ast::BuiltIn>().bclass, ast::BuiltInClass::VOID_TYPE);
 }
 
 // ee-g++ -gstabs
