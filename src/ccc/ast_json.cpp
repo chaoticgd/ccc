@@ -104,7 +104,7 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 			json.EndArray();
 			break;
 		}
-		case ERROR: {
+		case ERROR_NODE: {
 			const Error& error = node.as<Error>();
 			json.Key("message");
 			json.String(error.message);

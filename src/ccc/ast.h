@@ -12,7 +12,7 @@ enum NodeDescriptor : u8 {
 	BITFIELD,
 	BUILTIN,
 	ENUM,
-	ERROR,
+	ERROR_NODE,
 	FUNCTION,
 	POINTER_OR_REFERENCE,
 	POINTER_TO_DATA_MEMBER,
@@ -127,8 +127,8 @@ struct Enum : Node {
 struct Error : Node {
 	std::string message;
 	
-	Error() : Node(ERROR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = ERROR;
+	Error() : Node(ERROR_NODE) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = ERROR_NODE;
 };
 
 enum class MemberFunctionModifier {
@@ -301,7 +301,7 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 		case ENUM: {
 			break;
 		}
-		case ERROR: {
+		case ERROR_NODE: {
 			break;
 		}
 		case FUNCTION: {

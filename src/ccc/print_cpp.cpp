@@ -441,7 +441,7 @@ void CppPrinter::ast_node(
 			}
 			break;
 		}
-		case ast::ERROR: {
+		case ast::ERROR_NODE: {
 			fprintf(out, "CCC_ERROR(\"%s\")", node.as<ast::Error>().message.c_str());
 			break;
 		}

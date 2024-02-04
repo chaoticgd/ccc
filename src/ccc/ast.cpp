@@ -107,7 +107,7 @@ CompareResult compare_nodes(
 			if(lhs.constants != rhs.constants) return CompareFailReason::ENUM_CONSTANTS;
 			break;
 		}
-		case ERROR: {
+		case ERROR_NODE: {
 			break;
 		}
 		case FUNCTION: {
@@ -298,7 +298,7 @@ const char* node_type_to_string(const Node& node)
 		case BITFIELD: return "bitfield";
 		case BUILTIN: return "builtin";
 		case ENUM: return "enum";
-		case ERROR: return "error";
+		case ERROR_NODE: return "error";
 		case FUNCTION: return "function";
 		case POINTER_OR_REFERENCE: {
 			const PointerOrReference& pointer_or_reference = node.as<PointerOrReference>();

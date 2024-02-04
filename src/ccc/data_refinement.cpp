@@ -88,7 +88,7 @@ static Result<RefinedData> refine_node(
 			
 			return data;
 		}
-		case ast::ERROR: {
+		case ast::ERROR_NODE: {
 			break;
 		}
 		case ast::FUNCTION: {

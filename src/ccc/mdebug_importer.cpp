@@ -445,7 +445,7 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 				node.computed_size_bytes = 4;
 				break;
 			}
-			case ast::ERROR: {
+			case ast::ERROR_NODE: {
 				break;
 			}
 			case ast::STRUCT_OR_UNION: {
