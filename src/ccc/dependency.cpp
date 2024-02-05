@@ -33,13 +33,17 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 void map_types_to_files_based_on_this_pointers(SymbolDatabase& database)
 {
 	for(const Function& function : database.functions) {
-		std::span<const ParameterVariable> parameter_variables = database.parameter_variables.optional_span(function.parameter_variables());
-		if(parameter_variables.empty()) {
+		if(!function.parameter_variables().has_value() || function.parameter_variables()->empty()) {
 			continue;
 		}
 		
-		const ParameterVariable& parameter_variable = parameter_variables[0];
-		const ast::Node* parameter_type = parameter_variable.type();
+		ParameterVariableHandle parameter_handle = (*function.parameter_variables())[0];
+		const ParameterVariable* parameter_variable = database.parameter_variables.symbol_from_handle(parameter_handle);
+		if(!parameter_variable) {
+			continue;
+		}
+		
+		const ast::Node* parameter_type = parameter_variable->type();
 		if(!parameter_type) {
 			continue;
 		}
@@ -47,7 +51,7 @@ void map_types_to_files_based_on_this_pointers(SymbolDatabase& database)
 		// Check if the first argument is a this pointer.
 		bool is_pointer = parameter_type->descriptor == ast::POINTER_OR_REFERENCE
 			&& parameter_type->as<ast::PointerOrReference>().is_pointer;
-		if(parameter_variable.name() != "this" || !is_pointer) {
+		if(parameter_variable->name() != "this" || !is_pointer) {
 			continue;
 		}
 		
@@ -109,22 +113,22 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 					}
 				}
 			} else {
-				for(const Function& function : database.functions.span(file->functions())) {
-					if(function.storage_class != STORAGE_CLASS_STATIC) {
-						if(function.type()) {
-							ast::for_each_node(*function.type(), ast::PREORDER_TRAVERSAL, count_references);
+				for(const Function* function : database.functions.symbols_from_handles(file->functions())) {
+					if(function->storage_class != STORAGE_CLASS_STATIC) {
+						if(function->type()) {
+							ast::for_each_node(*function->type(), ast::PREORDER_TRAVERSAL, count_references);
 						}
-						for(const ParameterVariable& parameter_variable : database.parameter_variables.optional_span(function.parameter_variables())) {
-							if(parameter_variable.type()) {
-								ast::for_each_node(*parameter_variable.type(), ast::PREORDER_TRAVERSAL, count_references);
+						for(const ParameterVariable* parameter : database.parameter_variables.optional_symbols_from_handles(function->parameter_variables())) {
+							if(parameter->type()) {
+								ast::for_each_node(*parameter->type(), ast::PREORDER_TRAVERSAL, count_references);
 							}
 						}
 					}
 				}
-				for(const GlobalVariable& global_variable : database.global_variables.span(file->global_variables())) {
-					if(global_variable.storage_class != STORAGE_CLASS_STATIC) {
-						if(global_variable.type()) {
-							ast::for_each_node(*global_variable.type(), ast::PREORDER_TRAVERSAL, count_references);
+				for(const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(file->global_variables())) {
+					if(global_variable->storage_class != STORAGE_CLASS_STATIC) {
+						if(global_variable->type()) {
+							ast::for_each_node(*global_variable->type(), ast::PREORDER_TRAVERSAL, count_references);
 						}
 					}
 				}

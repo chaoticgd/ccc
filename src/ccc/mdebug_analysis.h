@@ -83,11 +83,11 @@ protected:
 	
 	AnalysisState m_state = NOT_IN_FUNCTION;
 	SourceFile& m_source_file;
-	FunctionRange m_functions;
-	GlobalVariableRange m_global_variables;
+	std::vector<FunctionHandle> m_functions;
+	std::vector<GlobalVariableHandle> m_global_variables;
 	Function* m_current_function = nullptr;
-	ParameterVariableRange m_current_parameter_variables;
-	LocalVariableRange m_current_local_variables;
+	std::vector<ParameterVariableHandle> m_current_parameter_variables;
+	std::vector<LocalVariableHandle> m_current_local_variables;
 	std::vector<std::vector<LocalVariableHandle>> m_blocks;
 	std::vector<LocalVariableHandle> m_pending_local_variables;
 	std::string m_next_relative_path;

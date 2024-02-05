@@ -273,9 +273,10 @@ static void write_c_cpp_file(
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
-		GlobalVariableRange global_variables = source_file->global_variables();
-		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
-			printer.global_variable(global_variable, database, &read_virtual_func);
+		
+		const std::vector<GlobalVariableHandle>& global_variables = source_file->global_variables();
+		for(const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(global_variables)) {
+			printer.global_variable(*global_variable, database, &read_virtual_func);
 		}
 	}
 	
@@ -283,9 +284,10 @@ static void write_c_cpp_file(
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
-		FunctionRange functions = source_file->functions();
-		for(const Function& function : database.functions.span(functions)) {
-			printer.function(function, database, &read_virtual_func);
+		
+		const std::vector<FunctionHandle>& functions = source_file->functions();
+		for(const Function* function : database.functions.symbols_from_handles(functions)) {
+			printer.function(*function, database, &read_virtual_func);
 		}
 	}
 	
@@ -336,12 +338,14 @@ static void write_h_file(
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
-		GlobalVariableRange global_variables = source_file->global_variables();
-		for(const GlobalVariable& global_variable : database.global_variables.span(global_variables)) {
-			printer.global_variable(global_variable, database, nullptr);
+		
+		const std::vector<GlobalVariableHandle>& global_variables = source_file->global_variables();
+		for(const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(global_variables)) {
+			printer.global_variable(*global_variable, database, nullptr);
 			has_global = true;
 		}
 	}
+	
 	if(has_global) {
 		fprintf(out, "\n");
 	}
@@ -350,9 +354,10 @@ static void write_h_file(
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
-		FunctionRange functions = source_file->functions();
-		for(const Function& function : database.functions.span(functions)) {
-			printer.function(function, database, nullptr);
+		
+		const std::vector<FunctionHandle>& functions = source_file->functions();
+		for(const Function* function : database.functions.symbols_from_handles(functions)) {
+			printer.function(*function, database, nullptr);
 		}
 	}
 	
@@ -374,12 +379,15 @@ static bool needs_lost_and_found_file(const SymbolDatabase& database)
 static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database)
 {
 	printf("Writing %s\n", path.string().c_str());
+	
 	FILE* out = fopen(path.string().c_str(), "w");
+	
 	CppPrinterConfig config;
 	config.print_offsets_and_sizes = false;
 	config.omit_this_parameter = true;
 	config.substitute_parameter_lists = true;
 	CppPrinter printer(out, config);
+	
 	s32 nodes_printed = 0;
 	for(const DataType& data_type : database.data_types) {
 		if(data_type.files.size() != 1) {
@@ -388,7 +396,9 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 			}
 		}
 	}
+	
 	printf("%d types printed to lost and found file\n", nodes_printed);
+	
 	fclose(out);
 }
 

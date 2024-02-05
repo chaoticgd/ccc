@@ -28,58 +28,6 @@ TEST(CCCSymbolDatabase, SymbolFromHandle)
 	}
 }
 
-TEST(CCCSymbolDatabase, SymbolListSpan)
-{
-	struct SpanTestCase {
-		std::vector<u8> symbols;
-		u8 first;
-		u8 last;
-		std::vector<u8> to_destroy;
-		std::vector<u8> expected_output;
-	};
-	
-	static const SpanTestCase test_cases[] = {
-		// Single element at the beginning.
-		{{'A', 'B', 'C'}, 'A', 'A', {}, {'A'}},
-		// Single element in the middle.
-		{{'A', 'B', 'C'}, 'B', 'B', {}, {'B'}},
-		// Single element at the end.
-		{{'A', 'B', 'C'}, 'C', 'C', {}, {'C'}},
-		// Iterate over entire range.
-		{{'A', 'B', 'C'}, 'A', 'C', {}, {'A', 'B', 'C'}},
-		// Symbol at the beginning deleted.
-		{{'A', 'B', 'C'}, 'A', 'C', {'A'}, {'B', 'C'}},
-		// Symbol in the middle deleted.
-		{{'A', 'B', 'C'}, 'A', 'C', {'B'}, {'A', 'C'}},
-		// Symbol at the end deleted.
-		{{'A', 'B', 'C'}, 'A', 'C', {'C'}, {'A', 'B'}},
-		// Entire range deleted.
-		{{'A', 'B', 'C'}, 'A', 'C', {'A', 'B', 'C'}, {}}
-	};
-	
-	for(const SpanTestCase& test_case : test_cases) {
-		SymbolList<SymbolSource> list;
-		SymbolSourceHandle handles[256];
-		
-		for(u8 c : test_case.symbols) {
-			Result<SymbolSource*> symbol = list.create_symbol(std::string() + (char) c, SymbolSourceHandle());
-			CCC_GTEST_FAIL_IF_ERROR(symbol);
-			handles[c] = (*symbol)->handle();
-		}
-		
-		for(const u8 destroy : test_case.to_destroy) {
-			EXPECT_TRUE(list.destroy_symbol(handles[destroy]));
-		}
-		
-		std::vector<u8> names;
-		for(SymbolSource& symbol : list.span({handles[test_case.first], handles[test_case.last]})) {
-			names.emplace_back((u8) symbol.name().at(0));
-		}
-		
-		EXPECT_EQ(test_case.expected_output, names);
-	}
-}
-
 TEST(CCCSymbolDatabase, HandlesFromAddressRange)
 {
 	SymbolDatabase database;
@@ -377,13 +325,13 @@ TEST(CCCSymbolDatabase, DestroyFunction)
 	Result<ParameterVariable*> parameter_variable = database.parameter_variables.create_symbol("param", (*source)->handle());
 	CCC_GTEST_FAIL_IF_ERROR(parameter_variable);
 	ParameterVariableHandle parameter_handle = (*parameter_variable)->handle();
-	(*function)->set_parameter_variables(ParameterVariableRange(parameter_handle), DONT_DELETE_OLD_SYMBOLS, database);
+	(*function)->set_parameter_variables(std::vector<ParameterVariableHandle>{parameter_handle}, database);
 	
 	// Attach a local variable to the function.
 	Result<LocalVariable*> local_variable = database.local_variables.create_symbol("local", (*source)->handle());
 	CCC_GTEST_FAIL_IF_ERROR(local_variable);
 	LocalVariableHandle local_handle = (*local_variable)->handle();
-	(*function)->set_local_variables(LocalVariableRange(local_handle), DONT_DELETE_OLD_SYMBOLS, database);
+	(*function)->set_local_variables(std::vector<LocalVariableHandle>{local_handle}, database);
 	
 	// Make sure that when the function is destroyed, the variables are too.
 	EXPECT_TRUE(database.destroy_function(function_handle));
