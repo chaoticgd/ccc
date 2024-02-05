@@ -117,6 +117,12 @@ public:
 	SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle);
 	const SymbolType* symbol_from_handle(SymbolHandle<SymbolType> handle) const;
 	
+	// Lookup multiple symbols from their handles using binary search.
+	std::vector<SymbolType*> symbols_from_handles(const std::vector<SymbolHandle<SymbolType>>& handles);
+	std::vector<const SymbolType*> symbols_from_handles(const std::vector<SymbolHandle<SymbolType>>& handles) const;
+	std::vector<SymbolType*> optional_symbols_from_handles(const std::optional<std::vector<SymbolHandle<SymbolType>>>& handles);
+	std::vector<const SymbolType*> optional_symbols_from_handles(const std::optional<std::vector<SymbolHandle<SymbolType>>>& handles) const;
+	
 	using Iterator = typename std::vector<SymbolType>::iterator;
 	using ConstIterator = typename std::vector<SymbolType>::const_iterator;
 	
@@ -125,12 +131,6 @@ public:
 	ConstIterator begin() const;
 	Iterator end();
 	ConstIterator end() const;
-	
-	// For iterating over a subset of the symbols.
-	std::span<SymbolType> span(SymbolRange<SymbolType> range);
-	std::span<const SymbolType> span(SymbolRange<SymbolType> range) const;
-	std::span<SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range);
-	std::span<const SymbolType> optional_span(std::optional<SymbolRange<SymbolType>> range) const;
 	
 	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>>;
 	using NameToHandleMap = std::multimap<std::string, SymbolHandle<SymbolType>>;
@@ -163,7 +163,6 @@ public:
 	
 	// Convert handles to underlying array indices, for the JSON code.
 	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
-	std::pair<s32, s32> index_pair_from_range(SymbolRange<SymbolType> range) const;
 	
 	// Determine if any symbols are being stored.
 	bool empty() const;
@@ -239,11 +238,6 @@ protected:
 	u32 m_next_handle = 0;
 	AddressToHandleMap m_address_to_handle;
 	NameToHandleMap m_name_to_handle;
-};
-
-enum ShouldDeleteOldSymbols {
-	DONT_DELETE_OLD_SYMBOLS,
-	DELETE_OLD_SYMBOLS
 };
 
 // Base class for all the symbols.
@@ -363,11 +357,11 @@ public:
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
 	
-	std::optional<ParameterVariableRange> parameter_variables() const { return m_parameter_variables; }
-	void set_parameter_variables(std::optional<ParameterVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
+	const std::optional<std::vector<ParameterVariableHandle>>& parameter_variables() const;
+	void set_parameter_variables(std::optional<std::vector<ParameterVariableHandle>> parameter_variables, SymbolDatabase& database);
 	
-	std::optional<LocalVariableRange> local_variables() const { return m_local_variables; }
-	void set_local_variables(std::optional<LocalVariableRange> range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
+	const std::optional<std::vector<LocalVariableHandle>>& local_variables() const;
+	void set_local_variables(std::optional<std::vector<LocalVariableHandle>> local_variables, SymbolDatabase& database);
 	
 	const std::string& mangled_name() const;
 	void set_mangled_name(std::string mangled);
@@ -390,8 +384,8 @@ public:
 	
 protected:
 	SourceFileHandle m_source_file;
-	std::optional<ParameterVariableRange> m_parameter_variables;
-	std::optional<LocalVariableRange> m_local_variables;
+	std::optional<std::vector<ParameterVariableHandle>> m_parameter_variables;
+	std::optional<std::vector<LocalVariableHandle>> m_local_variables;
 	
 	std::string m_mangled_name;
 };
@@ -511,11 +505,11 @@ public:
 	SourceFileHandle handle() const { return m_handle; }
 	const std::string& full_path() const { return name(); }
 	
-	FunctionRange functions() const { return m_functions; }
-	void set_functions(FunctionRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
+	const std::vector<FunctionHandle>& functions() const;
+	void set_functions(std::vector<FunctionHandle> functions, SymbolDatabase& database);
 	
-	GlobalVariableRange global_variables() const { return m_global_variables; }
-	void set_global_variables(GlobalVariableRange range, ShouldDeleteOldSymbols delete_old_symbols, SymbolDatabase& database);
+	const std::vector<GlobalVariableHandle>& global_variables() const;
+	void set_global_variables(std::vector<GlobalVariableHandle> global_variables, SymbolDatabase& database);
 	
 	std::string working_dir;
 	std::string command_line_path;
@@ -523,8 +517,8 @@ public:
 	std::set<std::string> toolchain_version_info;
 	
 protected:
-	FunctionRange m_functions;
-	GlobalVariableRange m_global_variables;
+	std::vector<FunctionHandle> m_functions;
+	std::vector<GlobalVariableHandle> m_global_variables;
 };
 
 // A symbol source. Every symbol has a symbol source field indicating how the

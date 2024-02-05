@@ -7,6 +7,8 @@
 
 namespace ccc {
 
+const u32 JSON_FORMAT_VERSION = 11;
+
 template <typename SymbolType>
 static void write_symbol_list(
 	JsonWriter& json,
@@ -33,7 +35,7 @@ void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set
 	json.StartObject();
 	
 	json.Key("version");
-	json.Int(10);
+	json.Uint(JSON_FORMAT_VERSION);
 	
 	#define CCC_X(SymbolType, symbol_list) \
 		if(!std::is_same_v<SymbolType, SymbolSource>) { \
@@ -188,6 +190,30 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 		json.Key("is_member_function_ish");
 		json.Bool(symbol.is_member_function_ish);
 	}
+	
+	if(symbol.parameter_variables().has_value()) {
+		json.Key("parameter_variables");
+		json.StartArray();
+		for(ParameterVariableHandle handle : *symbol.parameter_variables()) {
+			s32 index = database.parameter_variables.index_from_handle(handle);
+			if(index != -1) {
+				json.Int(index);
+			}
+		}
+		json.EndArray();
+	}
+	
+	if(symbol.local_variables().has_value()) {
+		json.Key("local_variables");
+		json.StartArray();
+		for(LocalVariableHandle handle : *symbol.local_variables()) {
+			s32 index = database.local_variables.index_from_handle(handle);
+			if(index != -1) {
+				json.Int(index);
+			}
+		}
+		json.EndArray();
+	}
 }
 
 static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database)
@@ -198,22 +224,12 @@ static void write_json(JsonWriter& json, const GlobalVariable& symbol, const Sym
 		json.Key("storage_class");
 		json.String(ast::storage_class_to_string(symbol.storage_class));
 	}
-	
-	if(symbol.source_file().valid()) {
-		json.Key("source_file");
-		json.Uint(symbol.source_file().value);
-	}
 }
 
 static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database) {}
 
 static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database)
 {
-	if(symbol.function().valid()) {
-		json.Key("function");
-		json.Uint(database.functions.index_from_handle(symbol.function()));
-	}
-	
 	if(const GlobalStorage* storage = std::get_if<GlobalStorage>(&symbol.storage)) {
 		write_json(json, *storage, database);
 	}
@@ -246,11 +262,6 @@ static void write_json(JsonWriter& json, const ParameterVariable& symbol, const 
 	if(const StackStorage* storage = std::get_if<StackStorage>(&symbol.storage)) {
 		write_json(json, *storage, database);
 	}
-	
-	if(symbol.function().valid()) {
-		json.Key("function");
-		json.Uint(database.functions.index_from_handle(symbol.function()));
-	}
 }
 
 static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database) {}
@@ -276,21 +287,27 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 		json.EndArray();
 	}
 	
-	if(symbol.functions().valid()) {
-		auto [begin, end] = database.functions.index_pair_from_range(symbol.functions());
+	if(!symbol.functions().empty()) {
 		json.Key("functions");
 		json.StartArray();
-		json.Uint(begin);
-		json.Uint(end);
+		for(FunctionHandle handle : symbol.functions()) {
+			s32 index = database.functions.index_from_handle(handle);
+			if(index != -1) {
+				json.Int(index);
+			}
+		}
 		json.EndArray();
 	}
 	
-	if(symbol.global_variables().valid()) {
-		auto [begin, end] = database.global_variables.index_pair_from_range(symbol.global_variables());
+	if(!symbol.global_variables().empty()) {
 		json.Key("global_variables");
 		json.StartArray();
-		json.Uint(begin);
-		json.Uint(end);
+		for(GlobalVariableHandle handle : symbol.global_variables()) {
+			s32 index = database.global_variables.index_from_handle(handle);
+			if(index != -1) {
+				json.Int(index);
+			}
+		}
 		json.EndArray();
 	}
 }

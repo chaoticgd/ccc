@@ -181,8 +181,8 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		return;
 	}
 	
-	std::span<const ParameterVariable> parameter_variables = database.parameter_variables.optional_span(symbol.parameter_variables());
-	std::span<const LocalVariable> local_variables = database.local_variables.optional_span(symbol.local_variables());
+	std::vector<const ParameterVariable*> parameter_variables = database.parameter_variables.optional_symbols_from_handles(symbol.parameter_variables());
+	std::vector<const LocalVariable*> local_variables = database.local_variables.optional_symbols_from_handles(symbol.local_variables());
 	
 	bool wants_spacing = m_config.print_function_bodies
 		&& (!local_variables.empty() || function_bodies);
@@ -199,12 +199,10 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	
 	// Print out the storage class, return type and function name.
 	print_cpp_storage_class(out, symbol.storage_class);
-	if(true) {//!function.is_constructor) {
-		if(symbol.type()) {
-			VariableName dummy;
-			ast_node(*symbol.type(), dummy, 0, 0, database);
-			fprintf(out, " ");
-		}
+	if(symbol.type()) {
+		VariableName dummy;
+		ast_node(*symbol.type(), dummy, 0, 0, database);
+		fprintf(out, " ");
 	}
 	print_cpp_variable_name(out, name, BRACKETS_IF_POINTER);
 	
@@ -230,26 +228,26 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		if(!local_variables.empty() || body) {
 			fprintf(out, "{\n");
 			if(!local_variables.empty()) {
-				for(const LocalVariable& variable : local_variables) {
+				for(const LocalVariable* variable : local_variables) {
 					indent(out, 1);
 					
-					if(const GlobalStorage* storage = std::get_if<GlobalStorage>(&variable.storage)) {
-						global_storage_comment(*storage, variable.address());
+					if(const GlobalStorage* storage = std::get_if<GlobalStorage>(&variable->storage)) {
+						global_storage_comment(*storage, variable->address());
 					}
 					
-					if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&variable.storage)) {
+					if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&variable->storage)) {
 						register_storage_comment(*storage);
 					}
 					
-					if(const StackStorage* storage = std::get_if<StackStorage>(&variable.storage)) {
+					if(const StackStorage* storage = std::get_if<StackStorage>(&variable->storage)) {
 						stack_storage_comment(*storage);
 					}
 					
-					if(variable.type()) {
+					if(variable->type()) {
 						VariableName local_name;
-						local_name.identifier = &variable.name();
-						if(variable.type()) {
-							ast_node(*variable.type(), local_name, 0, 1, database);
+						local_name.identifier = &variable->name();
+						if(variable->type()) {
+							ast_node(*variable->type(), local_name, 0, 1, database);
 						} else {
 							print_cpp_variable_name(out, local_name, NO_VAR_PRINT_FLAGS);
 						}
@@ -258,9 +256,9 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 					}
 					if(read_virtual) {
 						VariableToRefine to_refine;
-						to_refine.address = variable.address();
-						to_refine.storage = std::get_if<GlobalStorage>(&variable.storage);
-						to_refine.type = variable.type();
+						to_refine.address = variable->address();
+						to_refine.storage = std::get_if<GlobalStorage>(&variable->storage);
+						to_refine.type = variable->type();
 						if(can_refine_variable(to_refine)) {
 							fprintf(out, " = ");
 							Result<RefinedData> refine_result = refine_variable(to_refine, database, *read_virtual);
@@ -469,11 +467,12 @@ void CppPrinter::ast_node(
 				bool parameters_printed = false;
 				if(m_config.substitute_parameter_lists) {
 					const Function* function_definition = database.functions.symbol_from_handle(function.definition_handle);
-					if(function_definition) {
-						if(function_definition->parameter_variables().has_value()) {
-							function_parameters(database.parameter_variables.optional_span(function_definition->parameter_variables()), database);
-							parameters_printed = true;
-						}
+					if(function_definition && function_definition->parameter_variables().has_value()) {
+						std::vector<ParameterVariableHandle> substitute_handles = *function_definition->parameter_variables();
+						std::vector<const ParameterVariable*> substitute_parameters =
+							database.parameter_variables.optional_symbols_from_handles(substitute_handles);
+						function_parameters(substitute_parameters, database);
+						parameters_printed = true;
 					}
 				}
 				
@@ -624,11 +623,11 @@ void CppPrinter::ast_node(
 	}
 }
 
-void CppPrinter::function_parameters(std::span<const ParameterVariable> parameters, const SymbolDatabase& database)
+void CppPrinter::function_parameters(std::vector<const ParameterVariable*> parameters, const SymbolDatabase& database)
 {
-	bool skip_this = m_config.omit_this_parameter && !parameters.empty() && parameters[0].name() == "this";
+	bool skip_this = m_config.omit_this_parameter && !parameters.empty() && parameters[0]->name() == "this";
 	for(size_t i = skip_this ? 1 : 0; i < parameters.size(); i++) {
-		const ParameterVariable& parameter_variable = parameters[i];
+		const ParameterVariable& parameter_variable = *parameters[i];
 		
 		if(const RegisterStorage* storage = std::get_if<RegisterStorage>(&parameter_variable.storage)) {
 			register_storage_comment(*storage);

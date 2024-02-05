@@ -56,7 +56,7 @@ protected:
 		s32 indentation_level,
 		const SymbolDatabase& database,
 		bool print_body = true);
-	void function_parameters(std::span<const ParameterVariable> parameters, const SymbolDatabase& database);
+	void function_parameters(std::vector<const ParameterVariable*> parameters, const SymbolDatabase& database);
 	void refined_data(const RefinedData& data, s32 indentation_level);
 	void global_storage_comment(const GlobalStorage& storage, Address address);
 	void register_storage_comment(const RegisterStorage& storage);

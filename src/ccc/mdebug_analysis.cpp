@@ -67,7 +67,7 @@ Result<void> LocalSymbolTableAnalyser::global_variable(
 	CCC_RETURN_IF_ERROR(global);
 	CCC_ASSERT(*global);
 	
-	m_global_variables.expand_to_include((*global)->handle());
+	m_global_variables.emplace_back((*global)->handle());
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, nullptr, m_stabs_to_ast_state, 0, true, false);
 	CCC_RETURN_IF_ERROR(node);
@@ -148,13 +148,13 @@ Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const 
 Result<void> LocalSymbolTableAnalyser::function_end()
 {
 	if(m_current_function) {
-		m_current_function->set_parameter_variables(m_current_parameter_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
-		m_current_function->set_local_variables(m_current_local_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
+		m_current_function->set_parameter_variables(std::move(m_current_parameter_variables), m_database);
+		m_current_function->set_local_variables(std::move(m_current_local_variables), m_database);
 	}
 	
 	m_current_function = nullptr;
-	m_current_parameter_variables.clear();
-	m_current_local_variables.clear();
+	m_current_parameter_variables = std::vector<ParameterVariableHandle>();
+	m_current_local_variables = std::vector<LocalVariableHandle>();
 	
 	m_blocks.clear();
 	m_pending_local_variables.clear();
@@ -173,7 +173,7 @@ Result<void> LocalSymbolTableAnalyser::parameter(
 		name, m_context.symbol_source, m_context.module_symbol);
 	CCC_RETURN_IF_ERROR(parameter_variable);
 	
-	m_current_parameter_variables.expand_to_include((*parameter_variable)->handle());
+	m_current_parameter_variables.emplace_back((*parameter_variable)->handle());
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, nullptr, m_stabs_to_ast_state, 0, true, true);
 	CCC_RETURN_IF_ERROR(node);
@@ -203,7 +203,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 		name, address, m_context.symbol_source, m_context.module_symbol);
 	CCC_RETURN_IF_ERROR(local_variable);
 	
-	m_current_local_variables.expand_to_include((*local_variable)->handle());
+	m_current_local_variables.emplace_back((*local_variable)->handle());
 	m_pending_local_variables.emplace_back((*local_variable)->handle());
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, nullptr, m_stabs_to_ast_state, 0, true, false);
@@ -273,8 +273,8 @@ Result<void> LocalSymbolTableAnalyser::finish()
 		CCC_RETURN_IF_ERROR(result);
 	}
 	
-	m_source_file.set_functions(m_functions, DONT_DELETE_OLD_SYMBOLS, m_database);
-	m_source_file.set_global_variables(m_global_variables, DONT_DELETE_OLD_SYMBOLS, m_database);
+	m_source_file.set_functions(std::move(m_functions), m_database);
+	m_source_file.set_global_variables(std::move(m_global_variables), m_database);
 	
 	return Result<void>();
 }
@@ -292,7 +292,7 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	CCC_ASSERT(*function);
 	m_current_function = *function;
 	
-	m_functions.expand_to_include(m_current_function->handle());
+	m_functions.emplace_back(m_current_function->handle());
 	
 	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
 	
