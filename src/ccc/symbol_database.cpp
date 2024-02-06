@@ -826,35 +826,29 @@ bool SymbolDatabase::destroy_function(FunctionHandle handle)
 
 // *****************************************************************************
 
-NodeHandle::NodeHandle() {}
-
-NodeHandle::NodeHandle(const ast::Node* node)
-	: m_node(node) {}
+MultiSymbolHandle::MultiSymbolHandle() {}
 
 template <typename SymbolType>
-NodeHandle::NodeHandle(const SymbolType& symbol, const ast::Node* node)
+MultiSymbolHandle::MultiSymbolHandle(const SymbolType& symbol)
 	: m_descriptor(SymbolType::DESCRIPTOR)
-	, m_symbol_handle(symbol.handle().value)
-	, m_node(node)
-	, m_generation(symbol.generation()) {}
+	, m_symbol_handle(symbol.handle().value) {}
 
-bool NodeHandle::valid() const
+bool MultiSymbolHandle::valid() const
 {
-	return m_node != nullptr;
+	return m_symbol_handle != (u32) -1;
 }
 
-const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const
+SymbolDescriptor MultiSymbolHandle::descriptor() const
 {
-	if(m_symbol_handle != (u32) -1) {
-		const Symbol* symbol = lookup_symbol(database);
-		if(!symbol || symbol->generation() != m_generation) {
-			return nullptr;
-		}
-	}
-	return m_node;
+	return m_descriptor;
 }
 
-const Symbol* NodeHandle::lookup_symbol(const SymbolDatabase& database) const
+u32 MultiSymbolHandle::handle() const
+{
+	return m_symbol_handle;
+}
+
+const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) const
 {
 	if(m_symbol_handle != (u32) -1) {
 		switch(m_descriptor) {
@@ -868,11 +862,46 @@ const Symbol* NodeHandle::lookup_symbol(const SymbolDatabase& database) const
 	return nullptr;
 }
 
+#define CCC_X(SymbolType, symbol_list) template MultiSymbolHandle::MultiSymbolHandle(const SymbolType& symbol);
+CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+#undef CCC_X
+
+// *****************************************************************************
+
+NodeHandle::NodeHandle() {}
+
+NodeHandle::NodeHandle(const ast::Node* node)
+	: m_node(node) {}
+
+template <typename SymbolType>
+NodeHandle::NodeHandle(const SymbolType& symbol, const ast::Node* node)
+	: m_symbol(symbol)
+	, m_node(node)
+	, m_generation(symbol.generation()) {}
+
+bool NodeHandle::valid() const
+{
+	return m_node != nullptr;
+}
+
+const MultiSymbolHandle& NodeHandle::symbol() const
+{
+	return m_symbol;
+}
+
+const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const
+{
+	const Symbol* symbol = m_symbol.lookup_symbol(database);
+	if(!symbol || symbol->generation() != m_generation) {
+		return nullptr;
+	}
+	return m_node;
+}
+
 NodeHandle NodeHandle::handle_for_child(const ast::Node* child_node) const
 {
 	NodeHandle child_handle;
-	child_handle.m_descriptor = m_descriptor;
-	child_handle.m_symbol_handle = m_symbol_handle;
+	child_handle.m_symbol = m_symbol;
 	child_handle.m_node = child_node;
 	child_handle.m_generation = m_generation;
 	return child_handle;

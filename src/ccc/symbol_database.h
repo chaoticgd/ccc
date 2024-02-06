@@ -10,7 +10,7 @@
 
 namespace ccc {
 
-// Define an X macro for all the symbol types.
+// An X macro for all the symbol types.
 #define CCC_FOR_EACH_SYMBOL_TYPE_DO_X \
 	CCC_X(DataType, data_types) \
 	CCC_X(Function, functions) \
@@ -23,7 +23,7 @@ namespace ccc {
 	CCC_X(SourceFile, source_files) \
 	CCC_X(SymbolSource, symbol_sources)
 
-// Define an enum for all the symbol types.
+// An enum for all the symbol types.
 enum class SymbolDescriptor {
 	DATA_TYPE,
 	FUNCTION,
@@ -37,15 +37,15 @@ enum class SymbolDescriptor {
 	SYMBOL_SOURCE
 };
 
-// Forward declare all the different types of symbol table objects.
+// Forward declare all the different types of symbol objects.
 #define CCC_X(SymbolType, symbol_list) class SymbolType;
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
 class SymbolDatabase;
 
-// Define strongly typed handles for all of the symbol table objects. These are
-// here to solve the problem of dangling references to symbols.
+// Strongly typed handles for all of the symbol objects. These are here to solve
+// the problem of dangling references to symbols.
 template <typename SymbolType>
 struct SymbolHandle {
 	u32 value = (u32) -1;
@@ -64,8 +64,8 @@ struct SymbolHandle {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-// Define range types for all of the symbol table objects. Note that the last
-// member actually points to the last real element in the range.
+// Range types for all of the symbol objects. Note that the last member actually
+// points to the last real element in the range.
 template <typename SymbolType>
 struct SymbolRange {
 	SymbolHandle<SymbolType> first;
@@ -598,7 +598,30 @@ public:
 	}
 };
 
-// Define a strongly typed handle to an AST node.
+// A handle to a symbol of any type.
+class MultiSymbolHandle {
+public:
+	// Create an empty multi symbol handle.
+	MultiSymbolHandle();
+	
+	// Create a multi symbol handle of the specified type.
+	template <typename SymbolType>
+	MultiSymbolHandle(const SymbolType& symbol);
+	
+	bool valid() const;
+	SymbolDescriptor descriptor() const;
+	u32 handle() const;
+	
+	const Symbol* lookup_symbol(const SymbolDatabase& database) const;
+	
+	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
+	
+protected:
+	SymbolDescriptor m_descriptor = SymbolDescriptor::DATA_TYPE;
+	u32 m_symbol_handle = (u32) -1;
+};
+
+// A handle to an AST node.
 class NodeHandle {
 	friend SymbolDatabase;
 public:
@@ -615,18 +638,16 @@ public:
 	template <typename SymbolType>
 	NodeHandle(const SymbolType& symbol, const ast::Node* node);
 	
-	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
-	
 	bool valid() const;
+	const MultiSymbolHandle& symbol() const;
 	
 	const ast::Node* lookup_node(const SymbolDatabase& database) const;
-	const Symbol* lookup_symbol(const SymbolDatabase& database) const;
-	
 	NodeHandle handle_for_child(const ast::Node* child_node) const;
 	
+	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
+	
 protected:
-	SymbolDescriptor m_descriptor = SymbolDescriptor::DATA_TYPE;
-	u32 m_symbol_handle = (u32) -1;
+	MultiSymbolHandle m_symbol;
 	const ast::Node* m_node = nullptr;
 	u32 m_generation = 0;
 };
