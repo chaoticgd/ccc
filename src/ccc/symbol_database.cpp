@@ -891,9 +891,11 @@ const MultiSymbolHandle& NodeHandle::symbol() const
 
 const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const
 {
-	const Symbol* symbol = m_symbol.lookup_symbol(database);
-	if(!symbol || symbol->generation() != m_generation) {
-		return nullptr;
+	if(m_symbol.valid()) {
+		const Symbol* symbol = m_symbol.lookup_symbol(database);
+		if(!symbol || symbol->generation() != m_generation) {
+			return nullptr;
+		}
 	}
 	return m_node;
 }
