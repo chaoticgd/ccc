@@ -331,14 +331,10 @@ static Result<void> resolve_type_name(
 	
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
-	if(unresolved_stabs->referenced_file_handle != (u32) -1 && unresolved_stabs->stabs_type_number_type > -1) {
+	if(unresolved_stabs->referenced_file_handle != (u32) -1 && unresolved_stabs->stabs_type_number.valid()) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(unresolved_stabs->referenced_file_handle);
 		CCC_ASSERT(source_file);
-		StabsTypeNumber stabs_type_number = {
-			unresolved_stabs->stabs_type_number_file,
-			unresolved_stabs->stabs_type_number_type
-		};
-		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
+		auto handle = source_file->stabs_type_number_to_handle.find(unresolved_stabs->stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
 			type_name.data_type_handle = handle->second.value;
 			type_name.is_forward_declared = false;

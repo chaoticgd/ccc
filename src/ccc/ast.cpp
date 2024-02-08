@@ -232,18 +232,15 @@ static bool try_to_match_wobbly_typedefs(
 	
 	const TypeName& type_name = type_name_node.as<TypeName>();
 	if(const TypeName::UnresolvedStabs* unresolved_stabs = type_name.unresolved_stabs.get()) {
-		if(unresolved_stabs->referenced_file_handle == (u32) -1 || unresolved_stabs->stabs_type_number_type == -1) {
+		if(unresolved_stabs->referenced_file_handle == (u32) -1 || !unresolved_stabs->stabs_type_number.valid()) {
 			return false;
 		}
 		
 		const SourceFile* source_file =
 			database.source_files.symbol_from_handle(unresolved_stabs->referenced_file_handle);
 		CCC_ASSERT(source_file);
-		StabsTypeNumber stabs_type_number = {
-			unresolved_stabs->stabs_type_number_file,
-			unresolved_stabs->stabs_type_number_type
-		};
-		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
+		
+		auto handle = source_file->stabs_type_number_to_handle.find(unresolved_stabs->stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
 			const DataType* referenced_type = database.data_types.symbol_from_handle(handle->second);
 			CCC_ASSERT(referenced_type && referenced_type->type());

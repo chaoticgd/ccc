@@ -615,7 +615,15 @@ void CppPrinter::ast_node(
 			} else if(type_name.source == ast::TypeNameSource::UNNAMED_THIS) {
 				fprintf(out, "CCC_THIS_TYPE");
 			} else {
-				fprintf(out, "CCC_ERROR(\"Invalid %s type name.\")", ast::type_name_source_to_string(type_name.source));
+				if(type_name.unresolved_stabs) {
+					fprintf(out, "CCC_ERROR(\"Unresolved STABS %s type name '%s' with number (%d,%d).\")",
+						ast::type_name_source_to_string(type_name.source),
+						type_name.unresolved_stabs->type_name.c_str(),
+						type_name.unresolved_stabs->stabs_type_number.file,
+						type_name.unresolved_stabs->stabs_type_number.type);
+				} else {
+					fprintf(out, "CCC_ERROR(\"Invalid %s type name.\")", ast::type_name_source_to_string(type_name.source));
+				}
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;

@@ -383,8 +383,8 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	typedef_type->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
 	typedef_type->unresolved_stabs->type_name = "Underlying";
 	typedef_type->unresolved_stabs->referenced_file_handle = (*file)->handle().value;
-	typedef_type->unresolved_stabs->stabs_type_number_file = 1;
-	typedef_type->unresolved_stabs->stabs_type_number_type = 1;
+	typedef_type->unresolved_stabs->stabs_type_number.file = 1;
+	typedef_type->unresolved_stabs->stabs_type_number.type = 1;
 	Result<DataType*> typedef_symbol = database.create_data_type_if_unique(
 		std::move(typedef_type), StabsTypeNumber{1,2}, "Typedef", **file, (*source)->handle(), nullptr);
 	
@@ -394,8 +394,8 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	member_underlying_type->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
 	member_underlying_type->unresolved_stabs->type_name = "Underlying";
 	member_underlying_type->unresolved_stabs->referenced_file_handle = (*file)->handle().value;
-	member_underlying_type->unresolved_stabs->stabs_type_number_file = 1;
-	member_underlying_type->unresolved_stabs->stabs_type_number_type = 1;
+	member_underlying_type->unresolved_stabs->stabs_type_number.file = 1;
+	member_underlying_type->unresolved_stabs->stabs_type_number.type = 1;
 	struct_underlying_type->fields.emplace_back(std::move(member_underlying_type));
 	Result<DataType*> struct_underlying_symbol = database.create_data_type_if_unique(
 		std::move(struct_underlying_type), StabsTypeNumber{1,3}, "WobblyStruct", **file, (*source)->handle(), nullptr);
@@ -406,8 +406,8 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	member_typedef_type->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
 	member_typedef_type->unresolved_stabs->type_name = "Typedef";
 	member_typedef_type->unresolved_stabs->referenced_file_handle = (*file)->handle().value;
-	member_typedef_type->unresolved_stabs->stabs_type_number_file = 1;
-	member_typedef_type->unresolved_stabs->stabs_type_number_type = 2;
+	member_typedef_type->unresolved_stabs->stabs_type_number.file = 1;
+	member_typedef_type->unresolved_stabs->stabs_type_number.type = 2;
 	struct_typedef_type->fields.emplace_back(std::move(member_typedef_type));
 	Result<DataType*> struct_typedef_symbol = database.create_data_type_if_unique(
 		std::move(struct_typedef_type), StabsTypeNumber{1,4}, "WobblyStruct", **file, (*source)->handle(), nullptr);
@@ -427,7 +427,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	// Validate that the typedef'd struct was chosen over the other one.
 	ast::TypeName::UnresolvedStabs* field = chosen_struct.fields[0]->as<ast::TypeName>().unresolved_stabs.get();
 	ASSERT_TRUE(field);
-	EXPECT_EQ(field->stabs_type_number_type, 2);
+	EXPECT_EQ(field->stabs_type_number.type, 2);
 }
 
 TEST(CCCSymbolDatabase, NodeHandle)

@@ -202,8 +202,7 @@ struct TypeName : Node {
 	struct UnresolvedStabs {
 		std::string type_name;
 		SourceFileHandle referenced_file_handle;
-		s32 stabs_type_number_file = -1;
-		s32 stabs_type_number_type = -1;
+		StabsTypeNumber stabs_type_number;
 		std::optional<ForwardDeclaredType> type;
 		
 		UnresolvedStabs() {}
