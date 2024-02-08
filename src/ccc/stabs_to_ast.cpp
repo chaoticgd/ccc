@@ -41,11 +41,11 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	bool substitute_type_name,
 	bool force_substitute)
 {
-	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=%d name=%s\n",
+	AST_DEBUG_PRINTF("%-*stype desc=%hhx '%c' num=(%d,%d) name=%s\n",
 		depth * 4, "",
-		(u8) type.descriptor,
-		isprint((u8) type.descriptor) ? (u8) type.descriptor : '!',
-		type.type_number,
+		type.descriptor.has_value() ? (u8) *type.descriptor : 'X',
+		(type.descriptor.has_value() && isprint((u8) *type.descriptor)) ? (u8) *type.descriptor : '!',
+		type.type_number.file, type.type_number.type,
 		type.name.has_value() ? type.name->c_str() : "");
 	
 	if(depth > 200) {
