@@ -187,6 +187,18 @@ s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) c
 }
 
 template <typename SymbolType>
+SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index)
+{
+	return m_symbols.at(index);
+}
+
+template <typename SymbolType>
+const SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index) const
+{
+	return m_symbols.at(index);
+}
+
+template <typename SymbolType>
 bool SymbolList<SymbolType>::empty() const
 {
 	return m_symbols.size() == 0;

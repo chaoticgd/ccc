@@ -163,6 +163,8 @@ public:
 	
 	// Convert handles to underlying array indices, for the JSON code.
 	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
+	SymbolType& symbol_from_index(s32 index);
+	const SymbolType& symbol_from_index(s32 index) const;
 	
 	// Determine if any symbols are being stored.
 	bool empty() const;
@@ -589,9 +591,10 @@ public:
 	
 	template <typename Callback>
 	void for_each_symbol(Callback callback) {
+		// Use indices here to avoid iterator invalidation.
 		#define CCC_X(SymbolType, symbol_list) \
-			for(SymbolType& symbol : symbol_list) { \
-				callback(symbol); \
+			for(s32 i = 0; i < symbol_list.size(); i++) { \
+				callback(symbol_list.symbol_from_index(i)); \
 			}
 		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 		#undef CCC_X
