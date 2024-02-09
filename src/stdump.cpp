@@ -311,7 +311,7 @@ static void print_json(FILE* out, const Options& options)
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	rapidjson::StringBuffer buffer;
 	JsonWriter writer(buffer);
-	write_json(writer, database);
+	write_json(writer, database, "stdump");
 	fprintf(out, "%s", buffer.GetString());
 }
 

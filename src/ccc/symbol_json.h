@@ -10,6 +10,10 @@ namespace ccc {
 
 extern const u32 JSON_FORMAT_VERSION;
 
-void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set<SymbolSourceHandle>* sources = nullptr);
+void write_json(
+	JsonWriter& json,
+	const SymbolDatabase& database,
+	const char* application_name,
+	const std::set<SymbolSourceHandle>* sources = nullptr);
 
 }

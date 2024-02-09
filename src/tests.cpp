@@ -80,7 +80,7 @@ static int main_test(const fs::path& input_directory)
 				// Test the JSON writing code.
 				rapidjson::StringBuffer buffer;
 				JsonWriter writer(buffer);
-				write_json(writer, database);
+				write_json(writer, database, "test");
 			} else {
 				printf("%s", symbol_file.error().message.c_str());
 			}
