@@ -17,8 +17,7 @@ Result<void> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt);

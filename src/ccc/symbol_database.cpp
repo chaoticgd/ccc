@@ -664,6 +664,13 @@ void SourceFile::set_global_variables(std::vector<GlobalVariableHandle> global_v
 
 // *****************************************************************************
 
+bool SymbolGroup::is_in_group(const Symbol& symbol) const
+{
+	return symbol.source() == source && symbol.module_handle() == ModuleHandle(module_symbol);
+}
+
+// *****************************************************************************
+
 s32 SymbolDatabase::symbol_count() const
 {
 	s32 sum = 0;
@@ -725,14 +732,13 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 	StabsTypeNumber number,
 	const char* name,
 	SourceFile& source_file,
-	SymbolSourceHandle source,
-	const Module* module_symbol)
+	const SymbolGroup& group)
 {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
 	if(types_with_same_name.begin() == types_with_same_name.end()) {
 		// No types with this name have previously been processed.
-		Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
+		Result<DataType*> data_type = data_types.create_symbol(name, group.source, group.module_symbol);
 		CCC_RETURN_IF_ERROR(data_type);
 		
 		(*data_type)->files = {source_file.handle()};
@@ -751,24 +757,11 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
-			// We don't want to merge together types from different source so we
-			// can destroy all the types from one source without breaking
-			// anything else.
-			if(existing_type->source() != source) {
+			// We don't want to merge together types from different source or
+			// modules so that we can destroy all the types from one source
+			// without breaking anything else.
+			if(!group.is_in_group(*existing_type)) {
 				continue;
-			}
-			
-			// We don't want to merge together types from different modules so
-			// we can destroy all the types from one module without breaking
-			// anything else.
-			if(module_symbol) {
-				if(existing_type->module_handle() != module_symbol->module_handle()) {
-					continue;
-				}
-			} else {
-				if(existing_type->module_handle().valid()) {
-					continue;
-				}
 			}
 			
 			CCC_ASSERT(existing_type->type());
@@ -799,7 +792,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 		if(!match) {
 			// This type doesn't match any of the others with the same name
 			// that have already been processed.
-			Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
+			Result<DataType*> data_type = data_types.create_symbol(name, group.source, group.module_symbol);
 			CCC_RETURN_IF_ERROR(data_type);
 			
 			(*data_type)->files = {source_file.handle()};

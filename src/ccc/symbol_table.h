@@ -39,8 +39,7 @@ public:
 	// Imports this symbol table into the passed database.
 	virtual Result<void> import(
 		SymbolDatabase& database,
-		SymbolSourceHandle source,
-		const Module* module_symbol,
+		const SymbolGroup& group,
 		u32 importer_flags,
 		DemanglerFunctions demangler,
 		const std::atomic_bool* interrupt) const = 0;
@@ -80,8 +79,7 @@ public:
 	
 	Result<void> import(
 		SymbolDatabase& database,
-		SymbolSourceHandle source,
-		const Module* module_symbol,
+		const SymbolGroup& group,
 		u32 importer_flags,
 		DemanglerFunctions demangler,
 		const std::atomic_bool* interrupt) const override;
@@ -102,8 +100,7 @@ public:
 	
 	Result<void> import(
 		SymbolDatabase& database,
-		SymbolSourceHandle source,
-		const Module* module_symbol,
+		const SymbolGroup& group,
 		u32 importer_flags,
 		DemanglerFunctions demangler,
 		const std::atomic_bool* interrupt) const override;
@@ -126,8 +123,7 @@ public:
 	
 	Result<void> import(
 		SymbolDatabase& database,
-		SymbolSourceHandle source,
-		const Module* module_symbol,
+		const SymbolGroup& group,
 		u32 importer_flags,
 		DemanglerFunctions demangler,
 		const std::atomic_bool* interrupt) const override;
@@ -147,8 +143,7 @@ public:
 	
 	Result<void> import(
 		SymbolDatabase& database,
-		SymbolSourceHandle source,
-		const Module* module_symbol,
+		const SymbolGroup& group,
 		u32 importer_flags,
 		DemanglerFunctions demangler,
 		const std::atomic_bool* interrupt) const override;

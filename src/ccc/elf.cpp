@@ -149,10 +149,11 @@ Result<ElfFile> parse_elf_file(std::vector<u8> image)
 }
 
 Result<void> import_elf_section_headers(
-	SymbolDatabase& database, const ElfFile& elf, SymbolSourceHandle source, const Module* module_symbol)
+	SymbolDatabase& database, const ElfFile& elf, const SymbolGroup& group)
 {
 	for(const ElfSection& section : elf.sections) {
-		Result<Section*> symbol = database.sections.create_symbol(section.name, section.address, source, module_symbol);
+		Result<Section*> symbol = database.sections.create_symbol(
+			section.name, section.address, group.source, group.module_symbol);
 		CCC_RETURN_IF_ERROR(symbol);
 		
 		(*symbol)->set_size(section.size);

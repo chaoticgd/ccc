@@ -52,6 +52,8 @@ struct SymbolHandle {
 	
 	SymbolHandle() {}
 	SymbolHandle(u32 v) : value(v) {}
+	SymbolHandle(const SymbolType* symbol)
+		: value(symbol ? symbol->handle().value : (u32) -1) {}
 	
 	// Check if this symbol handle has been initialised. Note that this doesn't
 	// determine whether or not the symbol it points to has been deleted!
@@ -536,6 +538,17 @@ public:
 	SymbolSourceHandle handle() const { return m_handle; }
 };
 
+// Bundles together all the information needed to identify if a symbol came from
+// a specific symbol table import operation. For example, this is used to make
+// sure that we don't reference symbols from another symbol table during the
+// import process.
+struct SymbolGroup {
+	SymbolSourceHandle source;
+	Module* module_symbol = nullptr;
+	
+	bool is_in_group(const Symbol& symbol) const;
+};
+
 // The symbol database itself. This owns all the symbols.
 class SymbolDatabase {
 public:
@@ -582,8 +595,7 @@ public:
 		StabsTypeNumber number,
 		const char* name,
 		SourceFile& source_file,
-		SymbolSourceHandle source,
-		const Module* module_symbol);
+		const SymbolGroup& group);
 	
 	// Destroy a function handle as well as all parameter variables and local
 	// variables associated with it.
