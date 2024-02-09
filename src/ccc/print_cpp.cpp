@@ -616,7 +616,7 @@ void CppPrinter::ast_node(
 				fprintf(out, "CCC_THIS_TYPE");
 			} else {
 				if(type_name.unresolved_stabs) {
-					fprintf(out, "CCC_ERROR(\"Unresolved STABS %s type name '%s' with number (%d,%d).\")",
+					fprintf(out, "CCC_ERROR(\"Unresolved %s type name '%s' with STABS type number (%d,%d).\")",
 						ast::type_name_source_to_string(type_name.source),
 						type_name.unresolved_stabs->type_name.c_str(),
 						type_name.unresolved_stabs->stabs_type_number.file,
