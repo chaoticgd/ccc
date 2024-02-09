@@ -171,7 +171,7 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 	return true;
 }
 
-void CppPrinter::function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
+void CppPrinter::function(const Function& symbol, const SymbolDatabase& database, const ElfFile* elf)
 {
 	if(m_config.skip_statics && symbol.storage_class == STORAGE_CLASS_STATIC) {
 		return;
@@ -254,14 +254,14 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 					} else {
 						
 					}
-					if(read_virtual) {
+					if(elf) {
 						VariableToRefine to_refine;
 						to_refine.address = variable->address();
 						to_refine.storage = std::get_if<GlobalStorage>(&variable->storage);
 						to_refine.type = variable->type();
 						if(can_refine_variable(to_refine)) {
 							fprintf(out, " = ");
-							Result<RefinedData> refine_result = refine_variable(to_refine, database, *read_virtual);
+							Result<RefinedData> refine_result = refine_variable(to_refine, database, *elf);
 							if(refine_result.success()) {
 								refined_data(*refine_result, 1);
 							} else {
@@ -295,20 +295,20 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 }
 
 void CppPrinter::global_variable(
-	const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual)
+	const GlobalVariable& symbol, const SymbolDatabase& database, const ElfFile* elf)
 {
 	if(m_config.skip_statics && symbol.storage_class == STORAGE_CLASS_STATIC) {
 		return;
 	}
 	
 	std::optional<RefinedData> data;
-	if(read_virtual) {
+	if(elf) {
 		VariableToRefine to_refine;
 		to_refine.address = symbol.address();
 		to_refine.storage = &symbol.storage;
 		to_refine.type = symbol.type();
 		if(can_refine_variable(to_refine)) {
-			Result<RefinedData> refine_result = refine_variable(to_refine, database, *read_virtual);
+			Result<RefinedData> refine_result = refine_variable(to_refine, database, *elf);
 			if(refine_result.success()) {
 				data = std::move(*refine_result);
 			} else {

@@ -5,6 +5,7 @@
 
 #include <functional>
 
+#include "elf.h"
 #include "symbol_database.h"
 
 namespace ccc {
@@ -14,8 +15,6 @@ struct RefinedData {
 	std::variant<std::string, std::vector<RefinedData>> value;
 };
 
-using ReadVirtualFunc = std::function<Result<void>(u8* dest, u32 address, u32 size)>;
-
 struct VariableToRefine {
 	Address address;
 	const GlobalStorage* storage = nullptr;
@@ -24,6 +23,6 @@ struct VariableToRefine {
 
 bool can_refine_variable(const VariableToRefine& variable);
 Result<RefinedData> refine_variable(
-	const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual);
+	const VariableToRefine& variable, const SymbolDatabase& database, const ElfFile& elf);
 
 }

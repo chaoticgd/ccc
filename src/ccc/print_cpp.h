@@ -44,9 +44,9 @@ public:
 	void include_directive(const char* path);
 	
 	bool data_type(const DataType& symbol, const SymbolDatabase& database);
-	void function(const Function& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
+	void function(const Function& symbol, const SymbolDatabase& database, const ElfFile* elf);
 	void global_variable(
-		const GlobalVariable& symbol, const SymbolDatabase& database, const ReadVirtualFunc* read_virtual);
+		const GlobalVariable& symbol, const SymbolDatabase& database, const ElfFile* elf);
 	
 protected:
 	void ast_node(
