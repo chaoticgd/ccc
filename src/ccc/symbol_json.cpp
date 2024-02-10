@@ -224,6 +224,11 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 		}
 		json.EndArray();
 	}
+	
+	if(symbol.original_hash() != 0) {
+		json.Key("hash");
+		json.Uint(symbol.original_hash());
+	}
 }
 
 static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database)

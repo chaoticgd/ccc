@@ -353,6 +353,8 @@ public:
 class Function : public Symbol {
 	friend SourceFile;
 	friend SymbolList<Function>;
+	
+	friend void write_json();
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
 	static constexpr const char* NAME = "Function";
@@ -369,6 +371,15 @@ public:
 	
 	const std::string& mangled_name() const;
 	void set_mangled_name(std::string mangled);
+	
+	// A hash of all the opcodes in the function, read from file.
+	u32 original_hash() const;
+	void compute_original_hash(std::span<const u32> instructions);
+	void set_original_hash(u32 hash);
+	
+	// A hash of all the opcodes in the function, read from memory.
+	u32 current_hash() const;
+	void compute_current_hash(std::span<const u32> instructions);
 	
 	struct LineNumberPair {
 		Address address;
@@ -392,6 +403,9 @@ protected:
 	std::optional<std::vector<LocalVariableHandle>> m_local_variables;
 	
 	std::string m_mangled_name;
+	
+	u32 m_original_hash = 0;
+	u32 m_current_hash = 0;
 };
 
 // A global variable.
@@ -515,6 +529,11 @@ public:
 	const std::vector<GlobalVariableHandle>& global_variables() const;
 	void set_global_variables(std::vector<GlobalVariableHandle> global_variables, SymbolDatabase& database);
 	
+	// Check whether at least half of the functions associated with the source
+	// file match their original hash (meaning they haven't been overwritten).
+	bool functions_match() const;
+	void check_functions_match(const SymbolDatabase& database);
+	
 	std::string working_dir;
 	std::string command_line_path;
 	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
@@ -523,6 +542,7 @@ public:
 protected:
 	std::vector<FunctionHandle> m_functions;
 	std::vector<GlobalVariableHandle> m_global_variables;
+	bool m_functions_match = true;
 };
 
 // A symbol source. Every symbol has a symbol source field indicating how the
