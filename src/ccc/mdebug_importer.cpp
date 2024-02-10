@@ -6,12 +6,11 @@
 namespace ccc::mdebug {
 
 static Result<void> resolve_type_names(
-	SymbolDatabase& database, SymbolSourceHandle source, const Module* module_symbol, u32 importer_flags);
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags);
 static Result<void> resolve_type_name(
 	ast::TypeName& type_name,
 	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
 
@@ -19,8 +18,7 @@ Result<void> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt)
@@ -47,8 +45,7 @@ Result<void> import_symbol_table(
 	AnalysisContext context;
 	context.reader = &reader;
 	context.globals = &globals;
-	context.symbol_source = source;
-	context.module_symbol = module_symbol;
+	context.group = group;
 	context.importer_flags = importer_flags;
 	context.demangler = demangler;
 	
@@ -78,18 +75,18 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 	// The files field may be modified by further analysis passes, so we
 	// need to save this information here.
 	for(DataType& data_type : database.data_types) {
-		if(data_type.source() == context.symbol_source && data_type.files.size() == 1) {
+		if(context.group.is_in_group(data_type) && data_type.files.size() == 1) {
 			data_type.only_defined_in_single_translation_unit = true;
 		}
 	}
 	
 	// Lookup data types and store data type handles in type names.
-	Result<void> type_name_result = resolve_type_names(database, context.symbol_source, context.module_symbol, context.importer_flags);
+	Result<void> type_name_result = resolve_type_names(database, context.group, context.importer_flags);
 	CCC_RETURN_IF_ERROR(type_name_result);
 	
 	// Compute the size in bytes of all the AST nodes.
 	database.for_each_symbol([&](ccc::Symbol& symbol) {
-		if(symbol.source() == context.symbol_source && symbol.type()) {
+		if(context.group.is_in_group(symbol) && symbol.type()) {
 			compute_size_bytes(*symbol.type(), database);
 		}
 	});
@@ -144,7 +141,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 	}
 	
 	Result<SourceFile*> source_file = database.source_files.create_symbol(
-		input.full_path, text_address, context.symbol_source, context.module_symbol);
+		input.full_path, text_address, context.group.source, context.module_symbol);
 	CCC_RETURN_IF_ERROR(source_file);
 	
 	(*source_file)->working_dir = input.working_dir;
@@ -298,14 +295,14 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 }
 
 static Result<void> resolve_type_names(
-	SymbolDatabase& database, SymbolSourceHandle source, const Module* module_symbol, u32 importer_flags)
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags)
 {
 	Result<void> result;
 	database.for_each_symbol([&](ccc::Symbol& symbol) {
-		if(symbol.source() == source && symbol.type()) {
+		if(group.is_in_group(symbol) && symbol.type()) {
 			ast::for_each_node(*symbol.type(), ast::PREORDER_TRAVERSAL, [&](ast::Node& node) {
 				if(node.descriptor == ast::TYPE_NAME) {
-					Result<void> type_name_result = resolve_type_name(node.as<ast::TypeName>(), database, source, module_symbol, importer_flags);
+					Result<void> type_name_result = resolve_type_name(node.as<ast::TypeName>(), database, group, importer_flags);
 					if(!type_name_result.success()) {
 						result = std::move(type_name_result);
 					}
@@ -320,8 +317,7 @@ static Result<void> resolve_type_names(
 static Result<void> resolve_type_name(
 	ast::TypeName& type_name,
 	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags)
 {
 	ast::TypeName::UnresolvedStabs* unresolved_stabs = type_name.unresolved_stabs.get();
@@ -331,14 +327,10 @@ static Result<void> resolve_type_name(
 	
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
-	if(unresolved_stabs->referenced_file_handle != (u32) -1 && unresolved_stabs->stabs_type_number_type > -1) {
+	if(unresolved_stabs->referenced_file_handle != (u32) -1 && unresolved_stabs->stabs_type_number.valid()) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(unresolved_stabs->referenced_file_handle);
 		CCC_ASSERT(source_file);
-		StabsTypeNumber stabs_type_number = {
-			unresolved_stabs->stabs_type_number_file,
-			unresolved_stabs->stabs_type_number_type
-		};
-		auto handle = source_file->stabs_type_number_to_handle.find(stabs_type_number);
+		auto handle = source_file->stabs_type_number_to_handle.find(unresolved_stabs->stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
 			type_name.data_type_handle = handle->second.value;
 			type_name.is_forward_declared = false;
@@ -353,7 +345,7 @@ static Result<void> resolve_type_name(
 	if(!unresolved_stabs->type_name.empty()) {
 		for(auto& name_handle : database.data_types.handles_from_name(unresolved_stabs->type_name)) {
 			DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
-			if(data_type->source() == source) {
+			if(data_type && group.is_in_group(*data_type)) {
 				type_name.data_type_handle = name_handle.second.value;
 				type_name.is_forward_declared = true;
 				type_name.unresolved_stabs.reset();
@@ -397,7 +389,8 @@ static Result<void> resolve_type_name(
 	}
 	
 	if(forward_declared_node) {
-		Result<DataType*> forward_declared_type = database.data_types.create_symbol(unresolved_stabs->type_name, source, module_symbol);
+		Result<DataType*> forward_declared_type = database.data_types.create_symbol(
+			unresolved_stabs->type_name, group.source, group.module_symbol);
 		CCC_RETURN_IF_ERROR(forward_declared_type);
 		
 		(*forward_declared_type)->set_type(std::move(forward_declared_node));
@@ -406,6 +399,23 @@ static Result<void> resolve_type_name(
 		type_name.data_type_handle = (*forward_declared_type)->handle().value;
 		type_name.is_forward_declared = true;
 		type_name.unresolved_stabs.reset();
+		
+		return Result<void>();
+	}
+	
+	const char* error_message = "Unresolved %s type name '%s' with STABS type number (%d,%d).";
+	if(importer_flags & STRICT_PARSING) {
+		return CCC_FAILURE(error_message,
+			ast::type_name_source_to_string(type_name.source),
+			type_name.unresolved_stabs->type_name.c_str(),
+			type_name.unresolved_stabs->stabs_type_number.file,
+			type_name.unresolved_stabs->stabs_type_number.type);
+	} else {
+		CCC_WARN(error_message,
+			ast::type_name_source_to_string(type_name.source),
+			type_name.unresolved_stabs->type_name.c_str(),
+			type_name.unresolved_stabs->stabs_type_number.file,
+			type_name.unresolved_stabs->stabs_type_number.type);
 	}
 	
 	return Result<void>();

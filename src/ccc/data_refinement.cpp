@@ -9,17 +9,12 @@
 
 namespace ccc {
 
-struct DataRefinementContext {
-	const SymbolDatabase& database;
-	ReadVirtualFunc read_virtual;
-};
-
 static Result<RefinedData> refine_node(
-	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf);
 static Result<RefinedData> refine_builtin(
-	u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context);
+	u32 virtual_address, ast::BuiltInClass bclass, const SymbolDatabase& database, const ElfFile& elf);
 static Result<RefinedData> refine_pointer_or_reference(
-	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context);
+	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf);
 static const char* generate_format_string(s32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
@@ -36,15 +31,14 @@ bool can_refine_variable(const VariableToRefine& variable)
 }
 
 Result<RefinedData> refine_variable(
-	const VariableToRefine& variable, const SymbolDatabase& database, const ReadVirtualFunc& read_virtual)
+	const VariableToRefine& variable, const SymbolDatabase& database, const ElfFile& elf)
 {
 	CCC_ASSERT(variable.type);
-	DataRefinementContext context{database, read_virtual};
-	return refine_node(variable.address.value, *variable.type, context);
+	return refine_node(variable.address.value, *variable.type, database, elf);
 }
 
 static Result<RefinedData> refine_node(
-	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
+	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf)
 {
 	switch(type.descriptor) {
 		case ast::ARRAY: {
@@ -54,7 +48,7 @@ static Result<RefinedData> refine_node(
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
 			for(s32 i = 0; i < array.element_count; i++) {
 				s32 offset = i * array.element_type->computed_size_bytes;
-				Result<RefinedData> element = refine_node(virtual_address + offset, *array.element_type.get(), context);
+				Result<RefinedData> element = refine_node(virtual_address + offset, *array.element_type.get(), database, elf);
 				CCC_RETURN_IF_ERROR(element);
 				element->field_name = "[" + std::to_string(i) + "]";
 				elements.emplace_back(std::move(*element));
@@ -68,13 +62,13 @@ static Result<RefinedData> refine_node(
 		}
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = type.as<ast::BuiltIn>();
-			return refine_builtin(virtual_address, builtin.bclass, context);
+			return refine_builtin(virtual_address, builtin.bclass, database, elf);
 		}
 		case ast::ENUM: {
 			const ast::Enum& enumeration = type.as<ast::Enum>();
 			
 			s32 value = 0;
-			Result<void> read_result = context.read_virtual((u8*) &value, virtual_address, 4);
+			Result<void> read_result = elf.copy_virtual((u8*) &value, virtual_address, 4);
 			CCC_RETURN_IF_ERROR(read_result);
 			
 			RefinedData data;
@@ -95,10 +89,10 @@ static Result<RefinedData> refine_node(
 			break;
 		}
 		case ast::POINTER_OR_REFERENCE: {
-			return refine_pointer_or_reference(virtual_address, type, context);
+			return refine_pointer_or_reference(virtual_address, type, database, elf);
 		}
 		case ast::POINTER_TO_DATA_MEMBER: {
-			return refine_builtin(virtual_address, ast::BuiltInClass::UNSIGNED_32, context);
+			return refine_builtin(virtual_address, ast::BuiltInClass::UNSIGNED_32, database, elf);
 		}
 		case ast::STRUCT_OR_UNION: {
 			const ast::StructOrUnion& struct_or_union = type.as<ast::StructOrUnion>();
@@ -107,7 +101,7 @@ static Result<RefinedData> refine_node(
 			
 			for(s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
-				Result<RefinedData> child = refine_node(virtual_address + base_class->offset_bytes, *base_class.get(), context);
+				Result<RefinedData> child = refine_node(virtual_address + base_class->offset_bytes, *base_class.get(), database, elf);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "base class " + std::to_string(i);
 				children.emplace_back(std::move(*child));
@@ -117,7 +111,7 @@ static Result<RefinedData> refine_node(
 				if(field->storage_class == STORAGE_CLASS_STATIC) {
 					continue;
 				}
-				Result<RefinedData> child = refine_node(virtual_address + field->offset_bytes, *field.get(), context);
+				Result<RefinedData> child = refine_node(virtual_address + field->offset_bytes, *field.get(), database, elf);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "." + field->name;
 				children.emplace_back(std::move(*child));
@@ -127,10 +121,10 @@ static Result<RefinedData> refine_node(
 		}
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
-			const DataType* resolved_type = context.database.data_types.symbol_from_handle(type_name.data_type_handle);
+			const DataType* resolved_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
 			if(resolved_type && resolved_type->type() && !resolved_type->type()->is_currently_processing) {
 				resolved_type->type()->is_currently_processing = true;
-				Result<RefinedData> child = refine_node(virtual_address, *resolved_type->type(), context);
+				Result<RefinedData> child = refine_node(virtual_address, *resolved_type->type(), database, elf);
 				resolved_type->type()->is_currently_processing = false;
 				return child;
 			}
@@ -144,7 +138,7 @@ static Result<RefinedData> refine_node(
 }
 
 static Result<RefinedData> refine_builtin(
-	u32 virtual_address, ast::BuiltInClass bclass, const DataRefinementContext& context)
+	u32 virtual_address, ast::BuiltInClass bclass, const SymbolDatabase& database, const ElfFile& elf)
 {
 	RefinedData data;
 	
@@ -157,65 +151,77 @@ static Result<RefinedData> refine_builtin(
 		case ast::BuiltInClass::UNSIGNED_16:
 		case ast::BuiltInClass::UNSIGNED_32:
 		case ast::BuiltInClass::UNSIGNED_64: {
-			u64 value = 0;
 			s32 size = builtin_class_size(bclass);
-			Result<void> read_result = context.read_virtual((u8*) &value, virtual_address, size);
+			
+			u64 value = 0;
+			Result<void> read_result = elf.copy_virtual((u8*) &value, virtual_address, size);
 			CCC_RETURN_IF_ERROR(read_result);
+			
 			const char* format = generate_format_string(size, false);
 			data.value = stringf(format, value);
+			
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_8:
 		case ast::BuiltInClass::SIGNED_16:
 		case ast::BuiltInClass::SIGNED_32:
 		case ast::BuiltInClass::SIGNED_64: {
-			s64 value = 0;
 			s32 size = builtin_class_size(bclass);
-			Result<void> read_result = context.read_virtual((u8*) &value, virtual_address, size);
+			
+			s64 value = 0;
+			Result<void> read_result = elf.copy_virtual((u8*) &value, virtual_address, size);
 			CCC_RETURN_IF_ERROR(read_result);
+			
 			const char* format = generate_format_string(size, true);
 			data.value = stringf(format, value);
+			
 			break;
 		}
 		case ast::BuiltInClass::BOOL_8: {
-			bool value = false;
-			Result<void> read_result = context.read_virtual((u8*) &value, virtual_address, 1);
-			CCC_RETURN_IF_ERROR(read_result);
-			data.value = value ? "true" : "false";
+			Result<u8> value = elf.get_object_virtual<u8>(virtual_address);
+			CCC_RETURN_IF_ERROR(value);
+			
+			data.value = *value ? "true" : "false";
+			
 			break;
 		}
 		case ast::BuiltInClass::FLOAT_32: {
-			float value = 0.f;
-			static_assert(sizeof(value) == 4);
-			Result<void> read_result = context.read_virtual((u8*) &value, virtual_address, 4);
-			CCC_RETURN_IF_ERROR(read_result);
-			data.value = single_precision_float_to_string(value);
+			static_assert(sizeof(float) == 4);
+			
+			Result<float> value = elf.get_object_virtual<float>(virtual_address);
+			CCC_RETURN_IF_ERROR(value);
+			
+			data.value = single_precision_float_to_string(*value);
+			
 			break;
 		}
 		case ast::BuiltInClass::FLOAT_64: {
-			double value = 0.f;
-			static_assert(sizeof(value) == 8);
-			Result<void> read_result = context.read_virtual((u8*) &value, virtual_address, 8);
-			CCC_RETURN_IF_ERROR(read_result);
-			std::string string = stringf("%g", value);
-			if(strtof(string.c_str(), nullptr) != value) {
-				string = stringf("%.17g", value);
+			static_assert(sizeof(double) == 8);
+			
+			Result<double> value = elf.get_object_virtual<double>(virtual_address);
+			CCC_RETURN_IF_ERROR(value);
+			
+			std::string string = stringf("%g", *value);
+			if(strtof(string.c_str(), nullptr) != *value) {
+				string = stringf("%.17g", *value);
 			}
 			data.value = std::move(string);
+			
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_128:
 		case ast::BuiltInClass::SIGNED_128:
 		case ast::BuiltInClass::UNQUALIFIED_128:
 		case ast::BuiltInClass::FLOAT_128: {
-			float value[4];
-			Result<void> read_result = context.read_virtual((u8*) value, virtual_address, 16);
-			CCC_RETURN_IF_ERROR(read_result);
+			Result<std::span<const float>> value = elf.get_array_virtual<float>(virtual_address, 4);
+			CCC_RETURN_IF_ERROR(value);
+			
 			data.value = stringf("VECTOR(%s, %s, %s, %s)",
-				single_precision_float_to_string(value[0]).c_str(),
-				single_precision_float_to_string(value[1]).c_str(),
-				single_precision_float_to_string(value[2]).c_str(),
-				single_precision_float_to_string(value[3]).c_str());
+				single_precision_float_to_string((*value)[0]).c_str(),
+				single_precision_float_to_string((*value)[1]).c_str(),
+				single_precision_float_to_string((*value)[2]).c_str(),
+				single_precision_float_to_string((*value)[3]).c_str());
+				
 			break;
 		}
 	}
@@ -224,20 +230,20 @@ static Result<RefinedData> refine_builtin(
 }
 
 static Result<RefinedData> refine_pointer_or_reference(
-	u32 virtual_address, const ast::Node& type, const DataRefinementContext& context)
+	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf)
 {
 	RefinedData data;
-	u32 address = 0;
-	Result<void> read_result = context.read_virtual((u8*) &address, virtual_address, 4);
+	u32 pointer = 0;
+	Result<void> read_result = elf.copy_virtual((u8*) &pointer, virtual_address, 4);
 	CCC_RETURN_IF_ERROR(read_result);
 	
 	std::string string;
-	if(address != 0) {
-		FunctionHandle function_handle = context.database.functions.first_handle_from_starting_address(address);
-		const Function* function_symbol = context.database.functions.symbol_from_handle(function_handle);
+	if(pointer != 0) {
+		FunctionHandle function_handle = database.functions.first_handle_from_starting_address(pointer);
+		const Function* function_symbol = database.functions.symbol_from_handle(function_handle);
 		
-		GlobalVariableHandle global_variable_handle = context.database.global_variables.first_handle_from_starting_address(address);
-		const GlobalVariable* global_variable_symbol = context.database.global_variables.symbol_from_handle(global_variable_handle);
+		GlobalVariableHandle global_variable_handle = database.global_variables.first_handle_from_starting_address(pointer);
+		const GlobalVariable* global_variable_symbol = database.global_variables.symbol_from_handle(global_variable_handle);
 		
 		if(function_symbol) {
 			bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
@@ -256,7 +262,7 @@ static Result<RefinedData> refine_pointer_or_reference(
 			}
 			string += global_variable_symbol->name();
 		} else {
-			string = stringf("0x%x", address);
+			string = stringf("0x%x", pointer);
 		}
 	} else {
 		string = "NULL";

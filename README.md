@@ -116,6 +116,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 | Format Version | Release | Changes |
 | - | - | - |
+| 12 | | Added format and application properties to root object. Added hash property to function symbols. |
 | 11 | | Lists of indices (instead of begin and end indices) are now used for relationships between symbols. |
 | 10 | | Added modules as their own symbol type. Removed the text_address property of source file symbols. |
 | 9 | | Added optional is_virtual_base_class property to nodes in base class lists. |

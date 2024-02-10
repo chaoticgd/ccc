@@ -18,15 +18,13 @@ int main(int argc, char** argv)
 	Result<ElfFile> elf = parse_elf_file(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf);
 	
-	std::vector<const ElfFile*> elves{&(*elf)};
-	
 	const ElfSection* text = elf->lookup_section(".text");
 	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
 	
 	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->offset);
 	CCC_CHECK_FATAL(text_address.has_value(), "Failed to translate file offset to virtual address.");
 	
-	Result<std::vector<mips::Insn>> insns = read_virtual_vector<mips::Insn>(*text_address, text->size / 4, elves);
+	Result<std::span<const mips::Insn>> insns = elf->get_array_virtual<mips::Insn>(*text_address, text->size / 4);
 	CCC_EXIT_IF_ERROR(insns);
 	
 	for(u64 i = 0; i < text->size / 4; i++) {

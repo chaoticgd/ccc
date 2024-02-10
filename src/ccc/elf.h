@@ -52,22 +52,39 @@ struct ElfFile {
 	
 	const ElfSection* lookup_section(const char* name) const;
 	std::optional<u32> file_offset_to_virtual_address(u32 file_offset) const;
+	
+	// Retrieve a block of data in an ELF file given its address and size.
+	Result<std::span<const u8>> get_virtual(u32 address, u32 size) const;
+	
+	// Copy a block of data in an ELF file to the destination buffer given its
+	// address and size.
+	Result<void> copy_virtual(u8* dest, u32 address, u32 size) const;
+	
+	// Retrieve an object of type T from an ELF file given its address.
+	template <typename T>
+	Result<T> get_object_virtual(u32 address) const
+	{
+		Result<std::span<const u8>> result = get_virtual(address, sizeof(T));
+		CCC_RETURN_IF_ERROR(result);
+		
+		return *(T*) result->data();
+	}
+	
+	// Retrieve an array of objects of type T from an ELF file given its
+	// address and element count.
+	template <typename T>
+	Result<std::span<const T>> get_array_virtual(u32 address, u32 element_count) const
+	{
+		Result<std::span<const u8>> result = get_virtual(address, element_count * sizeof(T));
+		CCC_RETURN_IF_ERROR(result);
+		
+		return std::span<const T>((T*) result->data(), (T*) (result->data() + result->size()));
+	}
 };
 
 // Parse the ELF file header, section headers and program headers.
 Result<ElfFile> parse_elf_file(std::vector<u8> image);
 
-Result<void> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf, SymbolSourceHandle source, const Module* module_symbol);
-
-Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<const ElfFile*>& elves);
-
-template <typename T>
-Result<std::vector<T>> read_virtual_vector(u32 address, u32 count, const std::vector<const ElfFile*>& elves)
-{
-	std::vector<T> vector(count);
-	Result<void> result = read_virtual((u8*) vector.data(), address, count * sizeof(T), elves);
-	CCC_RETURN_IF_ERROR(result);
-	return vector;
-}
+Result<void> import_elf_section_headers(SymbolDatabase& database, const ElfFile& elf, const SymbolGroup& group);
 
 }

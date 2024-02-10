@@ -96,6 +96,35 @@ std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) cons
 	return std::nullopt;
 }
 
+Result<std::span<const u8>> ElfFile::get_virtual(u32 address, u32 size) const
+{
+	u32 end_address = address + size;
+	
+	if(end_address >= address) {
+		for(const ElfSegment& segment : segments) {
+			if(address >= segment.address.value && end_address <= segment.address.value + segment.size) {
+				size_t begin_offset = segment.offset + (address - segment.address.value);
+				size_t end_offset = begin_offset + size;
+				if(end_offset <= image.size()) {
+					return std::span<const u8>(&image[begin_offset], &image[end_offset]);
+				}
+			}
+		}
+	}
+	
+	return CCC_FAILURE("No ELF segment for address range 0x%x to 0x%x.", address, end_address);
+}
+
+Result<void> ElfFile::copy_virtual(u8* dest, u32 address, u32 size) const
+{
+	Result<std::span<const u8>> block = get_virtual(address, size);
+	CCC_RETURN_IF_ERROR(block);
+	
+	memcpy(dest, block->data(), size);
+	
+	return Result<void>();
+}
+
 Result<ElfFile> parse_elf_file(std::vector<u8> image)
 {
 	ElfFile elf;
@@ -149,40 +178,16 @@ Result<ElfFile> parse_elf_file(std::vector<u8> image)
 }
 
 Result<void> import_elf_section_headers(
-	SymbolDatabase& database, const ElfFile& elf, SymbolSourceHandle source, const Module* module_symbol)
+	SymbolDatabase& database, const ElfFile& elf, const SymbolGroup& group)
 {
 	for(const ElfSection& section : elf.sections) {
-		Result<Section*> symbol = database.sections.create_symbol(section.name, section.address, source, module_symbol);
+		Result<Section*> symbol = database.sections.create_symbol(
+			section.name, section.address, group.source, group.module_symbol);
 		CCC_RETURN_IF_ERROR(symbol);
 		
 		(*symbol)->set_size(section.size);
 	}
 	
-	return Result<void>();
-}
-
-Result<void> read_virtual(u8* dest, u32 address, u32 size, const std::vector<const ElfFile*>& elves)
-{
-	while(size > 0) {
-		bool mapped = false;
-		
-		for(const ElfFile* elf : elves) {
-			for(const ElfSegment& segment : elf->segments) {
-				if(address >= segment.address && address < segment.address.get_or_zero() + segment.size) {
-					u32 offset = address - segment.address.get_or_zero();
-					u32 copy_size = std::min(segment.size - offset, size);
-					CCC_CHECK(segment.offset + offset + copy_size <= elf->image.size(), "Program header is corrupted or executable file is truncated.");
-					memcpy(dest, &elf->image[segment.offset + offset], copy_size);
-					dest += copy_size;
-					address += copy_size;
-					size -= copy_size;
-					mapped = true;
-				}
-			}
-		}
-		
-		CCC_CHECK(mapped, "Tried to read from memory that wouldn't have come from any of the loaded ELF files");
-	}
 	return Result<void>();
 }
 

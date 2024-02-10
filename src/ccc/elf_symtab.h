@@ -9,8 +9,7 @@ namespace ccc::elf {
 
 Result<void> import_symbols(
 	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	std::span<const u8> symtab,
 	std::span<const u8> strtab,
 	u32 importer_flags,

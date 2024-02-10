@@ -187,6 +187,18 @@ s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) c
 }
 
 template <typename SymbolType>
+SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index)
+{
+	return m_symbols.at(index);
+}
+
+template <typename SymbolType>
+const SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index) const
+{
+	return m_symbols.at(index);
+}
+
+template <typename SymbolType>
 bool SymbolList<SymbolType>::empty() const
 {
 	return m_symbols.size() == 0;
@@ -588,6 +600,38 @@ void Function::set_mangled_name(std::string mangled)
 	m_mangled_name = std::move(mangled);
 }
 
+u32 Function::original_hash() const
+{
+	return m_original_hash;
+}
+
+void Function::compute_original_hash(std::span<const u32> instructions)
+{
+	compute_current_hash(instructions);
+	m_original_hash = m_current_hash;
+}
+
+u32 Function::current_hash() const
+{
+	return m_current_hash;
+}
+
+void Function::compute_current_hash(std::span<const u32> instructions)
+{
+	// If you change this algorithm make sure to bump the version number for the
+	// JSON format so we can know if a hash was generated using the new
+	// algorithm or not.
+	u32 hash = 0;
+	for(u32 instruction : instructions) {
+		// Separate out the opcode so that the hash remains the same regardless
+		// of if relocations are applied or not.
+		u32 opcode = instruction >> 26;
+		hash = hash * 31 + opcode;
+	}
+	
+	m_current_hash = hash;
+}
+
 const std::string& GlobalVariable::mangled_name() const
 {
 	if(!m_mangled_name.empty()) {
@@ -648,6 +692,38 @@ void SourceFile::set_global_variables(std::vector<GlobalVariableHandle> global_v
 			global_variable->m_source_file = handle();
 		}
 	}
+}
+
+bool SourceFile::functions_match() const
+{
+	return m_functions_match;
+}
+
+void SourceFile::check_functions_match(const SymbolDatabase& database)
+{
+	u32 matching = 0;
+	u32 modified = 0;
+	for(FunctionHandle function_handle : functions()) {
+		const ccc::Function* function = database.functions.symbol_from_handle(function_handle);
+		if(!function || function->original_hash() == 0) {
+			continue;
+		}
+		
+		if(function->current_hash() == function->original_hash()) {
+			matching++;
+		} else {
+			modified++;
+		}
+	}
+	
+	m_functions_match = matching >= modified;
+}
+
+// *****************************************************************************
+
+bool SymbolGroup::is_in_group(const Symbol& symbol) const
+{
+	return symbol.source() == source && symbol.module_handle() == ModuleHandle(module_symbol);
 }
 
 // *****************************************************************************
@@ -713,14 +789,13 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 	StabsTypeNumber number,
 	const char* name,
 	SourceFile& source_file,
-	SymbolSourceHandle source,
-	const Module* module_symbol)
+	const SymbolGroup& group)
 {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
 	if(types_with_same_name.begin() == types_with_same_name.end()) {
 		// No types with this name have previously been processed.
-		Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
+		Result<DataType*> data_type = data_types.create_symbol(name, group.source, group.module_symbol);
 		CCC_RETURN_IF_ERROR(data_type);
 		
 		(*data_type)->files = {source_file.handle()};
@@ -739,24 +814,11 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
-			// We don't want to merge together types from different source so we
-			// can destroy all the types from one source without breaking
-			// anything else.
-			if(existing_type->source() != source) {
+			// We don't want to merge together types from different source or
+			// modules so that we can destroy all the types from one source
+			// without breaking anything else.
+			if(!group.is_in_group(*existing_type)) {
 				continue;
-			}
-			
-			// We don't want to merge together types from different modules so
-			// we can destroy all the types from one module without breaking
-			// anything else.
-			if(module_symbol) {
-				if(existing_type->module_handle() != module_symbol->module_handle()) {
-					continue;
-				}
-			} else {
-				if(existing_type->module_handle().valid()) {
-					continue;
-				}
 			}
 			
 			CCC_ASSERT(existing_type->type());
@@ -787,7 +849,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 		if(!match) {
 			// This type doesn't match any of the others with the same name
 			// that have already been processed.
-			Result<DataType*> data_type = data_types.create_symbol(name, source, module_symbol);
+			Result<DataType*> data_type = data_types.create_symbol(name, group.source, group.module_symbol);
 			CCC_RETURN_IF_ERROR(data_type);
 			
 			(*data_type)->files = {source_file.handle()};

@@ -31,7 +31,7 @@ static void write_c_cpp_file(
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files,
 	const FunctionsFile& functions_file,
-	const std::vector<const ElfFile*>& elves);
+	const ElfFile& elf);
 static void write_h_file(
 	const fs::path& path,
 	std::string relative_path,
@@ -84,8 +84,6 @@ int main(int argc, char** argv)
 	map_types_to_files_based_on_this_pointers(database);
 	map_types_to_files_based_on_reference_count(database);
 	
-	std::vector<const ElfFile*> elves{&((*symbol_file)->elf())};
-	
 	mdebug::fill_in_pointers_to_member_function_definitions(database);
 	
 	// Group duplicate source file entries, filter out files not referenced in
@@ -115,7 +113,7 @@ int main(int argc, char** argv)
 		if(path.extension() == ".c" || path.extension() == ".cpp") {
 			// Write .c/.cpp file.
 			if(should_overwrite_file(path)) {
-				write_c_cpp_file(path, relative_header_path, database, sources, functions_file, elves);
+				write_c_cpp_file(path, relative_header_path, database, sources, functions_file, (*symbol_file)->elf());
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
@@ -237,7 +235,7 @@ static void write_c_cpp_file(
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files,
 	const FunctionsFile& functions_file,
-	const std::vector<const ElfFile*>& elves)
+	const ElfFile& elf)
 {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
@@ -265,10 +263,6 @@ static void write_c_cpp_file(
 		}
 	}
 	
-	std::function read_virtual_func = [&](u8 *dest, u32 address, u32 size) -> Result<void> {
-		return read_virtual(dest, address, size, elves);
-	};
-	
 	// Print globals.
 	for(SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
@@ -276,7 +270,7 @@ static void write_c_cpp_file(
 		
 		const std::vector<GlobalVariableHandle>& global_variables = source_file->global_variables();
 		for(const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(global_variables)) {
-			printer.global_variable(*global_variable, database, &read_virtual_func);
+			printer.global_variable(*global_variable, database, &elf);
 		}
 	}
 	
@@ -287,7 +281,7 @@ static void write_c_cpp_file(
 		
 		const std::vector<FunctionHandle>& functions = source_file->functions();
 		for(const Function* function : database.functions.symbols_from_handles(functions)) {
-			printer.function(*function, database, &read_virtual_func);
+			printer.function(*function, database, &elf);
 		}
 	}
 	

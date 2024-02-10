@@ -7,7 +7,7 @@
 
 namespace ccc {
 
-const u32 JSON_FORMAT_VERSION = 11;
+const u32 JSON_FORMAT_VERSION = 12;
 
 template <typename SymbolType>
 static void write_symbol_list(
@@ -30,12 +30,22 @@ static void write_json(JsonWriter& json, const Section& symbol, const SymbolData
 static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database);
 static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database);
 
-void write_json(JsonWriter& json, const SymbolDatabase& database, const std::set<SymbolSourceHandle>* sources)
+void write_json(
+	JsonWriter& json,
+	const SymbolDatabase& database,
+	const char* application_name,
+	const std::set<SymbolSourceHandle>* sources)
 {
 	json.StartObject();
 	
+	json.Key("format");
+	json.String("CCC Symbol Database");
+	
 	json.Key("version");
 	json.Uint(JSON_FORMAT_VERSION);
+	
+	json.Key("application");
+	json.String(application_name);
 	
 	#define CCC_X(SymbolType, symbol_list) \
 		if(!std::is_same_v<SymbolType, SymbolSource>) { \
@@ -213,6 +223,11 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 			}
 		}
 		json.EndArray();
+	}
+	
+	if(symbol.original_hash() != 0) {
+		json.Key("hash");
+		json.Uint(symbol.original_hash());
 	}
 }
 

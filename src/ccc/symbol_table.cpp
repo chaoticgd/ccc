@@ -120,8 +120,12 @@ Result<ModuleHandle> import_symbol_tables(
 		}
 		
 		// Import the symbol table.
+		SymbolGroup group;
+		group.source = *source;
+		group.module_symbol = *module_symbol;
+		
 		Result<void> result = symbol_table->import(
-			database, *source, *module_symbol, importer_flags, demangler, interrupt);
+			database, group, importer_flags, demangler, interrupt);
 		if(!result.success()) {
 			database.destroy_symbols_from_modules((*module_symbol)->handle());
 			return result;
@@ -143,8 +147,7 @@ const char* MdebugSymbolTable::name() const
 
 Result<void> MdebugSymbolTable::import(
 	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags,
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
@@ -153,7 +156,7 @@ Result<void> MdebugSymbolTable::import(
 	importer_flags |= DONT_DEDUPLICATE_SYMBOLS;
 	
 	return mdebug::import_symbol_table(
-		database, m_image, m_section_offset, source, module_symbol, importer_flags, demangler, interrupt);
+		database, m_image, m_section_offset, group, importer_flags, demangler, interrupt);
 }
 
 Result<void> MdebugSymbolTable::print_headers(FILE* out) const
@@ -192,13 +195,12 @@ const char* SymtabSymbolTable::name() const
 
 Result<void> SymtabSymbolTable::import(
 	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags,
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
 {
-	return elf::import_symbols(database, source, module_symbol, m_symtab, m_strtab, importer_flags, demangler);
+	return elf::import_symbols(database, group, m_symtab, m_strtab, importer_flags, demangler);
 }
 
 Result<void> SymtabSymbolTable::print_headers(FILE* out) const
@@ -226,13 +228,12 @@ const char* SNDLLSymbolTable::name() const
 
 Result<void> SNDLLSymbolTable::import(
 	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags,
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
 {
-	return import_sndll_symbols(database, *m_sndll, source, module_symbol, importer_flags, demangler);
+	return import_sndll_symbols(database, *m_sndll, group, importer_flags, demangler);
 }
 
 Result<void> SNDLLSymbolTable::print_headers(FILE* out) const
@@ -259,13 +260,12 @@ const char* ElfSectionHeadersSymbolTable::name() const
 
 Result<void> ElfSectionHeadersSymbolTable::import(
 	SymbolDatabase& database,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags,
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
 {
-	return import_elf_section_headers(database, m_elf, source, module_symbol);
+	return import_elf_section_headers(database, m_elf, group);
 }
 
 Result<void> ElfSectionHeadersSymbolTable::print_headers(FILE* out) const

@@ -19,7 +19,7 @@ static Result<SymbolDatabase> run_importer(const char* name, const mdebug::File&
 	CCC_RETURN_IF_ERROR(symbol_source);
 	
 	AnalysisContext context;
-	context.symbol_source = (*symbol_source)->handle();
+	context.group.source = (*symbol_source)->handle();
 	context.importer_flags = DONT_DEDUPLICATE_SYMBOLS | STRICT_PARSING;
 	
 	Result<void> result = import_file(database, input, context);

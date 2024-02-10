@@ -113,8 +113,7 @@ static Result<SNDLLFile> parse_sndll_common(
 Result<void> import_sndll_symbols(
 	SymbolDatabase& database,
 	const SNDLLFile& sndll,
-	SymbolSourceHandle source,
-	const Module* module_symbol,
+	const SymbolGroup& group,
 	u32 importer_flags,
 	DemanglerFunctions demangler)
 {
@@ -126,14 +125,14 @@ Result<void> import_sndll_symbols(
 					u32 base_address = sndll.symbols_relative ? sndll.address.get_or_zero() : 0;
 					
 					Result<Label*> label = database.labels.create_symbol(
-						symbol.string, source, module_symbol, base_address + symbol.value, importer_flags, demangler);
+						symbol.string, group.source, group.module_symbol, base_address + symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(label);
 					
 					break;
 				}
 				case SNDLL_ABSOLUTE: {
 					Result<Label*> label = database.labels.create_symbol(
-						symbol.string, source, module_symbol, symbol.value, importer_flags, demangler);
+						symbol.string, group.source, group.module_symbol, symbol.value, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(label);
 					
 					break;

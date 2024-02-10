@@ -37,9 +37,7 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 		"Do not print member functions."
 	}},
 	{STRICT_PARSING, "--strict", {
-		"Enable strict parsing, which makes certain types",
-		"of errors that are likely to be caused by",
-		"compiler bugs fatal."
+		"Make more types of errors fatal."
 	}},
 	{TYPEDEF_ALL_ENUMS, "--typedef-all-enums", {
 		"Force all emitted C++ enums to be defined using",
