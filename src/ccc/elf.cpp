@@ -105,7 +105,7 @@ Result<std::span<const u8>> ElfFile::get_virtual(u32 address, u32 size) const
 			if(address >= segment.address.value && end_address <= segment.address.value + segment.size) {
 				size_t begin_offset = segment.offset + (address - segment.address.value);
 				size_t end_offset = begin_offset + size;
-				if(end_offset <= image.size()) {
+				if(begin_offset <= image.size() && end_offset <= image.size()) {
 					return std::span<const u8>(image.data() + begin_offset, image.data() + end_offset);
 				}
 			}
