@@ -329,6 +329,28 @@ struct StackStorage {
 	friend auto operator<=>(const StackStorage& lhs, const StackStorage& rhs) = default;
 };
 
+// The hashing algorithm for functions. If you change this algorithm make sure
+// to bump the version number for the JSON format so we can know if a hash was
+// generated using the new algorithm or not.
+class FunctionHash {
+public:
+	void update(u32 instruction)
+	{
+		// Separate out the opcode so that the hash remains the same regardless
+		// of if relocations are applied or not.
+		u32 opcode = instruction >> 26;
+		m_hash = m_hash * 31 + opcode;
+	}
+	
+	u32 get() const
+	{
+		return m_hash;
+	}
+	
+protected:
+	u32 m_hash = 0;
+};
+
 // All the different types of symbol objects.
 
 // A C/C++ data type.
@@ -374,12 +396,11 @@ public:
 	
 	// A hash of all the opcodes in the function, read from file.
 	u32 original_hash() const;
-	void compute_original_hash(std::span<const u32> instructions);
 	void set_original_hash(u32 hash);
 	
 	// A hash of all the opcodes in the function, read from memory.
 	u32 current_hash() const;
-	void compute_current_hash(std::span<const u32> instructions);
+	void set_current_hash(FunctionHash hash);
 	
 	struct LineNumberPair {
 		Address address;

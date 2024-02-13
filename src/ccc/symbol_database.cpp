@@ -605,10 +605,9 @@ u32 Function::original_hash() const
 	return m_original_hash;
 }
 
-void Function::compute_original_hash(std::span<const u32> instructions)
+void Function::set_original_hash(u32 hash)
 {
-	compute_current_hash(instructions);
-	m_original_hash = m_current_hash;
+	m_original_hash = hash;
 }
 
 u32 Function::current_hash() const
@@ -616,20 +615,9 @@ u32 Function::current_hash() const
 	return m_current_hash;
 }
 
-void Function::compute_current_hash(std::span<const u32> instructions)
+void Function::set_current_hash(FunctionHash hash)
 {
-	// If you change this algorithm make sure to bump the version number for the
-	// JSON format so we can know if a hash was generated using the new
-	// algorithm or not.
-	u32 hash = 0;
-	for(u32 instruction : instructions) {
-		// Separate out the opcode so that the hash remains the same regardless
-		// of if relocations are applied or not.
-		u32 opcode = instruction >> 26;
-		hash = hash * 31 + opcode;
-	}
-	
-	m_current_hash = hash;
+	m_current_hash = hash.get();
 }
 
 const std::string& GlobalVariable::mangled_name() const
