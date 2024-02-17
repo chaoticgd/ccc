@@ -141,6 +141,17 @@ typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>
 }
 
 template <typename SymbolType>
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_after_address(Address address) const
+{
+	auto iterator = m_address_to_handle.upper_bound(address.value);
+	if(iterator != m_address_to_handle.end()) {
+		return iterator->second;
+	} else {
+		return SymbolHandle<SymbolType>();
+	}
+}
+
+template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
 {
 	auto iterator = m_name_to_handle.find(name);
@@ -725,14 +736,62 @@ s32 SymbolDatabase::symbol_count() const
 	return sum;
 }
 
-const Symbol* SymbolDatabase::first_symbol_from_starting_address(Address address) const
+const Symbol* SymbolDatabase::first_symbol_starting_at_address(
+	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
 		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
-			const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_starting_address(address); \
-			const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
-			if(symbol) { \
-				return symbol; \
+			if(descriptors & SymbolType::DESCRIPTOR) { \
+				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_starting_address(address); \
+				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
+				if(symbol) { \
+					if(descriptor_out) { \
+						*descriptor_out = SymbolType::DESCRIPTOR; \
+					} \
+					return symbol; \
+				} \
+			} \
+		}
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+	return nullptr;
+}
+
+const Symbol* SymbolDatabase::first_symbol_after_address(
+	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
+{
+	const Symbol* result = nullptr;
+	#define CCC_X(SymbolType, symbol_list) \
+		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+			if(descriptors & SymbolType::DESCRIPTOR) { \
+				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_after_address(address); \
+				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
+				if(symbol && (!result || symbol->address() < result->address())) { \
+					if(descriptor_out) { \
+						*descriptor_out = SymbolType::DESCRIPTOR; \
+					} \
+					result = symbol; \
+				} \
+			} \
+		}
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+	return result;
+}
+
+const Symbol* SymbolDatabase::first_symbol_overlapping_address(
+	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
+{
+	#define CCC_X(SymbolType, symbol_list) \
+		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+			if(descriptors & SymbolType::DESCRIPTOR) { \
+				const SymbolType* symbol = symbol_list.symbol_overlapping_address(address); \
+				if(symbol) { \
+					if(descriptor_out) { \
+						*descriptor_out = SymbolType::DESCRIPTOR; \
+					} \
+					return symbol; \
+				} \
 			} \
 		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
@@ -749,27 +808,6 @@ Result<SymbolSourceHandle> SymbolDatabase::get_symbol_source(const std::string& 
 		handle = (*source)->handle();
 	}
 	return handle;
-}
-
-void SymbolDatabase::clear()
-{
-	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
-	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-	#undef CCC_X
-}
-
-void SymbolDatabase::destroy_symbols_from_sources(SymbolSourceRange source_range)
-{
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_sources(source_range);
-	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-	#undef CCC_X
-}
-
-void SymbolDatabase::destroy_symbols_from_modules(ModuleRange module_range)
-{
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_modules(module_range);
-	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-	#undef CCC_X
 }
 
 Result<DataType*> SymbolDatabase::create_data_type_if_unique(
@@ -855,6 +893,20 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 	return nullptr;
 }
 
+void SymbolDatabase::destroy_symbols_from_sources(SymbolSourceRange source_range)
+{
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_sources(source_range);
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+}
+
+void SymbolDatabase::destroy_symbols_from_modules(ModuleRange module_range)
+{
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_modules(module_range);
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+}
+
 bool SymbolDatabase::destroy_function(FunctionHandle handle)
 {
 	Function* function = functions.symbol_from_handle(handle);
@@ -872,6 +924,13 @@ bool SymbolDatabase::destroy_function(FunctionHandle handle)
 		}
 	}
 	return functions.destroy_symbol(handle);
+}
+
+void SymbolDatabase::clear()
+{
+	#define CCC_X(SymbolType, symbol_list) symbol_list.clear();
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
 }
 
 // *****************************************************************************

@@ -24,17 +24,21 @@ namespace ccc {
 	CCC_X(SymbolSource, symbol_sources)
 
 // An enum for all the symbol types.
-enum class SymbolDescriptor {
-	DATA_TYPE,
-	FUNCTION,
-	GLOBAL_VARIABLE,
-	LABEL,
-	LOCAL_VARIABLE,
-	MODULE,
-	PARAMETER_VARIABLE,
-	SECTION,
-	SOURCE_FILE,
-	SYMBOL_SOURCE
+enum SymbolDescriptor {
+	DATA_TYPE          = 1 << 0,
+	FUNCTION           = 1 << 1,
+	GLOBAL_VARIABLE    = 1 << 2,
+	LABEL              = 1 << 3,
+	LOCAL_VARIABLE     = 1 << 4,
+	MODULE             = 1 << 5,
+	PARAMETER_VARIABLE = 1 << 6,
+	SECTION            = 1 << 7,
+	SOURCE_FILE        = 1 << 8,
+	SYMBOL_SOURCE      = 1 << 9
+};
+
+enum {
+	ALL_SYMBOL_TYPES = 0xffff
 };
 
 // Forward declare all the different types of symbol objects.
@@ -152,9 +156,11 @@ public:
 	using AddressToHandleMapIterators = Iterators<typename AddressToHandleMap::const_iterator>;
 	using NameToHandleMapIterators = Iterators<typename NameToHandleMap::const_iterator>;
 	
+	// Lookup symbol by their address.
 	AddressToHandleMapIterators handles_from_starting_address(Address address) const;
 	AddressToHandleMapIterators handles_from_address_range(AddressRange range) const;
 	SymbolHandle<SymbolType> first_handle_from_starting_address(Address address) const;
+	SymbolHandle<SymbolType> first_handle_after_address(Address address) const;
 	NameToHandleMapIterators handles_from_name(const std::string& name) const;
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
 	
@@ -163,8 +169,10 @@ public:
 	SymbolType* symbol_overlapping_address(Address address);
 	const SymbolType* symbol_overlapping_address(Address address) const;
 	
-	// Convert handles to underlying array indices, for the JSON code.
+	// Convert handles to underlying array indices.
 	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
+	
+	// Index into the underlying array.
 	SymbolType& symbol_from_index(s32 index);
 	const SymbolType& symbol_from_index(s32 index) const;
 	
@@ -358,7 +366,7 @@ class DataType : public Symbol {
 	friend SourceFile;
 	friend SymbolList<DataType>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::DATA_TYPE;
+	static constexpr const SymbolDescriptor DESCRIPTOR = DATA_TYPE;
 	static constexpr const char* NAME = "Data Type";
 	static constexpr const u32 FLAGS = WITH_NAME_MAP;
 	
@@ -378,7 +386,7 @@ class Function : public Symbol {
 	
 	friend void write_json();
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::FUNCTION;
+	static constexpr const SymbolDescriptor DESCRIPTOR = FUNCTION;
 	static constexpr const char* NAME = "Function";
 	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
 	
@@ -434,7 +442,7 @@ class GlobalVariable : public Symbol {
 	friend SourceFile;
 	friend SymbolList<GlobalVariable>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::GLOBAL_VARIABLE;
+	static constexpr const SymbolDescriptor DESCRIPTOR = GLOBAL_VARIABLE;
 	static constexpr const char* NAME = "Global Variable";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
 	
@@ -457,7 +465,7 @@ protected:
 class Label : public Symbol {
 	friend SymbolList<Label>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LABEL;
+	static constexpr const SymbolDescriptor DESCRIPTOR = LABEL;
 	static constexpr const char* NAME = "Label";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
@@ -470,7 +478,7 @@ class LocalVariable : public Symbol {
 	friend Function;
 	friend SymbolList<LocalVariable>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::LOCAL_VARIABLE;
+	static constexpr const SymbolDescriptor DESCRIPTOR = LOCAL_VARIABLE;
 	static constexpr const char* NAME = "Local Variable";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
@@ -491,7 +499,7 @@ protected:
 // the symbol will be added to the address of the new symbol.
 class Module : public Symbol {
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::MODULE;
+	static constexpr const SymbolDescriptor DESCRIPTOR = MODULE;
 	static constexpr const char* NAME = "Module";
 	static constexpr u32 FLAGS = WITH_NAME_MAP;
 	
@@ -508,7 +516,7 @@ class ParameterVariable : public Symbol {
 	friend Function;
 	friend SymbolList<ParameterVariable>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::PARAMETER_VARIABLE;
+	static constexpr const SymbolDescriptor DESCRIPTOR = PARAMETER_VARIABLE;
 	static constexpr const char* NAME = "Parameter Variable";
 	static constexpr u32 FLAGS = NO_SYMBOL_FLAGS;
 	
@@ -525,7 +533,7 @@ protected:
 class Section : public Symbol {
 	friend SymbolList<Section>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SECTION;
+	static constexpr const SymbolDescriptor DESCRIPTOR = SECTION;
 	static constexpr const char* NAME = "Section";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
@@ -537,7 +545,7 @@ public:
 class SourceFile : public Symbol {
 	friend SymbolList<SourceFile>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SOURCE_FILE;
+	static constexpr const SymbolDescriptor DESCRIPTOR = SOURCE_FILE;
 	static constexpr const char* NAME = "Source File";
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
@@ -572,7 +580,7 @@ protected:
 class SymbolSource : public Symbol {
 	friend SymbolList<SymbolSource>;
 public:
-	static constexpr const SymbolDescriptor DESCRIPTOR = SymbolDescriptor::SYMBOL_SOURCE;
+	static constexpr const SymbolDescriptor DESCRIPTOR = SYMBOL_SOURCE;
 	static constexpr const char* NAME = "Symbol Source";
 	static constexpr u32 FLAGS = WITH_NAME_MAP;
 	
@@ -607,17 +615,28 @@ public:
 	// Sum up the symbol counts for each symbol list.
 	s32 symbol_count() const;
 	
-	// Find a symbol of any type that exists at the specified address. Symbols
-	// of the types specified higher up in the CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-	// macro are checked for first.
-	const Symbol* first_symbol_from_starting_address(Address address) const;
+	// Find a symbol of any of the specified types given an address. Symbols of
+	// the types specified higher up in the CCC_FOR_EACH_SYMBOL_TYPE_DO_X macro
+	// are checked for first.
+	const Symbol* first_symbol_starting_at_address(
+		Address address, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
+	const Symbol* first_symbol_after_address(
+		Address address, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
+	const Symbol* first_symbol_overlapping_address(
+		Address address, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
 	
 	// Finds a symbol source object with the given name or creates one if it
 	// doesn't already exist.
 	Result<SymbolSourceHandle> get_symbol_source(const std::string& name);
 	
-	// Destroy all the symbols in the symbol database.
-	void clear();
+	// Deduplicate matching data types with the same name. May replace the
+	// existing data type with the new one if the new one is better.
+	Result<DataType*> create_data_type_if_unique(
+		std::unique_ptr<ast::Node> node,
+		StabsTypeNumber number,
+		const char* name,
+		SourceFile& source_file,
+		const SymbolGroup& group);
 	
 	// Destroy all the symbols that have symbol source handles within a given
 	// range. For example, you can use this to free a symbol table without
@@ -629,18 +648,12 @@ public:
 	// symbol tables for a given module.
 	void destroy_symbols_from_modules(ModuleRange module_range);
 	
-	// Deduplicate matching data types with the same name. May replace the
-	// existing data type with the new one if the new one is better.
-	Result<DataType*> create_data_type_if_unique(
-		std::unique_ptr<ast::Node> node,
-		StabsTypeNumber number,
-		const char* name,
-		SourceFile& source_file,
-		const SymbolGroup& group);
-	
 	// Destroy a function handle as well as all parameter variables and local
 	// variables associated with it.
 	bool destroy_function(FunctionHandle handle);
+	
+	// Destroy all the symbols in the symbol database.
+	void clear();
 	
 	template <typename Callback>
 	void for_each_symbol(Callback callback) {
@@ -673,7 +686,7 @@ public:
 	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
 	
 protected:
-	SymbolDescriptor m_descriptor = SymbolDescriptor::DATA_TYPE;
+	SymbolDescriptor m_descriptor = DATA_TYPE;
 	u32 m_symbol_handle = (u32) -1;
 };
 
