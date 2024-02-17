@@ -5,6 +5,9 @@
 
 namespace ccc::mdebug {
 
+// MIPS debug symbol table headers.
+// See include/coff/sym.h from GNU binutils for more information.
+
 CCC_PACKED_STRUCT(SymbolicHeader,
 	/* 0x00 */ s16 magic;
 	/* 0x02 */ s16 version_stamp;
@@ -54,7 +57,7 @@ CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x3c */ u32 f_merge : 1;
 	/* 0x3c */ u32 f_readin : 1;
 	/* 0x3c */ u32 f_big_endian : 1;
-	/* 0x4c */ u32 reserved_1 : 22;
+	/* 0x3c */ u32 reserved_1 : 22;
 	/* 0x40 */ s32 cb_line_offset;
 	/* 0x44 */ s32 cb_line;
 )
@@ -74,16 +77,17 @@ CCC_PACKED_STRUCT(ProcedureDescriptor,
 	/* 0x26 */ s16 pcreg;
 	/* 0x28 */ s32 ln_low;
 	/* 0x2c */ s32 ln_high;
-	/* 0x30 */ s32 cb_line_offset;
+	/* 0x30 */ u32 cb_line_offset;
 )
+static_assert(sizeof(ProcedureDescriptor) == 0x34);
 
 CCC_PACKED_STRUCT(SymbolHeader,
 	/* 0x0 */ u32 iss;
 	/* 0x4 */ u32 value;
-	/* 0x8:00 */ u32 st : 6;
-	/* 0x8:06 */ u32 sc : 5;
-	/* 0x8:11 */ u32 reserved : 1;
-	/* 0x8:12 */ u32 index : 20;
+	/* 0x8 */ u32 st : 6;
+	/* 0x8 */ u32 sc : 5;
+	/* 0x8 */ u32 reserved : 1;
+	/* 0x8 */ u32 index : 20;
 )
 static_assert(sizeof(SymbolHeader) == 0xc);
 
@@ -92,6 +96,7 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 	/* 0x2 */ s16 ifd;
 	/* 0x4 */ SymbolHeader symbol;
 )
+static_assert(sizeof(ExternalSymbolHeader) == 0x10);
 
 static void print_symbol(FILE* out, const Symbol& symbol);
 static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
