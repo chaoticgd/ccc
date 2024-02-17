@@ -736,7 +736,7 @@ s32 SymbolDatabase::symbol_count() const
 	return sum;
 }
 
-const Symbol* SymbolDatabase::first_symbol_starting_at_address(
+const Symbol* SymbolDatabase::symbol_starting_at_address(
 	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
@@ -757,7 +757,7 @@ const Symbol* SymbolDatabase::first_symbol_starting_at_address(
 	return nullptr;
 }
 
-const Symbol* SymbolDatabase::first_symbol_after_address(
+const Symbol* SymbolDatabase::symbol_after_address(
 	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 	const Symbol* result = nullptr;
@@ -779,13 +779,34 @@ const Symbol* SymbolDatabase::first_symbol_after_address(
 	return result;
 }
 
-const Symbol* SymbolDatabase::first_symbol_overlapping_address(
+const Symbol* SymbolDatabase::symbol_overlapping_address(
 	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
 		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
 			if(descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolType* symbol = symbol_list.symbol_overlapping_address(address); \
+				if(symbol) { \
+					if(descriptor_out) { \
+						*descriptor_out = SymbolType::DESCRIPTOR; \
+					} \
+					return symbol; \
+				} \
+			} \
+		}
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+	return nullptr;
+}
+
+const Symbol* SymbolDatabase::symbol_with_name(
+	const std::string& name, u32 descriptors, SymbolDescriptor* descriptor_out) const
+{
+	#define CCC_X(SymbolType, symbol_list) \
+		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+			if(descriptors & SymbolType::DESCRIPTOR) { \
+				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_name(name); \
+				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
 				if(symbol) { \
 					if(descriptor_out) { \
 						*descriptor_out = SymbolType::DESCRIPTOR; \

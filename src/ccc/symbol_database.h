@@ -156,11 +156,13 @@ public:
 	using AddressToHandleMapIterators = Iterators<typename AddressToHandleMap::const_iterator>;
 	using NameToHandleMapIterators = Iterators<typename NameToHandleMap::const_iterator>;
 	
-	// Lookup symbol by their address.
+	// Lookup symbols by their address.
 	AddressToHandleMapIterators handles_from_starting_address(Address address) const;
 	AddressToHandleMapIterators handles_from_address_range(AddressRange range) const;
 	SymbolHandle<SymbolType> first_handle_from_starting_address(Address address) const;
 	SymbolHandle<SymbolType> first_handle_after_address(Address address) const;
+	
+	// Lookup symbols by their name.
 	NameToHandleMapIterators handles_from_name(const std::string& name) const;
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
 	
@@ -618,12 +620,18 @@ public:
 	// Find a symbol of any of the specified types given an address. Symbols of
 	// the types specified higher up in the CCC_FOR_EACH_SYMBOL_TYPE_DO_X macro
 	// are checked for first.
-	const Symbol* first_symbol_starting_at_address(
+	const Symbol* symbol_starting_at_address(
 		Address address, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
-	const Symbol* first_symbol_after_address(
+	const Symbol* symbol_after_address(
 		Address address, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
-	const Symbol* first_symbol_overlapping_address(
+	const Symbol* symbol_overlapping_address(
 		Address address, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
+	
+	// Find a symbol of any of the specified types given its name. Symbols of
+	// the types specified higher up in the CCC_FOR_EACH_SYMBOL_TYPE_DO_X macro
+	// are checked for first.
+	const Symbol* symbol_with_name(
+		const std::string& name, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
 	
 	// Finds a symbol source object with the given name or creates one if it
 	// doesn't already exist.
