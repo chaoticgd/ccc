@@ -151,7 +151,10 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 	switch(*fourcc) {
 		case CCC_FOURCC("\x7f""ELF"): {
 			Result<ElfFile> elf = parse_elf_file(std::move(*file));
-			CCC_EXIT_IF_ERROR(elf);
+			if(!elf.success()) {
+				fprintf(out, " %s\n", elf.error().message.c_str());
+				break;
+			}
 			
 			bool print_none = true;
 			for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
