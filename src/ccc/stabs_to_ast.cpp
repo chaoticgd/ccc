@@ -731,7 +731,7 @@ static MemberFunctionInfo check_member_function(
 	}
 	
 	bool is_constructor =
-		info.name == "__ct" || // Takes a parameter to decide whether or not construct virtual base classes.
+		info.name == "__ct" || // Takes a parameter to decide whether or not to construct virtual base classes.
 		info.name == "__comp_ctor" || // Constructs virtual base classes.
 		info.name == "__base_ctor"; // Does not construct virtual base classes.
 	
@@ -740,7 +740,7 @@ static MemberFunctionInfo check_member_function(
 	}
 	
 	bool is_destructor =
-		info.name == "__dt" || // Takes parameters to decide to construct virtual base classes and/or delete the object.
+		info.name == "__dt" || // Takes parameters to decide whether or not to construct virtual base classes and/or delete the object.
 		info.name == "__comp_dtor" || // Destructs virtual base classes.
 		info.name == "__base_dtor" || // Does not construct virtual base classes.
 		info.name == "__deleting_dtor"; // Destructs virtual base clases then deletes the entire object.

@@ -267,7 +267,8 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 	return Result<void>();
 }
 
-static void print_symbol(FILE* out, const Symbol& symbol) {
+static void print_symbol(FILE* out, const Symbol& symbol)
+{
 	fprintf(out, "    %8x ", symbol.value);
 	
 	const char* symbol_type_str = symbol_type(symbol.symbol_type);
