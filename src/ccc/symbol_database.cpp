@@ -979,7 +979,7 @@ u32 MultiSymbolHandle::handle() const
 	return m_symbol_handle;
 }
 
-const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) const
+Symbol* MultiSymbolHandle::lookup_symbol(SymbolDatabase& database)
 {
 	if(m_symbol_handle != (u32) -1) {
 		switch(m_descriptor) {
@@ -991,6 +991,11 @@ const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) c
 		}
 	}
 	return nullptr;
+}
+
+const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) const
+{
+	return const_cast<MultiSymbolHandle*>(this)->lookup_symbol(const_cast<SymbolDatabase&>(database));
 }
 
 #define CCC_X(SymbolType, symbol_list) template MultiSymbolHandle::MultiSymbolHandle(const SymbolType& symbol);

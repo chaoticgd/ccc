@@ -689,6 +689,7 @@ public:
 	SymbolDescriptor descriptor() const;
 	u32 handle() const;
 	
+	Symbol* lookup_symbol(SymbolDatabase& database);
 	const Symbol* lookup_symbol(const SymbolDatabase& database) const;
 	
 	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
