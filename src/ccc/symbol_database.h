@@ -107,7 +107,7 @@ struct SymbolRange {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-enum SymbolFlags {
+enum SymbolFlag {
 	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
 	WITH_NAME_MAP = 1 << 1,
@@ -691,6 +691,10 @@ public:
 	
 	Symbol* lookup_symbol(SymbolDatabase& database);
 	const Symbol* lookup_symbol(const SymbolDatabase& database) const;
+	
+	bool is_flag_set(SymbolFlag flag) const;
+	bool move_symbol(Address new_address, SymbolDatabase& database);
+	bool rename_symbol(std::string new_name, SymbolDatabase& database);
 	
 	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
 	

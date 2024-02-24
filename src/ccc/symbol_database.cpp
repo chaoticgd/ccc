@@ -981,21 +981,69 @@ u32 MultiSymbolHandle::handle() const
 
 Symbol* MultiSymbolHandle::lookup_symbol(SymbolDatabase& database)
 {
-	if(m_symbol_handle != (u32) -1) {
-		switch(m_descriptor) {
-			#define CCC_X(SymbolType, symbol_list) \
-				case SymbolType::DESCRIPTOR: \
-					return database.symbol_list.symbol_from_handle(m_symbol_handle);
-			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-			#undef CCC_X
-		}
+	if(m_symbol_handle == (u32) -1) {
+		return nullptr;
 	}
+	
+	switch(m_descriptor) {
+		#define CCC_X(SymbolType, symbol_list) \
+			case SymbolType::DESCRIPTOR: \
+				return database.symbol_list.symbol_from_handle(m_symbol_handle);
+		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+		#undef CCC_X
+	}
+	
 	return nullptr;
 }
 
 const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) const
 {
 	return const_cast<MultiSymbolHandle*>(this)->lookup_symbol(const_cast<SymbolDatabase&>(database));
+}
+
+bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
+{
+	if(m_symbol_handle != (u32) -1) {
+		switch(m_descriptor) {
+			#define CCC_X(SymbolType, symbol_list) \
+				case SymbolType::DESCRIPTOR: \
+					return SymbolType::FLAGS & flag;
+			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+			#undef CCC_X
+		}
+	}
+	
+	return false;
+}
+
+bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database)
+{
+	if(m_symbol_handle != (u32) -1) {
+		switch(m_descriptor) {
+			#define CCC_X(SymbolType, symbol_list) \
+				case SymbolType::DESCRIPTOR: \
+					return database.symbol_list.move_symbol(m_symbol_handle, new_address);
+			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+			#undef CCC_X
+		}
+	}
+	
+	return false;
+}
+
+bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database)
+{
+	if(m_symbol_handle != (u32) -1) {
+		switch(m_descriptor) {
+			#define CCC_X(SymbolType, symbol_list) \
+				case SymbolType::DESCRIPTOR: \
+					return database.symbol_list.rename_symbol(m_symbol_handle, std::move(new_name));
+			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+			#undef CCC_X
+		}
+	}
+	
+	return false;
 }
 
 #define CCC_X(SymbolType, symbol_list) template MultiSymbolHandle::MultiSymbolHandle(const SymbolType& symbol);
