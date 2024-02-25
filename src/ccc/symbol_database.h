@@ -684,6 +684,7 @@ public:
 	// Create a multi symbol handle of the specified type.
 	template <typename SymbolType>
 	MultiSymbolHandle(const SymbolType& symbol);
+	MultiSymbolHandle(SymbolDescriptor descriptor, u32 handle);
 	
 	bool valid() const;
 	SymbolDescriptor descriptor() const;
@@ -700,7 +701,7 @@ public:
 	
 protected:
 	SymbolDescriptor m_descriptor = DATA_TYPE;
-	u32 m_symbol_handle = (u32) -1;
+	u32 m_handle = (u32) -1;
 };
 
 // A handle to an AST node.
@@ -719,6 +720,7 @@ public:
 	// will prevent accesses to the node if the symbol is deleted.
 	template <typename SymbolType>
 	NodeHandle(const SymbolType& symbol, const ast::Node* node);
+	NodeHandle(SymbolDescriptor descriptor, const Symbol& symbol, const ast::Node* node);
 	
 	bool valid() const;
 	const MultiSymbolHandle& symbol() const;

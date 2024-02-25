@@ -961,12 +961,15 @@ MultiSymbolHandle::MultiSymbolHandle() {}
 
 template <typename SymbolType>
 MultiSymbolHandle::MultiSymbolHandle(const SymbolType& symbol)
-	: m_descriptor(SymbolType::DESCRIPTOR)
-	, m_symbol_handle(symbol.handle().value) {}
+	: MultiSymbolHandle(SymbolType::DESCRIPTOR, symbol.raw_handle()) {}
+
+MultiSymbolHandle::MultiSymbolHandle(SymbolDescriptor descriptor, u32 handle)
+	: m_descriptor(descriptor)
+	, m_handle(handle) {}
 
 bool MultiSymbolHandle::valid() const
 {
-	return m_symbol_handle != (u32) -1;
+	return m_handle != (u32) -1;
 }
 
 SymbolDescriptor MultiSymbolHandle::descriptor() const
@@ -976,19 +979,19 @@ SymbolDescriptor MultiSymbolHandle::descriptor() const
 
 u32 MultiSymbolHandle::handle() const
 {
-	return m_symbol_handle;
+	return m_handle;
 }
 
 Symbol* MultiSymbolHandle::lookup_symbol(SymbolDatabase& database)
 {
-	if(m_symbol_handle == (u32) -1) {
+	if(m_handle == (u32) -1) {
 		return nullptr;
 	}
 	
 	switch(m_descriptor) {
 		#define CCC_X(SymbolType, symbol_list) \
 			case SymbolType::DESCRIPTOR: \
-				return database.symbol_list.symbol_from_handle(m_symbol_handle);
+				return database.symbol_list.symbol_from_handle(m_handle);
 		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 		#undef CCC_X
 	}
@@ -1003,7 +1006,7 @@ const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) c
 
 bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 {
-	if(m_symbol_handle != (u32) -1) {
+	if(m_handle != (u32) -1) {
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
@@ -1018,11 +1021,11 @@ bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 
 bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database)
 {
-	if(m_symbol_handle != (u32) -1) {
+	if(m_handle != (u32) -1) {
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
-					return database.symbol_list.move_symbol(m_symbol_handle, new_address);
+					return database.symbol_list.move_symbol(m_handle, new_address);
 			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 			#undef CCC_X
 		}
@@ -1033,11 +1036,11 @@ bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& databas
 
 bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database)
 {
-	if(m_symbol_handle != (u32) -1) {
+	if(m_handle != (u32) -1) {
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
-					return database.symbol_list.rename_symbol(m_symbol_handle, std::move(new_name));
+					return database.symbol_list.rename_symbol(m_handle, std::move(new_name));
 			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 			#undef CCC_X
 		}
@@ -1059,7 +1062,10 @@ NodeHandle::NodeHandle(const ast::Node* node)
 
 template <typename SymbolType>
 NodeHandle::NodeHandle(const SymbolType& symbol, const ast::Node* node)
-	: m_symbol(symbol)
+	: NodeHandle(SymbolType::DESCRIPTOR, symbol, node) {}
+
+NodeHandle::NodeHandle(SymbolDescriptor descriptor, const Symbol& symbol, const ast::Node* node)
+	: m_symbol(descriptor, symbol.raw_handle())
 	, m_node(node)
 	, m_generation(symbol.generation()) {}
 
