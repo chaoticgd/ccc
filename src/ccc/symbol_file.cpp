@@ -14,7 +14,7 @@ Result<std::unique_ptr<SymbolFile>> parse_symbol_file(std::vector<u8> image, std
 	
 	switch(*magic) {
 		case CCC_FOURCC("\x7f""ELF"): {
-			Result<ElfFile> elf = parse_elf_file(std::move(image));
+			Result<ElfFile> elf = ElfFile::parse(std::move(image));
 			CCC_RETURN_IF_ERROR(elf);
 			
 			symbol_file = std::make_unique<ElfSymbolFile>(std::move(*elf), std::move(file_name));

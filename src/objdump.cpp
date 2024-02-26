@@ -15,19 +15,19 @@ int main(int argc, char** argv)
 	Result<std::vector<u8>> image = platform::read_binary_file(input_path);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<ElfFile> elf = parse_elf_file(std::move(*image));
+	Result<ElfFile> elf = ElfFile::parse(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf);
 	
 	const ElfSection* text = elf->lookup_section(".text");
 	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
 	
-	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->offset);
+	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->header.offset);
 	CCC_CHECK_FATAL(text_address.has_value(), "Failed to translate file offset to virtual address.");
 	
-	Result<std::span<const mips::Insn>> insns = elf->get_array_virtual<mips::Insn>(*text_address, text->size / 4);
+	Result<std::span<const mips::Insn>> insns = elf->get_array_virtual<mips::Insn>(*text_address, text->header.size / 4);
 	CCC_EXIT_IF_ERROR(insns);
 	
-	for(u64 i = 0; i < text->size / 4; i++) {
+	for(u64 i = 0; i < text->header.size / 4; i++) {
 		mips::Insn insn = (*insns)[i];
 		const mips::InsnInfo& info = insn.info();
 		u32 insn_address = *text_address + i;
