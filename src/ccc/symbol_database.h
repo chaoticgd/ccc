@@ -83,11 +83,13 @@ struct SymbolRange {
 	SymbolRange(SymbolHandle<SymbolType> f, SymbolHandle<SymbolType> l)
 		: first(f), last(l) {}
 	
-	bool valid() const {
+	bool valid() const
+	{
 		return first.valid() && last.valid();
 	}
 	
-	void expand_to_include(SymbolHandle<SymbolType> handle) {
+	void expand_to_include(SymbolHandle<SymbolType> handle)
+	{
 		if(!first.valid()) {
 			first = handle;
 		}
@@ -95,7 +97,8 @@ struct SymbolRange {
 		last = handle;
 	}
 	
-	void clear() {
+	void clear()
+	{
 		first = SymbolHandle<SymbolType>();
 		last = SymbolHandle<SymbolType>();
 	}
