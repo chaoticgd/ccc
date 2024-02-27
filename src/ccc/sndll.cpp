@@ -3,6 +3,8 @@
 
 #include "sndll.h"
 
+#include "importer_flags.h"
+
 namespace ccc {
 
 CCC_PACKED_STRUCT(SNDLLHeaderCommon,
@@ -125,6 +127,16 @@ Result<void> import_sndll_symbols(
 		u32 address = symbol.value;
 		if(symbol.type != SNDLL_ABSOLUTE && sndll.type == SNDLLType::DYNAMIC_LIBRARY) {
 			address += sndll.address.get_or_zero();
+		}
+		
+		if(!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
+			if(database.functions.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
+			
+			if(database.global_variables.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
 		}
 		
 		const Section* section = database.sections.symbol_overlapping_address(address);

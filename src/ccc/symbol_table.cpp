@@ -154,9 +154,6 @@ Result<void> MdebugSymbolTable::import(
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
 {
-	// The .mdebug importer currently needs this flag.
-	importer_flags |= DONT_DEDUPLICATE_SYMBOLS;
-	
 	return mdebug::import_symbol_table(
 		database, m_image, m_section_offset, group, importer_flags, demangler, interrupt);
 }
