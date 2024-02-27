@@ -540,6 +540,12 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP;
 	
 	SectionHandle handle() const { return m_handle; }
+	
+	// Check if the section name is ".text".
+	bool contains_code() const;
+	
+	// Check for known data section names.
+	bool contains_data() const;
 };
 
 // A source file (.c or .cpp file). One of these will be created for every

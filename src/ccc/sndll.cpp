@@ -141,12 +141,12 @@ Result<void> import_sndll_symbols(
 		
 		const Section* section = database.sections.symbol_overlapping_address(address);
 		if(section) {
-			if(section->name() == ".text") {
+			if(section->contains_code()) {
 				Result<Function*> function = database.functions.create_symbol(
 					symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(function);
 				continue;
-			} else if(section->name() == ".bss" || section->name() == ".data" || section->name() == ".rodata") {
+			} else if(section->contains_data()) {
 				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
 					symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(global_variable);

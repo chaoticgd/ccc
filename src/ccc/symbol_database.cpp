@@ -634,6 +634,16 @@ void GlobalVariable::set_mangled_name(std::string mangled)
 	m_mangled_name = std::move(mangled);
 }
 
+bool Section::contains_code() const
+{
+	return name() == ".text";
+}
+
+bool Section::contains_data() const
+{
+	return name() == ".bss" || name() == ".data" || name() == ".rodata" || name() == ".sbss";
+}
+
 const std::vector<FunctionHandle>& SourceFile::functions() const
 {
 	return m_functions;
