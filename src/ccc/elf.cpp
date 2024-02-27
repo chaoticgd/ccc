@@ -5,127 +5,7 @@
 
 namespace ccc {
 
-enum class ElfIdentClass : u8 {
-	B32 = 0x1,
-	B64 = 0x2
-};
-
-enum class ElfFileType : u16 {
-	NONE   = 0x00,
-	REL    = 0x01,
-	EXEC   = 0x02,
-	DYN    = 0x03,
-	CORE   = 0x04,
-	LOOS   = 0xfe00,
-	HIOS   = 0xfeff,
-	LOPROC = 0xff00,
-	HIPROC = 0xffff
-};
-
-enum class ElfMachine : u16 {
-	MIPS = 0x08
-};
-
-CCC_PACKED_STRUCT(ElfIdentHeader,
-	/* 0x0 */ u32 magic; // 7f 45 4c 46
-	/* 0x4 */ ElfIdentClass e_class;
-	/* 0x5 */ u8 endianess;
-	/* 0x6 */ u8 version;
-	/* 0x7 */ u8 os_abi;
-	/* 0x8 */ u8 abi_version;
-	/* 0x9 */ u8 pad[7];
-)
-
-CCC_PACKED_STRUCT(ElfFileHeader,
-	/* 0x10 */ ElfFileType type;
-	/* 0x12 */ ElfMachine machine;
-	/* 0x14 */ u32 version;
-	/* 0x18 */ u32 entry;
-	/* 0x1c */ u32 phoff;
-	/* 0x20 */ u32 shoff;
-	/* 0x24 */ u32 flags;
-	/* 0x28 */ u16 ehsize;
-	/* 0x2a */ u16 phentsize;
-	/* 0x2c */ u16 phnum;
-	/* 0x2e */ u16 shentsize;
-	/* 0x30 */ u16 shnum;
-	/* 0x32 */ u16 shstrndx;
-)
-
-CCC_PACKED_STRUCT(ElfProgramHeader,
-	/* 0x00 */ u32 type;
-	/* 0x04 */ u32 offset;
-	/* 0x08 */ u32 vaddr;
-	/* 0x0c */ u32 paddr;
-	/* 0x10 */ u32 filesz;
-	/* 0x14 */ u32 memsz;
-	/* 0x18 */ u32 flags;
-	/* 0x1c */ u32 align;
-)
-
-CCC_PACKED_STRUCT(ElfSectionHeader,
-	/* 0x00 */ u32 name;
-	/* 0x04 */ ElfSectionType type;
-	/* 0x08 */ u32 flags;
-	/* 0x0c */ u32 addr;
-	/* 0x10 */ u32 offset;
-	/* 0x14 */ u32 size;
-	/* 0x18 */ u32 link;
-	/* 0x1c */ u32 info;
-	/* 0x20 */ u32 addralign;
-	/* 0x24 */ u32 entsize;
-)
-
-const ElfSection* ElfFile::lookup_section(const char* name) const
-{
-	for(const ElfSection& section : sections) {
-		if(section.name == name) {
-			return &section;
-		}
-	}
-	return nullptr;
-}
-
-std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) const
-{
-	for(const ElfSegment& segment : segments) {
-		if(file_offset >= segment.offset && file_offset < segment.offset + segment.size) {
-			return segment.address.get_or_zero() + file_offset - segment.offset;
-		}
-	}
-	return std::nullopt;
-}
-
-Result<std::span<const u8>> ElfFile::get_virtual(u32 address, u32 size) const
-{
-	u32 end_address = address + size;
-	
-	if(end_address >= address) {
-		for(const ElfSegment& segment : segments) {
-			if(address >= segment.address.value && end_address <= segment.address.value + segment.size) {
-				size_t begin_offset = segment.offset + (address - segment.address.value);
-				size_t end_offset = begin_offset + size;
-				if(begin_offset <= image.size() && end_offset <= image.size()) {
-					return std::span<const u8>(image.data() + begin_offset, image.data() + end_offset);
-				}
-			}
-		}
-	}
-	
-	return CCC_FAILURE("No ELF segment for address range 0x%x to 0x%x.", address, end_address);
-}
-
-Result<void> ElfFile::copy_virtual(u8* dest, u32 address, u32 size) const
-{
-	Result<std::span<const u8>> block = get_virtual(address, size);
-	CCC_RETURN_IF_ERROR(block);
-	
-	memcpy(dest, block->data(), size);
-	
-	return Result<void>();
-}
-
-Result<ElfFile> parse_elf_file(std::vector<u8> image)
+Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 {
 	ElfFile elf;
 	elf.image = std::move(image);
@@ -152,13 +32,7 @@ Result<ElfFile> parse_elf_file(std::vector<u8> image)
 		
 		ElfSection& section = elf.sections.emplace_back();
 		section.name = name;
-		section.type = section_header->type;
-		section.offset = section_header->offset;
-		section.size = section_header->size;
-		if(section_header->addr != 0) {
-			section.address = section_header->addr;
-		}
-		section.link = section_header->link;
+		section.header = *section_header;
 	}
 	
 	for(u32 i = 0; i < header->phnum; i++) {
@@ -166,27 +40,73 @@ Result<ElfFile> parse_elf_file(std::vector<u8> image)
 		const ElfProgramHeader* program_header = get_packed<ElfProgramHeader>(elf.image, header_offset);
 		CCC_CHECK(program_header, "ELF program header out of range.");
 		
-		ElfSegment& segment = elf.segments.emplace_back();
-		segment.offset = program_header->offset;
-		segment.size = program_header->filesz;
-		if(program_header->vaddr != 0) {
-			segment.address = program_header->vaddr;
-		}
+		elf.segments.emplace_back(*program_header);
 	}
 	
 	return elf;
 }
 
-Result<void> import_elf_section_headers(
-	SymbolDatabase& database, const ElfFile& elf, const SymbolGroup& group)
+Result<void> ElfFile::create_section_symbols(
+	SymbolDatabase& database, const SymbolGroup& group) const
 {
-	for(const ElfSection& section : elf.sections) {
+	for(const ElfSection& section : sections) {
+		Address address = Address::non_zero(section.header.addr);
+		
 		Result<Section*> symbol = database.sections.create_symbol(
-			section.name, section.address, group.source, group.module_symbol);
+			section.name, address, group.source, group.module_symbol);
 		CCC_RETURN_IF_ERROR(symbol);
 		
-		(*symbol)->set_size(section.size);
+		(*symbol)->set_size(section.header.size);
 	}
+	
+	return Result<void>();
+}
+
+const ElfSection* ElfFile::lookup_section(const char* name) const
+{
+	for(const ElfSection& section : sections) {
+		if(section.name == name) {
+			return &section;
+		}
+	}
+	return nullptr;
+}
+
+std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) const
+{
+	for(const ElfProgramHeader& segment : segments) {
+		if(file_offset >= segment.offset && file_offset < segment.offset + segment.filesz) {
+			return segment.vaddr + file_offset - segment.offset;
+		}
+	}
+	return std::nullopt;
+}
+
+Result<std::span<const u8>> ElfFile::get_virtual(u32 address, u32 size) const
+{
+	u32 end_address = address + size;
+	
+	if(end_address >= address) {
+		for(const ElfProgramHeader& segment : segments) {
+			if(address >= segment.vaddr && end_address <= segment.vaddr + segment.filesz) {
+				size_t begin_offset = segment.offset + (address - segment.vaddr);
+				size_t end_offset = begin_offset + size;
+				if(begin_offset <= image.size() && end_offset <= image.size()) {
+					return std::span<const u8>(image.data() + begin_offset, image.data() + end_offset);
+				}
+			}
+		}
+	}
+	
+	return CCC_FAILURE("No ELF segment for address range 0x%x to 0x%x.", address, end_address);
+}
+
+Result<void> ElfFile::copy_virtual(u8* dest, u32 address, u32 size) const
+{
+	Result<std::span<const u8>> block = get_virtual(address, size);
+	CCC_RETURN_IF_ERROR(block);
+	
+	memcpy(dest, block->data(), size);
 	
 	return Result<void>();
 }

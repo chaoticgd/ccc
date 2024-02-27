@@ -223,11 +223,13 @@ struct Address {
 	Address() {}
 	Address(u32 v) : value(v) {}
 	
-	bool valid() const {
+	bool valid() const
+	{
 		return value != (u32) -1;
 	}
 	
-	u32 get_or_zero() const {
+	u32 get_or_zero() const
+	{
 		if(valid()) {
 			return value;
 		} else {
@@ -235,12 +237,22 @@ struct Address {
 		}
 	}
 	
-	Address add_base_address(Address base_address) const {
+	Address add_base_address(Address base_address) const
+	{
 		if(valid()) {
 			return base_address.get_or_zero() + value;
 		} else {
 			return Address();
 		}
+	}
+	
+	static Address non_zero(u32 address)
+	{
+		Address result;
+		if(address != 0) {
+			result = address;
+		}
+		return address;
 	}
 	
 	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;

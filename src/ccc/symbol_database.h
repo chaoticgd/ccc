@@ -83,11 +83,13 @@ struct SymbolRange {
 	SymbolRange(SymbolHandle<SymbolType> f, SymbolHandle<SymbolType> l)
 		: first(f), last(l) {}
 	
-	bool valid() const {
+	bool valid() const
+	{
 		return first.valid() && last.valid();
 	}
 	
-	void expand_to_include(SymbolHandle<SymbolType> handle) {
+	void expand_to_include(SymbolHandle<SymbolType> handle)
+	{
 		if(!first.valid()) {
 			first = handle;
 		}
@@ -95,7 +97,8 @@ struct SymbolRange {
 		last = handle;
 	}
 	
-	void clear() {
+	void clear()
+	{
 		first = SymbolHandle<SymbolType>();
 		last = SymbolHandle<SymbolType>();
 	}
@@ -189,15 +192,12 @@ public:
 	Result<SymbolType*> create_symbol(
 		std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol = nullptr);
 	
-	// Create a new symbol. Similar to the above, but for symbols that don't
-	// have addresses.
+	// Create a new symbol. Similar to above, but for symbols without addresses.
 	Result<SymbolType*> create_symbol(
 		std::string name, SymbolSourceHandle source, const Module* module_symbol = nullptr);
 	
-	// Create a new symbol if it doesn't already exist or
-	// DONT_DEDUPLICATE_SYMBOLS is set. If it's a SymbolSource symbol, source
-	// can be left empty, otherwise it has to be valid. The return value may
-	// be a null pointer unless DONT_DEDUPLICATE_SYMBOLS is set.
+	// Create a new symbol. Similar to above, but unless DONT_DEMANGLE_NAMES is
+	// set, the name of the symbol will be demangled.
 	Result<SymbolType*> create_symbol(
 		std::string name,
 		SymbolSourceHandle source,

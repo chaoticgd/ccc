@@ -62,7 +62,7 @@ int main(int argc, char** argv)
 	Result<std::vector<u8>> image = platform::read_binary_file(options.elf_path);
 	CCC_EXIT_IF_ERROR(image);
 	
-	Result<ElfFile> elf_result = parse_elf_file(std::move(*image));
+	Result<ElfFile> elf_result = ElfFile::parse(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf_result);
 	
 	Result<std::unique_ptr<ElfSymbolFile>> symbol_file = std::make_unique<ElfSymbolFile>(

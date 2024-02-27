@@ -179,33 +179,6 @@ TEST(CCCSymbolDatabase, SymbolOverlappingAddress)
 	
 }
 
-TEST(CCCSymbolDatabase, CreateSymbol)
-{
-	SymbolDatabase database;
-	
-	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
-	CCC_GTEST_FAIL_IF_ERROR(source);
-	
-	Result<Function*> a = database.functions.create_symbol(
-		"func_x", (*source)->handle(), nullptr, 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
-	CCC_GTEST_FAIL_IF_ERROR(a);
-	EXPECT_TRUE(*a);
-	
-	// Make sure that we can create multiple symbols with a different name at
-	// the same address.
-	Result<Function*> b = database.functions.create_symbol(
-		"func_y", (*source)->handle(), nullptr, 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
-	CCC_GTEST_FAIL_IF_ERROR(b);
-	EXPECT_TRUE(*b);
-	
-	// Make sure that if the symbol has the same name and the same address that
-	// it will be deduplicated (and that the existing symbol will be used).
-	Result<Function*> c = database.functions.create_symbol(
-		"func_y", (*source)->handle(), nullptr, 0x1000, NO_IMPORTER_FLAGS, DemanglerFunctions());
-	CCC_GTEST_FAIL_IF_ERROR(c);
-	EXPECT_FALSE(*c);
-}
-
 TEST(CCCSymbolDatabase, MoveSymbol)
 {
 	SymbolDatabase database;

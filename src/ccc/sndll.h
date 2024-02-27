@@ -7,6 +7,11 @@
 
 namespace ccc {
 
+enum class SNDLLType {
+	SNDATA_SECTION,
+	DYNAMIC_LIBRARY
+};
+
 enum SNDLLVersion {
 	SNDLL_V1,
 	SNDLL_V2
@@ -28,7 +33,7 @@ struct SNDLLSymbol {
 
 struct SNDLLFile {
 	Address address;
-	bool symbols_relative;
+	SNDLLType type;
 	SNDLLVersion version;
 	std::string elf_path;
 	std::vector<SNDLLSymbol> symbols;
@@ -36,7 +41,7 @@ struct SNDLLFile {
 
 // If a valid address is passed, the pointers in the header will be treated as
 // addresses, otherwise they will be treated as file offsets.
-Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, bool symbols_relative);
+Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, SNDLLType type);
 
 Result<void> import_sndll_symbols(
 	SymbolDatabase& database,

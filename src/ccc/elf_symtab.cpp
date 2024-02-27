@@ -72,6 +72,16 @@ Result<void> import_symbols(
 			continue;
 		}
 		
+		if(!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
+			if(database.functions.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
+			
+			if(database.global_variables.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
+		}
+		
 		const char* string = get_string(strtab, symbol->name);
 		CCC_CHECK(string, "Symbol string out of range.");
 		

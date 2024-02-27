@@ -3,6 +3,8 @@
 
 #include "sndll.h"
 
+#include "importer_flags.h"
+
 namespace ccc {
 
 CCC_PACKED_STRUCT(SNDLLHeaderCommon,
@@ -47,10 +49,10 @@ CCC_PACKED_STRUCT(SNDLLSymbolHeader,
 )
 
 static Result<SNDLLFile> parse_sndll_common(
-	std::span<const u8> image, Address address, bool symbols_relative, const SNDLLHeaderCommon& common, SNDLLVersion version);
+	std::span<const u8> image, Address address, SNDLLType type, const SNDLLHeaderCommon& common, SNDLLVersion version);
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type);
 
-Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, bool symbols_relative)
+Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, SNDLLType type)
 {
 	const u32* magic = get_packed<u32>(image, 0);
 	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.valid() ? "section" : "file");
@@ -60,12 +62,12 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, b
 		case '1': {
 			const SNDLLHeaderV1* header = get_packed<SNDLLHeaderV1>(image, 0);
 			CCC_CHECK(header, "File too small to contain SNDLL V1 header.");
-			return parse_sndll_common(image, address, symbols_relative, header->common, SNDLL_V1);
+			return parse_sndll_common(image, address, type, header->common, SNDLL_V1);
 		}
 		case '2': {
 			const SNDLLHeaderV2* header = get_packed<SNDLLHeaderV2>(image, 0);
 			CCC_CHECK(header, "File too small to contain SNDLL V2 header.");
-			return parse_sndll_common(image, address, symbols_relative, header->common, SNDLL_V2);
+			return parse_sndll_common(image, address, type, header->common, SNDLL_V2);
 		}
 	}
 	
@@ -73,12 +75,12 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, b
 }
 
 static Result<SNDLLFile> parse_sndll_common(
-	std::span<const u8> image, Address address, bool symbols_relative, const SNDLLHeaderCommon& common, SNDLLVersion version)
+	std::span<const u8> image, Address address, SNDLLType type, const SNDLLHeaderCommon& common, SNDLLVersion version)
 {
 	SNDLLFile sndll;
 	
 	sndll.address = address;
-	sndll.symbols_relative = symbols_relative;
+	sndll.type = type;
 	sndll.version = version;
 	
 	if(common.elf_path) {
@@ -118,32 +120,43 @@ Result<void> import_sndll_symbols(
 	DemanglerFunctions demangler)
 {
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
-		if(symbol.value != 0 && !symbol.string.empty()) {
-			switch(symbol.type) {
-				case SNDLL_RELATIVE:
-				case SNDLL_WEAK: {
-					u32 base_address = sndll.symbols_relative ? sndll.address.get_or_zero() : 0;
-					
-					Result<Label*> label = database.labels.create_symbol(
-						symbol.string, group.source, group.module_symbol, base_address + symbol.value, importer_flags, demangler);
-					CCC_RETURN_IF_ERROR(label);
-					
-					break;
-				}
-				case SNDLL_ABSOLUTE: {
-					Result<Label*> label = database.labels.create_symbol(
-						symbol.string, group.source, group.module_symbol, symbol.value, importer_flags, demangler);
-					CCC_RETURN_IF_ERROR(label);
-					
-					break;
-				}
-				case SNDLL_NIL:
-				case SNDLL_EXTERNAL:
-				default: {
-					break;
-				}
+		if(symbol.value == 0 || symbol.string.empty()) {
+			continue;
+		}
+		
+		u32 address = symbol.value;
+		if(symbol.type != SNDLL_ABSOLUTE && sndll.type == SNDLLType::DYNAMIC_LIBRARY) {
+			address += sndll.address.get_or_zero();
+		}
+		
+		if(!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
+			if(database.functions.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
+			
+			if(database.global_variables.first_handle_from_starting_address(address).valid()) {
+				continue;
 			}
 		}
+		
+		const Section* section = database.sections.symbol_overlapping_address(address);
+		if(section) {
+			if(section->name() == ".text") {
+				Result<Function*> function = database.functions.create_symbol(
+					symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
+				CCC_RETURN_IF_ERROR(function);
+				continue;
+			} else if(section->name() == ".bss" || section->name() == ".data" || section->name() == ".rodata") {
+				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
+					symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
+				CCC_RETURN_IF_ERROR(global_variable);
+				continue;
+			}
+		}
+		
+		Result<Label*> label = database.labels.create_symbol(
+			symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
+		CCC_RETURN_IF_ERROR(label);
 	}
 	
 	return Result<void>();

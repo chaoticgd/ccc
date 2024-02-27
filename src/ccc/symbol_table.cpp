@@ -55,33 +55,35 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	std::unique_ptr<SymbolTable> symbol_table;
 	switch(format) {
 		case MDEBUG: {
-			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.offset);
+			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.header.offset);
 			break;
 		}
 		case SYMTAB: {
-			CCC_CHECK(section.offset + section.size <= elf.image.size(),
+			CCC_CHECK(section.header.offset + section.header.size <= elf.image.size(),
 				"Section '%s' out of range.", section.name.c_str());
-			std::span<const u8> data = std::span(elf.image).subspan(section.offset, section.size);
+			std::span<const u8> data = std::span(elf.image).subspan(section.header.offset, section.header.size);
 			
-			CCC_CHECK(section.link != 0, "Section '%s' has no linked string table.", section.name.c_str());
-			CCC_CHECK(section.link < elf.sections.size(),
+			CCC_CHECK(section.header.link != 0, "Section '%s' has no linked string table.", section.name.c_str());
+			CCC_CHECK(section.header.link < elf.sections.size(),
 				"Section '%s' has out of range link field.", section.name.c_str());
-			const ElfSection& linked_section = elf.sections[section.link];
+			const ElfSection& linked_section = elf.sections[section.header.link];
 			
-			CCC_CHECK(linked_section.offset + linked_section.size <= elf.image.size(),
+			CCC_CHECK(linked_section.header.offset + linked_section.header.size <= elf.image.size(),
 				"Linked section '%s' out of range.", linked_section.name.c_str());
-			std::span<const u8> linked_data = std::span(elf.image).subspan(linked_section.offset, linked_section.size);
+			std::span<const u8> linked_data = std::span(elf.image).subspan(
+				linked_section.header.offset, linked_section.header.size);
 			
 			symbol_table = std::make_unique<SymtabSymbolTable>(data, linked_data);
+			
 			break;
 		}
 		case SNDLL: {
-			CCC_CHECK(section.offset + section.size <= elf.image.size(),
+			CCC_CHECK(section.header.offset + section.header.size <= elf.image.size(),
 				"Section '%s' out of range.", section.name.c_str());
-			std::span<const u8> data = std::span(elf.image).subspan(section.offset, section.size);
+			std::span<const u8> data = std::span(elf.image).subspan(section.header.offset, section.header.size);
 			
 			if(data.size() >= 4 && data[0] != '\0') {
-				Result<SNDLLFile> file = parse_sndll_file(data, section.address, false);
+				Result<SNDLLFile> file = parse_sndll_file(data, Address::non_zero(section.header.addr), SNDLLType::SNDATA_SECTION);
 				CCC_RETURN_IF_ERROR(file);
 				
 				symbol_table = std::make_unique<SNDLLSymbolTable>(std::make_shared<SNDLLFile>(std::move(*file)));
@@ -152,9 +154,6 @@ Result<void> MdebugSymbolTable::import(
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
 {
-	// The .mdebug importer currently needs this flag.
-	importer_flags |= DONT_DEDUPLICATE_SYMBOLS;
-	
 	return mdebug::import_symbol_table(
 		database, m_image, m_section_offset, group, importer_flags, demangler, interrupt);
 }
@@ -265,7 +264,7 @@ Result<void> ElfSectionHeadersSymbolTable::import(
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
 {
-	return import_elf_section_headers(database, m_elf, group);
+	return m_elf.create_section_symbols(database, group);
 }
 
 Result<void> ElfSectionHeadersSymbolTable::print_headers(FILE* out) const
