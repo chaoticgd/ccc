@@ -472,6 +472,9 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
 	LabelHandle handle() const { return m_handle; }
+	
+	// Indicates that this label should not be used as a function name.
+	bool is_junk = false;
 };
 
 // A local variable. This includes static local variables which have global

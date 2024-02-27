@@ -91,6 +91,14 @@ Result<void> import_symbols(
 					string, group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(label);
 				
+				// These symbols get emitted at the same addresses as functions
+				// and aren't extremely useful, so we want to mark them to
+				// prevent them from possibly being used as function names.
+				(*label)->is_junk =
+					(*label)->name() == "__gnu_compiled_c" ||
+					(*label)->name() == "__gnu_compiled_cplusplus" ||
+					(*label)->name() == "gcc2_compiled.";
+				
 				break;
 			}
 			case SymbolType::OBJECT: {
