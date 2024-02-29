@@ -116,7 +116,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 | Format Version | Release | Changes |
 | - | - | - |
-| 13 | | Added size_bytes field to all nodes. |
+| 13 | | Added size_bytes field to all nodes. Renamed data_type_handle property to just data_type (since it's not a handle). |
 | 12 | | Added format and application properties to root object. Added hash property to function symbols. |
 | 11 | | Lists of indices (instead of begin and end indices) are now used for relationships between symbols. |
 | 10 | | Added modules as their own symbol type. Removed the text_address property of source file symbols. |
