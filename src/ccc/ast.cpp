@@ -9,7 +9,7 @@
 namespace ccc::ast {
 
 static bool compare_nodes_and_merge(
-	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
+	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase* database);
 static bool try_to_match_wobbly_typedefs(
 	const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database);
 
@@ -60,7 +60,7 @@ DataTypeHandle TypeName::data_type_handle_unless_forward_declared() const
 }
 
 CompareResult compare_nodes(
-	const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database, bool check_intrusive_fields)
+	const Node& node_lhs, const Node& node_rhs, const SymbolDatabase* database, bool check_intrusive_fields)
 {
 	CompareResult result = CompareResultType::MATCHES_NO_SWAP;
 	if(node_lhs.descriptor != node_rhs.descriptor) return CompareFailReason::DESCRIPTOR;
@@ -179,13 +179,15 @@ CompareResult compare_nodes(
 }
 
 static bool compare_nodes_and_merge(
-	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase& database)
+	CompareResult& dest, const Node& node_lhs, const Node& node_rhs, const SymbolDatabase* database)
 {
 	CompareResult result = compare_nodes(node_lhs, node_rhs, database, true);
-	if(result.type == CompareResultType::DIFFERS && try_to_match_wobbly_typedefs(node_lhs, node_rhs, database)) {
-		result.type = CompareResultType::MATCHES_FAVOUR_LHS;
-	} else if(result.type == CompareResultType::DIFFERS && try_to_match_wobbly_typedefs(node_rhs, node_lhs, database)) {
-		result.type = CompareResultType::MATCHES_FAVOUR_RHS;
+	if(database) {
+		if(result.type == CompareResultType::DIFFERS && try_to_match_wobbly_typedefs(node_lhs, node_rhs, *database)) {
+			result.type = CompareResultType::MATCHES_FAVOUR_LHS;
+		} else if(result.type == CompareResultType::DIFFERS && try_to_match_wobbly_typedefs(node_rhs, node_lhs, *database)) {
+			result.type = CompareResultType::MATCHES_FAVOUR_RHS;
+		}
 	}
 	
 	if(dest.type != result.type) {
@@ -245,7 +247,7 @@ static bool try_to_match_wobbly_typedefs(
 			const DataType* referenced_type = database.data_types.symbol_from_handle(handle->second);
 			CCC_ASSERT(referenced_type && referenced_type->type());
 			// Don't compare 'intrusive' fields e.g. the offset.
-			CompareResult new_result = compare_nodes(*referenced_type->type(), raw_node, database, false);
+			CompareResult new_result = compare_nodes(*referenced_type->type(), raw_node, &database, false);
 			if(new_result.type != CompareResultType::DIFFERS) {
 				return true;
 			}

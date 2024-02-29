@@ -258,7 +258,7 @@ struct CompareResult {
 	CompareFailReason fail_reason;
 };
 
-CompareResult compare_nodes(const Node& lhs, const Node& rhs, const SymbolDatabase& database, bool check_intrusive_fields);
+CompareResult compare_nodes(const Node& lhs, const Node& rhs, const SymbolDatabase* database, bool check_intrusive_fields);
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
