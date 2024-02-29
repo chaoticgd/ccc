@@ -152,6 +152,43 @@ MDEBUG_IMPORTER_TEST(StrangeStruct,
 	EXPECT_EQ(data_type->type()->storage_class, STORAGE_CLASS_TYPEDEF);
 }
 
+// Synthetic example. Something like:
+// typedef struct {} PeculiarParameter;
+// See the fix_recursively_emitted_structures function for more information.
+MDEBUG_IMPORTER_TEST(PeculiarParameter,
+	({
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM),
+			"ReturnType:t(0,1)=r1;-2147483648;2147483647;"},
+		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM),
+			"PeculiarParameter:t(1,1)="
+				"s1;some_generated_func::#(1,1),(0,1),(1,2)=&(1,3)="
+					"s1;some_generated_func::#(1,1),(0,1),"
+						"(1,2)"
+					";:RC17PeculiarParameter;2A.;;"
+				";:RC17PeculiarParameter;2A.;;"},
+	}))
+{
+	// Lookup the data type.
+	DataTypeHandle handle = database.data_types.first_handle_from_name("PeculiarParameter");
+	DataType* data_type = database.data_types.symbol_from_handle(handle);
+	ASSERT_TRUE(data_type && data_type->type());
+	ASSERT_TRUE(data_type->type()->descriptor == ast::STRUCT_OR_UNION);
+	ast::StructOrUnion& structure = data_type->type()->as<ast::StructOrUnion>();
+	
+	// Find the first member function.
+	ASSERT_TRUE(structure.member_functions.size() == 1);
+	ASSERT_TRUE(structure.member_functions[0]->descriptor == ast::FUNCTION);
+	ast::Function& function = structure.member_functions[0]->as<ast::Function>();
+	
+	// Find the first parameter from the first member function.
+	ASSERT_TRUE(function.parameters.has_value() && function.parameters->size() == 1);
+	ASSERT_TRUE((*function.parameters)[0]->descriptor == ast::POINTER_OR_REFERENCE);
+	ast::PointerOrReference& reference = (*function.parameters)[0]->as<ast::PointerOrReference>();
+	
+	// Make sure that the inner struct was replaced with a type name.
+	ASSERT_TRUE(reference.value_type->descriptor == ast::TYPE_NAME);
+}
+
 // Synthetic example.
 MDEBUG_IMPORTER_TEST(VexingVoid,
 	({

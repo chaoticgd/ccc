@@ -868,7 +868,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			}
 			
 			CCC_ASSERT(existing_type->type());
-			ast::CompareResult compare_result = compare_nodes(*existing_type->type(), *node.get(), *this, true);
+			ast::CompareResult compare_result = compare_nodes(*existing_type->type(), *node.get(), this, true);
 			if(compare_result.type == ast::CompareResultType::DIFFERS) {
 				// The new node doesn't match this existing node.
 				bool is_anonymous_enum = existing_type->type()->descriptor == ast::ENUM

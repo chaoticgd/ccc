@@ -447,6 +447,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 						input++;
 						break;
 					}
+					
 					CCC_EXPECT_CHAR(input, ',', "method");
 					
 					auto parameter_type = parse_stabs_type(input);
@@ -662,7 +663,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			CCC_EXPECT_CHAR(input, ':', "member function");
 			std::optional<std::string> identifier = parse_stabs_identifier(input, ';');
 			CCC_CHECK(identifier.has_value(), "Invalid member function identifier.");
-
+			
 			CCC_EXPECT_CHAR(input, ';', "member function");
 			
 			Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);

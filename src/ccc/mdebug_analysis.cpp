@@ -27,6 +27,13 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 		*symbol.name_colon_type.type.get(), nullptr, m_stabs_to_ast_state, 0, false, false);
 	CCC_RETURN_IF_ERROR(node);
 	
+	if(symbol.is_typedef && (*node)->descriptor == ast::STRUCT_OR_UNION) {
+		ast::StructOrUnion& struct_or_union = (*node)->as<ast::StructOrUnion>();
+		const std::string& name = symbol.name_colon_type.name;
+		StabsTypeNumber type_number = symbol.name_colon_type.type->type_number;
+		fix_recursively_emitted_structures(struct_or_union, name, type_number, m_stabs_to_ast_state.file_handle);
+	}
+	
 	bool is_struct = (*node)->descriptor == ast::STRUCT_OR_UNION && (*node)->as<ast::StructOrUnion>().is_struct;
 	bool force_typedef =
 		((m_context.importer_flags & TYPEDEF_ALL_ENUMS) && (*node)->descriptor == ast::ENUM) ||
@@ -294,7 +301,7 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	
 	m_functions.emplace_back(m_current_function->handle());
 	
-	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
+	m_state = IN_FUNCTION_BEGINNING;
 	
 	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_source_file.command_line_path) {
 		m_current_function->relative_path = m_next_relative_path;

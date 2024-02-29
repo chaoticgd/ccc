@@ -25,6 +25,10 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 		json.Key("offset_bytes");
 		json.Int(node.offset_bytes);
 	}
+	if(node.size_bytes != -1) {
+		json.Key("size_bytes");
+		json.Int(node.size_bytes);
+	}
 	if(node.size_bits != -1) {
 		json.Key("size_bits");
 		json.Int(node.size_bits);
@@ -180,7 +184,7 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 			const TypeName& type_name = node.as<TypeName>();
 			json.Key("source");
 			json.String(type_name_source_to_string(type_name.source));
-			json.Key("data_type_handle");
+			json.Key("data_type");
 			json.Int(database.data_types.index_from_handle(type_name.data_type_handle));
 			if(const TypeName::UnresolvedStabs* unresolved = type_name.unresolved_stabs.get()) {
 				json.Key("type_name");

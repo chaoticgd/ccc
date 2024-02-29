@@ -50,7 +50,7 @@ struct Node {
 	u8 access_specifier : 2 = AS_PUBLIC;
 	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	
-	s32 computed_size_bytes = -1; // Calculated by compute_size_bytes_recursive.
+	s32 size_bytes = -1;
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -58,7 +58,7 @@ struct Node {
 	std::string name;
 	
 	s32 offset_bytes = -1; // Offset relative to start of last inline struct/union.
-	s32 size_bits = -1; // Size stored in the symbol table.
+	s32 size_bits = -1; // Size stored in the .mdebug symbol table, may not be set.
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
@@ -258,12 +258,17 @@ struct CompareResult {
 	CompareFailReason fail_reason;
 };
 
-CompareResult compare_nodes(const Node& lhs, const Node& rhs, const SymbolDatabase& database, bool check_intrusive_fields);
+// Compare two AST nodes and their children recursively. This will only check
+// fields that will be equal for two versions of the same type from different
+// translation units.
+CompareResult compare_nodes(const Node& lhs, const Node& rhs, const SymbolDatabase* database, bool check_intrusive_fields);
+
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
 const char* access_specifier_to_string(AccessSpecifier specifier);
 const char* builtin_class_to_string(BuiltInClass bclass);
+
 s32 builtin_class_size(BuiltInClass bclass);
 
 enum TraversalOrder {

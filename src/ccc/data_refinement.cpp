@@ -43,11 +43,11 @@ static Result<RefinedData> refine_node(
 	switch(type.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
-			CCC_CHECK(array.element_type->computed_size_bytes > -1, "Cannot compute element size for '%s' array.", array.name.c_str());
+			CCC_CHECK(array.element_type->size_bytes > -1, "Cannot compute element size for '%s' array.", array.name.c_str());
 			RefinedData list;
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
 			for(s32 i = 0; i < array.element_count; i++) {
-				s32 offset = i * array.element_type->computed_size_bytes;
+				s32 offset = i * array.element_type->size_bytes;
 				Result<RefinedData> element = refine_node(virtual_address + offset, *array.element_type.get(), database, elf);
 				CCC_RETURN_IF_ERROR(element);
 				element->field_name = "[" + std::to_string(i) + "]";

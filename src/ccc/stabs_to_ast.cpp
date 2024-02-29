@@ -77,8 +77,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
 			type_name->unresolved_stabs->type_name = *type.name;
 			type_name->unresolved_stabs->referenced_file_handle = state.file_handle;
-			type_name->unresolved_stabs->stabs_type_number.file = type.type_number.file;
-			type_name->unresolved_stabs->stabs_type_number.type = type.type_number.type;
+			type_name->unresolved_stabs->stabs_type_number = type.type_number;
 			return std::unique_ptr<ast::Node>(std::move(type_name));
 		}
 	}
@@ -91,9 +90,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		auto type_name = std::make_unique<ast::TypeName>();
 		type_name->source = ast::TypeNameSource::UNNAMED_THIS;
 		type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+		type_name->unresolved_stabs->type_name = enclosing_struct->name.has_value() ? *enclosing_struct->name : "";
 		type_name->unresolved_stabs->referenced_file_handle = state.file_handle;
-		type_name->unresolved_stabs->stabs_type_number.file = type.type_number.file;
-		type_name->unresolved_stabs->stabs_type_number.type = type.type_number.type;
+		type_name->unresolved_stabs->stabs_type_number = type.type_number;
 		return std::unique_ptr<ast::Node>(std::move(type_name));
 	}
 	
@@ -753,6 +752,68 @@ static MemberFunctionInfo check_member_function(
 	info.is_special_member_function = info.is_constructor_or_destructor || info.name == "operator=";
 	
 	return info;
+}
+
+void fix_recursively_emitted_structures(
+	ast::StructOrUnion& outer_struct, const std::string& name, StabsTypeNumber type_number, SourceFileHandle file_handle)
+{
+	// This is a rather peculiar case. For some compiler versions, when a struct
+	// or a union defined using a typedef is being emitted and it needs to
+	// reference itself from a member function parameter, it will emit its
+	// entire definition again in the middle of the first definition, although
+	// thankfully it won't recurse more than once.
+	//
+	// The game Sega Soccer Slam is affected by this. See the PeculiarParameter
+	// test case in mdebug_importer_tests.cpp for a bare bones example.
+	
+	for(std::unique_ptr<ast::Node>& node : outer_struct.member_functions) {
+		if(node->descriptor != ast::FUNCTION) {
+			continue;
+		}
+		
+		ast::Function& function = node->as<ast::Function>();
+		if(!function.parameters.has_value()) {
+			continue;
+		}
+		
+		for(std::unique_ptr<ast::Node>& parameter : *function.parameters) {
+			if(parameter->descriptor != ast::POINTER_OR_REFERENCE) {
+				continue;
+			}
+			
+			ast::PointerOrReference& pointer_or_reference = parameter->as<ast::PointerOrReference>();
+			if(pointer_or_reference.value_type->descriptor != ast::STRUCT_OR_UNION) {
+				continue;
+			}
+			
+			ast::StructOrUnion& inner_struct = pointer_or_reference.value_type->as<ast::StructOrUnion>();
+			
+			// Since C++ doesn't allow struct definitions in function parameter
+			// lists normally, and most of the time the member function
+			// parameters aren't even filled in by GCC, this is a really rare
+			// case, so here we only bother to do some very basic checks to
+			// verify that the inner struct is similar to the outer struct.
+			if(inner_struct.base_classes.size() != outer_struct.base_classes.size()) {
+				continue;
+			}
+			
+			if(inner_struct.fields.size() != outer_struct.fields.size()) {
+				continue;
+			}
+			
+			if(inner_struct.member_functions.size() != outer_struct.member_functions.size()) {
+				continue;
+			}
+			
+			auto type_name = std::make_unique<ast::TypeName>();
+			type_name->source = ast::TypeNameSource::REFERENCE;
+			type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
+			type_name->unresolved_stabs->type_name = name;
+			type_name->unresolved_stabs->referenced_file_handle = file_handle;
+			type_name->unresolved_stabs->stabs_type_number = type_number;
+			pointer_or_reference.value_type = std::move(type_name);
+		}
+	}
 }
 
 ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility)

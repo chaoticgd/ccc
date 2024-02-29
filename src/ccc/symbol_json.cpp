@@ -7,7 +7,7 @@
 
 namespace ccc {
 
-const u32 JSON_FORMAT_VERSION = 12;
+const u32 JSON_FORMAT_VERSION = 13;
 
 template <typename SymbolType>
 static void write_symbol_list(
