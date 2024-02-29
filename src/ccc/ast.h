@@ -258,12 +258,17 @@ struct CompareResult {
 	CompareFailReason fail_reason;
 };
 
+// Compare two AST nodes and their children recursively. This will only check
+// fields that will be equal for two versions of the same type from different
+// translation units.
 CompareResult compare_nodes(const Node& lhs, const Node& rhs, const SymbolDatabase* database, bool check_intrusive_fields);
+
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
 const char* storage_class_to_string(StorageClass storage_class);
 const char* access_specifier_to_string(AccessSpecifier specifier);
 const char* builtin_class_to_string(BuiltInClass bclass);
+
 s32 builtin_class_size(BuiltInClass bclass);
 
 enum TraversalOrder {
