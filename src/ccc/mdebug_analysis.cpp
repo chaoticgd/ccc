@@ -301,7 +301,7 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	
 	m_functions.emplace_back(m_current_function->handle());
 	
-	m_state = LocalSymbolTableAnalyser::IN_FUNCTION_BEGINNING;
+	m_state = IN_FUNCTION_BEGINNING;
 	
 	if(!m_next_relative_path.empty() && m_current_function->relative_path != m_source_file.command_line_path) {
 		m_current_function->relative_path = m_next_relative_path;
