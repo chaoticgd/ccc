@@ -77,7 +77,14 @@ CompareResult compare_nodes(
 				return CompareFailReason::STORAGE_CLASS;
 			}
 		}
-		if(node_lhs.name != node_rhs.name && !(node_lhs.is_vtable_pointer && node_rhs.is_vtable_pointer)) return CompareFailReason::NAME;
+		
+		// Vtable pointers and constructors can sometimes contain type numbers
+		// that are different between translation units, so we don't want to
+		// compare them.
+		bool is_vtable_pointer = node_lhs.is_vtable_pointer && node_rhs.is_vtable_pointer;
+		bool is_numbered_constructor = node_lhs.name.starts_with("$_") && node_rhs.name.starts_with("$_");
+		if(node_lhs.name != node_rhs.name && !is_vtable_pointer && !is_numbered_constructor) return CompareFailReason::NAME;
+		
 		if(node_lhs.offset_bytes != node_rhs.offset_bytes) return CompareFailReason::RELATIVE_OFFSET_BYTES;
 		if(node_lhs.size_bits != node_rhs.size_bits) return CompareFailReason::SIZE_BITS;
 		if(node_lhs.is_const != node_rhs.is_const) return CompareFailReason::CONSTNESS;
