@@ -93,16 +93,16 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 	
 	// Propagate the size information to the global variable symbols.
 	for(GlobalVariable& global_variable : database.global_variables) {
-		if(global_variable.type() && global_variable.type()->computed_size_bytes > -1) {
-			global_variable.set_size((u32) global_variable.type()->computed_size_bytes);
+		if(global_variable.type() && global_variable.type()->size_bytes > -1) {
+			global_variable.set_size((u32) global_variable.type()->size_bytes);
 		}
 	}
 	
 	// Propagate the size information to the static local variable symbols.
 	for(LocalVariable& local_variable : database.local_variables) {
 		bool is_static_local = std::holds_alternative<GlobalStorage>(local_variable.storage);
-		if(is_static_local && local_variable.type() && local_variable.type()->computed_size_bytes > -1) {
-			local_variable.set_size((u32) local_variable.type()->computed_size_bytes);
+		if(is_static_local && local_variable.type() && local_variable.type()->size_bytes > -1) {
+			local_variable.set_size((u32) local_variable.type()->size_bytes);
 		}
 	}
 	
@@ -420,7 +420,7 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 {
 	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
 		// Skip nodes that have already been processed.
-		if(node.computed_size_bytes > -1 || node.cannot_compute_size) {
+		if(node.size_bytes > -1 || node.cannot_compute_size) {
 			return ast::EXPLORE_CHILDREN;
 		}
 		
@@ -430,8 +430,8 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 		switch(node.descriptor) {
 			case ast::ARRAY: {
 				ast::Array& array = node.as<ast::Array>();
-				if(array.element_type->computed_size_bytes > -1) {
-					array.computed_size_bytes = array.element_type->computed_size_bytes * array.element_count;
+				if(array.element_type->size_bytes > -1) {
+					array.size_bytes = array.element_type->size_bytes * array.element_count;
 				}
 				break;
 			}
@@ -440,25 +440,25 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 			}
 			case ast::BUILTIN: {
 				ast::BuiltIn& built_in = node.as<ast::BuiltIn>();
-				built_in.computed_size_bytes = builtin_class_size(built_in.bclass);
+				built_in.size_bytes = builtin_class_size(built_in.bclass);
 				break;
 			}
 			case ast::FUNCTION: {
 				break;
 			}
 			case ast::ENUM: {
-				node.computed_size_bytes = 4;
+				node.size_bytes = 4;
 				break;
 			}
 			case ast::ERROR_NODE: {
 				break;
 			}
 			case ast::STRUCT_OR_UNION: {
-				node.computed_size_bytes = node.size_bits / 8;
+				node.size_bytes = node.size_bits / 8;
 				break;
 			}
 			case ast::POINTER_OR_REFERENCE: {
-				node.computed_size_bytes = 4;
+				node.size_bytes = 4;
 				break;
 			}
 			case ast::POINTER_TO_DATA_MEMBER: {
@@ -470,16 +470,16 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 				if(resolved_type) {
 					ast::Node* resolved_node = resolved_type->type();
 					CCC_ASSERT(resolved_node);
-					if(resolved_node->computed_size_bytes < 0 && !resolved_node->cannot_compute_size) {
+					if(resolved_node->size_bytes < 0 && !resolved_node->cannot_compute_size) {
 						compute_size_bytes(*resolved_node, database);
 					}
-					type_name.computed_size_bytes = resolved_node->computed_size_bytes;
+					type_name.size_bytes = resolved_node->size_bytes;
 				}
 				break;
 			}
 		}
 		
-		if(node.computed_size_bytes > -1) {
+		if(node.size_bytes > -1) {
 			node.cannot_compute_size = false;
 		}
 		

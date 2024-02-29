@@ -50,7 +50,7 @@ struct Node {
 	u8 access_specifier : 2 = AS_PUBLIC;
 	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	
-	s32 computed_size_bytes = -1; // Calculated by compute_size_bytes_recursive.
+	s32 size_bytes = -1;
 	
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -58,7 +58,7 @@ struct Node {
 	std::string name;
 	
 	s32 offset_bytes = -1; // Offset relative to start of last inline struct/union.
-	s32 size_bits = -1; // Size stored in the symbol table.
+	s32 size_bits = -1; // Size stored in the .mdebug symbol table, may not be set.
 	
 	Node(NodeDescriptor d) : descriptor(d) {}
 	Node(const Node& rhs) = default;
