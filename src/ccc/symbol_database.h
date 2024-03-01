@@ -427,6 +427,7 @@ public:
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
 	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
+	bool is_no_return = false;
 	
 protected:
 	SourceFileHandle m_source_file;
