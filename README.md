@@ -95,6 +95,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 	- Version 5.1 (Compaq Computer Corporation, 2000) / [in-repo mirror](docs/tru64coff.pdf)
 	- Version 5.0 (Compaq Computer Corporation, 1999) / [in-repo mirror](docs/OBJSPEC.PDF)
 - `mdebugread.c` from gdb (reading)
+- `ecoff.c` from gas (writing)
 - `include/coff/sym.h` from binutils (headers)
 
 ### MIPS EABI
