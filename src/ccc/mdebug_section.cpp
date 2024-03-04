@@ -230,7 +230,7 @@ void SymbolTableReader::print_header(FILE* dest) const
 		(u32) m_hdrr->file_descriptors_offset,
 		(u32) m_hdrr->file_descriptor_count * (u32) sizeof(FileDescriptor),
 		m_hdrr->file_descriptor_count);
-	fprintf(dest, "  Relative Files Descriptors  0x%-8x          "  "0x%-8x          "  "%-8d\n",
+	fprintf(dest, "  Relative File Descriptors   0x%-8x          "  "0x%-8x          "  "%-8d\n",
 		(u32) m_hdrr->relative_file_descriptors_offset,
 		(u32) m_hdrr->relative_file_descriptor_count * 4,
 		m_hdrr->relative_file_descriptor_count);
