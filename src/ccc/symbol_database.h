@@ -385,8 +385,6 @@ public:
 class Function : public Symbol {
 	friend SourceFile;
 	friend SymbolList<Function>;
-	
-	friend void write_json();
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = FUNCTION;
 	static constexpr const char* NAME = "Function";
@@ -666,8 +664,8 @@ public:
 	// symbol tables for a given module.
 	void destroy_symbols_from_modules(ModuleRange module_range);
 	
-	// Destroy a function handle as well as all parameter variables and local
-	// variables associated with it.
+	// Destroy a function as well as all parameter variables and local variables
+	// associated with it.
 	bool destroy_function(FunctionHandle handle);
 	
 	// Destroy all the symbols in the symbol database.
@@ -704,8 +702,8 @@ public:
 	const Symbol* lookup_symbol(const SymbolDatabase& database) const;
 	
 	bool is_flag_set(SymbolFlag flag) const;
-	bool move_symbol(Address new_address, SymbolDatabase& database);
-	bool rename_symbol(std::string new_name, SymbolDatabase& database);
+	bool move_symbol(Address new_address, SymbolDatabase& database) const;
+	bool rename_symbol(std::string new_name, SymbolDatabase& database) const;
 	
 	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
 	

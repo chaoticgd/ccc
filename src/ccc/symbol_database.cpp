@@ -641,7 +641,16 @@ bool Section::contains_code() const
 
 bool Section::contains_data() const
 {
-	return name() == ".bss" || name() == ".data" || name() == ".rodata" || name() == ".sbss";
+	return name() == ".bss"
+		|| name() == ".data"
+		|| name() == ".lit"
+		|| name() == ".lita"
+		|| name() == ".lit4"
+		|| name() == ".lit8"
+		|| name() == ".rdata"
+		|| name() == ".rodata"
+		|| name() == ".sbss"
+		|| name() == ".sdata";
 }
 
 const std::vector<FunctionHandle>& SourceFile::functions() const
@@ -1017,7 +1026,7 @@ bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 	return false;
 }
 
-bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database)
+bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database) const
 {
 	if(m_handle != (u32) -1) {
 		switch(m_descriptor) {
@@ -1032,7 +1041,7 @@ bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& databas
 	return false;
 }
 
-bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database)
+bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database) const
 {
 	if(m_handle != (u32) -1) {
 		switch(m_descriptor) {

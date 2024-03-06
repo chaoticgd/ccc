@@ -17,7 +17,7 @@ STABS_DEBUG(static void print_field(const StabsStructOrUnionType::Field& field);
 
 const char* STAB_TRUNCATED_ERROR_MESSAGE =
 	"STABS symbol truncated. This was probably caused by a GCC bug. "
-	"Other symbols from the same translation unit may be invalid.";
+	"Other symbols from the same translation unit may also be invalid.";
 
 Result<StabsSymbol> parse_stabs_symbol(const char*& input)
 {
