@@ -641,7 +641,16 @@ bool Section::contains_code() const
 
 bool Section::contains_data() const
 {
-	return name() == ".bss" || name() == ".data" || name() == ".rodata" || name() == ".sbss";
+	return name() == ".bss"
+		|| name() == ".data"
+		|| name() == ".lit"
+		|| name() == ".lita"
+		|| name() == ".lit4"
+		|| name() == ".lit8"
+		|| name() == ".rdata"
+		|| name() == ".rodata"
+		|| name() == ".sbss"
+		|| name() == ".sdata";
 }
 
 const std::vector<FunctionHandle>& SourceFile::functions() const
