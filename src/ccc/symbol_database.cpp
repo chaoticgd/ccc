@@ -1026,7 +1026,7 @@ bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 	return false;
 }
 
-bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database)
+bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database) const
 {
 	if(m_handle != (u32) -1) {
 		switch(m_descriptor) {
@@ -1041,7 +1041,7 @@ bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& databas
 	return false;
 }
 
-bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database)
+bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database) const
 {
 	if(m_handle != (u32) -1) {
 		switch(m_descriptor) {
