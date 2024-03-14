@@ -80,6 +80,10 @@ Result<void> import_symbols(
 			if(database.global_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
+			
+			if(database.local_variables.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
 		}
 		
 		const char* string = get_string(strtab, symbol->name);

@@ -137,6 +137,10 @@ Result<void> import_sndll_symbols(
 			if(database.global_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
+			
+			if(database.local_variables.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
 		}
 		
 		const Section* section = database.sections.symbol_overlapping_address(address);
