@@ -70,46 +70,6 @@ struct SymbolHandle {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-// Range types for all of the symbol objects. Note that the last member actually
-// points to the last real element in the range.
-template <typename SymbolType>
-struct SymbolRange {
-	SymbolHandle<SymbolType> first;
-	SymbolHandle<SymbolType> last;
-	
-	SymbolRange() {}
-	SymbolRange(SymbolHandle<SymbolType> handle)
-		: first(handle), last(handle) {}
-	SymbolRange(SymbolHandle<SymbolType> f, SymbolHandle<SymbolType> l)
-		: first(f), last(l) {}
-	
-	bool valid() const
-	{
-		return first.valid() && last.valid();
-	}
-	
-	void expand_to_include(SymbolHandle<SymbolType> handle)
-	{
-		if(!first.valid()) {
-			first = handle;
-		}
-		CCC_ASSERT(!last.valid() || last.value < handle.value);
-		last = handle;
-	}
-	
-	void clear()
-	{
-		first = SymbolHandle<SymbolType>();
-		last = SymbolHandle<SymbolType>();
-	}
-	
-	friend auto operator<=>(const SymbolRange& lhs, const SymbolRange& rhs) = default;
-};
-
-#define CCC_X(SymbolType, symbol_list) using SymbolType##Range = SymbolRange<SymbolType>;
-CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-#undef CCC_X
-
 enum SymbolFlag {
 	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
@@ -215,18 +175,12 @@ public:
 	// Destroy a single symbol.
 	bool destroy_symbol(SymbolHandle<SymbolType> handle);
 	
-	// Destroy all the symbols in a given range.
-	u32 destroy_symbols(SymbolRange<SymbolType> range);
+	// Destroy all the symbols from a given symbol source. For example you can
+	// use this to free a symbol table without destroying user-defined symbols.
+	void destroy_symbols_from_source(SymbolSourceHandle source);
 	
-	// Destroy all the symbols that have symbol source handles within a given
-	// range. For example, you can use this to free a symbol table without
-	// destroying user-defined symbols.
-	void destroy_symbols_from_sources(SymbolSourceRange source_range);
-	
-	// Destroy all the symbols that have module handles within a given range.
-	// For example, you can use this to free all the symbols imported from
-	// symbol tables for a given module.
-	void destroy_symbols_from_modules(ModuleRange module_range);
+	// Destroy all the symbols from a given module.
+	void destroy_symbols_from_module(ModuleHandle module_handle);
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
 	// worry about dangling handles.
@@ -238,7 +192,7 @@ protected:
 	size_t binary_search(SymbolHandle<SymbolType> handle) const;
 	
 	// Destroy a range of symbols given indices.
-	u32 destroy_symbols_impl(size_t begin_index, size_t end_index);
+	void destroy_symbols_impl(size_t begin_index, size_t end_index);
 	
 	// Keep the address map in sync with the symbol list.
 	void link_address_map(SymbolType& symbol);
@@ -654,15 +608,12 @@ public:
 		SourceFile& source_file,
 		const SymbolGroup& group);
 	
-	// Destroy all the symbols that have symbol source handles within a given
-	// range. For example, you can use this to free a symbol table without
-	// destroying user-defined symbols.
-	void destroy_symbols_from_sources(SymbolSourceRange source_range);
+	// Destroy all the symbols from a given symbol source. For example you can
+	// use this to free a symbol table without destroying user-defined symbols.
+	void destroy_symbols_from_source(SymbolSourceHandle source);
 	
-	// Destroy all the symbols that have module handles within a given range.
-	// For example, you can use this to free all the symbols imported from
-	// symbol tables for a given module.
-	void destroy_symbols_from_modules(ModuleRange module_range);
+	// Destroy all the symbols from a given module.
+	void destroy_symbols_from_module(ModuleHandle module_handle);
 	
 	// Destroy a function as well as all parameter variables and local variables
 	// associated with it.

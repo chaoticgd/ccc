@@ -343,57 +343,36 @@ bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std:
 template <typename SymbolType>
 bool SymbolList<SymbolType>::destroy_symbol(SymbolHandle<SymbolType> handle)
 {
-	SymbolRange<SymbolType> range = {handle, handle};
-	return destroy_symbols(range) == 1;
+	u32 index = binary_search(handle);
+	if(index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
+		return false;
+	}
+	
+	destroy_symbols_impl(index, index + 1);
+	return true;
 }
 
 template <typename SymbolType>
-u32 SymbolList<SymbolType>::destroy_symbols(SymbolRange<SymbolType> range)
-{
-	// Reject invalid ranges so that the <= comparison below works.
-	if(!range.valid()) {
-		return 0;
-	}
-	
-	// Lookup the index of the first symbol, and find how many should be erased.
-	u32 begin_index = binary_search(range.first);
-	u32 end_index = begin_index;
-	while(end_index < m_symbols.size() && m_symbols[end_index].m_handle <= range.last.value) {
-		end_index++;
-	}
-	
-	return destroy_symbols_impl(begin_index, end_index);
-}
-
-template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_sources(SymbolSourceRange source_range)
+void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle source)
 {
 	for(size_t i = 0; i < m_symbols.size(); i++) {
-		if(m_symbols[i].m_source >= source_range.first && m_symbols[i].m_source <= source_range.last) {
-			size_t end;
-			for(end = i + 1; end < m_symbols.size(); end++) {
-				if(m_symbols[i].m_source >= source_range.first && m_symbols[i].m_source <= source_range.last) {
-					break;
-				}
-			}
-			destroy_symbols_impl(i, end);
+		size_t begin = i;
+		for(; i < m_symbols.size() && m_symbols[i].m_source == source; i++);
+		if(i > begin) {
+			destroy_symbols_impl(begin, i);
 			i--;
 		}
 	}
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_modules(ModuleRange module_range)
+void SymbolList<SymbolType>::destroy_symbols_from_module(ModuleHandle module_handle)
 {
 	for(size_t i = 0; i < m_symbols.size(); i++) {
-		if(m_symbols[i].m_module >= module_range.first && m_symbols[i].m_module <= module_range.last) {
-			size_t end;
-			for(end = i + 1; end < m_symbols.size(); end++) {
-				if(m_symbols[i].m_module >= module_range.first && m_symbols[i].m_module <= module_range.last) {
-					break;
-				}
-			}
-			destroy_symbols_impl(i, end);
+		size_t begin = i;
+		for(; i < m_symbols.size() && m_symbols[i].m_module == module_handle; i++);
+		if(i > begin) {
+			destroy_symbols_impl(begin, i);
 			i--;
 		}
 	}
@@ -428,7 +407,7 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 }
 
 template <typename SymbolType>
-u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index)
+void SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index)
 {
 	for(u32 i = begin_index; i < end_index; i++) {
 		unlink_address_map(m_symbols[i]);
@@ -440,8 +419,6 @@ u32 SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_
 	
 	// Delete the symbols.
 	m_symbols.erase(m_symbols.begin() + begin_index, m_symbols.begin() + end_index);
-	
-	return end_index - begin_index;
 }
 
 template <typename SymbolType>
@@ -922,16 +899,16 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 	return nullptr;
 }
 
-void SymbolDatabase::destroy_symbols_from_sources(SymbolSourceRange source_range)
+void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_sources(source_range);
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }
 
-void SymbolDatabase::destroy_symbols_from_modules(ModuleRange module_range)
+void SymbolDatabase::destroy_symbols_from_module(ModuleHandle module_handle)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_modules(module_range);
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_module(module_handle);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }

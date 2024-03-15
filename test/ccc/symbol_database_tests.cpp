@@ -272,7 +272,7 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
 	}
 	
 	// Simulate freeing a symbol table while retaining user-defined symbols.
-	database.destroy_symbols_from_sources(symbol_table_handle);
+	database.destroy_symbols_from_source(symbol_table_handle);
 	
 	s32 user_symbols_remaining = 0;
 	for(const DataType& data_type : database.data_types) {
