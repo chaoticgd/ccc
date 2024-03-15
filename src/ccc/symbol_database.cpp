@@ -169,7 +169,7 @@ SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address address)
 	if(iterator != m_address_to_handle.begin()) {
 		iterator--; // Find the greatest element that is less than or equal to the address.
 		SymbolType* symbol = symbol_from_handle(iterator->second);
-		if(symbol && address.value < symbol->m_address.value + symbol->m_size) {
+		if(symbol && address.value < symbol->address().value + symbol->size()) {
 			return symbol;
 		}
 	}
@@ -190,7 +190,7 @@ s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) c
 	}
 	
 	size_t index = binary_search(handle);
-	if(index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
+	if(index >= m_symbols.size() || m_symbols[index].handle() != handle) {
 		return -1;
 	}
 	
@@ -232,31 +232,8 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	
 	SymbolType& symbol = m_symbols.emplace_back();
 	
-	symbol.m_handle = handle;
-	symbol.m_name = std::move(name);
-	
-	if constexpr(std::is_same_v<SymbolType, SymbolSource>) {
-		// It doesn't make sense for the calling code to provide a symbol source
-		// handle as an argument if we're creating a symbol source symbol, so we
-		// set the source of the new symbol to its own handle.
-		symbol.m_source = handle;
-	} else {
-		CCC_ASSERT(source.valid());
-		symbol.m_source = source;
-	}
-	
-	if constexpr(std::is_same_v<SymbolType, Module>) {
-		// It doesn't make sense for the calling code to provide a module as an
-		// argument if we're creating a module symbol, so we set the module of
-		// the new symbol to its own handle.
-		symbol.m_address = address;
-		symbol.m_module = handle;
-	} else if(module_symbol) {
-		symbol.m_address = address.add_base_address(module_symbol->address());
-		symbol.m_module = module_symbol->handle();
-	} else {
-		symbol.m_address = address;
-	}
+	symbol.on_create(handle, name, address, source, module_symbol);
+	CCC_ASSERT(symbol.source().valid())
 	
 	link_address_map(symbol);
 	link_name_map(symbol);
@@ -314,7 +291,7 @@ bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Addres
 		return false;
 	}
 	
-	if(symbol->m_address != new_address) {
+	if(symbol->address() != new_address) {
 		unlink_address_map(*symbol);
 		symbol->m_address = new_address;
 		link_address_map(*symbol);
@@ -331,7 +308,7 @@ bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std:
 		return false;
 	}
 	
-	if(symbol->m_name != new_name) {
+	if(symbol->name() != new_name) {
 		unlink_name_map(*symbol);
 		symbol->m_name = std::move(new_name);
 		link_name_map(*symbol);
@@ -344,7 +321,7 @@ template <typename SymbolType>
 bool SymbolList<SymbolType>::destroy_symbol(SymbolHandle<SymbolType> handle)
 {
 	u32 index = binary_search(handle);
-	if(index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
+	if(index >= m_symbols.size() || m_symbols[index].handle() != handle) {
 		return false;
 	}
 	
@@ -357,7 +334,7 @@ void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle sour
 {
 	for(size_t i = 0; i < m_symbols.size(); i++) {
 		size_t begin = i;
-		for(; i < m_symbols.size() && m_symbols[i].m_source == source; i++);
+		for(; i < m_symbols.size() && m_symbols[i].source() == source; i++);
 		if(i > begin) {
 			destroy_symbols_impl(begin, i);
 			i--;
@@ -370,7 +347,7 @@ void SymbolList<SymbolType>::destroy_symbols_from_module(ModuleHandle module_han
 {
 	for(size_t i = 0; i < m_symbols.size(); i++) {
 		size_t begin = i;
-		for(; i < m_symbols.size() && m_symbols[i].m_module == module_handle; i++);
+		for(; i < m_symbols.size() && m_symbols[i].module_handle() == module_handle; i++);
 		if(i > begin) {
 			destroy_symbols_impl(begin, i);
 			i--;
@@ -394,9 +371,9 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 	
 	while(begin < end) {
 		size_t mid = (begin + end) / 2;
-		if(m_symbols[mid].m_handle < handle) {
+		if(m_symbols[mid].handle() < handle) {
 			begin = mid + 1;
-		} else if(m_symbols[mid].m_handle > handle) {
+		} else if(m_symbols[mid].handle() > handle) {
 			end = mid;
 		} else {
 			return mid;
@@ -425,8 +402,8 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
-		if(symbol.m_address.valid()) {
-			m_address_to_handle.emplace(symbol.m_address.value, symbol.m_handle);
+		if(symbol.address().valid()) {
+			m_address_to_handle.emplace(symbol.address().value, symbol.handle());
 		}
 	}
 }
@@ -435,10 +412,10 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		if(symbol.m_address.valid()) {
-			auto iterators = m_address_to_handle.equal_range(symbol.m_address.value);
+		if(symbol.address().valid()) {
+			auto iterators = m_address_to_handle.equal_range(symbol.address().value);
 			for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
-				if(iterator->second == symbol.m_handle) {
+				if(iterator->second == symbol.handle()) {
 					m_address_to_handle.erase(iterator);
 					break;
 				}
@@ -451,7 +428,7 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_name_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
-		m_name_to_handle.emplace(symbol.m_name, symbol.m_handle);
+		m_name_to_handle.emplace(symbol.name(), symbol.handle());
 	}
 }
 
@@ -459,9 +436,9 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
-		auto iterators = m_name_to_handle.equal_range(symbol.m_name);
+		auto iterators = m_name_to_handle.equal_range(symbol.name());
 		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
-			if(iterator->second == symbol.m_handle) {
+			if(iterator->second == symbol.handle()) {
 				m_name_to_handle.erase(iterator);
 				break;
 			}
@@ -482,6 +459,25 @@ void Symbol::set_type(std::unique_ptr<ast::Node> type)
 {
 	m_type = std::move(type);
 	invalidate_node_handles();
+}
+
+void Symbol::on_create(
+	u32 handle,
+	std::string name,
+	Address address,
+	SymbolSourceHandle source,
+	const Module* module_symbol)
+{
+	m_handle = handle;
+	m_name = std::move(name);
+	m_source = source;
+	
+	if(module_symbol) {
+		m_address = address.add_base_address(module_symbol->address());
+		m_module = module_symbol->handle();
+	} else {
+		m_address = address;
+	}
 }
 
 // *****************************************************************************
@@ -597,6 +593,8 @@ void Function::set_current_hash(FunctionHash hash)
 	m_current_hash = hash.get();
 }
 
+// *****************************************************************************
+
 const std::string& GlobalVariable::mangled_name() const
 {
 	if(!m_mangled_name.empty()) {
@@ -610,6 +608,16 @@ void GlobalVariable::set_mangled_name(std::string mangled)
 {
 	m_mangled_name = std::move(mangled);
 }
+
+// *****************************************************************************
+
+void Module::on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
+{
+	Symbol::on_create(handle, name, address, source, module_symbol);
+	m_module = ccc::ModuleHandle(module_symbol);
+}
+
+// *****************************************************************************
 
 bool Section::contains_code() const
 {
@@ -629,6 +637,8 @@ bool Section::contains_data() const
 		|| name() == ".sbss"
 		|| name() == ".sdata";
 }
+
+// *****************************************************************************
 
 const std::vector<FunctionHandle>& SourceFile::functions() const
 {
@@ -701,6 +711,14 @@ void SourceFile::check_functions_match(const SymbolDatabase& database)
 	}
 	
 	m_functions_match = matching >= modified;
+}
+
+// *****************************************************************************
+
+void SymbolSource::on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
+{
+	Symbol::on_create(handle, name, address, source, module_symbol);
+	m_source = handle;
 }
 
 // *****************************************************************************

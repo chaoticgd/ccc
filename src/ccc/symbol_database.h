@@ -242,6 +242,9 @@ public:
 	ModuleHandle module_handle() const { return m_module; }
 	
 protected:
+	// Called by SymbolList<>::create_symbol.
+	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
+	
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
 	Address m_address;
@@ -320,7 +323,6 @@ protected:
 // A C/C++ data type.
 class DataType : public Symbol {
 	friend SourceFile;
-	friend SymbolList<DataType>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = DATA_TYPE;
 	static constexpr const char* NAME = "Data Type";
@@ -338,7 +340,6 @@ public:
 // A function. The type stored is the return type.
 class Function : public Symbol {
 	friend SourceFile;
-	friend SymbolList<Function>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = FUNCTION;
 	static constexpr const char* NAME = "Function";
@@ -395,7 +396,6 @@ protected:
 // A global variable.
 class GlobalVariable : public Symbol {
 	friend SourceFile;
-	friend SymbolList<GlobalVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = GLOBAL_VARIABLE;
 	static constexpr const char* NAME = "Global Variable";
@@ -418,7 +418,6 @@ protected:
 // A label. This could be a label defined in assembly, C/C++, or just a symbol
 // that we can't automatically determine the type of (e.g. SNDLL symbols).
 class Label : public Symbol {
-	friend SymbolList<Label>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = LABEL;
 	static constexpr const char* NAME = "Label";
@@ -434,7 +433,6 @@ public:
 // storage.
 class LocalVariable : public Symbol {
 	friend Function;
-	friend SymbolList<LocalVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = LOCAL_VARIABLE;
 	static constexpr const char* NAME = "Local Variable";
@@ -456,6 +454,7 @@ protected:
 // valid module pointer is passed to SymbolList<>::create_symbol, the address of
 // the symbol will be added to the address of the new symbol.
 class Module : public Symbol {
+	friend SymbolList<Module>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = MODULE;
 	static constexpr const char* NAME = "Module";
@@ -467,12 +466,14 @@ public:
 	bool is_irx = false;
 	s32 version_major = -1;
 	s32 version_minor = -1;
+	
+protected:
+	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
 };
 
 // A parameter variable.
 class ParameterVariable : public Symbol {
 	friend Function;
-	friend SymbolList<ParameterVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = PARAMETER_VARIABLE;
 	static constexpr const char* NAME = "Parameter Variable";
@@ -489,7 +490,6 @@ protected:
 
 // An ELF section. These are created from the ELF section headers.
 class Section : public Symbol {
-	friend SymbolList<Section>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SECTION;
 	static constexpr const char* NAME = "Section";
@@ -507,7 +507,6 @@ public:
 // A source file (.c or .cpp file). One of these will be created for every
 // translation unit in the program (but only if debugging symbols are present).
 class SourceFile : public Symbol {
-	friend SymbolList<SourceFile>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SOURCE_FILE;
 	static constexpr const char* NAME = "Source File";
@@ -549,6 +548,9 @@ public:
 	static constexpr u32 FLAGS = WITH_NAME_MAP;
 	
 	SymbolSourceHandle handle() const { return m_handle; }
+	
+protected:
+	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
 };
 
 // Bundles together all the information needed to identify if a symbol came from
