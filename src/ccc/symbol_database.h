@@ -663,6 +663,7 @@ public:
 	bool is_flag_set(SymbolFlag flag) const;
 	bool move_symbol(Address new_address, SymbolDatabase& database) const;
 	bool rename_symbol(std::string new_name, SymbolDatabase& database) const;
+	bool destroy_symbol(SymbolDatabase* database) const;
 	
 	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
 	
