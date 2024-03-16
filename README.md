@@ -80,6 +80,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ### Chaos Compiler Collection
 
+- [STABS Notes](docs/StabsNotes.md)
 - [Symbol Database](docs/SymbolDatabase.md)
 
 ### DWARF (.debug) Section
