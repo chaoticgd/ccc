@@ -172,15 +172,19 @@ public:
 	// Update the name of a symbol without changing its handle.
 	bool rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name);
 	
-	// Destroy a single symbol.
-	bool destroy_symbol(SymbolHandle<SymbolType> handle);
+	// Destroy a symbol. If the correct symbol database pointer is passed, all
+	// descendants will also be destroyed. For example, destroying a function
+	// will also destroy its parameters and local variables.
+	bool destroy_symbol(SymbolHandle<SymbolType> handle, SymbolDatabase* database);
 	
 	// Destroy all the symbols from a given symbol source. For example you can
 	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_source(SymbolSourceHandle source);
+	// The behaviour for destroying descendants is the same as destroy_symbol.
+	void destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database);
 	
-	// Destroy all the symbols from a given module.
-	void destroy_symbols_from_module(ModuleHandle module_handle);
+	// Destroy all the symbols from a given module. The behaviour for destroying
+	// descendants is the same as destroy_symbol.
+	void destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database);
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
 	// worry about dangling handles.
@@ -192,7 +196,7 @@ protected:
 	size_t binary_search(SymbolHandle<SymbolType> handle) const;
 	
 	// Destroy a range of symbols given indices.
-	void destroy_symbols_impl(size_t begin_index, size_t end_index);
+	void destroy_symbols_impl(size_t begin_index, size_t end_index, SymbolDatabase* database);
 	
 	// Keep the address map in sync with the symbol list.
 	void link_address_map(SymbolType& symbol);
@@ -242,8 +246,8 @@ public:
 	ModuleHandle module_handle() const { return m_module; }
 	
 protected:
-	// Called by SymbolList<>::create_symbol.
 	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
+	void on_destroy(SymbolDatabase* database);
 	
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
@@ -340,6 +344,7 @@ public:
 // A function. The type stored is the return type.
 class Function : public Symbol {
 	friend SourceFile;
+	friend SymbolList<Function>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = FUNCTION;
 	static constexpr const char* NAME = "Function";
@@ -383,6 +388,8 @@ public:
 	bool is_no_return = false;
 	
 protected:
+	void on_destroy(SymbolDatabase* database);
+	
 	SourceFileHandle m_source_file;
 	std::optional<std::vector<ParameterVariableHandle>> m_parameter_variables;
 	std::optional<std::vector<LocalVariableHandle>> m_local_variables;
@@ -507,6 +514,7 @@ public:
 // A source file (.c or .cpp file). One of these will be created for every
 // translation unit in the program (but only if debugging symbols are present).
 class SourceFile : public Symbol {
+	friend SymbolList<SourceFile>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SOURCE_FILE;
 	static constexpr const char* NAME = "Source File";
@@ -532,6 +540,8 @@ public:
 	std::set<std::string> toolchain_version_info;
 	
 protected:
+	void on_destroy(SymbolDatabase* database);
+	
 	std::vector<FunctionHandle> m_functions;
 	std::vector<GlobalVariableHandle> m_global_variables;
 	bool m_functions_match = true;
@@ -612,14 +622,10 @@ public:
 	
 	// Destroy all the symbols from a given symbol source. For example you can
 	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_source(SymbolSourceHandle source);
+	void destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database);
 	
 	// Destroy all the symbols from a given module.
-	void destroy_symbols_from_module(ModuleHandle module_handle);
-	
-	// Destroy a function as well as all parameter variables and local variables
-	// associated with it.
-	bool destroy_function(FunctionHandle handle);
+	void destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database);
 	
 	// Destroy all the symbols in the symbol database.
 	void clear();
