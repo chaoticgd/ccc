@@ -71,8 +71,9 @@ An affected game:
 
 ### Void and __builtin_va_list
 
-Sometimes a `__builtin_va_list` symbol will emitted and then all symbols after
-that one that try to reference a `void` symbol will reference that one instead.
+Sometimes a `__builtin_va_list` symbol will be emitted and then all symbols
+after that one that have a `void` type will reference that one instead an actual
+`void` symbol.
 
 I believe the correct way to identify a void type in GCC's dialect of STABS is
 to detect a self-reference e.g. (1,0)=(1,0) rather than relying on the type name
