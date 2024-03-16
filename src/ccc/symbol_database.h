@@ -70,46 +70,6 @@ struct SymbolHandle {
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X
 
-// Range types for all of the symbol objects. Note that the last member actually
-// points to the last real element in the range.
-template <typename SymbolType>
-struct SymbolRange {
-	SymbolHandle<SymbolType> first;
-	SymbolHandle<SymbolType> last;
-	
-	SymbolRange() {}
-	SymbolRange(SymbolHandle<SymbolType> handle)
-		: first(handle), last(handle) {}
-	SymbolRange(SymbolHandle<SymbolType> f, SymbolHandle<SymbolType> l)
-		: first(f), last(l) {}
-	
-	bool valid() const
-	{
-		return first.valid() && last.valid();
-	}
-	
-	void expand_to_include(SymbolHandle<SymbolType> handle)
-	{
-		if(!first.valid()) {
-			first = handle;
-		}
-		CCC_ASSERT(!last.valid() || last.value < handle.value);
-		last = handle;
-	}
-	
-	void clear()
-	{
-		first = SymbolHandle<SymbolType>();
-		last = SymbolHandle<SymbolType>();
-	}
-	
-	friend auto operator<=>(const SymbolRange& lhs, const SymbolRange& rhs) = default;
-};
-
-#define CCC_X(SymbolType, symbol_list) using SymbolType##Range = SymbolRange<SymbolType>;
-CCC_FOR_EACH_SYMBOL_TYPE_DO_X
-#undef CCC_X
-
 enum SymbolFlag {
 	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
@@ -212,21 +172,19 @@ public:
 	// Update the name of a symbol without changing its handle.
 	bool rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name);
 	
-	// Destroy a single symbol.
-	bool destroy_symbol(SymbolHandle<SymbolType> handle);
+	// Destroy a symbol. If the correct symbol database pointer is passed, all
+	// descendants will also be destroyed. For example, destroying a function
+	// will also destroy its parameters and local variables.
+	bool destroy_symbol(SymbolHandle<SymbolType> handle, SymbolDatabase* database);
 	
-	// Destroy all the symbols in a given range.
-	u32 destroy_symbols(SymbolRange<SymbolType> range);
+	// Destroy all the symbols from a given symbol source. For example you can
+	// use this to free a symbol table without destroying user-defined symbols.
+	// The behaviour for destroying descendants is the same as destroy_symbol.
+	void destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database);
 	
-	// Destroy all the symbols that have symbol source handles within a given
-	// range. For example, you can use this to free a symbol table without
-	// destroying user-defined symbols.
-	void destroy_symbols_from_sources(SymbolSourceRange source_range);
-	
-	// Destroy all the symbols that have module handles within a given range.
-	// For example, you can use this to free all the symbols imported from
-	// symbol tables for a given module.
-	void destroy_symbols_from_modules(ModuleRange module_range);
+	// Destroy all the symbols from a given module. The behaviour for destroying
+	// descendants is the same as destroy_symbol.
+	void destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database);
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
 	// worry about dangling handles.
@@ -238,7 +196,7 @@ protected:
 	size_t binary_search(SymbolHandle<SymbolType> handle) const;
 	
 	// Destroy a range of symbols given indices.
-	u32 destroy_symbols_impl(size_t begin_index, size_t end_index);
+	void destroy_symbols_impl(size_t begin_index, size_t end_index, SymbolDatabase* database);
 	
 	// Keep the address map in sync with the symbol list.
 	void link_address_map(SymbolType& symbol);
@@ -288,6 +246,9 @@ public:
 	ModuleHandle module_handle() const { return m_module; }
 	
 protected:
+	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
+	void on_destroy(SymbolDatabase* database);
+	
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
 	Address m_address;
@@ -366,7 +327,6 @@ protected:
 // A C/C++ data type.
 class DataType : public Symbol {
 	friend SourceFile;
-	friend SymbolList<DataType>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = DATA_TYPE;
 	static constexpr const char* NAME = "Data Type";
@@ -428,6 +388,8 @@ public:
 	bool is_no_return = false;
 	
 protected:
+	void on_destroy(SymbolDatabase* database);
+	
 	SourceFileHandle m_source_file;
 	std::optional<std::vector<ParameterVariableHandle>> m_parameter_variables;
 	std::optional<std::vector<LocalVariableHandle>> m_local_variables;
@@ -441,7 +403,6 @@ protected:
 // A global variable.
 class GlobalVariable : public Symbol {
 	friend SourceFile;
-	friend SymbolList<GlobalVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = GLOBAL_VARIABLE;
 	static constexpr const char* NAME = "Global Variable";
@@ -464,7 +425,6 @@ protected:
 // A label. This could be a label defined in assembly, C/C++, or just a symbol
 // that we can't automatically determine the type of (e.g. SNDLL symbols).
 class Label : public Symbol {
-	friend SymbolList<Label>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = LABEL;
 	static constexpr const char* NAME = "Label";
@@ -480,7 +440,6 @@ public:
 // storage.
 class LocalVariable : public Symbol {
 	friend Function;
-	friend SymbolList<LocalVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = LOCAL_VARIABLE;
 	static constexpr const char* NAME = "Local Variable";
@@ -502,6 +461,7 @@ protected:
 // valid module pointer is passed to SymbolList<>::create_symbol, the address of
 // the symbol will be added to the address of the new symbol.
 class Module : public Symbol {
+	friend SymbolList<Module>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = MODULE;
 	static constexpr const char* NAME = "Module";
@@ -513,12 +473,14 @@ public:
 	bool is_irx = false;
 	s32 version_major = -1;
 	s32 version_minor = -1;
+	
+protected:
+	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
 };
 
 // A parameter variable.
 class ParameterVariable : public Symbol {
 	friend Function;
-	friend SymbolList<ParameterVariable>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = PARAMETER_VARIABLE;
 	static constexpr const char* NAME = "Parameter Variable";
@@ -535,7 +497,6 @@ protected:
 
 // An ELF section. These are created from the ELF section headers.
 class Section : public Symbol {
-	friend SymbolList<Section>;
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = SECTION;
 	static constexpr const char* NAME = "Section";
@@ -579,6 +540,8 @@ public:
 	std::set<std::string> toolchain_version_info;
 	
 protected:
+	void on_destroy(SymbolDatabase* database);
+	
 	std::vector<FunctionHandle> m_functions;
 	std::vector<GlobalVariableHandle> m_global_variables;
 	bool m_functions_match = true;
@@ -595,6 +558,9 @@ public:
 	static constexpr u32 FLAGS = WITH_NAME_MAP;
 	
 	SymbolSourceHandle handle() const { return m_handle; }
+	
+protected:
+	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
 };
 
 // Bundles together all the information needed to identify if a symbol came from
@@ -654,19 +620,12 @@ public:
 		SourceFile& source_file,
 		const SymbolGroup& group);
 	
-	// Destroy all the symbols that have symbol source handles within a given
-	// range. For example, you can use this to free a symbol table without
-	// destroying user-defined symbols.
-	void destroy_symbols_from_sources(SymbolSourceRange source_range);
+	// Destroy all the symbols from a given symbol source. For example you can
+	// use this to free a symbol table without destroying user-defined symbols.
+	void destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database);
 	
-	// Destroy all the symbols that have module handles within a given range.
-	// For example, you can use this to free all the symbols imported from
-	// symbol tables for a given module.
-	void destroy_symbols_from_modules(ModuleRange module_range);
-	
-	// Destroy a function as well as all parameter variables and local variables
-	// associated with it.
-	bool destroy_function(FunctionHandle handle);
+	// Destroy all the symbols from a given module.
+	void destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database);
 	
 	// Destroy all the symbols in the symbol database.
 	void clear();
@@ -704,6 +663,7 @@ public:
 	bool is_flag_set(SymbolFlag flag) const;
 	bool move_symbol(Address new_address, SymbolDatabase& database) const;
 	bool rename_symbol(std::string new_name, SymbolDatabase& database) const;
+	bool destroy_symbol(SymbolDatabase* database) const;
 	
 	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
 	
