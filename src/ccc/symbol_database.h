@@ -217,13 +217,6 @@ class Symbol {
 	template <typename SymbolType>
 	friend class SymbolList;
 public:
-	Symbol();
-	Symbol(const Symbol& rhs) = delete;
-	Symbol(Symbol&& rhs) = default;
-	~Symbol();
-	Symbol& operator=(const Symbol& rhs) = delete;
-	Symbol& operator=(Symbol&& rhs) = default;
-	
 	const std::string& name() const { return m_name; }
 	u32 raw_handle() const { return m_handle; }
 	SymbolSourceHandle source() const { return m_source; }

@@ -474,9 +474,6 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 
 // *****************************************************************************
 
-Symbol::Symbol() {}
-Symbol::~Symbol() {}
-
 void Symbol::set_type(std::unique_ptr<ast::Node> type)
 {
 	m_type = std::move(type);
