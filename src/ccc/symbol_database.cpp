@@ -232,8 +232,23 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	
 	SymbolType& symbol = m_symbols.emplace_back();
 	
-	symbol.on_create(handle, name, address, source, module_symbol);
-	CCC_ASSERT(symbol.source().valid())
+	symbol.m_handle = handle;
+	symbol.m_name = std::move(name);
+	symbol.m_source = source;
+	
+	if(module_symbol) {
+		symbol.m_address = address.add_base_address(module_symbol->address());
+		symbol.m_module = module_symbol->handle();
+	} else {
+		symbol.m_address = address;
+	}
+	
+	// Call SymbolType::on_create if it exists.
+	if constexpr(requires { symbol.on_create(); }) {
+		symbol.on_create();
+	}
+	
+	CCC_ASSERT(symbol.source().valid());
 	
 	link_address_map(symbol);
 	link_name_map(symbol);
@@ -387,7 +402,10 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index, SymbolDatabase* database)
 {
 	for(u32 i = begin_index; i < end_index; i++) {
-		m_symbols[i].on_destroy(database);
+		// Call SymbolType::on_destroy if it exists.
+		if constexpr(requires { m_symbols[i].on_destroy(database); }) {
+			m_symbols[i].on_destroy(database);
+		}
 	}
 	
 	for(u32 i = begin_index; i < end_index; i++) {
@@ -456,37 +474,10 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 
 // *****************************************************************************
 
-Symbol::Symbol() {}
-Symbol::~Symbol() {}
-
 void Symbol::set_type(std::unique_ptr<ast::Node> type)
 {
 	m_type = std::move(type);
 	invalidate_node_handles();
-}
-
-void Symbol::on_create(
-	u32 handle,
-	std::string name,
-	Address address,
-	SymbolSourceHandle source,
-	const Module* module_symbol)
-{
-	m_handle = handle;
-	m_name = std::move(name);
-	m_source = source;
-	
-	if(module_symbol) {
-		m_address = address.add_base_address(module_symbol->address());
-		m_module = module_symbol->handle();
-	} else {
-		m_address = address;
-	}
-}
-
-void Symbol::on_destroy(SymbolDatabase* database)
-{
-	// Intentionally left blank.
 }
 
 // *****************************************************************************
@@ -639,10 +630,9 @@ void GlobalVariable::set_mangled_name(std::string mangled)
 
 // *****************************************************************************
 
-void Module::on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
+void Module::on_create()
 {
-	Symbol::on_create(handle, name, address, source, module_symbol);
-	m_module = ccc::ModuleHandle(module_symbol);
+	m_module = m_handle;
 }
 
 // *****************************************************************************
@@ -758,10 +748,9 @@ void SourceFile::on_destroy(SymbolDatabase* database)
 
 // *****************************************************************************
 
-void SymbolSource::on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
+void SymbolSource::on_create()
 {
-	Symbol::on_create(handle, name, address, source, module_symbol);
-	m_source = handle;
+	m_source = m_handle;
 }
 
 // *****************************************************************************

@@ -217,13 +217,6 @@ class Symbol {
 	template <typename SymbolType>
 	friend class SymbolList;
 public:
-	Symbol();
-	Symbol(const Symbol& rhs) = delete;
-	Symbol(Symbol&& rhs) = default;
-	~Symbol();
-	Symbol& operator=(const Symbol& rhs) = delete;
-	Symbol& operator=(Symbol&& rhs) = default;
-	
 	const std::string& name() const { return m_name; }
 	u32 raw_handle() const { return m_handle; }
 	SymbolSourceHandle source() const { return m_source; }
@@ -246,9 +239,6 @@ public:
 	ModuleHandle module_handle() const { return m_module; }
 	
 protected:
-	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
-	void on_destroy(SymbolDatabase* database);
-	
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
 	Address m_address;
@@ -475,7 +465,7 @@ public:
 	s32 version_minor = -1;
 	
 protected:
-	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
+	void on_create();
 };
 
 // A parameter variable.
@@ -560,7 +550,7 @@ public:
 	SymbolSourceHandle handle() const { return m_handle; }
 	
 protected:
-	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
+	void on_create();
 };
 
 // Bundles together all the information needed to identify if a symbol came from
