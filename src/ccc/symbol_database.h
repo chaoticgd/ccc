@@ -246,9 +246,6 @@ public:
 	ModuleHandle module_handle() const { return m_module; }
 	
 protected:
-	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
-	void on_destroy(SymbolDatabase* database);
-	
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
 	Address m_address;
@@ -475,7 +472,7 @@ public:
 	s32 version_minor = -1;
 	
 protected:
-	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
+	void on_create();
 };
 
 // A parameter variable.
@@ -560,7 +557,7 @@ public:
 	SymbolSourceHandle handle() const { return m_handle; }
 	
 protected:
-	void on_create(u32 handle, std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol);
+	void on_create();
 };
 
 // Bundles together all the information needed to identify if a symbol came from
