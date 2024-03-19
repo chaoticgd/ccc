@@ -51,7 +51,7 @@ const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 	return "";
 }
 
-void StructOrUnion::flatten_fields(
+bool StructOrUnion::flatten_fields(
 	std::vector<std::pair<const Node*, const DataType*>>& output,
 	size_t max_fields,
 	size_t max_depth,
@@ -59,7 +59,7 @@ void StructOrUnion::flatten_fields(
 	const SymbolDatabase& database) const
 {
 	if(max_depth == 0) {
-		return;
+		return false;
 	}
 	
 	for(const std::unique_ptr<Node>& type_name : base_classes) {
@@ -74,20 +74,20 @@ void StructOrUnion::flatten_fields(
 		}
 		
 		const StructOrUnion& base_class = base_class_symbol->type()->as<StructOrUnion>();
-		base_class.flatten_fields(output, max_fields, max_depth - 1, base_class_symbol, database);
-		
-		if(output.size() >= max_fields) {
-			return;
+		if(!base_class.flatten_fields(output, max_fields, max_depth - 1, base_class_symbol, database)) {
+			return false;
 		}
 	}
 	
 	for(const std::unique_ptr<Node>& field : fields) {
-		output.emplace_back(field.get(), symbol);
-		
 		if(output.size() >= max_fields) {
-			return;
+			return false;
 		}
+		
+		output.emplace_back(field.get(), symbol);
 	}
+	
+	return true;
 }
 
 const char* type_name_source_to_string(TypeNameSource source)
