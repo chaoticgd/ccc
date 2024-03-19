@@ -20,6 +20,27 @@ void Node::set_access_specifier(AccessSpecifier specifier, u32 importer_flags)
 	}
 }
 
+std::pair<Node*, DataType*> Node::physical_type(s32 max_depth, SymbolDatabase& database)
+{
+	Node* type = this;
+	DataType* symbol = nullptr;
+	for (s32 i = 0; i < max_depth && type->descriptor == TYPE_NAME; i++)
+	{
+		DataType* data_type = database.data_types.symbol_from_handle(type->as<TypeName>().data_type_handle);
+		if (!data_type || !data_type->type())
+			break;
+		type = data_type->type();
+		symbol = data_type;
+	}
+	
+	return std::pair(type, symbol);
+}
+
+std::pair<const Node*, const DataType*> Node::physical_type(s32 max_depth, const SymbolDatabase& database) const
+{
+	return const_cast<Node*>(this)->physical_type(max_depth, const_cast<SymbolDatabase&>(database));
+}
+
 const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 {
 	switch(modifier) {
@@ -28,6 +49,45 @@ const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 		case MemberFunctionModifier::VIRTUAL: return "virtual";
 	}
 	return "";
+}
+
+void StructOrUnion::flatten_fields(
+	std::vector<std::pair<const Node*, const DataType*>>& output,
+	size_t max_fields,
+	size_t max_depth,
+	const DataType* symbol,
+	const SymbolDatabase& database) const
+{
+	if(max_depth == 0) {
+		return;
+	}
+	
+	for(const std::unique_ptr<Node>& type_name : base_classes) {
+		if(type_name->descriptor != TYPE_NAME) {
+			continue;
+		}
+		
+		DataTypeHandle handle = type_name->as<TypeName>().data_type_handle;
+		const DataType* base_class_symbol = database.data_types.symbol_from_handle(handle);
+		if(!base_class_symbol || !base_class_symbol->type() || base_class_symbol->type()->descriptor != STRUCT_OR_UNION) {
+			continue;
+		}
+		
+		const StructOrUnion& base_class = base_class_symbol->type()->as<StructOrUnion>();
+		base_class.flatten_fields(output, max_fields, max_depth - 1, base_class_symbol, database);
+		
+		if(output.size() >= max_fields) {
+			return;
+		}
+	}
+	
+	for(const std::unique_ptr<Node>& field : fields) {
+		output.emplace_back(field.get(), symbol);
+		
+		if(output.size() >= max_fields) {
+			return;
+		}
+	}
 }
 
 const char* type_name_source_to_string(TypeNameSource source)

@@ -10,7 +10,7 @@
 namespace ccc {
 
 static Result<RefinedData> refine_node(
-	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf);
+	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf, s32 depth);
 static Result<RefinedData> refine_builtin(
 	u32 virtual_address, ast::BuiltInClass bclass, const SymbolDatabase& database, const ElfFile& elf);
 static Result<RefinedData> refine_pointer_or_reference(
@@ -34,12 +34,22 @@ Result<RefinedData> refine_variable(
 	const VariableToRefine& variable, const SymbolDatabase& database, const ElfFile& elf)
 {
 	CCC_ASSERT(variable.type);
-	return refine_node(variable.address.value, *variable.type, database, elf);
+	return refine_node(variable.address.value, *variable.type, database, elf, 0);
 }
 
 static Result<RefinedData> refine_node(
-	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf)
+	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf, s32 depth)
 {
+	if(depth > 200) {
+		const char* error_message = "Call depth greater than 200 in refine_node, probably infinite recursion.";
+		
+		CCC_WARN(error_message);
+		
+		RefinedData data;
+		data.value = error_message;
+		return data;
+	}
+	
 	switch(type.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
@@ -48,7 +58,7 @@ static Result<RefinedData> refine_node(
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
 			for(s32 i = 0; i < array.element_count; i++) {
 				s32 offset = i * array.element_type->size_bytes;
-				Result<RefinedData> element = refine_node(virtual_address + offset, *array.element_type.get(), database, elf);
+				Result<RefinedData> element = refine_node(virtual_address + offset, *array.element_type.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(element);
 				element->field_name = "[" + std::to_string(i) + "]";
 				elements.emplace_back(std::move(*element));
@@ -101,7 +111,7 @@ static Result<RefinedData> refine_node(
 			
 			for(s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
-				Result<RefinedData> child = refine_node(virtual_address + base_class->offset_bytes, *base_class.get(), database, elf);
+				Result<RefinedData> child = refine_node(virtual_address + base_class->offset_bytes, *base_class.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "base class " + std::to_string(i);
 				children.emplace_back(std::move(*child));
@@ -111,7 +121,7 @@ static Result<RefinedData> refine_node(
 				if(field->storage_class == STORAGE_CLASS_STATIC) {
 					continue;
 				}
-				Result<RefinedData> child = refine_node(virtual_address + field->offset_bytes, *field.get(), database, elf);
+				Result<RefinedData> child = refine_node(virtual_address + field->offset_bytes, *field.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "." + field->name;
 				children.emplace_back(std::move(*child));
@@ -122,15 +132,7 @@ static Result<RefinedData> refine_node(
 		case ast::TYPE_NAME: {
 			const ast::TypeName& type_name = type.as<ast::TypeName>();
 			const DataType* resolved_type = database.data_types.symbol_from_handle(type_name.data_type_handle);
-			if(resolved_type && resolved_type->type() && !resolved_type->type()->is_currently_processing) {
-				resolved_type->type()->is_currently_processing = true;
-				Result<RefinedData> child = refine_node(virtual_address, *resolved_type->type(), database, elf);
-				resolved_type->type()->is_currently_processing = false;
-				return child;
-			}
-			RefinedData error;
-			error.value = "CCC_TYPE_LOOKUP_FAILED";
-			return error;
+			return refine_node(virtual_address, *resolved_type->type(), database, elf, depth + 1);
 		}
 	}
 	

@@ -48,7 +48,6 @@ struct Node {
 	u8 cannot_compute_size : 1 = false;
 	u8 storage_class : 4 = STORAGE_CLASS_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
-	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	
 	s32 size_bytes = -1;
 	
@@ -83,6 +82,11 @@ struct Node {
 	}
 	
 	void set_access_specifier(AccessSpecifier specifier, u32 importer_flags);
+	
+	// If this node is a type name, repeatedly resolve it to the type it's
+	// referencing, otherwise return (this, nullptr).
+	std::pair<Node*, DataType*> physical_type(s32 max_depth, SymbolDatabase& database);
+	std::pair<const Node*, const DataType*> physical_type(s32 max_depth, const SymbolDatabase& database) const;
 };
 
 struct Array : Node {
@@ -174,6 +178,15 @@ struct StructOrUnion : Node {
 	
 	StructOrUnion() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = STRUCT_OR_UNION;
+	
+	// Generate a flat list of all the fields in this class as well as all the
+	// base classes recursively, but only until max_fields is reached.
+	void flatten_fields(
+		std::vector<std::pair<const Node*, const DataType*>>& output,
+		size_t max_fields,
+		size_t max_depth,
+		const DataType* symbol,
+		const SymbolDatabase& database) const;
 };
 
 enum class TypeNameSource : u8 {
