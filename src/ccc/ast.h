@@ -174,6 +174,15 @@ struct StructOrUnion : Node {
 	
 	StructOrUnion() : Node(DESCRIPTOR) {}
 	static const constexpr NodeDescriptor DESCRIPTOR = STRUCT_OR_UNION;
+	
+	// Generate a flat list of all the fields in this class as well as all the
+	// base classes recursively, but only until max_fields is reached.
+	void flatten_fields(
+		std::vector<std::pair<const Node*, const DataType*>>& output,
+		size_t max_fields,
+		size_t max_depth,
+		const DataType* symbol,
+		const SymbolDatabase& database) const;
 };
 
 enum class TypeNameSource : u8 {
