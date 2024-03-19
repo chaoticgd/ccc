@@ -83,6 +83,11 @@ struct Node {
 	}
 	
 	void set_access_specifier(AccessSpecifier specifier, u32 importer_flags);
+	
+	// If this node is a type name, repeatedly resolve it to the type it's
+	// referencing, otherwise return (this, nullptr).
+	std::pair<Node*, DataType*> physical_type(s32 max_depth, SymbolDatabase& database);
+	std::pair<const Node*, const DataType*> physical_type(s32 max_depth, const SymbolDatabase& database) const;
 };
 
 struct Array : Node {

@@ -20,6 +20,27 @@ void Node::set_access_specifier(AccessSpecifier specifier, u32 importer_flags)
 	}
 }
 
+std::pair<Node*, DataType*> Node::physical_type(s32 max_depth, SymbolDatabase& database)
+{
+	Node* type = this;
+	DataType* symbol = nullptr;
+	for (s32 i = 0; i < max_depth && type->descriptor == TYPE_NAME; i++)
+	{
+		DataType* data_type = database.data_types.symbol_from_handle(type->as<TypeName>().data_type_handle);
+		if (!data_type || !data_type->type())
+			break;
+		type = data_type->type();
+		symbol = data_type;
+	}
+	
+	return std::pair(type, symbol);
+}
+
+std::pair<const Node*, const DataType*> Node::physical_type(s32 max_depth, const SymbolDatabase& database) const
+{
+	return const_cast<Node*>(this)->physical_type(max_depth, const_cast<SymbolDatabase&>(database));
+}
+
 const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 {
 	switch(modifier) {
