@@ -85,8 +85,8 @@ struct Node {
 	
 	// If this node is a type name, repeatedly resolve it to the type it's
 	// referencing, otherwise return (this, nullptr).
-	std::pair<Node*, DataType*> physical_type(s32 max_depth, SymbolDatabase& database);
-	std::pair<const Node*, const DataType*> physical_type(s32 max_depth, const SymbolDatabase& database) const;
+	std::pair<Node*, DataType*> physical_type(SymbolDatabase& database, s32 max_depth = 100);
+	std::pair<const Node*, const DataType*> physical_type(const SymbolDatabase& database, s32 max_depth = 100) const;
 };
 
 struct Array : Node {
@@ -184,10 +184,10 @@ struct StructOrUnion : Node {
 	// limits are reached. Return true if all the fields were enumerated.
 	bool flatten_fields(
 		std::vector<std::pair<const Node*, const DataType*>>& output,
-		size_t max_fields,
-		size_t max_depth,
 		const DataType* symbol,
-		const SymbolDatabase& database) const;
+		const SymbolDatabase& database,
+		size_t max_fields = 100000,
+		size_t max_depth = 100) const;
 };
 
 enum class TypeNameSource : u8 {
