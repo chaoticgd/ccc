@@ -417,8 +417,12 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			CCC_FATAL("Too many arguments.");
 		}
 	}
-	CCC_CHECK_FATAL(!options.elf_path.empty(), "No ELF path specified.");
-	CCC_CHECK_FATAL(!options.output_path.empty(), "No output path specified.");
+	
+	if(options.elf_path.empty() || options.output_path.empty()) {
+		print_help(argc, argv);
+		return Options();
+	}
+	
 	return options;
 }
 
