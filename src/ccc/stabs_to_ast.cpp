@@ -53,6 +53,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		if(state.importer_flags & STRICT_PARSING) {
 			return CCC_FAILURE(error_message);
 		} else {
+			CCC_WARN(error_message);
+			
 			auto error = std::make_unique<ast::Error>();
 			error->message = error_message;
 			return std::unique_ptr<ast::Node>(std::move(error));

@@ -43,6 +43,8 @@ static Result<RefinedData> refine_node(
 	if(depth > 200) {
 		const char* error_message = "Call depth greater than 200 in refine_node, probably infinite recursion.";
 		
+		CCC_WARN(error_message);
+		
 		RefinedData data;
 		data.value = error_message;
 		return data;
