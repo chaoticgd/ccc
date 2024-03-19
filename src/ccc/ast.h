@@ -48,7 +48,6 @@ struct Node {
 	u8 cannot_compute_size : 1 = false;
 	u8 storage_class : 4 = STORAGE_CLASS_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
-	mutable u8 is_currently_processing : 1 = false; // Used for preventing infinite recursion.
 	
 	s32 size_bytes = -1;
 	
