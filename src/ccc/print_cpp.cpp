@@ -631,7 +631,7 @@ void CppPrinter::ast_node(
 	}
 }
 
-void CppPrinter::function_parameters(std::vector<const ParameterVariable*> parameters, const SymbolDatabase& database)
+void CppPrinter::function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database)
 {
 	bool skip_this = m_config.omit_this_parameter && !parameters.empty() && parameters[0]->name() == "this";
 	for(size_t i = skip_this ? 1 : 0; i < parameters.size(); i++) {
