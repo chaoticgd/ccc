@@ -20,7 +20,7 @@ void Node::set_access_specifier(AccessSpecifier specifier, u32 importer_flags)
 	}
 }
 
-std::pair<Node*, DataType*> Node::physical_type(s32 max_depth, SymbolDatabase& database)
+std::pair<Node*, DataType*> Node::physical_type(SymbolDatabase& database, s32 max_depth)
 {
 	Node* type = this;
 	DataType* symbol = nullptr;
@@ -36,9 +36,9 @@ std::pair<Node*, DataType*> Node::physical_type(s32 max_depth, SymbolDatabase& d
 	return std::pair(type, symbol);
 }
 
-std::pair<const Node*, const DataType*> Node::physical_type(s32 max_depth, const SymbolDatabase& database) const
+std::pair<const Node*, const DataType*> Node::physical_type(const SymbolDatabase& database, s32 max_depth) const
 {
-	return const_cast<Node*>(this)->physical_type(max_depth, const_cast<SymbolDatabase&>(database));
+	return const_cast<Node*>(this)->physical_type(const_cast<SymbolDatabase&>(database), max_depth);
 }
 
 const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
@@ -53,10 +53,10 @@ const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 
 bool StructOrUnion::flatten_fields(
 	std::vector<std::pair<const Node*, const DataType*>>& output,
-	size_t max_fields,
-	size_t max_depth,
 	const DataType* symbol,
-	const SymbolDatabase& database) const
+	const SymbolDatabase& database,
+	size_t max_fields,
+	size_t max_depth) const
 {
 	if(max_depth == 0) {
 		return false;
@@ -74,7 +74,7 @@ bool StructOrUnion::flatten_fields(
 		}
 		
 		const StructOrUnion& base_class = base_class_symbol->type()->as<StructOrUnion>();
-		if(!base_class.flatten_fields(output, max_fields, max_depth - 1, base_class_symbol, database)) {
+		if(!base_class.flatten_fields(output, base_class_symbol, database, max_fields, max_depth - 1)) {
 			return false;
 		}
 	}
