@@ -180,9 +180,8 @@ struct StructOrUnion : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = STRUCT_OR_UNION;
 	
 	// Generate a flat list of all the fields in this class as well as all the
-	// base classes recursively, but only until max_fields is reached. Returns
-	// true if all fields were returned, or false if the max_fields or max_depth
-	// limits were exceeded.
+	// base classes recursively, but only until the max_fields or max_depth
+	// limits are reached. Return true if all the fields were enumerated.
 	bool flatten_fields(
 		std::vector<std::pair<const Node*, const DataType*>>& output,
 		size_t max_fields,
