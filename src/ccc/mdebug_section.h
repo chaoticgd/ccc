@@ -120,8 +120,9 @@ struct Symbol {
 
 struct File {
 	std::vector<Symbol> symbols;
-	std::string working_dir; // The working directory of GCC.
-	std::string command_line_path; // The source file path passed on the command line to GCC.
+	u32 address = 0;
+	std::string working_dir; // The working directory of gcc.
+	std::string command_line_path; // The source file path passed on the command line to gcc.
 	std::string full_path; // The full combined path.
 };
 
