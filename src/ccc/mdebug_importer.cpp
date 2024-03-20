@@ -126,17 +126,8 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 		}
 	}
 	
-	// Find the address of the source file.
-	Address text_address;
-	for(const ParsedSymbol& symbol : *symbols) {
-		if(symbol.type == ParsedSymbolType::SOURCE_FILE) {
-			text_address = symbol.raw->value;
-			break;
-		}
-	}
-	
 	Result<SourceFile*> source_file = database.source_files.create_symbol(
-		input.full_path, text_address, context.group.source, context.module_symbol);
+		input.full_path, input.address, context.group.source, context.module_symbol);
 	CCC_RETURN_IF_ERROR(source_file);
 	
 	(*source_file)->working_dir = input.working_dir;

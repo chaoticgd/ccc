@@ -137,6 +137,8 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
 	CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
 	
+	file.address = fd_header->address;
+	
 	s32 raw_path_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + m_fudge_offset;
 	const char* command_line_path = get_string(m_elf, raw_path_offset);
 	if(command_line_path) {
