@@ -16,8 +16,8 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 	CCC_CHECK(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
 	const ElfFileHeader* header = get_packed<ElfFileHeader>(elf.image, sizeof(ElfIdentHeader));
-	CCC_CHECK(ident, "ELF file header out of range.");
-	CCC_CHECK(header->machine == ElfMachine::MIPS, "Wrong architecture.");
+	CCC_CHECK(header, "ELF file header out of range.");
+	elf.file_header = *header;
 	
 	const ElfSectionHeader* shstr_section_header = get_packed<ElfSectionHeader>(elf.image, header->shoff + header->shstrndx * sizeof(ElfSectionHeader));
 	CCC_CHECK(shstr_section_header, "ELF section name header out of range.");
@@ -80,6 +80,17 @@ std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) cons
 		}
 	}
 	return std::nullopt;
+}
+
+const ElfProgramHeader* ElfFile::entry_point_segment() const
+{
+	const ccc::ElfProgramHeader* entry_segment = nullptr;
+	for(const ccc::ElfProgramHeader& segment : segments) {
+		if(file_header.entry >= segment.vaddr && file_header.entry < segment.vaddr + segment.filesz) {
+			entry_segment = &segment;
+		}
+	}
+	return entry_segment;
 }
 
 Result<std::span<const u8>> ElfFile::get_virtual(u32 address, u32 size) const

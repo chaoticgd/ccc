@@ -107,6 +107,7 @@ CCC_PACKED_STRUCT(ElfProgramHeader,
 )
 
 struct ElfFile {
+	ElfFileHeader file_header;
 	std::vector<u8> image;
 	std::vector<ElfSection> sections;
 	std::vector<ElfProgramHeader> segments;
@@ -119,6 +120,9 @@ struct ElfFile {
 	
 	const ElfSection* lookup_section(const char* name) const;
 	std::optional<u32> file_offset_to_virtual_address(u32 file_offset) const;
+	
+	// Find the program header for the segment that contains the entry point.
+	const ElfProgramHeader* entry_point_segment() const;
 	
 	// Retrieve a block of data in an ELF file given its address and size.
 	Result<std::span<const u8>> get_virtual(u32 address, u32 size) const;
