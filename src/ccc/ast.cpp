@@ -78,7 +78,7 @@ bool StructOrUnion::flatten_fields(
 		}
 		
 		const StructOrUnion& base_class = base_class_symbol->type()->as<StructOrUnion>();
-		if(!base_class.flatten_fields(output, base_class_symbol, database, new_base_offset, max_fields, max_depth - 1)) {
+		if(!base_class.flatten_fields(output, base_class_symbol, database, skip_statics, new_base_offset, max_fields, max_depth - 1)) {
 			return false;
 		}
 	}
