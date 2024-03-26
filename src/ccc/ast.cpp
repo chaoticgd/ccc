@@ -87,7 +87,10 @@ bool StructOrUnion::flatten_fields(
 			return false;
 		}
 		
-		output.emplace_back(field.get(), symbol, base_offset);
+		FlatField& flat = output.emplace_back();
+		flat.node = field.get();
+		flat.symbol = symbol;
+		flat.base_offset = base_offset;
 	}
 	
 	return true;
