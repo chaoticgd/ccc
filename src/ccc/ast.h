@@ -195,6 +195,7 @@ struct StructOrUnion : Node {
 		std::vector<FlatField>& output,
 		const DataType* symbol,
 		const SymbolDatabase& database,
+		bool skip_statics,
 		s32 base_offset = 0,
 		s32 max_fields = 100000,
 		s32 max_depth = 100) const;

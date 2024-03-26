@@ -55,6 +55,7 @@ bool StructOrUnion::flatten_fields(
 	std::vector<FlatField>& output,
 	const DataType* symbol,
 	const SymbolDatabase& database,
+	bool skip_statics,
 	s32 base_offset,
 	s32 max_fields,
 	s32 max_depth) const
@@ -83,6 +84,10 @@ bool StructOrUnion::flatten_fields(
 	}
 	
 	for(const std::unique_ptr<Node>& field : fields) {
+		if(skip_statics && field->storage_class == STORAGE_CLASS_STATIC) {
+			continue;
+		}
+		
 		if((s32) output.size() >= max_fields) {
 			return false;
 		}
