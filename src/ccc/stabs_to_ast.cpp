@@ -179,7 +179,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				// Some compilers wrote out a wrapped around value here.
 				array->element_count = 0;
 			} else {
-				array->element_count = high_value + 1;
+				array->element_count = (s32) high_value + 1;
 			}
 			
 			result = std::move(array);
@@ -398,7 +398,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			CCC_RETURN_IF_ERROR(node);
 			result = std::move(*node);
 			
-			result->size_bits = stabs_type_attribute.size_bits;
+			result->size_bits = (s32) stabs_type_attribute.size_bits;
 			break;
 		}
 		case StabsTypeDescriptor::POINTER_TO_DATA_MEMBER: {
@@ -633,7 +633,7 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 			break;
 		}
 		case ccc::StabsTypeDescriptor::TYPE_ATTRIBUTE: {
-			underlying_type_size_bits = type->as<StabsSizeTypeAttributeType>().size_bits;
+			underlying_type_size_bits = (s32) type->as<StabsSizeTypeAttributeType>().size_bits;
 			break;
 		}
 		case ccc::StabsTypeDescriptor::BUILTIN: {
