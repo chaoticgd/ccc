@@ -117,7 +117,7 @@ Result<ModuleHandle> import_symbol_tables(
 		// doesn't already exist.
 		Result<SymbolSourceHandle> source = database.get_symbol_source(symbol_table->name());
 		if(!source.success()) {
-			database.destroy_symbols_from_module((*module_symbol)->handle(), &database);
+			database.destroy_symbols_from_module((*module_symbol)->handle(), false);
 			return source;
 		}
 		
@@ -129,7 +129,7 @@ Result<ModuleHandle> import_symbol_tables(
 		Result<void> result = symbol_table->import(
 			database, group, importer_flags, demangler, interrupt);
 		if(!result.success()) {
-			database.destroy_symbols_from_module((*module_symbol)->handle(), &database);
+			database.destroy_symbols_from_module((*module_symbol)->handle(), false);
 			return result;
 		}
 	}

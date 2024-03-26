@@ -176,19 +176,26 @@ public:
 	// Move all the symbols from the passed list into this list.
 	void merge_from(SymbolList<SymbolType>& list);
 	
-	// Destroy a symbol. If the correct symbol database pointer is passed, all
-	// descendants will also be destroyed. For example, destroying a function
-	// will also destroy its parameters and local variables.
-	bool destroy_symbol(SymbolHandle<SymbolType> handle, SymbolDatabase* database);
+	// Destroy a single symbol, not including any of its descendants.
+	bool destroy_single_symbol(SymbolHandle<SymbolType> handle, SymbolDatabase* database);
 	
-	// Destroy all the symbols from a given symbol source. For example you can
-	// use this to free a symbol table without destroying user-defined symbols.
-	// The behaviour for destroying descendants is the same as destroy_symbol.
-	void destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database);
+	// Mark a symbol for destruction. If the correct symbol database pointer is
+	// passed, all descendants will also be marked. For example, marking a
+	// function will also mark its parameters and local variables.
+	bool mark_symbol_for_destruction(SymbolHandle<SymbolType> handle, SymbolDatabase* database);
 	
-	// Destroy all the symbols from a given module. The behaviour for destroying
-	// descendants is the same as destroy_symbol.
-	void destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database);
+	// Mark all the symbols from a given symbol source for destruction. For
+	// example you can use this to free a symbol table without destroying
+	// user-defined symbols. The behaviour for marking descendants is the same
+	// as destroy_symbol.
+	void mark_symbols_from_source_for_destruction(SymbolSourceHandle source, SymbolDatabase* database);
+	
+	// Mark all the symbols from a given module for destruction. The behaviour
+	// for marking descendants is the same as destroy_symbol.
+	void mark_symbols_from_module_for_destruction(ModuleHandle module_handle, SymbolDatabase* database);
+	
+	// Destroy all symbols that have previously been marked for destruction.
+	void destroy_marked_symbols();
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
 	// worry about dangling handles.
@@ -198,9 +205,6 @@ protected:
 	// Do a binary search for a handle, and return either its index, or the
 	// index where it could be inserted.
 	size_t binary_search(SymbolHandle<SymbolType> handle) const;
-	
-	// Destroy a range of symbols given indices.
-	void destroy_symbols_impl(size_t begin_index, size_t end_index, SymbolDatabase* database);
 	
 	// Keep the address map in sync with the symbol list.
 	void link_address_map(SymbolType& symbol);
@@ -215,7 +219,7 @@ protected:
 	NameToHandleMap m_name_to_handle;
 	
 	// We share this between symbol lists of the same type so that we can merge
-	// them and we don't need to rewrite all the handles.
+	// them without having to rewrite all the handles.
 	static std::atomic<u32> m_next_handle;
 };
 
@@ -227,6 +231,7 @@ public:
 	const std::string& name() const { return m_name; }
 	u32 raw_handle() const { return m_handle; }
 	SymbolSourceHandle source() const { return m_source; }
+	ModuleHandle module_handle() const { return m_module; }
 	
 	Address address() const { return m_address; }
 	u32 size() const { return m_size; }
@@ -243,7 +248,8 @@ public:
 	// For the set_type function this is done for you.
 	void invalidate_node_handles() { m_generation++; }
 	
-	ModuleHandle module_handle() const { return m_module; }
+	// Mark a single symbol for destruction, not including its descendants.
+	void mark_for_destruction() { m_marked_for_destruction = true; }
 	
 protected:
 	u32 m_handle = (u32) -1;
@@ -252,7 +258,8 @@ protected:
 	u32 m_size = 0;
 	std::string m_name;
 	std::unique_ptr<ast::Node> m_type;
-	u32 m_generation = 0;
+	u32 m_generation : 31 = 0;
+	u32 m_marked_for_destruction : 1 = false;
 	ModuleHandle m_module;
 };
 
@@ -622,10 +629,13 @@ public:
 	
 	// Destroy all the symbols from a given symbol source. For example you can
 	// use this to free a symbol table without destroying user-defined symbols.
-	void destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database);
+	void destroy_symbols_from_source(SymbolSourceHandle source, bool destroy_descendants);
 	
 	// Destroy all the symbols from a given module.
-	void destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database);
+	void destroy_symbols_from_module(ModuleHandle module_handle, bool destroy_descendants);
+	
+	// Destroy all the symbols that have previously been marked for destruction.
+	void destroy_marked_symbols();
 	
 	// Destroy all the symbols in the symbol database.
 	void clear();

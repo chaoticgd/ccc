@@ -368,41 +368,71 @@ void SymbolList<SymbolType>::merge_from(SymbolList<SymbolType>& list)
 }
 
 template <typename SymbolType>
-bool SymbolList<SymbolType>::destroy_symbol(SymbolHandle<SymbolType> handle, SymbolDatabase* database)
+bool SymbolList<SymbolType>::mark_symbol_for_destruction(SymbolHandle<SymbolType> handle, SymbolDatabase* database)
 {
-	u32 index = binary_search(handle);
-	if(index >= m_symbols.size() || m_symbols[index].handle() != handle) {
+	SymbolType* symbol = symbol_from_handle(handle);
+	if(!symbol) {
 		return false;
 	}
 	
-	destroy_symbols_impl(index, index + 1, database);
+	symbol->mark_for_destruction();
+	
+	// Call SymbolType::on_destroy if it exists.
+	if constexpr(requires { symbol->on_destroy(database); }) {
+		symbol->on_destroy(database);
+	}
+	
 	return true;
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database)
+void SymbolList<SymbolType>::mark_symbols_from_source_for_destruction(SymbolSourceHandle source, SymbolDatabase* database)
 {
-	for(size_t i = 0; i < m_symbols.size(); i++) {
-		size_t begin = i;
-		for(; i < m_symbols.size() && m_symbols[i].source() == source; i++);
-		if(i > begin) {
-			destroy_symbols_impl(begin, i, database);
-			i--;
+	for(SymbolType& symbol : m_symbols) {
+		if(symbol.source() != source) {
+			continue;
+		}
+		
+		symbol.mark_for_destruction();
+		
+		// Call SymbolType::on_destroy if it exists.
+		if constexpr(requires { symbol.on_destroy(database); }) {
+			symbol.on_destroy(database);
 		}
 	}
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database)
+void SymbolList<SymbolType>::mark_symbols_from_module_for_destruction(ModuleHandle module_handle, SymbolDatabase* database)
 {
-	for(size_t i = 0; i < m_symbols.size(); i++) {
-		size_t begin = i;
-		for(; i < m_symbols.size() && m_symbols[i].module_handle() == module_handle; i++);
-		if(i > begin) {
-			destroy_symbols_impl(begin, i, database);
-			i--;
+	for(SymbolType& symbol : m_symbols) {
+		if(symbol.module_handle() != module_handle) {
+			continue;
+		}
+		
+		symbol.mark_for_destruction();
+		
+		// Call SymbolType::on_destroy if it exists.
+		if constexpr(requires { symbol.on_destroy(database); }) {
+			symbol.on_destroy(database);
 		}
 	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::destroy_marked_symbols()
+{
+	std::vector<SymbolType> remaining_symbols;
+	for(SymbolType& symbol : m_symbols) {
+		if(symbol.m_marked_for_destruction) {
+			unlink_address_map(symbol);
+			unlink_name_map(symbol);
+		} else {
+			remaining_symbols.emplace_back(std::move(symbol));
+		}
+	}
+	
+	m_symbols = std::move(remaining_symbols);
 }
 
 template <typename SymbolType>
@@ -431,28 +461,6 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 	}
 	
 	return end;
-}
-
-template <typename SymbolType>
-void SymbolList<SymbolType>::destroy_symbols_impl(size_t begin_index, size_t end_index, SymbolDatabase* database)
-{
-	for(u32 i = begin_index; i < end_index; i++) {
-		// Call SymbolType::on_destroy if it exists.
-		if constexpr(requires { m_symbols[i].on_destroy(database); }) {
-			m_symbols[i].on_destroy(database);
-		}
-	}
-	
-	for(u32 i = begin_index; i < end_index; i++) {
-		unlink_address_map(m_symbols[i]);
-	}
-	
-	for(u32 i = begin_index; i < end_index; i++) {
-		unlink_name_map(m_symbols[i]);
-	}
-	
-	// Delete the symbols.
-	m_symbols.erase(m_symbols.begin() + begin_index, m_symbols.begin() + end_index);
 }
 
 template <typename SymbolType>
@@ -639,13 +647,13 @@ void Function::on_destroy(SymbolDatabase* database)
 	
 	if(m_parameter_variables.has_value()) {
 		for(ParameterVariableHandle parameter_variable : *m_parameter_variables) {
-			database->parameter_variables.destroy_symbol(parameter_variable, database);
+			database->parameter_variables.mark_symbol_for_destruction(parameter_variable, database);
 		}
 	}
 	
 	if(m_local_variables.has_value()) {
 		for(LocalVariableHandle local_variable : *m_local_variables) {
-			database->local_variables.destroy_symbol(local_variable, database);
+			database->local_variables.mark_symbol_for_destruction(local_variable, database);
 		}
 	}
 }
@@ -776,11 +784,11 @@ void SourceFile::on_destroy(SymbolDatabase* database)
 	}
 	
 	for(FunctionHandle function : m_functions) {
-		database->functions.destroy_symbol(function, database);
+		database->functions.mark_symbol_for_destruction(function, database);
 	}
 	
 	for(GlobalVariableHandle global_variable : m_global_variables) {
-		database->global_variables.destroy_symbol(global_variable, database);
+		database->global_variables.mark_symbol_for_destruction(global_variable, database);
 	}
 }
 
@@ -994,16 +1002,31 @@ void SymbolDatabase::merge_from(SymbolDatabase& database)
 	#undef CCC_X
 }
 
-void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database)
+void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source, bool destroy_descendants)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_source(source, database);
+	SymbolDatabase* database = destroy_descendants ? this : nullptr;
+	
+	#define CCC_X(SymbolType, symbol_list) symbol_list.mark_symbols_from_source_for_destruction(source, database);
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
+	
+	destroy_marked_symbols();
 }
 
-void SymbolDatabase::destroy_symbols_from_module(ModuleHandle module_handle, SymbolDatabase* database)
+void SymbolDatabase::destroy_symbols_from_module(ModuleHandle module_handle, bool destroy_descendants)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_symbols_from_module(module_handle, database);
+	SymbolDatabase* database = destroy_descendants ? this : nullptr;
+	
+	#define CCC_X(SymbolType, symbol_list) symbol_list.mark_symbols_from_module_for_destruction(module_handle, database);
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
+	
+	destroy_marked_symbols();
+}
+
+void SymbolDatabase::destroy_marked_symbols()
+{
+	#define CCC_X(SymbolType, symbol_list) symbol_list.destroy_marked_symbols();
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }
@@ -1112,13 +1135,23 @@ bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& data
 bool MultiSymbolHandle::destroy_symbol(SymbolDatabase& database, bool destroy_descendants) const
 {
 	if(m_handle != (u32) -1) {
+		SymbolDatabase* database_ptr = destroy_descendants ? &database : nullptr;
+		
+		bool marked = false;
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
-					return database.symbol_list.destroy_symbol(m_handle, destroy_descendants ? &database : nullptr);
+					marked = database.symbol_list.mark_symbol_for_destruction(m_handle, database_ptr); \
+					break;
 			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 			#undef CCC_X
 		}
+		
+		if(marked) {
+			database.destroy_marked_symbols();
+		}
+		
+		return marked;
 	}
 	
 	return false;

@@ -113,7 +113,8 @@ TEST(CCCSymbolDatabase, HandlesFromName)
 	Result<DataType*> d = database.data_types.create_symbol("D", (*source)->handle());
 	
 	// Destroy D.
-	database.data_types.destroy_symbol((*d)->handle(), &database);
+	database.data_types.mark_symbol_for_destruction((*d)->handle(), &database);
+	database.destroy_marked_symbols();
 	
 	// Make sure we can look up A, B, and C by their names.
 	auto as = database.data_types.handles_from_name("A");
@@ -247,8 +248,9 @@ TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles)
 	
 	// Destroy every other symbol.
 	for(s32 i = 0; i < 10; i += 2) {
-		database.symbol_sources.destroy_symbol(handles[i], &database);
+		database.symbol_sources.mark_symbol_for_destruction(handles[i], &database);
 	}
+	database.destroy_marked_symbols();
 	
 	// Make sure we can't look them up anymore.
 	for(s32 i = 0; i < 10; i += 2) {
@@ -294,7 +296,7 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
 	}
 	
 	// Simulate freeing a symbol table while retaining user-defined symbols.
-	database.destroy_symbols_from_source(symbol_table_handle, &database);
+	database.destroy_symbols_from_source(symbol_table_handle, true);
 	
 	s32 user_symbols_remaining = 0;
 	for(const DataType& data_type : database.data_types) {
@@ -328,8 +330,11 @@ TEST(CCCSymbolDatabase, DestroyFunction)
 	LocalVariableHandle local_handle = (*local_variable)->handle();
 	(*function)->set_local_variables(std::vector<LocalVariableHandle>{local_handle}, database);
 	
+	// Destroy the function.
+	EXPECT_TRUE(database.functions.mark_symbol_for_destruction(function_handle, &database));
+	database.destroy_marked_symbols();
+	
 	// Make sure that when the function is destroyed, the variables are too.
-	EXPECT_TRUE(database.functions.destroy_symbol(function_handle, &database));
 	EXPECT_FALSE(database.parameter_variables.symbol_from_handle(parameter_handle));
 	EXPECT_FALSE(database.local_variables.symbol_from_handle(local_handle));
 }
@@ -456,7 +461,8 @@ TEST(CCCSymbolDatabase, NodeHandle)
 	EXPECT_EQ(node_handle.lookup_node(database), nullptr);
 	
 	// Destroy the symbol.
-	database.data_types.destroy_symbol((*data_type)->handle(), &database);
+	database.data_types.mark_symbol_for_destruction((*data_type)->handle(), &database);
+	database.destroy_marked_symbols();
 	
 	// Make sure we can still not lookup the node from the handle.
 	EXPECT_EQ(node_handle.lookup_node(database), nullptr);
