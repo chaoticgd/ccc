@@ -228,9 +228,6 @@ struct TypeName : Node {
 		SourceFileHandle referenced_file_handle;
 		StabsTypeNumber stabs_type_number;
 		std::optional<ForwardDeclaredType> type;
-		
-		UnresolvedStabs() {}
-		friend auto operator<=>(const UnresolvedStabs& lhs, const UnresolvedStabs& rhs) = default;
 	};
 	
 	std::unique_ptr<UnresolvedStabs> unresolved_stabs;
