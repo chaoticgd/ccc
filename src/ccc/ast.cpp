@@ -52,11 +52,12 @@ const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 }
 
 bool StructOrUnion::flatten_fields(
-	std::vector<std::pair<const Node*, const DataType*>>& output,
+	std::vector<FlatField>& output,
 	const DataType* symbol,
 	const SymbolDatabase& database,
-	size_t max_fields,
-	size_t max_depth) const
+	s32 base_offset,
+	s32 max_fields,
+	s32 max_depth) const
 {
 	if(max_depth == 0) {
 		return false;
@@ -67,6 +68,8 @@ bool StructOrUnion::flatten_fields(
 			continue;
 		}
 		
+		s32 new_base_offset = base_offset + type_name->offset_bytes;
+		
 		DataTypeHandle handle = type_name->as<TypeName>().data_type_handle;
 		const DataType* base_class_symbol = database.data_types.symbol_from_handle(handle);
 		if(!base_class_symbol || !base_class_symbol->type() || base_class_symbol->type()->descriptor != STRUCT_OR_UNION) {
@@ -74,17 +77,17 @@ bool StructOrUnion::flatten_fields(
 		}
 		
 		const StructOrUnion& base_class = base_class_symbol->type()->as<StructOrUnion>();
-		if(!base_class.flatten_fields(output, base_class_symbol, database, max_fields, max_depth - 1)) {
+		if(!base_class.flatten_fields(output, base_class_symbol, database, new_base_offset, max_fields, max_depth - 1)) {
 			return false;
 		}
 	}
 	
 	for(const std::unique_ptr<Node>& field : fields) {
-		if(output.size() >= max_fields) {
+		if((s32) output.size() >= max_fields) {
 			return false;
 		}
 		
-		output.emplace_back(field.get(), symbol);
+		output.emplace_back(field.get(), symbol, base_offset);
 	}
 	
 	return true;
