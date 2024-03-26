@@ -228,7 +228,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 {
 	CCC_CHECK(m_next_handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
 	
-	u32 handle = m_next_handle++;
+	u32 handle = m_next_handle.fetch_add(1);
 	
 	SymbolType& symbol = m_symbols.emplace_back();
 	
@@ -330,6 +330,41 @@ bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std:
 	}
 	
 	return true;
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::merge_from(SymbolList<SymbolType>& list)
+{
+	m_address_to_handle.clear();
+	m_name_to_handle.clear();
+	
+	std::vector<SymbolType> lhs = std::move(m_symbols);
+	std::vector<SymbolType> rhs = std::move(list.m_symbols);
+	
+	m_symbols = std::vector<SymbolType>();
+	m_symbols.reserve(lhs.size() + rhs.size());
+	
+	size_t lhs_pos = 0;
+	size_t rhs_pos = 0;
+	for(;;) {
+		SymbolType* symbol;
+		if(lhs_pos < lhs.size() && (rhs_pos >= rhs.size() || lhs[lhs_pos].handle() < rhs[rhs_pos].handle())) {
+			symbol = &m_symbols.emplace_back(std::move(lhs[lhs_pos++]));
+		} else if(rhs_pos < rhs.size()) {
+			symbol = &m_symbols.emplace_back(std::move(rhs[rhs_pos++]));
+		} else {
+			break;
+		}
+		
+		link_address_map(*symbol);
+		link_name_map(*symbol);
+	}
+	
+	CCC_ASSERT(m_symbols.size() == lhs.size() + rhs.size());
+	
+	list.m_symbols.clear();
+	list.m_address_to_handle.clear();
+	list.m_name_to_handle.clear();
 }
 
 template <typename SymbolType>
@@ -467,6 +502,9 @@ void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 		}
 	}
 }
+
+template <typename SymbolType>
+std::atomic<u32> SymbolList<SymbolType>::m_next_handle = 0;
 
 #define CCC_X(SymbolType, symbol_list) template class SymbolList<SymbolType>;
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
@@ -947,6 +985,13 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 	}
 	
 	return nullptr;
+}
+
+void SymbolDatabase::merge_from(SymbolDatabase& database)
+{
+	#define CCC_X(SymbolType, symbol_list) symbol_list.merge_from(database.symbol_list);
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+	#undef CCC_X
 }
 
 void SymbolDatabase::destroy_symbols_from_source(SymbolSourceHandle source, SymbolDatabase* database)

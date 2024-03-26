@@ -211,6 +211,28 @@ TEST(CCCSymbolDatabase, RenameSymbol)
 	EXPECT_NE(new_handles.begin(), new_handles.end());
 }
 
+TEST(CCCSymbolDatabase, MergeSymbolLists)
+{
+	SymbolList<SymbolSource> list;
+	Result<SymbolSource*> source = list.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+	
+	SymbolList<SymbolSource> other_list;
+	Result<SymbolSource*> other_source = list.create_symbol("Other Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(other_source);
+	
+	list.merge_from(other_list);
+	
+	SymbolSourceHandle handle = list.first_handle_from_name("Source");
+	SymbolSourceHandle other_handle = list.first_handle_from_name("Other Source");
+	
+	EXPECT_TRUE(handle.valid());
+	EXPECT_TRUE(other_handle.valid());
+	
+	EXPECT_TRUE(list.symbol_from_handle(handle));
+	EXPECT_TRUE(list.symbol_from_handle(other_handle));
+}
+
 TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles)
 {
 	SymbolDatabase database;
