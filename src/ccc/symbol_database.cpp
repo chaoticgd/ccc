@@ -1134,27 +1134,26 @@ bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& data
 
 bool MultiSymbolHandle::destroy_symbol(SymbolDatabase& database, bool destroy_descendants) const
 {
+	bool success = false;
+	
 	if(m_handle != (u32) -1) {
 		SymbolDatabase* database_ptr = destroy_descendants ? &database : nullptr;
 		
-		bool marked = false;
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
-					marked = database.symbol_list.mark_symbol_for_destruction(m_handle, database_ptr); \
+					success = database.symbol_list.mark_symbol_for_destruction(m_handle, database_ptr); \
 					break;
 			CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 			#undef CCC_X
 		}
-		
-		if(marked) {
-			database.destroy_marked_symbols();
-		}
-		
-		return marked;
 	}
 	
-	return false;
+	if(success) {
+		database.destroy_marked_symbols();
+	}
+	
+	return success;
 }
 
 #define CCC_X(SymbolType, symbol_list) template MultiSymbolHandle::MultiSymbolHandle(const SymbolType& symbol);
