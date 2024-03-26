@@ -4,6 +4,7 @@
 #pragma once
 
 #include <map>
+#include <atomic>
 #include <variant>
 
 #include "util.h"
@@ -172,6 +173,9 @@ public:
 	// Update the name of a symbol without changing its handle.
 	bool rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name);
 	
+	// Move all the symbols from the passed list into this list.
+	void merge_from(SymbolList<SymbolType>& list);
+	
 	// Destroy a symbol. If the correct symbol database pointer is passed, all
 	// descendants will also be destroyed. For example, destroying a function
 	// will also destroy its parameters and local variables.
@@ -207,9 +211,12 @@ protected:
 	void unlink_name_map(SymbolType& symbol);
 	
 	std::vector<SymbolType> m_symbols;
-	u32 m_next_handle = 0;
 	AddressToHandleMap m_address_to_handle;
 	NameToHandleMap m_name_to_handle;
+	
+	// We share this between symbol lists of the same type so that we can merge
+	// them and we don't need to rewrite all the handles.
+	static std::atomic<u32> m_next_handle;
 };
 
 // Base class for all the symbols.
@@ -609,6 +616,9 @@ public:
 		const char* name,
 		SourceFile& source_file,
 		const SymbolGroup& group);
+	
+	// Move all the symbols in the passed database into this database.
+	void merge_from(SymbolDatabase& database);
 	
 	// Destroy all the symbols from a given symbol source. For example you can
 	// use this to free a symbol table without destroying user-defined symbols.
