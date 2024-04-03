@@ -97,11 +97,11 @@ STABS_TEST(Function, "function:t(1,1)=(1,2)=f(0,1)")
 	ASSERT_EQ(function.return_type->type_number.type, 1);
 }
 
-// -gstabs+
+// ee-g++ -gstabs+
 // typedef volatile int VolatileInt;
 STABS_TEST(VolatileQualifier, "VolatileInt:t(1,1)=(1,2)=B(0,1)") {}
 
-// -gstabs+
+// ee-g++ -gstabs+
 // typedef const int ConstInt;
 STABS_TEST(ConstQualifier, "ConstInt:t(1,1)=(1,2)=k(0,1)") {}
 
