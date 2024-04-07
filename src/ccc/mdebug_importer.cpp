@@ -13,7 +13,7 @@ static Result<void> resolve_type_name(
 	const SymbolGroup& group,
 	u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
-static void remove_fake_functions(
+static void remove_optimized_out_functions(
 	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group);
 
 Result<void> import_symbol_table(
@@ -116,10 +116,10 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 		}
 	}
 	
-	// If multiple functions appear at the same address, destroy all of them
-	// except the real one.
+	// Remove functions with no address. Also, if multiple functions appear at
+	// the same address, destroy all of them except the real one.
 	if((context.importer_flags & NO_OPTIMIZED_OUT_FUNCTIONS) && context.external_functions) {
-		remove_fake_functions(database, *context.external_functions, context.group);
+		remove_optimized_out_functions(database, *context.external_functions, context.group);
 	}
 	
 	return Result<void>();
@@ -494,13 +494,21 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 	});
 }
 
-static void remove_fake_functions(
+static void remove_optimized_out_functions(
 	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group)
 {
+	s32 optimized_out_function_count = 0;
+	for(Function& function : database.functions) {
+		if(group.is_in_group(function) && !function.address().valid()) {
+			function.mark_for_destruction();
+			optimized_out_function_count++;
+		}
+	}
+	
 	// Find cases where multiple fake function symbols were emitted for a given
 	// address and cross-reference with the external symbol table to try and
 	// find which one is the real one.
-	s32 symbols_marked_for_destruction = 0;
+	s32 fake_function_count = 0;
 	for(Function& function : database.functions) {
 		if(!group.is_in_group(function)) {
 			continue;
@@ -522,17 +530,17 @@ static void remove_fake_functions(
 		if(strcmp(function.mangled_name().c_str(), external_function->second->string)) {
 			database.functions.mark_symbol_for_destruction(function.handle(), &database);
 			
-			if(symbols_marked_for_destruction < 10) {
+			if(fake_function_count < 10) {
 				CCC_WARN("Discarding function symbol '%s' as it is probably incorrect.", function.mangled_name().c_str());
-			} else if(symbols_marked_for_destruction == 10) {
+			} else if(fake_function_count == 10) {
 				CCC_WARN("Discarding more function symbols.");
 			}
 			
-			symbols_marked_for_destruction++;
+			fake_function_count++;
 		}
 	}
 	
-	if(symbols_marked_for_destruction > 0) {
+	if(optimized_out_function_count > 0 || fake_function_count > 0) {
 		database.destroy_marked_symbols();
 	}
 }
