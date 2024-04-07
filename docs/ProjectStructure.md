@@ -1,0 +1,31 @@
+# Project Structure
+
+- src/demangle.cpp: Main file for demangle.
+- src/objdump.cpp: Main file for objdump.
+- src/stdump.cpp: Main file for stdump.
+- src/uncc.cpp: Main file for uncc.
+- src/ccc/ast.cpp: Defines a C++ AST structure for types.
+- src/ccc/ast_json.cpp: Reads/writes the AST structure as JSON.
+- src/ccc/data_refinement.cpp: Converts global variable data into structured initializer lists and literals.
+- src/ccc/dependency.cpp: Tries to infer information about which types belong to which files.
+- src/ccc/elf.cpp: Parses ELF files.
+- src/ccc/elf_symtab.cpp: Parses the ELF symbol table.
+- src/ccc/importer_flags.cpp: An enum and help information printing for importer configuration flags.
+- src/ccc/mdebug_analysis.cpp: Accepts a stream of symbols and imports the data.
+- src/ccc/mdebug_importer.cpp: Top-level file for parsing .mdebug symbol tables.
+- src/ccc/mdebug_section.cpp: Parses the .mdebug binary format.
+- src/ccc/mdebug_symbols.cpp: Parses symbols from the .mdebug section.
+- src/ccc/print_cpp.cpp: Prints out AST nodes as C++ code.
+- src/ccc/registers.cpp: Enums for EE core MIPS registers.
+- src/ccc/sndll.cpp: Parses SNDLL files and imports symbols.
+- src/ccc/stabs.cpp: Parses STABS types.
+- src/ccc/stabs_to_ast.cpp: Converts parsed STABS types into an AST.
+- src/ccc/symbol_database.cpp: Data structures for storing symbols in memory.
+- src/ccc/symbol_file.cpp: Top-level file for parsing files containing symbol tables.
+- src/ccc/symbol_json.cpp: Reads/writes the symbol database as JSON.
+- src/ccc/symbol_table.cpp: Top-level file for parsing symbol tables.
+- src/ccc/util.cpp: Miscellaneous utilities.
+- src/mips/insn.cpp: Parses EE core MIPS instructions.
+- src/mips/opcodes.h: Enums for different types of EE core MIPS opcodes.
+- src/mips/tables.cpp: Table of EE core MIPS instructions.
+- src/platform/file.cpp: Utility functions for reading files.
