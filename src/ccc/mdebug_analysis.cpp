@@ -140,9 +140,21 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 
 Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const StabsType& return_type, Address address)
 {
-	if(!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str())) {
+	if(!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str()) != 0) {
 		Result<void> result = create_function(mangled_name, address);
 		CCC_RETURN_IF_ERROR(result);
+	} else {
+		// For MTV Music Maker 2, the addresses for static functions stored in
+		// the PROC symbols are relative to the translation unit, while the
+		// addresses stored in the FUN symbol are absolute. This is the only
+		// game I've found that seems to have this problem, but since in all
+		// other cases it seems all these addresses are all absolute, I may as
+		// well add in a hack here to deal with it.
+		bool no_module_base_address = m_context.group.module_symbol && m_context.group.module_symbol->address().get_or_zero() == 0;
+		bool new_address_greater = address.valid() && address > m_current_function->address();
+		if(no_module_base_address && new_address_greater) {
+			m_database.functions.move_symbol(m_current_function->handle(), address);
+		}
 	}
 	
 	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(return_type, nullptr, m_stabs_to_ast_state, 0, true, true);
