@@ -14,7 +14,7 @@ Half-working EE core MIPS disassembler. Probably not too interesting.
 
 ### stdump
 
-Mdebug/STABS symbol table parser and dumper. It can extract the following information:
+Symbol table parser and dumper. It can extract the following information:
 
 - Data types (structs, unions, enums, etc)
 - Functions (name, return type, parameters and local variables)
