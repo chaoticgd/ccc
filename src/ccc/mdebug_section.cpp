@@ -361,7 +361,7 @@ const char* symbol_type(SymbolType type)
 		case SymbolType::END: return "END";
 		case SymbolType::MEMBER: return "MEMBER";
 		case SymbolType::TYPEDEF: return "TYPEDEF";
-		case SymbolType::FILE_SYMBOL: return "FILE_SYMBOL";
+		case SymbolType::FILE_SYMBOL: return "FILE";
 		case SymbolType::STATICPROC: return "STATICPROC";
 		case SymbolType::CONSTANT: return "CONSTANT";
 	}

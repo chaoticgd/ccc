@@ -13,6 +13,8 @@ static Result<void> resolve_type_name(
 	const SymbolGroup& group,
 	u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
+static void remove_optimized_out_functions(
+	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group);
 
 Result<void> import_symbol_table(
 	SymbolDatabase& database,
@@ -32,19 +34,27 @@ Result<void> import_symbol_table(
 	CCC_RETURN_IF_ERROR(external_symbols);
 	
 	// The addresses of the global variables aren't present in the local symbol
-	// table, so here we extract them from the external table.
-	std::map<std::string, const mdebug::Symbol*> globals;
+	// table, so here we extract them from the external table. In addition, for
+	// some games we need to cross reference the function symbols in the local
+	// symbol table with the entries in the external symbol table.
+	std::map<u32, const mdebug::Symbol*> external_functions;
+	std::map<std::string, const mdebug::Symbol*> external_globals;
 	for(const mdebug::Symbol& external : *external_symbols) {
+		if(external.symbol_type == mdebug::SymbolType::PROC) {
+			external_functions[external.value] = &external;
+		}
+		
 		if(external.symbol_type == mdebug::SymbolType::GLOBAL
 			&& (external.symbol_class != mdebug::SymbolClass::UNDEFINED)) {
-			globals[external.string] = &external;
+			external_globals[external.string] = &external;
 		}
 	}
 	
 	// Bundle together some unchanging state to pass to import_files.
 	AnalysisContext context;
 	context.reader = &reader;
-	context.globals = &globals;
+	context.external_functions = &external_functions;
+	context.external_globals = &external_globals;
 	context.group = group;
 	context.importer_flags = importer_flags;
 	context.demangler = demangler;
@@ -104,6 +114,12 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 		if(is_static_local && local_variable.type() && local_variable.type()->size_bytes > -1) {
 			local_variable.set_size((u32) local_variable.type()->size_bytes);
 		}
+	}
+	
+	// Remove functions with no address. Also, if multiple functions appear at
+	// the same address, destroy all of them except the real one.
+	if((context.importer_flags & NO_OPTIMIZED_OUT_FUNCTIONS) && context.external_functions) {
+		remove_optimized_out_functions(database, *context.external_functions, context.group);
 	}
 	
 	return Result<void>();
@@ -200,9 +216,9 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 							// only stored in the external symbol table (and
 							// the ELF symbol table), so we pull that
 							// information in here.
-							if(context.globals) {
-								auto global_symbol = context.globals->find(symbol.name_colon_type.name);
-								if(global_symbol != context.globals->end()) {
+							if(context.external_globals) {
+								auto global_symbol = context.external_globals->find(symbol.name_colon_type.name);
+								if(global_symbol != context.external_globals->end()) {
 									address = (u32) global_symbol->second->value;
 									location = symbol_class_to_global_variable_location(global_symbol->second->symbol_class);
 								}
@@ -478,6 +494,57 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 	});
 }
 
+static void remove_optimized_out_functions(
+	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group)
+{
+	s32 optimized_out_function_count = 0;
+	for(Function& function : database.functions) {
+		if(group.is_in_group(function) && !function.address().valid()) {
+			function.mark_for_destruction();
+			optimized_out_function_count++;
+		}
+	}
+	
+	// Find cases where multiple fake function symbols were emitted for a given
+	// address and cross-reference with the external symbol table to try and
+	// find which one is the real one.
+	s32 fake_function_count = 0;
+	for(Function& function : database.functions) {
+		if(!group.is_in_group(function)) {
+			continue;
+		}
+		
+		auto functions_with_same_address = database.functions.handles_from_starting_address(function.address());
+		if(functions_with_same_address.begin() == functions_with_same_address.end()) {
+			continue;
+		}
+		if(++functions_with_same_address.begin() == functions_with_same_address.end()) {
+			continue;
+		}
+		
+		auto external_function = external_functions.find(function.address().value);
+		if(external_function == external_functions.end()) {
+			continue;
+		}
+		
+		if(strcmp(function.mangled_name().c_str(), external_function->second->string)) {
+			database.functions.mark_symbol_for_destruction(function.handle(), &database);
+			
+			if(fake_function_count < 10) {
+				CCC_WARN("Discarding function symbol '%s' as it is probably incorrect.", function.mangled_name().c_str());
+			} else if(fake_function_count == 10) {
+				CCC_WARN("Discarding more function symbols.");
+			}
+			
+			fake_function_count++;
+		}
+	}
+	
+	if(optimized_out_function_count > 0 || fake_function_count > 0) {
+		database.destroy_marked_symbols();
+	}
+}
+
 void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
 {
 	// Fill in pointers from member function declaration to corresponding definitions.
@@ -487,7 +554,7 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
 		if(name_separator_pos == std::string::npos || name_separator_pos < 2) {
 			continue;
 		}
-			
+		
 		std::string function_name = qualified_name.substr(name_separator_pos + 1);
 		
 		// This won't work for some template types.
@@ -504,7 +571,7 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
 			if(!data_type || !data_type->type() || data_type->type()->descriptor != ast::STRUCT_OR_UNION) {
 				continue;
 			}
-				
+			
 			ast::StructOrUnion& struct_or_union = data_type->type()->as<ast::StructOrUnion>();
 			for(std::unique_ptr<ast::Node>& declaration : struct_or_union.member_functions) {
 				if(declaration->name == function_name) {

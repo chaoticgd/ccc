@@ -14,7 +14,8 @@ namespace ccc::mdebug {
 	
 struct AnalysisContext {
 	const mdebug::SymbolTableReader* reader = nullptr;
-	const std::map<std::string, const mdebug::Symbol*>* globals;
+	const std::map<u32, const mdebug::Symbol*>* external_functions = nullptr;
+	const std::map<std::string, const mdebug::Symbol*>* external_globals = nullptr;
 	SymbolGroup group;
 	const Module* module_symbol = nullptr;
 	u32 importer_flags = NO_IMPORTER_FLAGS;

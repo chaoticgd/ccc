@@ -100,7 +100,8 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 				}
 				case mdebug::STAB:
 				case mdebug::N_OPT:
-				case mdebug::N_BINCL: {
+				case mdebug::N_BINCL:
+				case mdebug::N_EINCL: {
 					break;
 				}
 				case mdebug::N_FNAME:
@@ -117,7 +118,6 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 				case mdebug::N_EHDECL:
 				case mdebug::N_CATCH:
 				case mdebug::N_SSYM:
-				case mdebug::N_EINCL:
 				case mdebug::N_ENTRY:
 				case mdebug::N_EXCL:
 				case mdebug::N_SCOPE:
