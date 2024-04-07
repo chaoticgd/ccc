@@ -46,26 +46,6 @@ Affected Games:
 - Jet X2O
 - Orange Pocket: Root
 
-## Unescaped Type Names
-
-Type names for instantiated template types are unescaped, meaning that type
-names in STABS symbols can contain colons even if the identifier field is
-terminated with a colon. For example:
-
-```
-ColonInTypeName<Namespace::A>:T(1,1)=s1;
-```
-
-In addition, the raw contents of character literals are appended to the symbol
-string, which can lead to strange output and even truncated symbols if a null
-character is inserted.
-
-This affects the type name at the beginning of symbols as well as type names
-embedded inside cross reference, structure and union types.
-
-More examples of this bug are present in the `bugs.cpp` file included as test
-data with CCC and the `stabs_tests.cpp` unit test file.
-
 ## Recursively Emitted Structures (and Unions)
 
 Some compiler versions will emit the definition for a struct or union twice if
@@ -90,6 +70,33 @@ In CCC this is handled by the `fix_recursively_emitted_structures` function.
 
 An affected game:
 - Sega Soccer Slam
+
+## Relative Addresses for Static Functions
+
+In most cases the addresses stored in the value field of a symbol in the .mdebug
+symbol will be absolute, however in the case of MTV Music Generator 2 the PROC
+symbols are relative for static functions only. They FUN symbols still have
+absolute addresses though, so it makes sense to use those instead.
+
+## Unescaped Type Names
+
+Type names for instantiated template types are unescaped, meaning that type
+names in STABS symbols can contain colons even if the identifier field is
+terminated with a colon. For example:
+
+```
+ColonInTypeName<Namespace::A>:T(1,1)=s1;
+```
+
+In addition, the raw contents of character literals are appended to the symbol
+string, which can lead to strange output and even truncated symbols if a null
+character is inserted.
+
+This affects the type name at the beginning of symbols as well as type names
+embedded inside cross reference, structure and union types.
+
+More examples of this bug are present in the `bugs.cpp` file included as test
+data with CCC and the `stabs_tests.cpp` unit test file.
 
 ## Void and __builtin_va_list
 

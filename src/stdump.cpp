@@ -495,7 +495,7 @@ static Options parse_command_line_arguments(int argc, char** argv)
 static void print_help(FILE* out)
 {
 	fprintf(out, "stdump %s -- https://github.com/chaoticgd/ccc\n", get_version());
-	fprintf(out, "  PS2 symbol table parser and dumper.\n");
+	fprintf(out, "  Symbol table parser and dumper for PlayStation 2 games.\n");
 	fprintf(out, "\n");
 	fprintf(out, "Commands:\n");
 	fprintf(out, "\n");

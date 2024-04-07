@@ -572,7 +572,8 @@ void CppPrinter::ast_node(
 					}
 					indent(out, indentation_level + 1);
 					offset(*field.get(), base_offset);
-					ast_node(*field.get(), name, base_offset + field->offset_bytes, indentation_level + 1, database);
+					VariableName dummy;
+					ast_node(*field.get(), dummy, base_offset + field->offset_bytes, indentation_level + 1, database);
 					fprintf(out, ";\n");
 				}
 				
@@ -592,7 +593,8 @@ void CppPrinter::ast_node(
 							}
 						}
 						indent(out, indentation_level + 1);
-						ast_node(*member_function, name, 0, indentation_level + 1, database);
+						VariableName dummy;
+						ast_node(*member_function, dummy, 0, indentation_level + 1, database);
 						fprintf(out, ";\n");
 					}
 				}
