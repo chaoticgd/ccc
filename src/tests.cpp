@@ -58,9 +58,9 @@ static int main_test(const fs::path& input_directory)
 				demangler.cplus_demangle_opname = cplus_demangle_opname;
 				
 				// STRICT_PARSING makes it so we treat more types of errors as
-				// fatal, NO_OPTIMIZED_OUT_FUNCTIONS makes it so a warning will
-				// be printed when a fake function (CompilerBugs.md) is found.
-				u32 importer_flags = STRICT_PARSING | NO_OPTIMIZED_OUT_FUNCTIONS;
+				// fatal. The other two flags make it so that we can test
+				// removing undesirable symbols.
+				u32 importer_flags = DEDUPLICATE_FUNCTIONS | NO_OPTIMIZED_OUT_FUNCTIONS | STRICT_PARSING;
 				
 				// Test the importers.
 				Result<ModuleHandle> handle = import_symbol_tables(

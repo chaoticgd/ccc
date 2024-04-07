@@ -42,9 +42,18 @@ Luckily the external .mdebug symbol table (and the ELF symbol table) only
 contains a symbol for the correct function in these cases, so you can use that
 information to determine which function is the real one.
 
-Affected Games:
+Affected games:
 - Jet X2O
 - Orange Pocket: Root
+
+## Multiple Symbols For The Same Function
+
+Multiple translation units can contain function symbols with the same name and
+address. These are duplicates, so make sure to deduplicate them if that's
+important for your use case.
+
+An affected game:
+- Jet X2O
 
 ## Recursively Emitted Structures (and Unions)
 

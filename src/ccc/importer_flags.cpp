@@ -6,6 +6,11 @@
 namespace ccc {
 
 const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
+	{DEDUPLICATE_FUNCTIONS, "--deduplicate-functions", {
+		"Deduplicate .mdebug function symbols that have",
+		"the same name and address but that come from",
+		"different translation units."
+	}},
 	{DEMANGLE_PARAMETERS, "--demangle-parameters", {
 		"Include parameters in demangled function names."
 	}},

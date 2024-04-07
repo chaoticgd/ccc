@@ -247,6 +247,7 @@ public:
 	
 	// Mark a single symbol for destruction, not including its descendants.
 	void mark_for_destruction() { m_marked_for_destruction = true; }
+	bool is_marked_for_destruction() { return m_marked_for_destruction; }
 	
 protected:
 	u32 m_handle = (u32) -1;
