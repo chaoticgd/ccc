@@ -36,6 +36,9 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 	{NO_MEMBER_FUNCTIONS, "--no-member-functions", {
 		"Do not print member functions."
 	}},
+	{NO_OPTIMIZED_OUT_FUNCTIONS, "--no-optimized-out-functions", {
+		"Discard functions that were optimized out."
+	}},
 	{STRICT_PARSING, "--strict", {
 		"Make more types of errors fatal."
 	}},
