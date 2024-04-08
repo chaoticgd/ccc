@@ -112,29 +112,31 @@ Result<ModuleHandle> import_symbol_tables(
 	Result<Module*> module_symbol = database.modules.create_symbol(std::move(module_name), *module_source, nullptr);
 	CCC_RETURN_IF_ERROR(module_symbol);
 	
+	ModuleHandle module_handle = (*module_symbol)->handle();
+	
 	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
 		// Find a symbol source object with the right name, or create one if one
 		// doesn't already exist.
 		Result<SymbolSourceHandle> source = database.get_symbol_source(symbol_table->name());
 		if(!source.success()) {
-			database.destroy_symbols_from_module((*module_symbol)->handle(), false);
+			database.destroy_symbols_from_module(module_handle, false);
 			return source;
 		}
 		
 		// Import the symbol table.
 		SymbolGroup group;
 		group.source = *source;
-		group.module_symbol = *module_symbol;
+		group.module_symbol = database.modules.symbol_from_handle(module_handle);
 		
 		Result<void> result = symbol_table->import(
 			database, group, importer_flags, demangler, interrupt);
 		if(!result.success()) {
-			database.destroy_symbols_from_module((*module_symbol)->handle(), false);
+			database.destroy_symbols_from_module(module_handle, false);
 			return result;
 		}
 	}
 	
-	return (*module_symbol)->handle();
+	return module_handle;
 }
 
 // *****************************************************************************
