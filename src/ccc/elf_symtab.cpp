@@ -149,6 +149,7 @@ Result<void> import_symbols(
 
 Result<void> print_symbol_table(FILE* out, std::span<const u8> symtab, std::span<const u8> strtab)
 {
+	fprintf(out, "ELF SYMBOLS:\n");
 	fprintf(out, "   Num:    Value  Size Type    Bind   Vis      Ndx Name\n");
 	
 	for(u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
