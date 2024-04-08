@@ -29,7 +29,7 @@ This is intended to be used with [ghidra-emotionengine-reloaded](https://github.
 
 ### uncc
 
-This is similar to stdump except it organizes its output into separate source files, and has a number of extra features designed to try and make said output closer to valid source code. A `SOURCES.txt` file must be provided in the output directory, which can be generated using the `stdump files` command (you should fixup the paths manually so that they're relative to the output directory). Additionally, non-empty files that do not start with `// STATUS: NOT STARTED` will not be overwritten.
+This is similar to stdump except it organizes its output into separate source files, and has a number of extra features designed to try and make said output closer to valid source code. A `SOURCES.txt` file must be provided in the output directory, which can be generated using the `stdump files` command (you should fixup the paths manually so that they're relative to the output directory, and remove the address comments). Additionally, non-empty files that do not start with `// STATUS: NOT STARTED` will not be overwritten.
 
 If a `FUNCTIONS.txt` file is provided in the output directory, as can be generated using the included `CCCDecompileAllFunctions.java` script for Ghidra, the code from that file will be used to populate the function bodies in the output. In this case, the first group of local variable declarations emitted will be those recovered from the symbols, and the second group will be from the code provided in the functions file. Function names are demangled.
 
