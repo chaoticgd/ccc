@@ -6,11 +6,6 @@
 namespace ccc {
 
 const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
-	{DEDUPLICATE_FUNCTIONS, "--deduplicate-functions", {
-		"Deduplicate .mdebug function symbols that have",
-		"the same name and address but that come from",
-		"different translation units."
-	}},
 	{DEMANGLE_PARAMETERS, "--demangle-parameters", {
 		"Include parameters in demangled function names."
 	}},
@@ -61,6 +56,15 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 	{TYPEDEF_ALL_UNIONS, "--typedef-all-unions", {
 		"Force all emitted C++ union types to be defined",
 		"using a typedef."
+	}},
+	{UNIQUE_FUNCTIONS, "--unique-functions", {
+		" If multiple identical .mdebug function symbols",
+		"are present, find the one that seems to have",
+		"actually been included in the linked binary, and",
+		"remove the addresses from all the rest. Using",
+		"this importer flag in combination with",
+		"--no-optimized-out-functions will remove these",
+		"duplicate function symbols entirely."
 	}}
 };
 

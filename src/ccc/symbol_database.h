@@ -192,6 +192,7 @@ public:
 	void mark_symbols_from_module_for_destruction(ModuleHandle module_handle, SymbolDatabase* database);
 	
 	// Destroy all symbols that have previously been marked for destruction.
+	// This invalidates all pointers to symbols in this list.
 	void destroy_marked_symbols();
 	
 	// Destroy all symbols, but don't reset m_next_handle so we don't have to
@@ -633,6 +634,7 @@ public:
 	void destroy_symbols_from_module(ModuleHandle module_handle, bool destroy_descendants);
 	
 	// Destroy all the symbols that have previously been marked for destruction.
+	// This invalidates all pointers to symbols in this database.
 	void destroy_marked_symbols();
 	
 	// Destroy all the symbols in the symbol database.

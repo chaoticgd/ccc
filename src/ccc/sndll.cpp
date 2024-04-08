@@ -168,6 +168,7 @@ Result<void> import_sndll_symbols(
 
 void print_sndll_symbols(FILE* out, const SNDLLFile& sndll)
 {
+	fprintf(out, "SNDLL SYMBOLS:\n");
 	for(const SNDLLSymbol& symbol : sndll.symbols) {
 		const char* type = sndll_symbol_type_to_string(symbol.type);
 		const char* string = !symbol.string.empty() ? symbol.string.c_str() : "(no string)";

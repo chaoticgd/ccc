@@ -84,8 +84,12 @@ An affected game:
 
 In most cases the addresses stored in the value field of a symbol in the .mdebug
 symbol will be absolute, however in the case of MTV Music Generator 2 the PROC
-symbols are relative for static functions only. They FUN symbols still have
-absolute addresses though, so it makes sense to use those instead.
+symbols are relative for static functions only.
+
+The FUN symbols still have absolute addresses though, so it makes sense to use
+those instead. Note that this doesn't fix the issue in cases where there is no
+FUN symbol (e.g. assembly files, or otherwise source files without full
+debugging symbols).
 
 ## Unescaped Type Names
 

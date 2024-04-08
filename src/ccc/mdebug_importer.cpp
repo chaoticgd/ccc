@@ -13,9 +13,10 @@ static Result<void> resolve_type_name(
 	const SymbolGroup& group,
 	u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
-static void remove_optimized_out_functions(
-	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group);
-static void remove_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group);
+static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group);
+static void detect_fake_functions(SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group);
+static void destroy_optimized_out_functions(
+	SymbolDatabase& database, const SymbolGroup& group);
 
 Result<void> import_symbol_table(
 	SymbolDatabase& database,
@@ -117,16 +118,22 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 		}
 	}
 	
-	// Remove functions with no address. Also, if multiple functions appear at
-	// the same address, destroy all of them except the real one.
-	if((context.importer_flags & NO_OPTIMIZED_OUT_FUNCTIONS) && context.external_functions) {
-		remove_optimized_out_functions(database, *context.external_functions, context.group);
-	}
-	
 	// Some games (e.g. Jet X2O) have multiple function symbols across different
 	// translation units with the same name and address.
-	if(context.importer_flags & DEDUPLICATE_FUNCTIONS) {
-		remove_duplicate_functions(database, context.group);
+	if(context.importer_flags & UNIQUE_FUNCTIONS) {
+		detect_duplicate_functions(database, context.group);
+	}
+	
+	// If multiple functions appear at the same address, discard the addresses
+	// of all of them except the real one.
+	if(context.external_functions) {
+		detect_fake_functions(database, *context.external_functions, context.group);
+	}
+	
+	// Remove functions with no address. If there are any such functions, this
+	// will invalidate all pointers to symbols.
+	if(context.importer_flags & NO_OPTIMIZED_OUT_FUNCTIONS) {
+		destroy_optimized_out_functions(database, context.group);
 	}
 	
 	return Result<void>();
@@ -501,26 +508,79 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 	});
 }
 
-static void remove_optimized_out_functions(
-	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group)
+static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group)
 {
-	s32 optimized_out_function_count = 0;
-	for(Function& function : database.functions) {
-		if(group.is_in_group(function) && !function.address().valid()) {
-			function.mark_for_destruction();
-			optimized_out_function_count++;
-		}
-	}
+	std::vector<FunctionHandle> duplicate_functions;
 	
+	for(Function& test_function : database.functions) {
+		if(!test_function.address().valid() && !group.is_in_group(test_function)) {
+			continue;
+		}
+		
+		// Find cases where there are two or more functions at the same address.
+		auto functions_with_same_address = database.functions.handles_from_starting_address(test_function.address());
+		if(functions_with_same_address.begin() == functions_with_same_address.end()) {
+			continue;
+		}
+		if(++functions_with_same_address.begin() == functions_with_same_address.end()) {
+			continue;
+		}
+		
+		// Try to figure out the address of the translation unit which the
+		// version of the function that actually ended up in the linked binary
+		// comes from. We can't just check which source file the symbol comes
+		// from because it may be present in multiple.
+		u32 source_file_address = UINT32_MAX;
+		for(SourceFile& source_file : database.source_files) {
+			if(source_file.address() < test_function.address()) {
+				source_file_address = std::min(source_file.address().value, source_file_address);
+			}
+		}
+		
+		if(source_file_address == UINT32_MAX) {
+			continue;
+		}
+		
+		// Remove the addresses from all the matching symbols from other
+		// translation units.
+		FunctionHandle best_handle;
+		u32 best_offset = UINT32_MAX;
+		for(const auto& [address, handle] : functions_with_same_address) {
+			ccc::Function* function = database.functions.symbol_from_handle(handle);
+			if(!function || !group.is_in_group(*function) || function->mangled_name() != test_function.mangled_name()) {
+				continue;
+			}
+			
+			if(address - source_file_address < best_offset) {
+				if(best_handle.valid()) {
+					duplicate_functions.emplace_back(best_handle);
+				}
+				best_handle = function->handle();
+				best_offset = address - source_file_address;
+			} else {
+				duplicate_functions.emplace_back(function->handle());
+			}
+		}
+		
+		for(FunctionHandle duplicate_function : duplicate_functions) {
+			database.functions.move_symbol(duplicate_function, Address());
+		}
+		duplicate_functions.clear();
+	}
+}
+
+static void detect_fake_functions(SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group)
+{
 	// Find cases where multiple fake function symbols were emitted for a given
 	// address and cross-reference with the external symbol table to try and
 	// find which one is the real one.
 	s32 fake_function_count = 0;
 	for(Function& function : database.functions) {
-		if(!group.is_in_group(function)) {
+		if(!function.address().valid() || !group.is_in_group(function)) {
 			continue;
 		}
 		
+		// Find cases where there are two or more functions at the same address.
 		auto functions_with_same_address = database.functions.handles_from_starting_address(function.address());
 		if(functions_with_same_address.begin() == functions_with_same_address.end()) {
 			continue;
@@ -535,55 +595,33 @@ static void remove_optimized_out_functions(
 		}
 		
 		if(strcmp(function.mangled_name().c_str(), external_function->second->string) != 0) {
-			database.functions.mark_symbol_for_destruction(function.handle(), &database);
+			database.functions.move_symbol(function.handle(), Address());
 			
 			if(fake_function_count < 10) {
-				CCC_WARN("Discarding function symbol '%s' as it is probably incorrect.", function.mangled_name().c_str());
+				CCC_WARN("Discarding address of function symbol '%s' as it is probably incorrect.", function.mangled_name().c_str());
 			} else if(fake_function_count == 10) {
-				CCC_WARN("Discarding more function symbols.");
+				CCC_WARN("Discarding more addresses of function symbols.");
 			}
 			
 			fake_function_count++;
 		}
 	}
-	
-	if(optimized_out_function_count > 0 || fake_function_count > 0) {
-		database.destroy_marked_symbols();
-	}
 }
 
-static void remove_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group)
+static void destroy_optimized_out_functions(
+	SymbolDatabase& database, const SymbolGroup& group)
 {
-	bool has_duplicate_functions = false;
+	bool marked = false;
 	
 	for(Function& function : database.functions) {
-		if(!function.is_marked_for_destruction() && !group.is_in_group(function)) {
-			continue;
-		}
-		
-		auto functions_with_same_address = database.functions.handles_from_starting_address(function.address());
-		if(functions_with_same_address.begin() == functions_with_same_address.end()) {
-			continue;
-		}
-		if(++functions_with_same_address.begin() == functions_with_same_address.end()) {
-			continue;
-		}
-		
-		for(const auto& [address, handle] : functions_with_same_address) {
-			ccc::Function* other_function = database.functions.symbol_from_handle(handle);
-			if(!other_function) {
-				continue;
-			}
-			
-			bool matches = group.is_in_group(*other_function) && other_function->mangled_name() == function.mangled_name();
-			if(matches && other_function->handle() != function.handle()) {
-				database.functions.mark_symbol_for_destruction(other_function->handle(), &database);
-				has_duplicate_functions = true;
-			}
+		if(group.is_in_group(function) && !function.address().valid()) {
+			function.mark_for_destruction();
+			marked = true;
 		}
 	}
 	
-	if(has_duplicate_functions) {
+	if(marked) {
+		// This will invalidate all pointers to symbols in the database.
 		database.destroy_marked_symbols();
 	}
 }
