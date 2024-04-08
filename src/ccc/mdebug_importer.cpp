@@ -13,9 +13,10 @@ static Result<void> resolve_type_name(
 	const SymbolGroup& group,
 	u32 importer_flags);
 static void compute_size_bytes(ast::Node& node, SymbolDatabase& database);
-static void remove_optimized_out_functions(
-	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group);
-static void remove_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group);
+static void detect_fake_functions(SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group);
+static bool mark_optimized_out_functions(
+	SymbolDatabase& database, const SymbolGroup& group);
+static bool mark_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group);
 
 Result<void> import_symbol_table(
 	SymbolDatabase& database,
@@ -117,16 +118,29 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 		}
 	}
 	
+	// If multiple functions appear at the same address, discard the addresses
+	// of all of them except the real one.
+	if(context.external_functions) {
+		detect_fake_functions(database, *context.external_functions, context.group);
+	}
+	
+	bool symbols_marked = false;
+	
 	// Remove functions with no address. Also, if multiple functions appear at
 	// the same address, destroy all of them except the real one.
-	if((context.importer_flags & NO_OPTIMIZED_OUT_FUNCTIONS) && context.external_functions) {
-		remove_optimized_out_functions(database, *context.external_functions, context.group);
+	if(context.importer_flags & NO_OPTIMIZED_OUT_FUNCTIONS) {
+		symbols_marked |= mark_optimized_out_functions(database, context.group);
 	}
 	
 	// Some games (e.g. Jet X2O) have multiple function symbols across different
 	// translation units with the same name and address.
 	if(context.importer_flags & DEDUPLICATE_FUNCTIONS) {
-		remove_duplicate_functions(database, context.group);
+		symbols_marked |= mark_duplicate_functions(database, context.group);
+	}
+	
+	if(symbols_marked) {
+		// This will invalidate all pointers to symbols in the database.
+		database.destroy_marked_symbols();
 	}
 	
 	return Result<void>();
@@ -501,17 +515,8 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 	});
 }
 
-static void remove_optimized_out_functions(
-	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group)
+static void detect_fake_functions(SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group)
 {
-	s32 optimized_out_function_count = 0;
-	for(Function& function : database.functions) {
-		if(group.is_in_group(function) && !function.address().valid()) {
-			function.mark_for_destruction();
-			optimized_out_function_count++;
-		}
-	}
-	
 	// Find cases where multiple fake function symbols were emitted for a given
 	// address and cross-reference with the external symbol table to try and
 	// find which one is the real one.
@@ -535,26 +540,37 @@ static void remove_optimized_out_functions(
 		}
 		
 		if(strcmp(function.mangled_name().c_str(), external_function->second->string) != 0) {
-			database.functions.mark_symbol_for_destruction(function.handle(), &database);
+			database.functions.move_symbol(function.handle(), Address());
 			
 			if(fake_function_count < 10) {
-				CCC_WARN("Discarding function symbol '%s' as it is probably incorrect.", function.mangled_name().c_str());
+				CCC_WARN("Discarding address of function symbol '%s' as it is probably incorrect.", function.mangled_name().c_str());
 			} else if(fake_function_count == 10) {
-				CCC_WARN("Discarding more function symbols.");
+				CCC_WARN("Discarding more addresses of function symbols.");
 			}
 			
 			fake_function_count++;
 		}
 	}
-	
-	if(optimized_out_function_count > 0 || fake_function_count > 0) {
-		database.destroy_marked_symbols();
-	}
 }
 
-static void remove_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group)
+static bool mark_optimized_out_functions(
+	SymbolDatabase& database, const SymbolGroup& group)
 {
-	bool has_duplicate_functions = false;
+	bool marked = false;
+	
+	for(Function& function : database.functions) {
+		if(group.is_in_group(function) && !function.address().valid()) {
+			function.mark_for_destruction();
+			marked = true;
+		}
+	}
+	
+	return marked;
+}
+
+static bool mark_duplicate_functions(SymbolDatabase& database, const SymbolGroup& group)
+{
+	bool marked = false;
 	
 	for(Function& function : database.functions) {
 		if(!function.is_marked_for_destruction() && !group.is_in_group(function)) {
@@ -578,14 +594,12 @@ static void remove_duplicate_functions(SymbolDatabase& database, const SymbolGro
 			bool matches = group.is_in_group(*other_function) && other_function->mangled_name() == function.mangled_name();
 			if(matches && other_function->handle() != function.handle()) {
 				database.functions.mark_symbol_for_destruction(other_function->handle(), &database);
-				has_duplicate_functions = true;
+				marked = true;
 			}
 		}
 	}
 	
-	if(has_duplicate_functions) {
-		database.destroy_marked_symbols();
-	}
+	return marked;
 }
 
 void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
