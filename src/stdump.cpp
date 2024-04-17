@@ -461,7 +461,7 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			options.flags |= FLAG_LOCAL_SYMBOLS;
 		} else if(strcmp(arg, "--externals") == 0) {
 			options.flags |= FLAG_EXTERNAL_SYMBOLS;
-		} else if(strcmp(arg, "--output") == 0) {
+		} else if(strcmp(arg, "--output") == 0 || strcmp(arg, "-o") == 0) {
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];
 			} else {
@@ -511,7 +511,7 @@ static void print_help(FILE* out)
 	fprintf(out, "\n");
 	fprintf(out, "Options:\n");
 	fprintf(out, "\n");
-	fprintf(out, "  --output <output file>        Write the output to the file specified instead\n");
+	fprintf(out, "  --output | -o <output file>   Write the output to the file specified instead\n");
 	fprintf(out, "                                of to the standard output.\n");
 	fprintf(out, "\n");
 	
