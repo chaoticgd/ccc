@@ -12,7 +12,7 @@ New features and changes:
 - Overloaded operator function names are now demangled.
 - Reworking the command-line interface of both stdump and uncc, adding many new options.
 - stdump: Fixed issue where the `headers` option (previously `mdebug`) would display some sizes as counts.
-- stdump: Demangling is now performed automatically unless `--mangled` is passed.
+- stdump: Demangling is now performed automatically unless `--dont-demangle-names` is passed.
 - uncc: Improve how pointers to global variables in other global variable data are printed.
 
 A bunch of .mdebug symbol table parsing issues have been fixed:
