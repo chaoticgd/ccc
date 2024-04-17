@@ -2,20 +2,28 @@
 
 ## v2.0
 
+New features and changes:
+
 - Added support for ELF and SNDLL symbol tables.
 - Rewrote core symbol table data structures.
 - Overhauled the JSON format.
 - Massively reduced memory usage.
 - Reworked error handling.
-- Fixed a bunch of STABS parsing issues.
-- Demangle overloaded operator function names.
-- stdump: Added `identify` command.
-- stdump: Removed `--verbose` option (no one actually used that, right?).
-- stdump: Dropped support for legacy command aliases (e.g. `print_types` instead of `types`).
-- stdump: Fixed issue where the `mdebug` option would display some sizes as counts.
+- Overloaded operator function names are now demangled.
+- Reworking the command-line interface of both stdump and uncc, adding many new options.
+- stdump: Fixed issue where the `headers` option (previously `mdebug`) would display some sizes as counts.
 - stdump: Demangling is now performed automatically unless `--mangled` is passed.
-- uncc: Improve how pointers to global variables in other global variable data is printed.
-- Probably lots more I'm forgetting!
+- uncc: Improve how pointers to global variables in other global variable data are printed.
+
+A bunch of .mdebug symbol table parsing issues have been fixed:
+
+- Virtual inheritance is now detected.
+- The logic for determining if a struct was defined using a typedef has been fixed.
+- Handled some rare cases where corrupted STABS strings could be generated for certain instantiated template types.
+- Some redundant STABS base class information is now parsed. The previous behaviour would very rarely cause some other symbols in the same translation unit to be parsed incorrectly.
+- Certain cases where incorrect function symbols would be emitted are now caught and handled.
+- A compiler bug where the STABS type for a structure or union would be recursively emitted inside its own definition is now handled.
+- A rare case where relative addresses were incorrectly emitted for static functions is now handled better.
 
 ## v1.2.1
 
