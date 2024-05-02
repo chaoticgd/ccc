@@ -590,11 +590,7 @@ static void detect_fake_functions(SymbolDatabase& database, const std::map<u32, 
 		}
 		
 		auto external_function = external_functions.find(function.address().value);
-		if(external_function == external_functions.end()) {
-			continue;
-		}
-		
-		if(strcmp(function.mangled_name().c_str(), external_function->second->string) != 0) {
+		if(external_function == external_functions.end() || strcmp(function.mangled_name().c_str(), external_function->second->string) != 0) {
 			database.functions.move_symbol(function.handle(), Address());
 			
 			if(fake_function_count < 10) {
