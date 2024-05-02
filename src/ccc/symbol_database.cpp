@@ -226,9 +226,11 @@ template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
 {
-	CCC_CHECK(m_next_handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
-	
-	u32 handle = m_next_handle.fetch_add(1);
+	u32 handle;
+	do {
+		handle = m_next_handle;
+		CCC_CHECK(handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
+	} while(!m_next_handle.compare_exchange_weak(handle, handle + 1));
 	
 	SymbolType& symbol = m_symbols.emplace_back();
 	
