@@ -252,7 +252,7 @@ struct Address {
 		if(address != 0) {
 			result = address;
 		}
-		return address;
+		return result;
 	}
 	
 	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;
