@@ -558,17 +558,6 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			Result<StabsStructOrUnionType::Visibility> visibility = parse_visibility_character(input);
 			CCC_RETURN_IF_ERROR(visibility);
 			field.visibility = *visibility;
-			
-			switch(field.visibility) {
-				case StabsStructOrUnionType::Visibility::NONE:
-				case StabsStructOrUnionType::Visibility::PRIVATE:
-				case StabsStructOrUnionType::Visibility::PROTECTED:
-				case StabsStructOrUnionType::Visibility::PUBLIC:
-				case StabsStructOrUnionType::Visibility::PUBLIC_OPTIMIZED_OUT:
-					break;
-				default:
-					return CCC_FAILURE("invalid field visibility");
-			}
 		}
 		if(*input == ':') {
 			input = before_field;
