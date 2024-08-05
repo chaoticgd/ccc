@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.1
+
+- Fixed an issue where null addresses would be handled incorrectly.
+- stdump: Added `--sort-by-address` option.
+
 ## v2.0
 
 New features and changes:

@@ -10,8 +10,9 @@ using namespace ccc;
 
 enum Flags {
 	NO_FLAGS = 0,
-	FLAG_LOCAL_SYMBOLS = 1 << 0,
-	FLAG_EXTERNAL_SYMBOLS = 1 << 1,
+	FLAG_SORT_BY_ADDRESS = 1 << 0,
+	FLAG_LOCAL_SYMBOLS = 1 << 1,
+	FLAG_EXTERNAL_SYMBOLS = 1 << 2,
 };
 
 struct Options {
@@ -49,7 +50,6 @@ struct StdumpCommand {
 	const char* name;
 	std::vector<const char*> help_text;
 };
-
 static const StdumpCommand commands[] = {
 	{identify_symbol_tables, "identify", {
 		"Identify the symbol table(s) present in the input file(s). If the input path",
@@ -198,14 +198,25 @@ static void print_functions(FILE* out, const Options& options)
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
+	std::vector<const Function*> functions;
+	for(const Function& function : database.functions) {
+		functions.emplace_back(&function);
+	}
+	
+	if(options.flags & FLAG_SORT_BY_ADDRESS) {
+		std::sort(CCC_BEGIN_END(functions), [&](const Function* lhs, const Function* rhs) {
+			return lhs->address() < rhs->address();
+		});
+	}
+	
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	
 	bool first_iteration = true;
 	SourceFileHandle source_file_handle;
-	for(const Function& function : database.functions) {
-		if(function.source_file() != source_file_handle || first_iteration) {
-			SourceFile* source_file = database.source_files.symbol_from_handle(function.source_file());
+	for(const Function* function : functions) {
+		if(function->source_file() != source_file_handle || first_iteration) {
+			SourceFile* source_file = database.source_files.symbol_from_handle(function->source_file());
 			if(source_file) {
 				printer.comment_block_file(source_file->full_path().c_str());
 				source_file_handle = source_file->handle();
@@ -216,7 +227,7 @@ static void print_functions(FILE* out, const Options& options)
 			first_iteration = false;
 		}
 		
-		printer.function(function, database, nullptr);
+		printer.function(*function, database, nullptr);
 	}
 }
 
@@ -225,14 +236,25 @@ static void print_globals(FILE* out, const Options& options)
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
+	std::vector<const GlobalVariable*> global_variables;
+	for(const GlobalVariable& global_variable : database.global_variables) {
+		global_variables.emplace_back(&global_variable);
+	}
+	
+	if(options.flags & FLAG_SORT_BY_ADDRESS) {
+		std::sort(CCC_BEGIN_END(global_variables), [&](const GlobalVariable* lhs, const GlobalVariable* rhs) {
+			return lhs->address() < rhs->address();
+		});
+	}
+	
 	CppPrinterConfig config;
 	CppPrinter printer(out, config);
 	
 	bool first_iteration = true;
 	SourceFileHandle source_file_handle;
-	for(const GlobalVariable& global_variable : database.global_variables) {
-		if(global_variable.source_file() != source_file_handle || first_iteration) {
-			SourceFile* source_file = database.source_files.symbol_from_handle(global_variable.source_file());
+	for(const GlobalVariable* global_variable : global_variables) {
+		if(global_variable->source_file() != source_file_handle || first_iteration) {
+			SourceFile* source_file = database.source_files.symbol_from_handle(global_variable->source_file());
 			if(source_file) {
 				printer.comment_block_file(source_file->full_path().c_str());
 				source_file_handle = source_file->handle();
@@ -243,7 +265,7 @@ static void print_globals(FILE* out, const Options& options)
 			first_iteration = false;
 		}
 		
-		printer.global_variable(global_variable, database, nullptr);
+		printer.global_variable(*global_variable, database, nullptr);
 	}
 }
 
@@ -303,8 +325,19 @@ static void print_labels(FILE* out, const Options& options)
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
+	std::vector<const Label*> labels;
 	for(const Label& label : database.labels) {
-		fprintf(out, "%08x %s\n", label.address().value, label.name().c_str());
+		labels.emplace_back(&label);
+	}
+	
+	if(options.flags & FLAG_SORT_BY_ADDRESS) {
+		std::sort(CCC_BEGIN_END(labels), [&](const Label* lhs, const Label* rhs) {
+			return lhs->address() < rhs->address();
+		});
+	}
+	
+	for(const Label* label : labels) {
+		fprintf(out, "%08x %s\n", label->address().value, label->name().c_str());
 	}
 }
 
@@ -457,6 +490,8 @@ static Options parse_command_line_arguments(int argc, char** argv)
 		u32 importer_flag = parse_importer_flag(arg);
 		if(importer_flag != NO_IMPORTER_FLAGS) {
 			options.importer_flags |= importer_flag;
+		} else if(strcmp(arg, "--sort-by-address") == 0) {
+			options.flags |= FLAG_SORT_BY_ADDRESS;
 		} else if(strcmp(arg, "--locals") == 0) {
 			options.flags |= FLAG_LOCAL_SYMBOLS;
 		} else if(strcmp(arg, "--externals") == 0) {
@@ -560,6 +595,8 @@ static void print_help(FILE* out)
 		}
 		column += strlen(format.format_name) + 2;
 	}
+	fprintf(out, "\n");
+	fprintf(out, "  --sort-by-address             Sort symbols by their addresses.\n");
 	fprintf(out, "\n");
 	fprintf(out, "Importer Options:\n");
 	print_importer_flags_help(out);
