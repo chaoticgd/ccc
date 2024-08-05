@@ -59,7 +59,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ### MIPS Debug (.mdebug) Section
 
-- [Third Eye Software and the MIPS symbol table (Peter Rowell)](http://datahedron.com/mips.html) / [in-repo mirror](docs/mirror/ThirdEyeSoftwareAndTheMIPSSymbolTable.html) / [archive.org mirror](https://web.archive.org/web/20230605005654/http://datahedron.com/mips.html)
+- [Third Eye Software and the MIPS symbol table (Peter Rowell)](http://datahedron.com/mips.html) / [in-repo mirror](docs/mirror/ThirdEyeSoftware.html) / [archive.org mirror](https://web.archive.org/web/20230605005654/http://datahedron.com/mips.html)
 - [MIPS Mdebug Debugging Information (David Anderson, 1996)](https://www.prevanders.net/Mdebug.ps) / [in-repo mirror](docs/mirror/Mdebug.ps) / [archive.org mirror](https://web.archive.org/web/20170305060746/https://www.prevanders.net/Mdebug.ps)
 - MIPS Assembly Language Programmer's Guide, Symbol Table Chapter (Silicon Graphics, 1992) / [in-repo mirror](docs/mirror/MIPSProgrammingGuide.pdf)
 - Tru64 UNIX Object File and Symbol Table Format Specification, Symbol Table Chapter
