@@ -75,7 +75,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ### STABS
 
-- [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / [in-repo mirror](docs/mirror/STABS.html) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
+- [The "stabs" representation of debugging information (Julia Menapace, Jim Kingdon, and David MacKenzie, 1992-???)](https://sourceware.org/gdb/onlinedocs/stabs.html) / in-repo mirror ([HTML](docs/mirror/stabs.html), [PDF](docs/mirror/stabs.pdf)) / [archive.org mirror](https://web.archive.org/web/20230328114854/https://sourceware.org/gdb/onlinedocs/stabs.html/)
 - `stabs.c` from binutils (reading)
 - `stabsread.c` from gdb (reading)
 - `dbxread.c` from gdb (reading)
