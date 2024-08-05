@@ -944,7 +944,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
-			// We don't want to merge together types from different source or
+			// We don't want to merge together types from different sources or
 			// modules so that we can destroy all the types from one source
 			// without breaking anything else.
 			if(!group.is_in_group(*existing_type)) {
@@ -976,6 +976,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 				break;
 			}
 		}
+		
 		if(!match) {
 			// This type doesn't match any of the others with the same name
 			// that have already been processed.
