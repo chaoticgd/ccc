@@ -2,6 +2,7 @@
 
 ## v2.1
 
+- Variable symbols are no longer incorrectly deduplicated as if they were types.
 - Fixed an issue where null addresses would be handled incorrectly.
 - stdump: Added `--sort-by-address` option.
 

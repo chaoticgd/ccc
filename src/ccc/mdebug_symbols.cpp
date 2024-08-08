@@ -172,6 +172,13 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 			continue;
 		}
 		
+		bool is_type =
+			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME ||
+			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG;
+		if(!is_type) {
+			continue;
+		}
+		
 		StabsType& type = *symbol.name_colon_type.type;
 		
 		if(!type.descriptor.has_value()) {
