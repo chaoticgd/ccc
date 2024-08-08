@@ -326,7 +326,9 @@ void CppPrinter::global_variable(
 	
 	global_storage_comment(symbol.storage, symbol.address());
 	
-	if(m_config.make_globals_extern) {
+	if(symbol.storage_class != STORAGE_CLASS_NONE) {
+		print_cpp_storage_class(out, symbol.storage_class);
+	} else if(m_config.make_globals_extern) {
 		print_cpp_storage_class(out, STORAGE_CLASS_EXTERN);
 	}
 	
