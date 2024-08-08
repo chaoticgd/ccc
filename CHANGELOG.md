@@ -3,6 +3,7 @@
 ## v2.1
 
 - Variable symbols are no longer incorrectly deduplicated as if they were types.
+- Structs defined inside global variable definitions are now printed with the correct C++ syntax.
 - Fixed an issue where null addresses would be handled incorrectly.
 - stdump: Added `--sort-by-address` option.
 

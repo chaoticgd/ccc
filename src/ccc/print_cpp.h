@@ -55,6 +55,7 @@ protected:
 		s32 base_offset,
 		s32 indentation_level,
 		const SymbolDatabase& database,
+		SymbolDescriptor symbol_descriptor,
 		bool print_body = true);
 	void function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database);
 	void refined_data(const RefinedData& data, s32 indentation_level);
