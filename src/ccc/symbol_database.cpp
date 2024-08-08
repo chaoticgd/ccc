@@ -245,10 +245,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 		symbol.m_address = address;
 	}
 	
-	// Call SymbolType::on_create if it exists.
-	if constexpr(requires { symbol.on_create(); }) {
-		symbol.on_create();
-	}
+	symbol.on_create();
 	
 	CCC_ASSERT(symbol.source().valid());
 	
@@ -379,10 +376,7 @@ bool SymbolList<SymbolType>::mark_symbol_for_destruction(SymbolHandle<SymbolType
 	
 	symbol->mark_for_destruction();
 	
-	// Call SymbolType::on_destroy if it exists.
-	if constexpr(requires { symbol->on_destroy(database); }) {
-		symbol->on_destroy(database);
-	}
+	symbol->on_destroy(database);
 	
 	return true;
 }
@@ -397,10 +391,7 @@ void SymbolList<SymbolType>::mark_symbols_from_source_for_destruction(SymbolSour
 		
 		symbol.mark_for_destruction();
 		
-		// Call SymbolType::on_destroy if it exists.
-		if constexpr(requires { symbol.on_destroy(database); }) {
-			symbol.on_destroy(database);
-		}
+		symbol.on_destroy(database);
 	}
 }
 
@@ -414,10 +405,7 @@ void SymbolList<SymbolType>::mark_symbols_from_module_for_destruction(ModuleHand
 		
 		symbol.mark_for_destruction();
 		
-		// Call SymbolType::on_destroy if it exists.
-		if constexpr(requires { symbol.on_destroy(database); }) {
-			symbol.on_destroy(database);
-		}
+		symbol.on_destroy(database);
 	}
 }
 

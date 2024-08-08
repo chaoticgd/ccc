@@ -251,6 +251,9 @@ public:
 	bool is_marked_for_destruction() { return m_marked_for_destruction; }
 	
 protected:
+	void on_create() {}
+	void on_destroy(SymbolDatabase* database) {}
+	
 	u32 m_handle = (u32) -1;
 	SymbolSourceHandle m_source;
 	Address m_address;
