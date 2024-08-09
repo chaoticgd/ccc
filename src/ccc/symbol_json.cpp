@@ -7,7 +7,7 @@
 
 namespace ccc {
 
-const u32 JSON_FORMAT_VERSION = 13;
+const u32 JSON_FORMAT_VERSION = 14;
 
 template <typename SymbolType>
 static void write_symbol_list(
@@ -170,6 +170,11 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 	if(symbol.storage_class != STORAGE_CLASS_NONE) {
 		json.Key("storage_class");
 		json.String(ast::storage_class_to_string(symbol.storage_class));
+	}
+	
+	if(symbol.stack_frame_size > -1) {
+		json.Key("stack_frame_size");
+		json.Int(symbol.stack_frame_size);
 	}
 	
 	if(!symbol.line_numbers.empty()) {

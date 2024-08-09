@@ -388,6 +388,7 @@ public:
 	
 	std::string relative_path;
 	StorageClass storage_class;
+	s32 stack_frame_size = -1;
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
 	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.

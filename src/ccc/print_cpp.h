@@ -24,6 +24,7 @@ struct CppPrinterConfig {
 	bool omit_this_parameter : 1 = false;
 	bool substitute_parameter_lists : 1 = false;
 	bool skip_member_functions_outside_types : 1 = false;
+	bool caller_stack_offsets : 1 = false;
 };
 
 class CppPrinter {
@@ -57,11 +58,11 @@ protected:
 		const SymbolDatabase& database,
 		SymbolDescriptor symbol_descriptor,
 		bool print_body = true);
-	void function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database);
+	void function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database, s32 stack_frame_size = -1);
 	void refined_data(const RefinedData& data, s32 indentation_level);
 	void global_storage_comment(const GlobalStorage& storage, Address address);
 	void register_storage_comment(const RegisterStorage& storage);
-	void stack_storage_comment(const StackStorage& storage);
+	void stack_storage_comment(const StackStorage& storage, s32 stack_frame_size = -1);
 	void offset(const ast::Node& node, s32 base_offset);
 
 	CppPrinterConfig m_config;
