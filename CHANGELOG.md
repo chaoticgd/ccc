@@ -6,6 +6,7 @@
 - The static keyword is no longer missing from the output for static global variables.
 - Structs defined inside global variable definitions are now printed with the correct C++ syntax.
 - Fixed an issue where null addresses would be handled incorrectly.
+- stdump: Added `--procedures` option.
 - stdump: Added `--sort-by-address` option.
 
 ## v2.0
