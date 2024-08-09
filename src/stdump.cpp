@@ -1,6 +1,8 @@
 // This file is part of the Chaos Compiler Collection.
 // SPDX-License-Identifier: MIT
 
+#include <algorithm>
+
 #include "ccc/ccc.h"
 #include "platform/file.h"
 #define HAVE_DECL_BASENAME 1
