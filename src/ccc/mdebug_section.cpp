@@ -308,8 +308,8 @@ static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& pro
 	fprintf(out, "                    Saved Register Mask         %d\n", procedure_descriptor.saved_register_mask);
 	fprintf(out, "                    Saved Register Offset       %d\n", procedure_descriptor.saved_register_offset);
 	fprintf(out, "                    Optimization Entry Index    %d\n", procedure_descriptor.optimization_entry_index);
-	fprintf(out, "                    Saved Register Mask         %d\n", procedure_descriptor.fsaved_register_mask);
-	fprintf(out, "                    Saved Register Offset       %d\n", procedure_descriptor.fsaved_register_offset);
+	fprintf(out, "                    Saved Float Register Mask   %d\n", procedure_descriptor.saved_float_register_mask);
+	fprintf(out, "                    Saved Float Register Offset %d\n", procedure_descriptor.saved_float_register_offset);
 	fprintf(out, "                    Frame Size                  %d\n", procedure_descriptor.frame_size);
 	fprintf(out, "                    Frame Pointer Register      %hd\n", procedure_descriptor.frame_pointer_register);
 	fprintf(out, "                    Return PC Register          %hd\n", procedure_descriptor.return_pc_register);
