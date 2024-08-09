@@ -77,8 +77,8 @@ static const StdumpCommand commands[] = {
 		"Print all of the above as JSON."
 	}},
 	{print_symbols, "symbols", {
-		"Print all the raw symbols in the input symbol table(s). If no additional",
-		"options are passed, the default behaviour is to print the local and external",
+		"Print the raw symbols in the input symbol table(s). If no additional options",
+		"are passed, the default behaviour is to print the local and external .mdebug",
 		"symbols, but not the procedure descriptors.",
 		"",
 		"--locals                      Print local .mdebug symbols.",
