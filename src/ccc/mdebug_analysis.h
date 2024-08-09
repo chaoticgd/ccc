@@ -54,7 +54,8 @@ public:
 	Result<void> global_variable(
 		const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location);
 	Result<void> sub_source_file(const char* name, Address text_address);
-	Result<void> procedure(const char* mangled_name, Address address, bool is_static);
+	Result<void> procedure(
+		const char* mangled_name, Address address, const ProcedureDescriptor* procedure_descriptor, bool is_static);
 	Result<void> label(const char* label, Address address, s32 line_number);
 	Result<void> text_end(const char* name, s32 function_size);
 	Result<void> function(const char* mangled_name, const StabsType& return_type, Address address);

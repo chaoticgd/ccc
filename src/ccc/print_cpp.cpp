@@ -209,7 +209,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	// Print out the parameter list.
 	fprintf(out, "(");
 	if(symbol.parameter_variables().has_value()) {
-		function_parameters(parameter_variables, database);
+		function_parameters(parameter_variables, database, symbol.stack_frame_size);
 	} else {
 		fprintf(out, "/* parameters unknown */");
 	}
@@ -240,7 +240,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 					}
 					
 					if(const StackStorage* storage = std::get_if<StackStorage>(&variable->storage)) {
-						stack_storage_comment(*storage);
+						stack_storage_comment(*storage, symbol.stack_frame_size);
 					}
 					
 					if(variable->type()) {
@@ -639,7 +639,7 @@ void CppPrinter::ast_node(
 	}
 }
 
-void CppPrinter::function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database)
+void CppPrinter::function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database, s32 stack_frame_size)
 {
 	bool skip_this = m_config.omit_this_parameter && !parameters.empty() && parameters[0]->name() == "this";
 	for(size_t i = skip_this ? 1 : 0; i < parameters.size(); i++) {
@@ -650,7 +650,7 @@ void CppPrinter::function_parameters(std::span<const ParameterVariable*> paramet
 		}
 		
 		if(const StackStorage* storage = std::get_if<StackStorage>(&parameter_variable.storage)) {
-			stack_storage_comment(*storage);
+			stack_storage_comment(*storage, stack_frame_size);
 		}
 		
 		VariableName variable_name;
@@ -757,14 +757,21 @@ void CppPrinter::register_storage_comment(const RegisterStorage& storage)
 	}
 }
 
-void CppPrinter::stack_storage_comment(const StackStorage& storage)
+void CppPrinter::stack_storage_comment(const StackStorage& storage, s32 stack_frame_size)
 {
 	if(m_config.print_storage_information) {
 		fprintf(out, "/* ");
-		if(storage.stack_pointer_offset >= 0) {
-			fprintf(out, "0x%x(sp)", storage.stack_pointer_offset);
+		s32 display_offset = storage.stack_pointer_offset;
+		const char* prefix = "";
+		if(stack_frame_size > -1 && !m_config.caller_stack_offsets) {
+			display_offset += stack_frame_size;
 		} else {
-			fprintf(out, "-0x%x(sp)", -storage.stack_pointer_offset);
+			prefix = "caller ";
+		}
+		if(display_offset >= 0) {
+			fprintf(out, "0x%x(%ssp)", display_offset, prefix);
+		} else {
+			fprintf(out, "-0x%x(%ssp)", -display_offset, prefix);
 		}
 		fprintf(out, " */ ");
 	}

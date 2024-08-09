@@ -11,9 +11,10 @@ using namespace ccc;
 enum Flags {
 	NO_FLAGS = 0,
 	FLAG_SORT_BY_ADDRESS = 1 << 0,
-	FLAG_LOCAL_SYMBOLS = 1 << 1,
-	FLAG_PROCEDURE_DESCRIPTORS = 1 << 2,
-	FLAG_EXTERNAL_SYMBOLS = 1 << 3
+	FLAG_CALLER_STACK_OFFSETS = 1 << 1,
+	FLAG_LOCAL_SYMBOLS = 1 << 2,
+	FLAG_PROCEDURE_DESCRIPTORS = 1 << 3,
+	FLAG_EXTERNAL_SYMBOLS = 1 << 4
 };
 
 struct Options {
@@ -216,6 +217,8 @@ static void print_functions(FILE* out, const Options& options)
 	}
 	
 	CppPrinterConfig config;
+	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
+	
 	CppPrinter printer(out, config);
 	
 	bool first_iteration = true;
@@ -254,6 +257,8 @@ static void print_globals(FILE* out, const Options& options)
 	}
 	
 	CppPrinterConfig config;
+	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
+	
 	CppPrinter printer(out, config);
 	
 	bool first_iteration = true;
@@ -290,6 +295,8 @@ static void print_types(FILE* out, const Options& options)
 static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options)
 {
 	CppPrinterConfig config;
+	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
+	
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
 	printer.comment_block_toolchain_version_info(database);
@@ -302,6 +309,8 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options)
 {
 	CppPrinterConfig config;
+	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
+	
 	CppPrinter printer(out, config);
 	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
 	
@@ -501,6 +510,8 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			options.importer_flags |= importer_flag;
 		} else if(strcmp(arg, "--sort-by-address") == 0) {
 			options.flags |= FLAG_SORT_BY_ADDRESS;
+		} else if(strcmp(arg, "--caller-stack-offsets") == 0) {
+			options.flags |= FLAG_CALLER_STACK_OFFSETS;
 		} else if(strcmp(arg, "--locals") == 0) {
 			options.flags |= FLAG_LOCAL_SYMBOLS;
 		} else if(strcmp(arg, "--procedures") == 0) {
@@ -608,6 +619,14 @@ static void print_help(FILE* out)
 	}
 	fprintf(out, "\n");
 	fprintf(out, "  --sort-by-address             Sort symbols by their addresses.\n");
+	fprintf(out, "\n");
+	fprintf(out, "  --caller-stack-offsets        Print the offsets of stack variables relative to\n");
+	fprintf(out, "                                to value of the stack pointer register in the\n");
+	fprintf(out, "                                caller rather than the value of the stack\n");
+	fprintf(out, "                                pointer in the current function. These offsets\n");
+	fprintf(out, "                                will be printed out as \"0xN(caller sp)\" instead\n");
+	fprintf(out, "                                of \"0xN(sp)\". This option does not affect the\n");
+	fprintf(out, "                                JSON output.\n");
 	fprintf(out, "\n");
 	fprintf(out, "Importer Options:\n");
 	print_importer_flags_help(out);

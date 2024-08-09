@@ -11,7 +11,7 @@ using namespace ccc::mdebug;
 // real compiler outputs from the old homebrew toolchain (GCC 3.2.3) except
 // where otherwise stated.
 
-static Result<SymbolDatabase> run_importer(const char* name, const mdebug::File& input)
+static Result<SymbolDatabase> run_importer(const char* name, mdebug::File& input, ProcedureDescriptor procedure_descriptor)
 {
 	SymbolDatabase database;
 	
@@ -22,18 +22,22 @@ static Result<SymbolDatabase> run_importer(const char* name, const mdebug::File&
 	context.group.source = (*symbol_source)->handle();
 	context.importer_flags = DONT_DEDUPLICATE_SYMBOLS | STRICT_PARSING;
 	
+	for(mdebug::Symbol& symbol : input.symbols) {
+		symbol.procedure_descriptor = &procedure_descriptor;
+	}
+	
 	Result<void> result = import_file(database, input, context);
 	CCC_RETURN_IF_ERROR(result);
 	
 	return database;
 }
 
-#define MDEBUG_IMPORTER_TEST(name, symbols) \
+#define MDEBUG_IMPORTER_TEST(name, symbols, procedure_descriptor) \
 	static void mdebug_importer_test_##name(SymbolDatabase& database); \
 	TEST(CCCMdebugImporter, name) \
 	{ \
 		mdebug::File input = {std::vector<mdebug::Symbol>symbols}; \
-		Result<SymbolDatabase> database = run_importer(#name, input); \
+		Result<SymbolDatabase> database = run_importer(#name, input, ProcedureDescriptor procedure_descriptor); \
 		CCC_GTEST_FAIL_IF_ERROR(database); \
 		mdebug_importer_test_##name(*database); \
 	} \
@@ -46,7 +50,7 @@ static Result<SymbolDatabase> run_importer(const char* name, const mdebug::File&
 MDEBUG_IMPORTER_TEST(Enum,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "Enum:t(1,1)=e;"}
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("Enum");
@@ -62,7 +66,7 @@ MDEBUG_IMPORTER_TEST(NamedTypedefedEnum,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "Enum:t(1,1)=e;"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "Enum:t(1,2)=(1,1)"}
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("Enum");
@@ -78,7 +82,7 @@ MDEBUG_IMPORTER_TEST(ErraticEnum,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), " :T(1,1)=e;"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "ErraticEnum:t(1,2)=(1,1)"}
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("ErraticEnum");
@@ -94,7 +98,7 @@ MDEBUG_IMPORTER_TEST(Struct,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "Struct:T(1,1)=s1;"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "Struct:t(1,1)"}
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("Struct");
@@ -109,7 +113,7 @@ MDEBUG_IMPORTER_TEST(Struct,
 MDEBUG_IMPORTER_TEST(TypedefedStruct,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "TypedefedStruct:t(1,1)=s1;"}
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("TypedefedStruct");
@@ -126,7 +130,7 @@ MDEBUG_IMPORTER_TEST(NamedTypedefedStruct,
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "NamedTypedefedStruct:T(1,1)=s1;"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "NamedTypedefedStruct:t(1,1)"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "NamedTypedefedStruct:t(1,2)=(1,1)"}
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("NamedTypedefedStruct");
@@ -142,7 +146,7 @@ MDEBUG_IMPORTER_TEST(StrangeStruct,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "StrangeStruct:T(1,1)=s1;"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "StrangeStruct:t(1,2)=(1,1)"}
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("StrangeStruct");
@@ -166,7 +170,7 @@ MDEBUG_IMPORTER_TEST(PeculiarParameter,
 						"(1,2)"
 					";:RC17PeculiarParameter;2A.;;"
 				";:RC17PeculiarParameter;2A.;;"},
-	}))
+	}), {})
 {
 	// Lookup the data type.
 	DataTypeHandle handle = database.data_types.first_handle_from_name("PeculiarParameter");
@@ -193,7 +197,7 @@ MDEBUG_IMPORTER_TEST(PeculiarParameter,
 MDEBUG_IMPORTER_TEST(VexingVoid,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "VexingVoid:t1=1"},
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 1);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("VexingVoid");
@@ -209,7 +213,7 @@ MDEBUG_IMPORTER_TEST(VillanousVoid,
 	({
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "__builtin_va_list:t(0,22)=*(0,23)=(0,23)"},
 		{0x00000000, SymbolType::NIL, SymbolClass::NIL, STABS_CODE(N_LSYM), "VillanousVoid:t(1,1)=(0,22)"},
-	}))
+	}), {})
 {
 	EXPECT_EQ(database.data_types.size(), 2);
 	DataTypeHandle handle = database.data_types.first_handle_from_name("VillanousVoid");
@@ -231,7 +235,7 @@ MDEBUG_IMPORTER_TEST(SimpleFunction,
 		{0x00000000, SymbolType::PROC,  SymbolClass::TEXT, 1,                  "_Z14SimpleFunctionv"},
 		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                  "$LM2"},
 		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 31,                 "_Z14SimpleFunctionv"}
-	}))
+	}), ({0, 31, -1, 1073741824, -16, 0, 0, 0, 16, 30, 31, -1, -1}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
 	FunctionHandle handle = database.functions.first_handle_from_name("_Z14SimpleFunctionv");
@@ -249,7 +253,7 @@ MDEBUG_IMPORTER_TEST(SimpleFunctionIOP,
 		{0x0000000c, SymbolType::LABEL, SymbolClass::TEXT, 1,                  "$LM2"},
 		{0x00000020, SymbolType::END,   SymbolClass::TEXT, 27,                 "SimpleFunctionIOP"},
 		{0x00000000, SymbolType::LABEL, SymbolClass::TEXT, STABS_CODE(N_FUN),  "SimpleFunctionIOP:F22"}
-	}))
+	}), ({0, 27, -1, 1073741824, -8, 0, 0, 0, 8, 30, 31, -1, -1, 0}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
 	FunctionHandle handle = database.functions.first_handle_from_name("SimpleFunctionIOP");
@@ -293,7 +297,7 @@ MDEBUG_IMPORTER_TEST(ComplicatedFunction,
 		{0x000000cc, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
 		{0x000000e0, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""},
 		{0x000000e8, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), ""}
-	}))
+	}), ({0, 34, -1, 1073741824, -16, 0, 0, 0, 48, 30, 31, -1, -1, 0}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
 	EXPECT_EQ(database.local_variables.size(), 4);
@@ -334,7 +338,7 @@ MDEBUG_IMPORTER_TEST(ComplicatedFunctionIOP,
 		{0x000000d4, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_LBRAC), "$LBB4"},
 		{0x00000114, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE4"},
 		{0x00000138, SymbolType::NIL,   SymbolClass::NIL,  STABS_CODE(N_RBRAC), "$LBE2"}
-	}))
+	}), ({0, 27, -1, -1073741824, -4, 0, 0, 0, 48, 30, 31, -1, -1, 0}))
 {
 	EXPECT_EQ(database.functions.size(), 1);
 	EXPECT_EQ(database.local_variables.size(), 4);

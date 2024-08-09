@@ -8,7 +8,8 @@ and `ast_json.cpp` for the code that currently defines the format.
 
 | Format Version | Release | Changes |
 | - | - | - |
-| 13 | | Added size_bytes field to all nodes. Renamed data_type_handle property to just data_type (since it's not a handle). |
+| 14 | v2.1 | Added stack_frame_size property for function symbols. |
+| 13 | v2.0 | Added size_bytes field to all nodes. Renamed data_type_handle property to just data_type (since it's not a handle). |
 | 12 | | Added format and application properties to root object. Added hash property to function symbols. |
 | 11 | | Lists of indices (instead of begin and end indices) are now used for relationships between symbols. |
 | 10 | | Added modules as their own symbol type. Removed the text_address property of source file symbols. |
