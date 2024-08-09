@@ -47,8 +47,8 @@ CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x1c */ s32 cline;
 	/* 0x20 */ s32 optimization_entry_index_base;
 	/* 0x24 */ s32 copt;
-	/* 0x28 */ s16 ipd_first;
-	/* 0x2a */ s16 procedure_descriptor_count;
+	/* 0x28 */ u16 ipd_first;
+	/* 0x2a */ u16 procedure_descriptor_count;
 	/* 0x2c */ s32 iaux_base;
 	/* 0x30 */ s32 caux;
 	/* 0x34 */ s32 rfd_base;
