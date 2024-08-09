@@ -172,13 +172,14 @@ Result<void> MdebugSymbolTable::print_headers(FILE* out) const
 	return Result<void>();
 }
 
-Result<void> MdebugSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+Result<void> MdebugSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	mdebug::SymbolTableReader reader;
 	Result<void> reader_result = reader.init(m_image, m_section_offset);
 	CCC_RETURN_IF_ERROR(reader_result);
 	
-	Result<void> print_result = reader.print_symbols(out, print_locals, print_externals);
+	Result<void> print_result = reader.print_symbols(
+		out, flags & PRINT_LOCALS, flags & PRINT_PROCEDURE_DESCRIPTORS, flags & PRINT_EXTERNALS);
 	CCC_RETURN_IF_ERROR(print_result);
 	
 	return Result<void>();
@@ -209,7 +210,7 @@ Result<void> SymtabSymbolTable::print_headers(FILE* out) const
 	return Result<void>();
 }
 
-Result<void> SymtabSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+Result<void> SymtabSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	Result<void> symbtab_result = elf::print_symbol_table(out, m_symtab, m_strtab);
 	CCC_RETURN_IF_ERROR(symbtab_result);
@@ -242,7 +243,7 @@ Result<void> SNDLLSymbolTable::print_headers(FILE* out) const
 	return Result<void>();
 }
 
-Result<void> SNDLLSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+Result<void> SNDLLSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	print_sndll_symbols(out, *m_sndll);
 	
@@ -274,7 +275,7 @@ Result<void> ElfSectionHeadersSymbolTable::print_headers(FILE* out) const
 	return Result<void>();
 }
 
-Result<void> ElfSectionHeadersSymbolTable::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+Result<void> ElfSectionHeadersSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	return Result<void>();
 }

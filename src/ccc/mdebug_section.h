@@ -102,12 +102,31 @@ enum StabsCode {
 	N_LENG = 0xfe
 };
 
+CCC_PACKED_STRUCT(ProcedureDescriptor,
+	/* 0x00 */ u32 address;
+	/* 0x04 */ u32 symbol_index;
+	/* 0x08 */ s32 line_number_entry_index;
+	/* 0x0c */ s32 saved_register_mask;
+	/* 0x10 */ s32 saved_register_offset;
+	/* 0x14 */ s32 optimization_entry_index;
+	/* 0x18 */ s32 fsaved_register_mask;
+	/* 0x1c */ s32 fsaved_register_offset;
+	/* 0x20 */ s32 frame_size;
+	/* 0x24 */ s16 frame_pointer_register;
+	/* 0x26 */ s16 return_pc_register;
+	/* 0x28 */ s32 line_number_low;
+	/* 0x2c */ s32 line_number_high;
+	/* 0x30 */ u32 line_number_offset;
+)
+static_assert(sizeof(ProcedureDescriptor) == 0x34);
+
 struct Symbol {
 	u32 value;
 	SymbolType symbol_type;
 	SymbolClass symbol_class;
 	u32 index;
 	const char* string;
+	const ProcedureDescriptor* procedure_descriptor = nullptr;
 	
 	bool is_stabs() const {
 		return (index & 0xfff00) == 0x8f300;
@@ -135,7 +154,7 @@ public:
 	Result<std::vector<Symbol>> parse_external_symbols() const;
 	
 	void print_header(FILE* out) const;
-	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const;
+	Result<void> print_symbols(FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const;
 
 protected:
 	bool m_ready = false;

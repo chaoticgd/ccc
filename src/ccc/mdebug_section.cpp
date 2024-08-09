@@ -43,12 +43,12 @@ CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x0c */ s32 cb_ss;
 	/* 0x10 */ s32 isym_base;
 	/* 0x14 */ s32 symbol_count;
-	/* 0x18 */ s32 iline_base;
+	/* 0x18 */ s32 line_number_entry_index_base;
 	/* 0x1c */ s32 cline;
-	/* 0x20 */ s32 iopt_base;
+	/* 0x20 */ s32 optimization_entry_index_base;
 	/* 0x24 */ s32 copt;
 	/* 0x28 */ s16 ipd_first;
-	/* 0x2a */ s16 cpd;
+	/* 0x2a */ s16 procedure_descriptor_count;
 	/* 0x2c */ s32 iaux_base;
 	/* 0x30 */ s32 caux;
 	/* 0x34 */ s32 rfd_base;
@@ -58,28 +58,10 @@ CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x3c */ u32 f_readin : 1;
 	/* 0x3c */ u32 f_big_endian : 1;
 	/* 0x3c */ u32 reserved_1 : 22;
-	/* 0x40 */ s32 cb_line_offset;
+	/* 0x40 */ s32 line_number_offset;
 	/* 0x44 */ s32 cb_line;
 )
 static_assert(sizeof(FileDescriptor) == 0x48);
-
-CCC_PACKED_STRUCT(ProcedureDescriptor,
-	/* 0x00 */ u32 address;
-	/* 0x04 */ s32 isym;
-	/* 0x08 */ s32 iline;
-	/* 0x0c */ s32 regmask;
-	/* 0x10 */ s32 regoffset;
-	/* 0x14 */ s32 iopt;
-	/* 0x18 */ s32 fregmask;
-	/* 0x1c */ s32 fregoffset;
-	/* 0x20 */ s32 frameoffset;
-	/* 0x24 */ s16 framereg;
-	/* 0x26 */ s16 pcreg;
-	/* 0x28 */ s32 ln_low;
-	/* 0x2c */ s32 ln_high;
-	/* 0x30 */ u32 cb_line_offset;
-)
-static_assert(sizeof(ProcedureDescriptor) == 0x34);
 
 CCC_PACKED_STRUCT(SymbolHeader,
 	/* 0x0 */ u32 iss;
@@ -99,6 +81,7 @@ CCC_PACKED_STRUCT(ExternalSymbolHeader,
 static_assert(sizeof(ExternalSymbolHeader) == 0x10);
 
 static void print_symbol(FILE* out, const Symbol& symbol);
+static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& procedure_descriptor);
 static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
 static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
 
@@ -139,7 +122,8 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	
 	file.address = fd_header->address;
 	
-	s32 raw_path_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + fd_header->file_path_string_offset + m_fudge_offset;
+	s32 rel_raw_path_offset = fd_header->strings_offset + fd_header->file_path_string_offset;
+	s32 raw_path_offset = m_hdrr->local_strings_offset + rel_raw_path_offset + m_fudge_offset;
 	const char* command_line_path = get_string(m_elf, raw_path_offset);
 	if(command_line_path) {
 		file.command_line_path = command_line_path;
@@ -147,7 +131,8 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	
 	// Parse local symbols.
 	for(s64 j = 0; j < fd_header->symbol_count; j++) {
-		u64 symbol_offset = m_hdrr->local_symbols_offset + (fd_header->isym_base + j) * sizeof(SymbolHeader) + m_fudge_offset;
+		u64 rel_symbol_offset = (fd_header->isym_base + j) * sizeof(SymbolHeader);
+		u64 symbol_offset = m_hdrr->local_symbols_offset + rel_symbol_offset + m_fudge_offset;
 		const SymbolHeader* symbol_header = get_packed<SymbolHeader>(m_elf, symbol_offset);
 		CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
 		
@@ -165,6 +150,18 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 		
 		file.symbols.emplace_back(std::move(*sym));
 	}
+	
+	// Parse procedure descriptors.
+	for(s64 i = 0; i < fd_header->procedure_descriptor_count; i++) {
+		u64 rel_procedure_offset = (fd_header->ipd_first + i) * sizeof(ProcedureDescriptor);
+		u64 procedure_offset = m_hdrr->procedure_descriptors_offset + rel_procedure_offset + m_fudge_offset;
+		const ProcedureDescriptor* procedure_descriptor = get_packed<ProcedureDescriptor>(m_elf, procedure_offset);
+		CCC_CHECK(procedure_descriptor != nullptr, "Procedure descriptor out of bounds.");
+		
+		CCC_CHECK(procedure_descriptor->symbol_index < file.symbols.size(), "Symbol index out of bounds.");
+		file.symbols[procedure_descriptor->symbol_index].procedure_descriptor = procedure_descriptor;
+	}
+
 	
 	file.full_path = merge_paths(file.working_dir, file.command_line_path);
 	
@@ -242,9 +239,9 @@ void SymbolTableReader::print_header(FILE* dest) const
 		m_hdrr->external_symbols_count);
 }
 
-Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool print_externals) const
+Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const
 {
-	if(print_locals) {
+	if(print_locals || print_procedure_descriptors) {
 		s32 count = file_count();
 		for(s32 i = 0; i < count; i++) {
 			Result<File> file = parse_file(i);
@@ -252,7 +249,12 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 			
 			fprintf(out, "FILE %s:\n", file->command_line_path.c_str());
 			for(const Symbol& symbol : file->symbols) {
-				print_symbol(out, symbol);
+				if(print_locals || symbol.procedure_descriptor) {
+					print_symbol(out, symbol);
+				}
+				if(print_procedure_descriptors && symbol.procedure_descriptor) {
+					print_procedure_descriptor(out, *symbol.procedure_descriptor);
+				}
 			}
 		}
 	}
@@ -296,6 +298,24 @@ static void print_symbol(FILE* out, const Symbol& symbol)
 	}
 	
 	fprintf(out, "%s\n", symbol.string);
+}
+
+static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& procedure_descriptor)
+{
+	fprintf(out, "                Address                     %x\n", procedure_descriptor.address);
+	fprintf(out, "                Symbol Index                %d\n", procedure_descriptor.symbol_index);
+	fprintf(out, "                Line Number Entry Index     %d\n", procedure_descriptor.line_number_entry_index);
+	fprintf(out, "                Saved Register Mask         %d\n", procedure_descriptor.saved_register_mask);
+	fprintf(out, "                Saved Register Offset       %d\n", procedure_descriptor.saved_register_offset);
+	fprintf(out, "                Optimization Entry Index    %d\n", procedure_descriptor.optimization_entry_index);
+	fprintf(out, "                Saved Register Mask         %d\n", procedure_descriptor.fsaved_register_mask);
+	fprintf(out, "                Saved Register Offset       %d\n", procedure_descriptor.fsaved_register_offset);
+	fprintf(out, "                Frame Size                  %d\n", procedure_descriptor.frame_size);
+	fprintf(out, "                Frame Pointer Register      %hd\n", procedure_descriptor.frame_pointer_register);
+	fprintf(out, "                Return PC Register          %hd\n", procedure_descriptor.return_pc_register);
+	fprintf(out, "                Line Number Low             %d\n", procedure_descriptor.line_number_low);
+	fprintf(out, "                Line Number High            %d\n", procedure_descriptor.line_number_high);
+	fprintf(out, "                Line Number Offset          %d\n", procedure_descriptor.line_number_offset);
 }
 
 static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)

@@ -30,6 +30,12 @@ const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat for
 const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name);
 const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name);
 
+enum SymbolPrintFlags {
+	PRINT_LOCALS = 1 << 0,
+	PRINT_PROCEDURE_DESCRIPTORS = 1 << 1,
+	PRINT_EXTERNALS = 1 << 2
+};
+
 class SymbolTable {
 public:
 	virtual ~SymbolTable() {}
@@ -51,7 +57,7 @@ public:
 	// the symbols are split between those that are local to a specific
 	// translation unit and those that are external, which is what the
 	// print_locals and print_externals parameters control.
-	virtual Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const = 0;
+	virtual Result<void> print_symbols(FILE* out, u32 flags) const = 0;
 };
 
 struct ElfSection;
@@ -85,7 +91,7 @@ public:
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
-	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
+	Result<void> print_symbols(FILE* out, u32 flags) const override;
 	
 protected:
 	std::span<const u8> m_image;
@@ -106,7 +112,7 @@ public:
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
-	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
+	Result<void> print_symbols(FILE* out, u32 flags) const override;
 	
 protected:
 	std::span<const u8> m_symtab;
@@ -129,7 +135,7 @@ public:
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
-	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
+	Result<void> print_symbols(FILE* out, u32 flags) const override;
 	
 protected:
 	std::shared_ptr<SNDLLFile> m_sndll;
@@ -149,7 +155,7 @@ public:
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
-	Result<void> print_symbols(FILE* out, bool print_locals, bool print_externals) const override;
+	Result<void> print_symbols(FILE* out, u32 flags) const override;
 protected:
 	const ElfFile& m_elf;
 };

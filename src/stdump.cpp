@@ -12,7 +12,8 @@ enum Flags {
 	NO_FLAGS = 0,
 	FLAG_SORT_BY_ADDRESS = 1 << 0,
 	FLAG_LOCAL_SYMBOLS = 1 << 1,
-	FLAG_EXTERNAL_SYMBOLS = 1 << 2,
+	FLAG_PROCEDURE_DESCRIPTORS = 1 << 2,
+	FLAG_EXTERNAL_SYMBOLS = 1 << 3
 };
 
 struct Options {
@@ -50,6 +51,7 @@ struct StdumpCommand {
 	const char* name;
 	std::vector<const char*> help_text;
 };
+
 static const StdumpCommand commands[] = {
 	{identify_symbol_tables, "identify", {
 		"Identify the symbol table(s) present in the input file(s). If the input path",
@@ -75,11 +77,15 @@ static const StdumpCommand commands[] = {
 		"Print all of the above as JSON."
 	}},
 	{print_symbols, "symbols", {
-		"Print all the raw symbols in the input symbol table(s).",
+		"Print all the raw symbols in the input symbol table(s). If no additional",
+		"options are passed, the default behaviour is to print the local and external",
+		"symbols, but not the procedure descriptors.",
 		"",
-		"--locals                      Only print local .mdebug symbols.",
+		"--locals                      Print local .mdebug symbols.",
 		"",
-		"--externals                   Only print external .mdebug symbols."
+		"--procedures                  Print .mdebug procedure descriptors.",
+		"",
+		"--externals                   Print external .mdebug symbols."
 	}},
 	{print_headers, "headers", {
 		"Print the contents of the .mdebug header."
@@ -362,15 +368,18 @@ static void print_symbols(FILE* out, const Options& options)
 	
 	std::vector<std::unique_ptr<SymbolTable>> symbol_tables = select_symbol_tables(**symbol_file, options.sections);
 	
-	bool print_locals = options.flags & FLAG_LOCAL_SYMBOLS;
-	bool print_externals = options.flags & FLAG_EXTERNAL_SYMBOLS;
-	if(!print_locals && !print_externals) {
-		print_locals = true;
-		print_externals = true;
+	u32 print_flags = 0;
+	if(options.flags & FLAG_LOCAL_SYMBOLS) print_flags |= PRINT_LOCALS;
+	if(options.flags & FLAG_PROCEDURE_DESCRIPTORS) print_flags |= PRINT_PROCEDURE_DESCRIPTORS;
+	if(options.flags & FLAG_EXTERNAL_SYMBOLS) print_flags |= PRINT_EXTERNALS;
+	
+	if(print_flags == 0) {
+		print_flags |= PRINT_LOCALS;
+		print_flags |= PRINT_EXTERNALS;
 	}
 	
 	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
-		Result<void> result = symbol_table->print_symbols(out, print_locals, print_externals);
+		Result<void> result = symbol_table->print_symbols(out, print_flags);
 		CCC_EXIT_IF_ERROR(result);
 	}
 }
@@ -494,6 +503,8 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			options.flags |= FLAG_SORT_BY_ADDRESS;
 		} else if(strcmp(arg, "--locals") == 0) {
 			options.flags |= FLAG_LOCAL_SYMBOLS;
+		} else if(strcmp(arg, "--procedures") == 0) {
+			options.flags |= FLAG_PROCEDURE_DESCRIPTORS;
 		} else if(strcmp(arg, "--externals") == 0) {
 			options.flags |= FLAG_EXTERNAL_SYMBOLS;
 		} else if(strcmp(arg, "--output") == 0 || strcmp(arg, "-o") == 0) {
