@@ -47,8 +47,8 @@ CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x1c */ s32 cline;
 	/* 0x20 */ s32 optimization_entry_index_base;
 	/* 0x24 */ s32 copt;
-	/* 0x28 */ s16 ipd_first;
-	/* 0x2a */ s16 procedure_descriptor_count;
+	/* 0x28 */ u16 ipd_first;
+	/* 0x2a */ u16 procedure_descriptor_count;
 	/* 0x2c */ s32 iaux_base;
 	/* 0x30 */ s32 caux;
 	/* 0x34 */ s32 rfd_base;
@@ -302,20 +302,20 @@ static void print_symbol(FILE* out, const Symbol& symbol)
 
 static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& procedure_descriptor)
 {
-	fprintf(out, "                Address                     %x\n", procedure_descriptor.address);
-	fprintf(out, "                Symbol Index                %d\n", procedure_descriptor.symbol_index);
-	fprintf(out, "                Line Number Entry Index     %d\n", procedure_descriptor.line_number_entry_index);
-	fprintf(out, "                Saved Register Mask         %d\n", procedure_descriptor.saved_register_mask);
-	fprintf(out, "                Saved Register Offset       %d\n", procedure_descriptor.saved_register_offset);
-	fprintf(out, "                Optimization Entry Index    %d\n", procedure_descriptor.optimization_entry_index);
-	fprintf(out, "                Saved Register Mask         %d\n", procedure_descriptor.fsaved_register_mask);
-	fprintf(out, "                Saved Register Offset       %d\n", procedure_descriptor.fsaved_register_offset);
-	fprintf(out, "                Frame Size                  %d\n", procedure_descriptor.frame_size);
-	fprintf(out, "                Frame Pointer Register      %hd\n", procedure_descriptor.frame_pointer_register);
-	fprintf(out, "                Return PC Register          %hd\n", procedure_descriptor.return_pc_register);
-	fprintf(out, "                Line Number Low             %d\n", procedure_descriptor.line_number_low);
-	fprintf(out, "                Line Number High            %d\n", procedure_descriptor.line_number_high);
-	fprintf(out, "                Line Number Offset          %d\n", procedure_descriptor.line_number_offset);
+	fprintf(out, "                    Address                     %x\n", procedure_descriptor.address);
+	fprintf(out, "                    Symbol Index                %d\n", procedure_descriptor.symbol_index);
+	fprintf(out, "                    Line Number Entry Index     %d\n", procedure_descriptor.line_number_entry_index);
+	fprintf(out, "                    Saved Register Mask         %d\n", procedure_descriptor.saved_register_mask);
+	fprintf(out, "                    Saved Register Offset       %d\n", procedure_descriptor.saved_register_offset);
+	fprintf(out, "                    Optimization Entry Index    %d\n", procedure_descriptor.optimization_entry_index);
+	fprintf(out, "                    Saved Register Mask         %d\n", procedure_descriptor.fsaved_register_mask);
+	fprintf(out, "                    Saved Register Offset       %d\n", procedure_descriptor.fsaved_register_offset);
+	fprintf(out, "                    Frame Size                  %d\n", procedure_descriptor.frame_size);
+	fprintf(out, "                    Frame Pointer Register      %hd\n", procedure_descriptor.frame_pointer_register);
+	fprintf(out, "                    Return PC Register          %hd\n", procedure_descriptor.return_pc_register);
+	fprintf(out, "                    Line Number Low             %d\n", procedure_descriptor.line_number_low);
+	fprintf(out, "                    Line Number High            %d\n", procedure_descriptor.line_number_high);
+	fprintf(out, "                    Line Number Offset          %d\n", procedure_descriptor.line_number_offset);
 }
 
 static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)
