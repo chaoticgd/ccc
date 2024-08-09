@@ -109,8 +109,8 @@ CCC_PACKED_STRUCT(ProcedureDescriptor,
 	/* 0x0c */ s32 saved_register_mask;
 	/* 0x10 */ s32 saved_register_offset;
 	/* 0x14 */ s32 optimization_entry_index;
-	/* 0x18 */ s32 fsaved_register_mask;
-	/* 0x1c */ s32 fsaved_register_offset;
+	/* 0x18 */ s32 saved_float_register_mask;
+	/* 0x1c */ s32 saved_float_register_offset;
 	/* 0x20 */ s32 frame_size;
 	/* 0x24 */ s16 frame_pointer_register;
 	/* 0x26 */ s16 return_pc_register;
