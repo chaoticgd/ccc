@@ -8,6 +8,7 @@
 - Structs defined inside global variable definitions are now printed with the correct C++ syntax.
 - Fixed an issue where in some cases null addresses would be handled incorrectly.
 - Glibc-based Linux builds are now provided in addition to musl-based builds.
+- stdump: Added `includes` subcommand.
 - stdump: Added `--procedures` option.
 - stdump: Added `--sort-by-address` option.
 - stdump: Added `--caller-stack-offsets` option.
