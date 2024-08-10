@@ -602,7 +602,6 @@ static void print_help(FILE* out)
 	fprintf(out, "                                of to the standard output.\n");
 	fprintf(out, "\n");
 	
-	s32 column;
 	fprintf(out, "  --section <section> <format>  Explicitly specify a symbol table to load. This\n");
 	fprintf(out, "                                option can be used multiple times to specify\n");
 	fprintf(out, "                                multiple symbol tables to load. The symbol\n");
@@ -611,9 +610,12 @@ static void print_help(FILE* out)
 	fprintf(out, "                                this option is not used, all recognized symbol\n");
 	fprintf(out, "                                tables will be loaded.\n");
 	fprintf(out, "\n");
+	
 	const char* common_section_names_are = "Common section names are: ";
 	fprintf(out, "                                %s", common_section_names_are);
-	column = 32 + strlen(common_section_names_are);
+	
+	// Print out a line wrapped list of common section names.
+	s32 column = 32 + (s32) strlen(common_section_names_are);
 	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if(column + strlen(format.section_name) + 2 > 80) {
@@ -626,13 +628,14 @@ static void print_help(FILE* out)
 		} else {
 			fprintf(out, ", ");
 		}
-		column += strlen(format.section_name) + 2;
+		column += (s32) strlen(format.section_name) + 2;
 	}
 	
-	const char* possible_options_are = "Possible formats are: ";
+	// Print out a line wrapped list of supported symbol table formats.
+	const char* supported_formats_are = "Supported formats are: ";
 	fprintf(out, "\n");
-	fprintf(out, "                                %s", possible_options_are);
-	column = 32 + strlen(possible_options_are);
+	fprintf(out, "                                %s", supported_formats_are);
+	column = 32 + (s32) strlen(supported_formats_are);
 	for(u32 i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if(column + strlen(format.format_name) + 2 > 80) {
@@ -645,8 +648,9 @@ static void print_help(FILE* out)
 		} else {
 			fprintf(out, ", ");
 		}
-		column += strlen(format.format_name) + 2;
+		column += (s32) strlen(format.format_name) + 2;
 	}
+	
 	fprintf(out, "\n");
 	fprintf(out, "  --sort-by-address             Sort symbols by their addresses.\n");
 	fprintf(out, "\n");

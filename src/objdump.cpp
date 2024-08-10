@@ -27,7 +27,7 @@ int main(int argc, char** argv)
 	Result<std::span<const mips::Insn>> insns = elf->get_array_virtual<mips::Insn>(*text_address, text->header.size / 4);
 	CCC_EXIT_IF_ERROR(insns);
 	
-	for(u64 i = 0; i < text->header.size / 4; i++) {
+	for(u32 i = 0; i < text->header.size / 4; i++) {
 		mips::Insn insn = (*insns)[i];
 		const mips::InsnInfo& info = insn.info();
 		u32 insn_address = *text_address + i;
