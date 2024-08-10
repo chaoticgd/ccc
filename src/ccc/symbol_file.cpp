@@ -25,7 +25,7 @@ Result<std::unique_ptr<SymbolFile>> parse_symbol_file(std::vector<u8> image, std
 			Result<SNDLLFile> sndll = parse_sndll_file(image, Address(), SNDLLType::DYNAMIC_LIBRARY);
 			CCC_RETURN_IF_ERROR(sndll);
 			
-			symbol_file = std::make_unique<SNDLLSymbolFile>(std::move(*sndll));
+			symbol_file = std::make_unique<SNDLLSymbolFile>(std::make_shared<SNDLLFile>(std::move(*sndll)));
 			break;
 		}
 		default: {
@@ -90,18 +90,18 @@ const ElfFile& ElfSymbolFile::elf() const
 	return m_elf;
 }
 
-SNDLLSymbolFile::SNDLLSymbolFile(SNDLLFile sndll)
+SNDLLSymbolFile::SNDLLSymbolFile(std::shared_ptr<SNDLLFile> sndll)
 	: m_sndll(std::move(sndll)) {}
 
 std::string SNDLLSymbolFile::name() const
 {
-	return m_sndll.elf_path;
+	return m_sndll->elf_path;
 }
 
 Result<std::vector<std::unique_ptr<SymbolTable>>> SNDLLSymbolFile::get_all_symbol_tables() const
 {
 	std::vector<std::unique_ptr<SymbolTable>> symbol_tables;
-	symbol_tables.emplace_back(std::make_unique<SNDLLSymbolTable>(std::make_shared<SNDLLFile>(std::move(m_sndll))));
+	symbol_tables.emplace_back(std::make_unique<SNDLLSymbolTable>(m_sndll));
 	return symbol_tables;
 }
 
