@@ -47,7 +47,7 @@ protected:
 
 class SNDLLSymbolFile : public SymbolFile {
 public:
-	SNDLLSymbolFile(SNDLLFile sndll);
+	SNDLLSymbolFile(std::shared_ptr<SNDLLFile> sndll);
 	
 	std::string name() const override;
 	
@@ -56,7 +56,7 @@ public:
 		const std::vector<SymbolTableLocation>& sections) const override;
 	
 protected:
-	SNDLLFile m_sndll;
+	std::shared_ptr<SNDLLFile> m_sndll;
 };
 
 }
