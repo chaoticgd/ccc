@@ -41,6 +41,7 @@ static void print_json(FILE* out, const Options& options);
 static void print_symbols(FILE* out, const Options& options);
 static void print_headers(FILE* out, const Options& options);
 static void print_files(FILE* out, const Options& options);
+static void print_includes(FILE* out, const Options& options);
 static void print_sections(FILE* out, const Options& options);
 static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const Options& options);
 static std::vector<std::unique_ptr<SymbolTable>> select_symbol_tables(
@@ -95,6 +96,9 @@ static const StdumpCommand commands[] = {
 	}},
 	{print_files, "files", {
 		"Print a list of all the source files."
+	}},
+	{print_includes, "includes", {
+		"Print a list of the include paths stored with .mdebug inlining information."
 	}},
 	{print_sections, "sections", {
 		"List the names of the source files associated with each ELF section."
@@ -419,6 +423,30 @@ static void print_files(FILE* out, const Options& options)
 	
 	for(const SourceFile& source_file : database.source_files) {
 		fprintf(out, "/* %08x */ %s\n", source_file.address().value, source_file.name().c_str());
+	}
+}
+
+static void print_includes(FILE* out, const Options& options)
+{
+	std::unique_ptr<SymbolFile> symbol_file;
+	SymbolDatabase database = read_symbol_table(symbol_file, options);
+	
+	std::set<std::string> includes;
+	for(const Function& function : database.functions) {
+		const SourceFile* source_file = database.source_files.symbol_from_handle(function.source_file());
+		if(!source_file) {
+			continue;
+		}
+		
+		for(const Function::SubSourceFile& sub_source : function.sub_source_files) {
+			if(sub_source.relative_path != source_file->command_line_path) {
+				includes.emplace(sub_source.relative_path);
+			}
+		}
+	}
+	
+	for(const std::string& include : includes) {
+		fprintf(out, "%s\n", include.c_str());
 	}
 }
 
