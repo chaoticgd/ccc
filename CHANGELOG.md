@@ -2,12 +2,12 @@
 
 ## v2.1
 
-- Stack variable offsets will now be relative to the value of the stack pointer register for the current function.
 - Variable symbols are no longer incorrectly deduplicated as if they were types.
 - The static keyword is no longer missing from the output for static global variables.
 - Structs defined inside global variable definitions are now printed with the correct C++ syntax.
 - Fixed an issue where in some cases null addresses would be handled incorrectly.
-- Glibc-based Linux builds are now provided in addition to musl-based builds.
+- Glibc-based Linux builds are now provided in addition to the musl-based builds.
+- stdump: In C++ output, stack variable offsets will now be relative to the value of the stack pointer register for the current function by default.
 - stdump: Added `includes` subcommand.
 - stdump: Added `--procedures` option.
 - stdump: Added `--sort-by-address` option.
