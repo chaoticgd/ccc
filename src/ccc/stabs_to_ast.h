@@ -5,11 +5,12 @@
 
 #include "ast.h"
 #include "stabs.h"
+#include "symbol_database.h"
 
 namespace ccc {
 	
 struct StabsToAstState {
-	u32 file_handle;
+	SourceFileHandle file_handle;
 	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
 	u32 importer_flags;
 	DemanglerFunctions demangler;

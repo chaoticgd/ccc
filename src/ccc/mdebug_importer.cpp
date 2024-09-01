@@ -343,7 +343,7 @@ static Result<void> resolve_type_name(
 	
 	// Lookup the type by its STABS type number. This path ensures that the
 	// correct type is found even if multiple types have the same name.
-	if(unresolved_stabs->referenced_file_handle != (u32) -1 && unresolved_stabs->stabs_type_number.valid()) {
+	if(unresolved_stabs->referenced_file_handle != SourceFileHandle() && unresolved_stabs->stabs_type_number.valid()) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(unresolved_stabs->referenced_file_handle);
 		CCC_ASSERT(source_file);
 		auto handle = source_file->stabs_type_number_to_handle.find(unresolved_stabs->stabs_type_number);
