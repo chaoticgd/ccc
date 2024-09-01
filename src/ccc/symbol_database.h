@@ -49,20 +49,22 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 
 class SymbolDatabase;
 
+using RawSymbolHandle = u32;
+
 // Strongly typed handles for all of the symbol objects. These are here to solve
 // the problem of dangling references to symbols.
 template <typename SymbolType>
 struct SymbolHandle {
-	u32 value = (u32) -1;
+	RawSymbolHandle value = (RawSymbolHandle) -1;
 	
 	SymbolHandle() {}
-	SymbolHandle(u32 v) : value(v) {}
+	SymbolHandle(RawSymbolHandle v) : value(v) {}
 	SymbolHandle(const SymbolType* symbol)
-		: value(symbol ? symbol->handle().value : (u32) -1) {}
+		: value(symbol ? symbol->handle().value : (RawSymbolHandle) -1) {}
 	
 	// Check if this symbol handle has been initialised. Note that this doesn't
 	// determine whether or not the symbol it points to has been deleted!
-	bool valid() const { return value != (u32) -1; }
+	bool valid() const { return value != (RawSymbolHandle) -1; }
 	
 	friend auto operator<=>(const SymbolHandle& lhs, const SymbolHandle& rhs) = default;
 };
@@ -218,7 +220,7 @@ protected:
 	
 	// We share this between symbol lists of the same type so that we can merge
 	// them without having to rewrite all the handles.
-	static std::atomic<u32> m_next_handle;
+	static std::atomic<RawSymbolHandle> m_next_handle;
 };
 
 // Base class for all the symbols.
@@ -227,7 +229,7 @@ class Symbol {
 	friend class SymbolList;
 public:
 	const std::string& name() const { return m_name; }
-	u32 raw_handle() const { return m_handle; }
+	RawSymbolHandle raw_handle() const { return m_handle; }
 	SymbolSourceHandle source() const { return m_source; }
 	ModuleHandle module_handle() const { return m_module; }
 	
@@ -254,7 +256,7 @@ protected:
 	void on_create() {}
 	void on_destroy(SymbolDatabase* database) {}
 	
-	u32 m_handle = (u32) -1;
+	RawSymbolHandle m_handle = (RawSymbolHandle) -1;
 	SymbolSourceHandle m_source;
 	Address m_address;
 	u32 m_size = 0;
@@ -665,11 +667,11 @@ public:
 	// Create a multi symbol handle of the specified type.
 	template <typename SymbolType>
 	MultiSymbolHandle(const SymbolType& symbol);
-	MultiSymbolHandle(SymbolDescriptor descriptor, u32 handle);
+	MultiSymbolHandle(SymbolDescriptor descriptor, RawSymbolHandle handle);
 	
 	bool valid() const;
 	SymbolDescriptor descriptor() const;
-	u32 handle() const;
+	RawSymbolHandle handle() const;
 	
 	Symbol* lookup_symbol(SymbolDatabase& database);
 	const Symbol* lookup_symbol(const SymbolDatabase& database) const;
@@ -683,7 +685,7 @@ public:
 	
 protected:
 	SymbolDescriptor m_descriptor = DATA_TYPE;
-	u32 m_handle = (u32) -1;
+	RawSymbolHandle m_handle = (RawSymbolHandle) -1;
 };
 
 // A handle to an AST node.

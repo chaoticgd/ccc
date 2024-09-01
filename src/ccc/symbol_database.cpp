@@ -3,6 +3,8 @@
 
 #include "symbol_database.h"
 
+#include <limits>
+
 #include "ast.h"
 #include "importer_flags.h"
 
@@ -226,10 +228,11 @@ template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	std::string name, Address address, SymbolSourceHandle source, const Module* module_symbol)
 {
-	u32 handle;
+	RawSymbolHandle handle;
 	do {
 		handle = m_next_handle;
-		CCC_CHECK(handle != UINT32_MAX, "Ran out of handles to use for %s symbols.", SymbolType::NAME);
+		CCC_CHECK(handle != std::numeric_limits<RawSymbolHandle>::max(),
+			"Ran out of handles to use for %s symbols.", SymbolType::NAME);
 	} while(!m_next_handle.compare_exchange_weak(handle, handle + 1));
 	
 	SymbolType& symbol = m_symbols.emplace_back();
@@ -502,7 +505,7 @@ void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 }
 
 template <typename SymbolType>
-std::atomic<u32> SymbolList<SymbolType>::m_next_handle = 0;
+std::atomic<RawSymbolHandle> SymbolList<SymbolType>::m_next_handle = 0;
 
 #define CCC_X(SymbolType, symbol_list) template class SymbolList<SymbolType>;
 CCC_FOR_EACH_SYMBOL_TYPE_DO_X
@@ -1037,13 +1040,13 @@ template <typename SymbolType>
 MultiSymbolHandle::MultiSymbolHandle(const SymbolType& symbol)
 	: MultiSymbolHandle(SymbolType::DESCRIPTOR, symbol.raw_handle()) {}
 
-MultiSymbolHandle::MultiSymbolHandle(SymbolDescriptor descriptor, u32 handle)
+MultiSymbolHandle::MultiSymbolHandle(SymbolDescriptor descriptor, RawSymbolHandle handle)
 	: m_descriptor(descriptor)
 	, m_handle(handle) {}
 
 bool MultiSymbolHandle::valid() const
 {
-	return m_handle != (u32) -1;
+	return m_handle != (RawSymbolHandle) -1;
 }
 
 SymbolDescriptor MultiSymbolHandle::descriptor() const
@@ -1051,14 +1054,14 @@ SymbolDescriptor MultiSymbolHandle::descriptor() const
 	return m_descriptor;
 }
 
-u32 MultiSymbolHandle::handle() const
+RawSymbolHandle MultiSymbolHandle::handle() const
 {
 	return m_handle;
 }
 
 Symbol* MultiSymbolHandle::lookup_symbol(SymbolDatabase& database)
 {
-	if(m_handle == (u32) -1) {
+	if(m_handle == (RawSymbolHandle) -1) {
 		return nullptr;
 	}
 	
@@ -1080,7 +1083,7 @@ const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) c
 
 bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 {
-	if(m_handle != (u32) -1) {
+	if(m_handle != (RawSymbolHandle) -1) {
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
@@ -1095,7 +1098,7 @@ bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 
 bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database) const
 {
-	if(m_handle != (u32) -1) {
+	if(m_handle != (RawSymbolHandle) -1) {
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
@@ -1110,7 +1113,7 @@ bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& databas
 
 bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database) const
 {
-	if(m_handle != (u32) -1) {
+	if(m_handle != (RawSymbolHandle) -1) {
 		switch(m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
@@ -1127,7 +1130,7 @@ bool MultiSymbolHandle::destroy_symbol(SymbolDatabase& database, bool destroy_de
 {
 	bool success = false;
 	
-	if(m_handle != (u32) -1) {
+	if(m_handle != (RawSymbolHandle) -1) {
 		SymbolDatabase* database_ptr = destroy_descendants ? &database : nullptr;
 		
 		switch(m_descriptor) {

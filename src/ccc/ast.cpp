@@ -402,7 +402,7 @@ static bool try_to_match_wobbly_typedefs(
 	
 	const TypeName& type_name = type_name_node.as<TypeName>();
 	if(const TypeName::UnresolvedStabs* unresolved_stabs = type_name.unresolved_stabs.get()) {
-		if(unresolved_stabs->referenced_file_handle == (u32) -1 || !unresolved_stabs->stabs_type_number.valid()) {
+		if(unresolved_stabs->referenced_file_handle == SourceFileHandle() || !unresolved_stabs->stabs_type_number.valid()) {
 			return false;
 		}
 		
