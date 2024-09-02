@@ -5,6 +5,7 @@
 
 #include <map>
 #include <atomic>
+#include <limits>
 #include <variant>
 
 #include "util.h"
@@ -51,20 +52,22 @@ class SymbolDatabase;
 
 using RawSymbolHandle = u32;
 
+inline const RawSymbolHandle NULL_SYMBOL_HANDLE = std::numeric_limits<RawSymbolHandle>::max();
+
 // Strongly typed handles for all of the symbol objects. These are here to solve
 // the problem of dangling references to symbols.
 template <typename SymbolType>
 struct SymbolHandle {
-	RawSymbolHandle value = (RawSymbolHandle) -1;
+	RawSymbolHandle value = NULL_SYMBOL_HANDLE;
 	
 	SymbolHandle() {}
 	SymbolHandle(RawSymbolHandle v) : value(v) {}
 	SymbolHandle(const SymbolType* symbol)
-		: value(symbol ? symbol->handle().value : (RawSymbolHandle) -1) {}
+		: value(symbol ? symbol->handle().value : NULL_SYMBOL_HANDLE) {}
 	
 	// Check if this symbol handle has been initialised. Note that this doesn't
 	// determine whether or not the symbol it points to has been deleted!
-	bool valid() const { return value != (RawSymbolHandle) -1; }
+	bool valid() const { return value != NULL_SYMBOL_HANDLE; }
 	
 	friend auto operator<=>(const SymbolHandle& lhs, const SymbolHandle& rhs) = default;
 };
@@ -256,7 +259,7 @@ protected:
 	void on_create() {}
 	void on_destroy(SymbolDatabase* database) {}
 	
-	RawSymbolHandle m_handle = (RawSymbolHandle) -1;
+	RawSymbolHandle m_handle = NULL_SYMBOL_HANDLE;
 	SymbolSourceHandle m_source;
 	Address m_address;
 	u32 m_size = 0;
@@ -685,7 +688,7 @@ public:
 	
 protected:
 	SymbolDescriptor m_descriptor = DATA_TYPE;
-	RawSymbolHandle m_handle = (RawSymbolHandle) -1;
+	RawSymbolHandle m_handle = NULL_SYMBOL_HANDLE;
 };
 
 // A handle to an AST node.
