@@ -421,7 +421,7 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
 	
 	GlobalVariableHandle handle() const { return m_handle; }
-	SourceFileHandle source_file() const { return m_source_file; };
+	SourceFileHandle source_file() const { return m_source_file; }
 	
 	const std::string& mangled_name() const;
 	void set_mangled_name(std::string mangled);
