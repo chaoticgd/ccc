@@ -58,7 +58,7 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 		"using a typedef."
 	}},
 	{UNIQUE_FUNCTIONS, "--unique-functions", {
-		" If multiple identical .mdebug function symbols",
+		"If multiple identical .mdebug function symbols",
 		"are present, find the one that seems to have",
 		"actually been included in the linked binary, and",
 		"remove the addresses from all the rest. Using",
