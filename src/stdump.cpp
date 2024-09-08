@@ -429,7 +429,7 @@ static void print_files(FILE* out, const Options& options)
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	for(const SourceFile& source_file : database.source_files) {
-		fprintf(out, "/* %08x */ %s\n", source_file.address().value, source_file.name().c_str());
+		fprintf(out, "%08x %s\n", source_file.address().value, source_file.name().c_str());
 	}
 }
 
