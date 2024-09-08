@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2
+
+- stdump: The `functions` and `globals` subcommands now output a header comment like the `types` command.
+- stdump: The output format of the `files` subcommand has been updated.
+
 ## v2.1
 
 - Variable symbols are no longer incorrectly deduplicated as if they were types.

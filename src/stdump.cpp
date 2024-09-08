@@ -227,6 +227,8 @@ static void print_functions(FILE* out, const Options& options)
 	
 	CppPrinter printer(out, config);
 	
+	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
+	
 	bool first_iteration = true;
 	SourceFileHandle source_file_handle;
 	for(const Function* function : functions) {
@@ -267,6 +269,8 @@ static void print_globals(FILE* out, const Options& options)
 	
 	CppPrinter printer(out, config);
 	
+	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
+	
 	bool first_iteration = true;
 	SourceFileHandle source_file_handle;
 	for(const GlobalVariable* global_variable : global_variables) {
@@ -304,9 +308,11 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
 	
 	CppPrinter printer(out, config);
+	
 	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
 	printer.comment_block_toolchain_version_info(database);
 	printer.comment_block_builtin_types(database);
+	
 	for(const DataType& data_type : database.data_types) {
 		printer.data_type(data_type, database);
 	}
@@ -318,6 +324,7 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
 	
 	CppPrinter printer(out, config);
+	
 	printer.comment_block_beginning(options.input_file.filename().string().c_str(), "stdump", get_version());
 	
 	for(const SourceFile& source_file : database.source_files) {
@@ -422,7 +429,7 @@ static void print_files(FILE* out, const Options& options)
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
 	for(const SourceFile& source_file : database.source_files) {
-		fprintf(out, "/* %08x */ %s\n", source_file.address().value, source_file.name().c_str());
+		fprintf(out, "%08x %s\n", source_file.address().value, source_file.name().c_str());
 	}
 }
 
