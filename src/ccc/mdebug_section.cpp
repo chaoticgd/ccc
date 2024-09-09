@@ -53,23 +53,36 @@ CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x30 */ s32 caux;
 	/* 0x34 */ s32 rfd_base;
 	/* 0x38 */ s32 crfd;
-	/* 0x3c */ u32 lang : 5;
-	/* 0x3c */ u32 f_merge : 1;
-	/* 0x3c */ u32 f_readin : 1;
-	/* 0x3c */ u32 f_big_endian : 1;
-	/* 0x3c */ u32 reserved_1 : 22;
+	/* 0x3c */ u32 bitfields;
+	/* 0x3c */ // u32 lang : 5;
+	/* 0x3c */ // u32 f_merge : 1;
+	/* 0x3c */ // u32 f_readin : 1;
+	/* 0x3c */ // u32 f_big_endian : 1;
+	/* 0x3c */ // u32 reserved : 22;
 	/* 0x40 */ s32 line_number_offset;
 	/* 0x44 */ s32 cb_line;
+	
+	u32 lang() const { return bitfields & 0b11111; }
+	u32 f_merge() const { return (bitfields >> 5) & 0b1; }
+	u32 f_readin() const { return (bitfields >> 6) & 0b1; }
+	u32 f_big_endian() const { return (bitfields >> 7) & 0b1; }
+	u32 reserved() const { return (bitfields >> 8) & 0b1111111111111111111111; }
 )
 static_assert(sizeof(FileDescriptor) == 0x48);
 
 CCC_PACKED_STRUCT(SymbolHeader,
 	/* 0x0 */ u32 iss;
 	/* 0x4 */ u32 value;
-	/* 0x8 */ u32 st : 6;
-	/* 0x8 */ u32 sc : 5;
-	/* 0x8 */ u32 reserved : 1;
-	/* 0x8 */ u32 index : 20;
+	/* 0x8 */ u32 bitfields;
+	/* 0x8 */ // u32 symbol_type : 6;
+	/* 0x8 */ // u32 symbol_class : 5;
+	/* 0x8 */ // u32 reserved : 1;
+	/* 0x8 */ // u32 index : 20;
+	
+	u32 symbol_type() const { return bitfields & 0b111111; }
+	u32 symbol_class() const { return (bitfields >> 6) & 0b11111; }
+	u32 reserved() const { return (bitfields >> 11) & 0b1; }
+	u32 index() const { return (bitfields >> 12) & 0b11111111111111111111; }
 )
 static_assert(sizeof(SymbolHeader) == 0xc);
 
@@ -118,7 +131,7 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	u64 fd_offset = m_hdrr->file_descriptors_offset + index * sizeof(FileDescriptor);
 	const FileDescriptor* fd_header = get_packed<FileDescriptor>(m_elf, fd_offset + m_fudge_offset);
 	CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
-	CCC_CHECK(fd_header->f_big_endian == 0, "Not little endian or bad file descriptor table.");
+	CCC_CHECK(fd_header->f_big_endian() == 0, "Not little endian or bad file descriptor table.");
 	
 	file.address = fd_header->address;
 	
@@ -356,9 +369,9 @@ static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8>
 	symbol.string = string;
 	
 	symbol.value = header.value;
-	symbol.symbol_type = (SymbolType) header.st;
-	symbol.symbol_class = (SymbolClass) header.sc;
-	symbol.index = header.index;
+	symbol.symbol_type = static_cast<SymbolType>(header.symbol_type());
+	symbol.symbol_class = static_cast<SymbolClass>(header.symbol_class());
+	symbol.index = header.index();
 	
 	if(symbol.is_stabs()) {
 		CCC_CHECK(stabs_code_to_string(symbol.code()) != nullptr, "Bad stabs symbol code '%x'.", symbol.code());
