@@ -2,7 +2,7 @@
 
 ## v2.2
 
-- Provide x64 builds for macOS again in addition to the arm64 builds.
+- Mac builds compiled for x64 processors are now provided in addition to the arm64 builds.
 - stdump: The `functions` and `globals` subcommands now output a header comment like the `types` command.
 - stdump: The output format of the `files` subcommand has been updated.
 

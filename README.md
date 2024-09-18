@@ -9,7 +9,7 @@ A library and set of command line tools for parsing debugging symbols from PS2 g
 
 ### demangle
 
-Demangler for the old GNU ABI.
+C++ symbol demangler with support for both the new Itanium C++ ABI (GCC 3+) mangling scheme and the old GCC 2 scheme.
 
 ### objdump
 

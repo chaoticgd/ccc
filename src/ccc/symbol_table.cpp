@@ -12,9 +12,9 @@
 namespace ccc {
 
 const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS = {
-	{MDEBUG, "mdebug", ".mdebug"}, // The infamous Third Eye symbol table.
-	{SYMTAB, "symtab", ".symtab"}, // The standard ELF symbol table.
-	{SNDLL, "sndll", ".sndata"}    // The SNDLL symbol table.
+	{MDEBUG, "mdebug", ".mdebug"},
+	{SYMTAB, "symtab", ".symtab"},
+	{SNDLL, "sndll", ".sndata"}
 };
 
 const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format)
