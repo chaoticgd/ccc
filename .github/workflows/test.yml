@@ -14,11 +14,12 @@ jobs:
     runs-on: ${{ matrix.sys.os }} 
     strategy:
       matrix:
-        sys: 
-          - { name: linux-glibc, os: ubuntu-latest,  shell: bash }
-          - { name: linux-musl,  os: ubuntu-latest,  shell: 'alpine.sh --root {0}' }
-          - { name: windows,     os: windows-latest, shell: pwsh }
-          - { name: mac,         os: macos-latest,   shell: bash }
+        sys:
+          - { name: linux-glibc, os: ubuntu-latest,  shell: bash,                   osx_architectures: '' }
+          - { name: linux-musl,  os: ubuntu-latest,  shell: 'alpine.sh --root {0}', osx_architectures: '' }
+          - { name: windows,     os: windows-latest, shell: pwsh,                   osx_architectures: '' }
+          - { name: mac,         os: macos-latest,   shell: bash,                   osx_architectures: 'arm64' }
+          - { name: mac,         os: macos-latest,   shell: bash,                   osx_architectures: 'x86_64' }
     defaults:
       run:
         shell: ${{ matrix.sys.shell }}
@@ -48,7 +49,7 @@ jobs:
     - name: Configure CMake
       env:
         USE_MUSL_LIBC: ${{ matrix.sys.name == 'linux-musl' }}
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSE_MUSL_LIBC=${{env.USE_MUSL_LIBC}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=${{matrix.sys.osx_architectures}} -DUSE_MUSL_LIBC=${{env.USE_MUSL_LIBC}}
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}

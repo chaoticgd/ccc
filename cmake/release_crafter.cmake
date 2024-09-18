@@ -7,7 +7,8 @@ if(ZIP_RELEASE)
 	else()
 		set(RELEASE_VERSION ${GIT_TAG})
 	endif()
-	if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	
+	if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 		if(USE_MUSL_LIBC)
 			set(RELEASE_OS "linux-musl")
 		else()
@@ -25,7 +26,16 @@ if(ZIP_RELEASE)
 	else()
 		set(RELEASE_OS ${CMAKE_SYSTEM_NAME})
 	endif()
-	set(RELEASE_NAME "ccc_${RELEASE_VERSION}_${RELEASE_OS}")
+	
+	if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "AMD64")
+		set(RELEASE_ARCHITECTURE "x64")
+	elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "ARM64")
+		set(RELEASE_ARCHITECTURE "arm64")
+	else()
+		set(RELEASE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
+	endif()
+	
+	set(RELEASE_NAME "ccc_${RELEASE_VERSION}_${RELEASE_OS}_${RELEASE_ARCHITECTURE}")
 	add_custom_target(releasezip ALL
 		COMMAND
 			${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/${RELEASE_NAME}" &&
