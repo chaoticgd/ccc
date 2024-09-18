@@ -81,7 +81,7 @@ const InsnInfo& Insn::info() const
 		case INSN_CLASS_COP1_S: return COP1_S_TABLE[func()];
 		case INSN_CLASS_COP1_W: return COP1_W_TABLE[func()];
 		case INSN_CLASS_COP2: return MIPS_OPCODE_TABLE[OPCODE_COP2];
-		default: CCC_FATAL("Invalid instruction %08x.", value);
+		default: CCC_EXIT("Invalid instruction %08x.", value);
 	}
 }
 

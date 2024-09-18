@@ -9,7 +9,7 @@ using namespace ccc;
 
 int main(int argc, char** argv)
 {
-	CCC_CHECK_FATAL(argc == 2, "Incorrect number of arguments.");
+	CCC_EXIT_IF_FALSE(argc == 2, "Incorrect number of arguments.");
 	
 	fs::path input_path(argv[1]);
 	Result<std::vector<u8>> image = platform::read_binary_file(input_path);
@@ -19,10 +19,10 @@ int main(int argc, char** argv)
 	CCC_EXIT_IF_ERROR(elf);
 	
 	const ElfSection* text = elf->lookup_section(".text");
-	CCC_CHECK_FATAL(text, "ELF contains no .text section!");
+	CCC_EXIT_IF_FALSE(text, "ELF contains no .text section!");
 	
 	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->header.offset);
-	CCC_CHECK_FATAL(text_address.has_value(), "Failed to translate file offset to virtual address.");
+	CCC_EXIT_IF_FALSE(text_address.has_value(), "Failed to translate file offset to virtual address.");
 	
 	Result<std::span<const mips::Insn>> insns = elf->get_array_virtual<mips::Insn>(*text_address, text->header.size / 4);
 	CCC_EXIT_IF_ERROR(insns);

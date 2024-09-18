@@ -49,7 +49,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	
-	CCC_CHECK_FATAL(fs::is_directory(options.output_path), "Output path needs to be a directory!");
+	CCC_EXIT_IF_FALSE(fs::is_directory(options.output_path), "Output path needs to be a directory!");
 	fs::path sources_file_path = options.output_path/"SOURCES.txt";
 	fs::path functions_file_path = options.output_path/"FUNCTIONS.txt";
 	
@@ -138,7 +138,7 @@ int main(int argc, char** argv)
 static std::vector<std::string> parse_sources_file(const fs::path& path)
 {
 	std::optional<std::string> file = platform::read_text_file(path);
-	CCC_CHECK_FATAL(file.has_value(), "Failed to open file '%s'", path.string().c_str());
+	CCC_EXIT_IF_FALSE(file.has_value(), "Failed to open file '%s'", path.string().c_str());
 	std::string_view input(*file);
 	std::vector<std::string> sources;
 	while(skip_whitespace(input), input.size() > 0) {
@@ -152,7 +152,7 @@ static FunctionsFile parse_functions_file(const fs::path& path)
 	FunctionsFile result;
 	
 	std::optional<std::string> file = platform::read_text_file(path);
-	CCC_CHECK_FATAL(file.has_value(), "Failed to open file '%s'", path.string().c_str());
+	CCC_EXIT_IF_FALSE(file.has_value(), "Failed to open file '%s'", path.string().c_str());
 	result.contents = std::move(*file);
 	
 	// Parse the file.
@@ -160,10 +160,10 @@ static FunctionsFile parse_functions_file(const fs::path& path)
 	std::span<char>* function = nullptr;
 	for(std::span<char> line = eat_line(input); line.data() != nullptr; line = eat_line(input)) {
 		if(line.size() >= 9 && memcmp(line.data(), "@function", 9) == 0) {
-			CCC_CHECK_FATAL(line.size() > 10, "Bad @function directive in FUNCTIONS.txt file.");
+			CCC_EXIT_IF_FALSE(line.size() > 10, "Bad @function directive in FUNCTIONS.txt file.");
 			char* end = nullptr;
 			u32 address = (u32) strtol(line.data() + 10, &end, 16);
-			CCC_CHECK_FATAL(end != line.data() + 10, "Bad @function directive in FUNCTIONS.txt file.");
+			CCC_EXIT_IF_FALSE(end != line.data() + 10, "Bad @function directive in FUNCTIONS.txt file.");
 			function = &result.functions[address];
 			*function = input.subspan(1);
 		} else if(function) {
@@ -239,7 +239,7 @@ static void write_c_cpp_file(
 {
 	printf("Writing %s\n", path.string().c_str());
 	FILE* out = fopen(path.string().c_str(), "w");
-	CCC_CHECK_FATAL(out, "Failed to open '%s' for writing.", path.string().c_str());
+	CCC_EXIT_IF_FALSE(out, "Failed to open '%s' for writing.", path.string().c_str());
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 	
 	// Configure printing.
@@ -414,7 +414,7 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			options.output_path = argv[i];
 			positional++;
 		} else {
-			CCC_FATAL("Too many arguments.");
+			CCC_EXIT("Too many arguments.");
 		}
 	}
 	
