@@ -107,32 +107,14 @@ public:
 	Iterator end();
 	ConstIterator end() const;
 	
-	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>>;
-	using NameToHandleMap = std::multimap<std::string, SymbolHandle<SymbolType>>;
-	
-	template <typename Iterator>
-	class Iterators {
-	public:
-		Iterators(Iterator b, Iterator e)
-			: m_begin(b), m_end(e) {}
-		Iterator begin() const { return m_begin; }
-		Iterator end() const { return m_end; }
-	protected:
-		Iterator m_begin;
-		Iterator m_end;
-	};
-	
-	using AddressToHandleMapIterators = Iterators<typename AddressToHandleMap::const_iterator>;
-	using NameToHandleMapIterators = Iterators<typename NameToHandleMap::const_iterator>;
-	
 	// Lookup symbols by their address.
-	AddressToHandleMapIterators handles_from_starting_address(Address address) const;
-	AddressToHandleMapIterators handles_from_address_range(AddressRange range) const;
+	std::vector<SymbolHandle<SymbolType>> handles_from_starting_address(Address address) const;
+	std::vector<SymbolHandle<SymbolType>> handles_from_address_range(AddressRange range) const;
 	SymbolHandle<SymbolType> first_handle_from_starting_address(Address address) const;
 	SymbolHandle<SymbolType> first_handle_after_address(Address address) const;
 	
 	// Lookup symbols by their name.
-	NameToHandleMapIterators handles_from_name(const std::string& name) const;
+	std::vector<SymbolHandle<SymbolType>> handles_from_name(const std::string& name) const;
 	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
 	
 	// Find a symbol with an address range that contains the provided address.
@@ -216,6 +198,9 @@ protected:
 	// Keep the name map in sync with the symbol list.
 	void link_name_map(SymbolType& symbol);
 	void unlink_name_map(SymbolType& symbol);
+	
+	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>>;
+	using NameToHandleMap = std::multimap<std::string, SymbolHandle<SymbolType>>;
 	
 	std::vector<SymbolType> m_symbols;
 	AddressToHandleMap m_address_to_handle;

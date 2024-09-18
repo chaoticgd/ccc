@@ -104,22 +104,40 @@ typename SymbolList<SymbolType>::ConstIterator SymbolList<SymbolType>::end() con
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_starting_address(Address address) const
+std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_starting_address(Address address) const
 {
-	auto iterators = m_address_to_handle.equal_range(address.value);
-	return {iterators.first, iterators.second};
+	std::vector<SymbolHandle<SymbolType>> handles;
+	
+	auto [begin, end] = m_address_to_handle.equal_range(address.value);
+	for(auto iterator = begin; iterator != end; iterator++) {
+		handles.emplace_back(iterator->second);
+	}
+	
+	return handles;
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::AddressToHandleMapIterators SymbolList<SymbolType>::handles_from_address_range(AddressRange range) const
+std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_address_range(AddressRange range) const
 {
+	std::vector<SymbolHandle<SymbolType>> handles;
+	
+	typename AddressToHandleMap::const_iterator begin, end;
 	if(range.low.valid()) {
-		return {m_address_to_handle.lower_bound(range.low.value), m_address_to_handle.lower_bound(range.high.value)};
+		begin = m_address_to_handle.lower_bound(range.low.value);
+		end = m_address_to_handle.lower_bound(range.high.value);
 	} else if(range.high.valid()) {
-		return {m_address_to_handle.begin(), m_address_to_handle.lower_bound(range.high.value)};
+		begin = m_address_to_handle.begin();
+		end = m_address_to_handle.lower_bound(range.high.value);
 	} else {
-		return {m_address_to_handle.end(), m_address_to_handle.end()};
+		begin = m_address_to_handle.end();
+		end = m_address_to_handle.end();
 	}
+	
+	for(auto iterator = begin; iterator != end; iterator++) {
+		handles.emplace_back(iterator->second);
+	}
+	
+	return handles;
 }
 
 template <typename SymbolType>
@@ -134,10 +152,16 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_addr
 }
 
 template <typename SymbolType>
-typename SymbolList<SymbolType>::NameToHandleMapIterators SymbolList<SymbolType>::handles_from_name(const std::string& name) const
+std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_name(const std::string& name) const
 {
-	auto iterators = m_name_to_handle.equal_range(name);
-	return {iterators.first, iterators.second};
+	std::vector<SymbolHandle<SymbolType>> handles;
+	
+	auto [begin, end] = m_name_to_handle.equal_range(name);
+	for(auto iterator = begin; iterator != end; iterator++) {
+		handles.emplace_back(iterator->second);
+	}
+	
+	return handles;
 }
 
 template <typename SymbolType>
@@ -929,7 +953,7 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 		// Types with this name have previously been processed, we need to
 		// figure out if this one matches any of the previous ones.
 		bool match = false;
-		for(auto [key, existing_type_handle] : types_with_same_name) {
+		for(DataTypeHandle existing_type_handle : types_with_same_name) {
 			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
