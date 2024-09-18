@@ -64,7 +64,7 @@ TEST(CCCSymbolDatabase, HandlesFromAddressRange)
 	
 	auto first_half = database.functions.handles_from_address_range(AddressRange(5, 15));
 	EXPECT_EQ(*first_half.begin(), handles[10]);
-	EXPECT_EQ(*(--first_half.end()), handles[15]);
+	EXPECT_EQ(*(--first_half.end()), handles[14]);
 	
 	auto second_half = database.functions.handles_from_address_range(AddressRange(15, 25));
 	EXPECT_EQ(*second_half.begin(), handles[15]);
