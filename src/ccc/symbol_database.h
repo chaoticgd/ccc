@@ -443,7 +443,7 @@ public:
 	static constexpr u32 FLAGS = WITH_ADDRESS_MAP;
 	
 	LocalVariableHandle handle() const { return m_handle; }
-	FunctionHandle function() const { return m_function; };
+	FunctionHandle function() const { return m_function; }
 	
 	std::variant<GlobalStorage, RegisterStorage, StackStorage> storage;
 	AddressRange live_range;

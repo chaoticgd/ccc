@@ -12,9 +12,9 @@ namespace ccc {
 // Determine which symbol tables are present in a given file.
 
 enum SymbolTableFormat {
-	MDEBUG = 0, // The infamous Third Eye symbol table
-	SYMTAB = 1, // Standard ELF symbol table
-	SNDLL  = 2  // SNDLL section
+	MDEBUG = 0, // The infamous Third Eye symbol table.
+	SYMTAB = 1, // Standard ELF symbol table.
+	SNDLL  = 2  // SNDLL dynamic linker symbol table.
 };
 
 struct SymbolTableFormatInfo {
