@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 	FILE* out = stdout;
 	if(!options.output_file.empty()) {
 		out = fopen(options.output_file.string().c_str(), "w");
-		CCC_CHECK_FATAL(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
+		CCC_EXIT_IF_FALSE(out, "Failed to open output file '%s'.", options.output_file.string().c_str());
 	}
 	
 	if(options.function) {
@@ -144,7 +144,7 @@ static void identify_symbol_tables(FILE* out, const Options& options)
 		}
 		fprintf(out, "  %4d unknown\n", unknown_total);
 	} else {
-		CCC_FATAL("Input path '%s' is neither a regular file nor a directory.", options.input_file.string().c_str());
+		CCC_EXIT("Input path '%s' is neither a regular file nor a directory.", options.input_file.string().c_str());
 	}
 }
 
@@ -559,7 +559,7 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			if(i + 1 < argc) {
 				options.output_file = argv[++i];
 			} else {
-				CCC_FATAL("No output path specified.");
+				CCC_EXIT("No output path specified.");
 			}
 		} else if(strcmp(arg, "--section") == 0) {
 			if(i + 2 < argc) {
@@ -567,21 +567,21 @@ static Options parse_command_line_arguments(int argc, char** argv)
 				section.section_name = argv[++i];
 				section.format = symbol_table_format_from_name(argv[++i])->format;
 			} else if(i + 1 < argc) {
-				CCC_FATAL("Missing format after --section.");
+				CCC_EXIT("Missing format after --section.");
 			} else {
-				CCC_FATAL("Missing section name after --section.");
+				CCC_EXIT("Missing section name after --section.");
 			}
 		} else if(strncmp(arg, "--", 2) == 0) {
-			CCC_FATAL("Unknown option '%s'.", arg);
+			CCC_EXIT("Unknown option '%s'.", arg);
 		} else if(input_path_provided) {
-			CCC_FATAL("Multiple input paths specified.");
+			CCC_EXIT("Multiple input paths specified.");
 		} else {
 			options.input_file = argv[i];
 			input_path_provided = true;
 		}
 	}
 	
-	CCC_CHECK_FATAL(!require_input_path || !options.input_file.empty(), "No input path specified.");
+	CCC_EXIT_IF_FALSE(!require_input_path || !options.input_file.empty(), "No input path specified.");
 	
 	return options;
 }

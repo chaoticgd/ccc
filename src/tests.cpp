@@ -36,7 +36,7 @@ int main(int argc, char** argv)
 
 static int main_test(const fs::path& input_directory)
 {
-	CCC_CHECK_FATAL(fs::is_directory(input_directory), "Input path is not a directory.");
+	CCC_EXIT_IF_FALSE(fs::is_directory(input_directory), "Input path is not a directory.");
 	
 	for(auto entry : fs::recursive_directory_iterator(input_directory)) {
 		if(entry.is_regular_file()) {
