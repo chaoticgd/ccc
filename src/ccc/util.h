@@ -270,7 +270,6 @@ struct AddressRange {
 	Address high;
 	
 	AddressRange() {}
-	AddressRange(Address address) : low(address), high(address) {}
 	AddressRange(Address l, Address h) : low(l), high(h) {}
 	
 	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;

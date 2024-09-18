@@ -57,22 +57,22 @@ TEST(CCCSymbolDatabase, HandlesFromAddressRange)
 	EXPECT_EQ(empty_after_open.begin(), empty_after_open.end());
 	
 	auto last = database.functions.handles_from_address_range(AddressRange(19, 30));
-	EXPECT_EQ(last.begin()->second, handles[19]);
+	EXPECT_EQ(*last.begin(), handles[19]);
 	
 	auto last_open = database.functions.handles_from_address_range(AddressRange(19, Address()));
-	EXPECT_EQ(last_open.begin()->second, handles[19]);
+	EXPECT_EQ(*last_open.begin(), handles[19]);
 	
 	auto first_half = database.functions.handles_from_address_range(AddressRange(5, 15));
-	EXPECT_EQ(first_half.begin()->second, handles[10]);
-	EXPECT_EQ(first_half.end()->second, handles[15]);
+	EXPECT_EQ(*first_half.begin(), handles[10]);
+	EXPECT_EQ(*(--first_half.end()), handles[14]);
 	
 	auto second_half = database.functions.handles_from_address_range(AddressRange(15, 25));
-	EXPECT_EQ(second_half.begin()->second, handles[15]);
-	EXPECT_EQ((--second_half.end())->second, handles[19]);
+	EXPECT_EQ(*second_half.begin(), handles[15]);
+	EXPECT_EQ(*(--second_half.end()), handles[19]);
 	
 	auto whole_range = database.functions.handles_from_address_range(AddressRange(10, 20));
-	EXPECT_EQ(whole_range.begin()->second, handles[10]);
-	EXPECT_EQ((--whole_range.end())->second, handles[19]);
+	EXPECT_EQ(*whole_range.begin(), handles[10]);
+	EXPECT_EQ(*(--whole_range.end()), handles[19]);
 }
 
 TEST(CCCSymbolDatabase, HandleFromStartingAddress)
@@ -424,7 +424,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	EXPECT_EQ(++handles.begin(), handles.end());
 	
 	// Validate that we can lookup the struct and that it has a single field which is a type name.
-	DataType* chosen_type = database.data_types.symbol_from_handle(handles.begin()->second);
+	DataType* chosen_type = database.data_types.symbol_from_handle(*handles.begin());
 	ASSERT_TRUE(chosen_type && chosen_type->type() && chosen_type->type()->descriptor == ast::STRUCT_OR_UNION);
 	ast::StructOrUnion& chosen_struct = chosen_type->type()->as<ast::StructOrUnion>();
 	ASSERT_EQ(chosen_struct.fields.size(), 1);

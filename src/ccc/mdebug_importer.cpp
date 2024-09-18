@@ -348,7 +348,7 @@ static Result<void> resolve_type_name(
 		CCC_ASSERT(source_file);
 		auto handle = source_file->stabs_type_number_to_handle.find(unresolved_stabs->stabs_type_number);
 		if(handle != source_file->stabs_type_number_to_handle.end()) {
-			type_name.data_type_handle = handle->second.value;
+			type_name.data_type_handle = handle->second;
 			type_name.is_forward_declared = false;
 			type_name.unresolved_stabs.reset();
 			return Result<void>();
@@ -359,10 +359,10 @@ static Result<void> resolve_type_name(
 	// its name instead. This happens when a type is forward declared but not
 	// defined in a given translation unit.
 	if(!unresolved_stabs->type_name.empty()) {
-		for(auto& name_handle : database.data_types.handles_from_name(unresolved_stabs->type_name)) {
-			DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
+		for(DataTypeHandle& handle : database.data_types.handles_from_name(unresolved_stabs->type_name)) {
+			DataType* data_type = database.data_types.symbol_from_handle(handle);
 			if(data_type && group.is_in_group(*data_type)) {
-				type_name.data_type_handle = name_handle.second.value;
+				type_name.data_type_handle = handle;
 				type_name.is_forward_declared = true;
 				type_name.unresolved_stabs.reset();
 				return Result<void>();
@@ -412,7 +412,7 @@ static Result<void> resolve_type_name(
 		(*forward_declared_type)->set_type(std::move(forward_declared_node));
 		(*forward_declared_type)->not_defined_in_any_translation_unit = true;
 		
-		type_name.data_type_handle = (*forward_declared_type)->handle().value;
+		type_name.data_type_handle = (*forward_declared_type)->handle();
 		type_name.is_forward_declared = true;
 		type_name.unresolved_stabs.reset();
 		
@@ -545,18 +545,18 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 		// translation units.
 		FunctionHandle best_handle;
 		u32 best_offset = UINT32_MAX;
-		for(const auto& [address, handle] : functions_with_same_address) {
+		for(FunctionHandle handle : functions_with_same_address) {
 			ccc::Function* function = database.functions.symbol_from_handle(handle);
 			if(!function || !group.is_in_group(*function) || function->mangled_name() != test_function.mangled_name()) {
 				continue;
 			}
 			
-			if(address - source_file_address < best_offset) {
+			if(test_function.address().value - source_file_address < best_offset) {
 				if(best_handle.valid()) {
 					duplicate_functions.emplace_back(best_handle);
 				}
 				best_handle = function->handle();
-				best_offset = address - source_file_address;
+				best_offset = test_function.address().value - source_file_address;
 			} else {
 				duplicate_functions.emplace_back(function->handle());
 			}
@@ -643,8 +643,8 @@ void fill_in_pointers_to_member_function_definitions(SymbolDatabase& database)
 			type_name = qualified_name.substr(0, name_separator_pos - 1);
 		}
 		
-		for(const auto& name_handle : database.data_types.handles_from_name(type_name)) {
-			DataType* data_type = database.data_types.symbol_from_handle(name_handle.second);
+		for(DataTypeHandle handle : database.data_types.handles_from_name(type_name)) {
+			DataType* data_type = database.data_types.symbol_from_handle(handle);
 			if(!data_type || !data_type->type() || data_type->type()->descriptor != ast::STRUCT_OR_UNION) {
 				continue;
 			}
