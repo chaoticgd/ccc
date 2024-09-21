@@ -10,6 +10,7 @@
 #include "elf.h"
 #include "elf_symtab.h"
 #include "importer_flags.h"
+#include "int128.h"
 #include "mdebug_analysis.h"
 #include "mdebug_importer.h"
 #include "mdebug_section.h"

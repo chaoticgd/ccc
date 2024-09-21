@@ -11,6 +11,7 @@
 - src/ccc/elf.cpp: Parses ELF files.
 - src/ccc/elf_symtab.cpp: Parses the ELF symbol table.
 - src/ccc/importer_flags.cpp: An enum and help information printing for importer configuration flags.
+- src/ccc/int128.cpp: 128-bit integer types.
 - src/ccc/mdebug_analysis.cpp: Accepts a stream of symbols and imports the data.
 - src/ccc/mdebug_importer.cpp: Top-level file for parsing .mdebug symbol tables.
 - src/ccc/mdebug_section.cpp: Parses the .mdebug binary format.
