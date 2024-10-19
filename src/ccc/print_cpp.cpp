@@ -783,7 +783,7 @@ void CppPrinter::offset(const ast::Node& node, s32 base_offset)
 		CCC_ASSERT(m_digits_for_offset > -1 && m_digits_for_offset < 100);
 		fprintf(out, "/* 0x%0*x", m_digits_for_offset, base_offset + node.offset_bytes);
 		if(node.descriptor == ast::BITFIELD) {
-			fprintf(out, ":%d", node.as<ast::BitField>().bitfield_offset_bits);
+			fprintf(out, ":%02d", node.as<ast::BitField>().bitfield_offset_bits);
 		}
 		fprintf(out, " */ ");
 	}

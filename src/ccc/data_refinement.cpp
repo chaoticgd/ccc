@@ -11,10 +11,13 @@ namespace ccc {
 
 static Result<RefinedData> refine_node(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf, s32 depth);
+static Result<RefinedData> refine_bitfield(
+	u32 virtual_address, const ast::BitField& bit_field, const SymbolDatabase& database, const ElfFile& elf);
 static Result<RefinedData> refine_builtin(
 	u32 virtual_address, ast::BuiltInClass bclass, const SymbolDatabase& database, const ElfFile& elf);
 static Result<RefinedData> refine_pointer_or_reference(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf);
+static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass);
 static const char* generate_format_string(s32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
@@ -66,9 +69,8 @@ static Result<RefinedData> refine_node(
 			return list;
 		}
 		case ast::BITFIELD: {
-			RefinedData data;
-			data.value = "BITFIELD";
-			return data;
+			const ast::BitField& bit_field = type.as<ast::BitField>();
+			return refine_bitfield(virtual_address, bit_field, database, elf);
 		}
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = type.as<ast::BuiltIn>();
@@ -136,97 +138,142 @@ static Result<RefinedData> refine_node(
 		}
 	}
 	
-	return CCC_FAILURE("Failed to refine global variable (%s).", ast::node_type_to_string(type));
+	return CCC_FAILURE("Failed to refine variable (%s).", ast::node_type_to_string(type));
 }
 
-static Result<RefinedData> refine_builtin(
-	u32 virtual_address, ast::BuiltInClass bclass, const SymbolDatabase& database, const ElfFile& elf)
+static Result<RefinedData> refine_bitfield(
+	u32 virtual_address, const ast::BitField& bit_field, const SymbolDatabase& database, const ElfFile& elf)
 {
-	RefinedData data;
+	ast::BuiltInClass storage_unit_type = bit_field.storage_unit_type(database);
 	
-	switch(bclass) {
-		case ast::BuiltInClass::VOID_TYPE: {
-			break;
-		}
+	u128 value;
+	switch(storage_unit_type) {
 		case ast::BuiltInClass::UNSIGNED_8:
-		case ast::BuiltInClass::UNQUALIFIED_8:
-		case ast::BuiltInClass::UNSIGNED_16:
-		case ast::BuiltInClass::UNSIGNED_32:
-		case ast::BuiltInClass::UNSIGNED_64: {
-			s32 size = builtin_class_size(bclass);
-			
-			u64 value = 0;
-			Result<void> read_result = elf.copy_virtual((u8*) &value, virtual_address, size);
-			CCC_RETURN_IF_ERROR(read_result);
-			
-			const char* format = generate_format_string(size, false);
-			data.value = stringf(format, value);
-			
-			break;
-		}
-		case ast::BuiltInClass::SIGNED_8:
-		case ast::BuiltInClass::SIGNED_16:
-		case ast::BuiltInClass::SIGNED_32:
-		case ast::BuiltInClass::SIGNED_64: {
-			s32 size = builtin_class_size(bclass);
-			
-			s64 value = 0;
-			Result<void> read_result = elf.copy_virtual((u8*) &value, virtual_address, size);
-			CCC_RETURN_IF_ERROR(read_result);
-			
-			const char* format = generate_format_string(size, true);
-			data.value = stringf(format, value);
-			
+		case ast::BuiltInClass::UNQUALIFIED_8: {
+			Result<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_unsigned(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::BOOL_8: {
-			Result<u8> value = elf.get_object_virtual<u8>(virtual_address);
-			CCC_RETURN_IF_ERROR(value);
-			
-			data.value = *value ? "true" : "false";
-			
+			Result<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_unsigned(*storage_unit);
 			break;
 		}
-		case ast::BuiltInClass::FLOAT_32: {
-			static_assert(sizeof(float) == 4);
-			
-			Result<float> value = elf.get_object_virtual<float>(virtual_address);
-			CCC_RETURN_IF_ERROR(value);
-			
-			data.value = single_precision_float_to_string(*value);
-			
+		case ast::BuiltInClass::SIGNED_8: {
+			Result<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_signed(*storage_unit);
 			break;
 		}
-		case ast::BuiltInClass::FLOAT_64: {
-			static_assert(sizeof(double) == 8);
-			
-			Result<double> value = elf.get_object_virtual<double>(virtual_address);
-			CCC_RETURN_IF_ERROR(value);
-			
-			std::string string = stringf("%g", *value);
-			if(strtof(string.c_str(), nullptr) != *value) {
-				string = stringf("%.17g", *value);
-			}
-			data.value = std::move(string);
-			
+		case ast::BuiltInClass::UNSIGNED_16: {
+			Result<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_unsigned(*storage_unit);
+			break;
+		}
+		case ast::BuiltInClass::SIGNED_16: {
+			Result<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_signed(*storage_unit);
+			break;
+		}
+		case ast::BuiltInClass::UNSIGNED_32: {
+			Result<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_unsigned(*storage_unit);
+			break;
+		}
+		case ast::BuiltInClass::SIGNED_32: {
+			Result<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_signed(*storage_unit);
+			break;
+		}
+		case ast::BuiltInClass::UNSIGNED_64: {
+			Result<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_unsigned(*storage_unit);
+			break;
+		}
+		case ast::BuiltInClass::SIGNED_64: {
+			Result<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
+			CCC_RETURN_IF_ERROR(storage_unit);
+			value = bit_field.unpack_signed(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_128:
 		case ast::BuiltInClass::SIGNED_128:
 		case ast::BuiltInClass::UNQUALIFIED_128:
 		case ast::BuiltInClass::FLOAT_128: {
-			Result<std::span<const float>> value = elf.get_array_virtual<float>(virtual_address, 4);
-			CCC_RETURN_IF_ERROR(value);
+			Result<u64> low = elf.get_object_virtual<u64>(virtual_address);
+			CCC_RETURN_IF_ERROR(low);
 			
-			data.value = stringf("VECTOR(%s, %s, %s, %s)",
-				single_precision_float_to_string((*value)[0]).c_str(),
-				single_precision_float_to_string((*value)[1]).c_str(),
-				single_precision_float_to_string((*value)[2]).c_str(),
-				single_precision_float_to_string((*value)[3]).c_str());
-				
+			Result<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
+			CCC_RETURN_IF_ERROR(high);
+			
+			u128 storage_unit;
+			storage_unit.low = *low;
+			storage_unit.high = *high;
+			
+			value = bit_field.unpack_unsigned(storage_unit);
+			break;
+		}
+		default:
+			break;
+	}
+	
+	RefinedData data;
+	data.value = builtin_to_string(value, storage_unit_type);
+	
+	return data;
+}
+
+static Result<RefinedData> refine_builtin(
+	u32 virtual_address, ast::BuiltInClass bclass, const SymbolDatabase& database, const ElfFile& elf)
+{
+	u128 value;
+	switch(bclass) {
+		case ast::BuiltInClass::VOID_TYPE: {
+			break;
+		}
+		case ast::BuiltInClass::UNSIGNED_8:
+		case ast::BuiltInClass::SIGNED_8:
+		case ast::BuiltInClass::UNQUALIFIED_8:
+		case ast::BuiltInClass::BOOL_8:
+		case ast::BuiltInClass::UNSIGNED_16:
+		case ast::BuiltInClass::SIGNED_16:
+		case ast::BuiltInClass::UNSIGNED_32:
+		case ast::BuiltInClass::SIGNED_32:
+		case ast::BuiltInClass::FLOAT_32:
+		case ast::BuiltInClass::UNSIGNED_64:
+		case ast::BuiltInClass::SIGNED_64:
+		case ast::BuiltInClass::FLOAT_64: {
+			s32 size = builtin_class_size(bclass);
+			Result<void> read_result = elf.copy_virtual((u8*) &value.low, virtual_address, size);
+			CCC_RETURN_IF_ERROR(read_result);
+			break;
+		}
+		case ast::BuiltInClass::UNSIGNED_128:
+		case ast::BuiltInClass::SIGNED_128:
+		case ast::BuiltInClass::UNQUALIFIED_128:
+		case ast::BuiltInClass::FLOAT_128: {
+			Result<u64> low = elf.get_object_virtual<u64>(virtual_address);
+			CCC_RETURN_IF_ERROR(low);
+			
+			Result<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
+			CCC_RETURN_IF_ERROR(high);
+			
+			value.low = *low;
+			value.high = *high;
+			
 			break;
 		}
 	}
+	
+	RefinedData data;
+	data.value = builtin_to_string(value, bclass);
 	
 	return data;
 }
@@ -274,6 +321,66 @@ static Result<RefinedData> refine_pointer_or_reference(
 	return data;
 }
 
+static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
+{
+	std::string result;
+	
+	switch(bclass) {
+		case ast::BuiltInClass::VOID_TYPE: {
+			break;
+		}
+		case ast::BuiltInClass::UNSIGNED_8:
+		case ast::BuiltInClass::UNQUALIFIED_8:
+		case ast::BuiltInClass::UNSIGNED_16:
+		case ast::BuiltInClass::UNSIGNED_32:
+		case ast::BuiltInClass::UNSIGNED_64: {
+			s32 size = builtin_class_size(bclass);
+			const char* format = generate_format_string(size, false);
+			result = stringf(format, value.low);
+			break;
+		}
+		case ast::BuiltInClass::SIGNED_8:
+		case ast::BuiltInClass::SIGNED_16:
+		case ast::BuiltInClass::SIGNED_32:
+		case ast::BuiltInClass::SIGNED_64: {
+			s32 size = builtin_class_size(bclass);
+			const char* format = generate_format_string(size, true);
+			result = stringf(format, value.low);
+			break;
+		}
+		case ast::BuiltInClass::BOOL_8: {
+			result = value.low ? "true" : "false";
+			break;
+		}
+		case ast::BuiltInClass::FLOAT_32: {
+			static_assert(sizeof(float) == 4);
+			result = single_precision_float_to_string(value.low);
+			break;
+		}
+		case ast::BuiltInClass::FLOAT_64: {
+			static_assert(sizeof(double) == 8);
+			
+			std::string string = stringf("%g", value.low);
+			if(strtof(string.c_str(), nullptr) != value.low) {
+				string = stringf("%.17g", value.low);
+			}
+			
+			result = std::move(string);
+			
+			break;
+		}
+		case ast::BuiltInClass::UNSIGNED_128:
+		case ast::BuiltInClass::SIGNED_128:
+		case ast::BuiltInClass::UNQUALIFIED_128:
+		case ast::BuiltInClass::FLOAT_128: {
+			result = std::string("0x") + value.to_string();
+			break;
+		}
+	}
+	
+	return result;
+}
+
 static const char* generate_format_string(s32 size, bool is_signed)
 {
 	switch(size) {
@@ -299,7 +406,7 @@ static std::string single_precision_float_to_string(float value)
 
 static std::string string_format(const char* format, va_list args)
 {
-	static char buffer[16 * 1024];
+	char buffer[256];
 	vsnprintf(buffer, sizeof(buffer), format, args);
 	return std::string(buffer);
 }

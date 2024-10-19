@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <functional>
-
 #include "elf.h"
 #include "symbol_database.h"
 
