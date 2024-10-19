@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "int128.h"
 #include "symbol_database.h"
 
 namespace ccc::ast {
@@ -97,14 +98,6 @@ struct Array : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = ARRAY;
 };
 
-struct BitField : Node {
-	s32 bitfield_offset_bits = -1; // Offset relative to the last byte (not the position of the underlying type!).
-	std::unique_ptr<Node> underlying_type;
-	
-	BitField() : Node(DESCRIPTOR) {}
-	static const constexpr NodeDescriptor DESCRIPTOR = BITFIELD;
-};
-
 enum class BuiltInClass {
 	VOID_TYPE,
 	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
@@ -112,6 +105,20 @@ enum class BuiltInClass {
 	UNSIGNED_32, SIGNED_32, FLOAT_32,
 	UNSIGNED_64, SIGNED_64, FLOAT_64,
 	UNSIGNED_128, SIGNED_128, UNQUALIFIED_128, FLOAT_128
+};
+
+struct BitField : Node {
+	s32 bitfield_offset_bits = -1;
+	std::unique_ptr<Node> underlying_type;
+	
+	BitField() : Node(DESCRIPTOR) {}
+	static const constexpr NodeDescriptor DESCRIPTOR = BITFIELD;
+	
+	BuiltInClass storage_unit_type(const SymbolDatabase& database) const;
+	u128 unpack_unsigned(u128 storage_unit) const;
+	s128 unpack_signed(u128 storage_unit) const;
+	u128 pack_unsigned(u128 bitfield) const;
+	u128 pack_signed(s128 bitfield) const;
 };
 
 struct BuiltIn : Node {

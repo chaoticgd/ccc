@@ -42,6 +42,47 @@ std::pair<const Node*, const DataType*> Node::physical_type(const SymbolDatabase
 	return const_cast<Node*>(this)->physical_type(const_cast<SymbolDatabase&>(database), max_depth);
 }
 
+BuiltInClass BitField::storage_unit_type(const SymbolDatabase& database) const
+{
+	BuiltInClass result = BuiltInClass::VOID_TYPE;
+	
+	if(underlying_type.get()) {
+		auto [type, symbol] = underlying_type->physical_type(database);
+		switch(type->descriptor) {
+			case BUILTIN:
+				result = type->as<BuiltIn>().bclass;
+				break;
+			case ENUM:
+				result = BuiltInClass::SIGNED_32;
+				break;
+			default:
+				break;
+		}
+	}
+	
+	return result;
+}
+
+u128 BitField::unpack_unsigned(u128 storage_unit) const
+{
+	return (storage_unit >> bitfield_offset_bits) & ((u128(1) << size_bits) - 1);
+}
+
+s128 BitField::unpack_signed(u128 storage_unit) const
+{
+	return s128(storage_unit << (128 - (bitfield_offset_bits + size_bits))) >> (128 - size_bits);
+}
+
+u128 BitField::pack_unsigned(u128 bitfield) const
+{
+	return (bitfield & ((u128(1) << size_bits) - 1)) << bitfield_offset_bits;
+}
+
+u128 BitField::pack_signed(s128 bitfield) const
+{
+	return u128((bitfield & ((u128(1) << size_bits) - 1)) << (128 - size_bits)) >> (128 - bitfield_offset_bits - size_bits);
+}
+
 const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 {
 	switch(modifier) {

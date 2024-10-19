@@ -24,7 +24,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 	const StabsType& enclosing_struct,
 	const StabsToAstState& state,
 	s32 depth);
-static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
+static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth);
 static MemberFunctionInfo check_member_function(
@@ -529,10 +529,10 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 {
 	AST_DEBUG_PRINTF("%-*s  field %s\n", depth * 4, "", field.name.c_str());
 	
-	Result<bool> is_bitfield = detect_bitfield(field, state);
-	CCC_RETURN_IF_ERROR(is_bitfield);
+	Result<u32> bitfield_storage_unit_size_bits = detect_bitfield(field, state);
+	CCC_RETURN_IF_ERROR(bitfield_storage_unit_size_bits);
 	
-	if(*is_bitfield) {
+	if(*bitfield_storage_unit_size_bits) {
 		// Process bitfields.
 		auto bitfield_node = stabs_type_to_ast(
 			*field.type,
@@ -545,10 +545,10 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		
 		std::unique_ptr<ast::BitField> bitfield = std::make_unique<ast::BitField>();
 		bitfield->name = (field.name == " ") ? "" : field.name;
-		bitfield->offset_bytes = field.offset_bits / 8;
+		bitfield->offset_bytes = (field.offset_bits - (field.offset_bits % *bitfield_storage_unit_size_bits)) / 8;
 		bitfield->size_bits = field.size_bits;
 		bitfield->underlying_type = std::move(*bitfield_node);
-		bitfield->bitfield_offset_bits = field.offset_bits % 8;
+		bitfield->bitfield_offset_bits = field.offset_bits % *bitfield_storage_unit_size_bits;
 		bitfield->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.importer_flags);
 		
 		return std::unique_ptr<ast::Node>(std::move(bitfield));
@@ -580,11 +580,11 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 	}
 }
 
-static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state)
+static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state)
 {
 	// Static fields can't be bitfields.
 	if(field.is_static) {
-		return false;
+		return 0;
 	}
 	
 	// Resolve type references.
@@ -592,11 +592,11 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 	for(s32 i = 0; i < 50; i++) {
 		if(!type->descriptor.has_value()) {
 			if(!type->type_number.valid()) {
-				return false;
+				return 0;
 			}
 			auto next_type = state.stabs_types->find(type->type_number);
 			if(next_type == state.stabs_types->end() || next_type->second == type) {
-				return false;
+				return 0;
 			}
 			type = next_type->second;
 		} else if(type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
@@ -611,45 +611,45 @@ static Result<bool> detect_bitfield(const StabsStructOrUnionType::Field& field, 
 		
 		// Prevent an infinite loop if there's a cycle (fatal frame).
 		if(i == 49) {
-			return false;
+			return 0;
 		}
 	}
 	
-	// Determine the size of the underlying type.
-	s32 underlying_type_size_bits = 0;
+	// Determine the size of the underlying storage unit.
+	s32 storage_unit_size_bits = 0;
 	switch(*type->descriptor) {
 		case ccc::StabsTypeDescriptor::RANGE: {
 			Result<ast::BuiltInClass> bclass = classify_range(type->as<StabsRangeType>());
 			CCC_RETURN_IF_ERROR(bclass);
-			underlying_type_size_bits = builtin_class_size(*bclass) * 8;
+			storage_unit_size_bits = builtin_class_size(*bclass) * 8;
 			break;
 		}
 		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {
 			if(type->as<StabsCrossReferenceType>().type == ast::ForwardDeclaredType::ENUM) {
-				underlying_type_size_bits = 32;
+				storage_unit_size_bits = 32;
 			} else {
-				return false;
+				return 0;
 			}
 			break;
 		}
 		case ccc::StabsTypeDescriptor::TYPE_ATTRIBUTE: {
-			underlying_type_size_bits = (s32) type->as<StabsSizeTypeAttributeType>().size_bits;
+			storage_unit_size_bits = (s32) type->as<StabsSizeTypeAttributeType>().size_bits;
 			break;
 		}
 		case ccc::StabsTypeDescriptor::BUILTIN: {
-			underlying_type_size_bits = 8; // bool
+			storage_unit_size_bits = 8; // bool
 			break;
 		}
 		default: {
-			return false;
+			return 0;
 		}
 	}
 	
-	if(underlying_type_size_bits == 0) {
-		return false;
+	if(storage_unit_size_bits == field.size_bits) {
+		return 0;
 	}
 	
-	return field.size_bits != underlying_type_size_bits;
+	return storage_unit_size_bits;
 }
 
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(

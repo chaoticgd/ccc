@@ -8,6 +8,7 @@ and `ast_json.cpp` for the code that currently defines the format.
 
 | Format Version | Release | Changes |
 | - | - | - |
+| 15 | v2.2 | The offset_bytes and bitfield_offset_bits properties of bitfield nodes now represent and are relative to the beginning of the storage unit respectively. |
 | 14 | v2.1 | Added stack_frame_size property for function symbols. |
 | 13 | v2.0 | Added size_bytes field to all nodes. Renamed data_type_handle property to just data_type (since it's not a handle). |
 | 12 | | Added format and application properties to root object. Added hash property to function symbols. |

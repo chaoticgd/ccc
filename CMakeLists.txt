@@ -46,6 +46,8 @@ add_library(ccc STATIC
 	src/ccc/elf_symtab.h
 	src/ccc/importer_flags.cpp
 	src/ccc/importer_flags.h
+	src/ccc/int128.cpp
+	src/ccc/int128.h
 	src/ccc/mdebug_analysis.cpp
 	src/ccc/mdebug_analysis.h
 	src/ccc/mdebug_importer.cpp
@@ -93,6 +95,7 @@ add_library(ccc_platform STATIC
 set(TEST_SOURCES
 	test/demangler_tests.cpp
 	test/collision_tests.cpp
+	test/ccc/int128_tests.cpp
 	test/ccc/mdebug_importer_tests.cpp
 	test/ccc/stabs_tests.cpp
 	test/ccc/symbol_database_tests.cpp
