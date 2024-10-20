@@ -51,7 +51,9 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ### Chaos Compiler Collection
 
+- [Library Overview](docs/LibraryOverview.md)
 - [Compiler Bugs](docs/CompilerBugs.md)
+- [Error Handling](docs/ErrorHandling.md)
 - [JSON Format](docs/JsonFormat.md)
 - [Project Structure](docs/ProjectStructure.md)
 - [Symbol Database](docs/SymbolDatabase.md)
@@ -59,6 +61,11 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 ### DWARF (.debug) Section
 
 - [DWARF Debugging Information Format](https://dwarfstd.org/doc/dwarf_1_1_0.pdf) / [in-repo mirror](docs/mirror/dwarf_1_1_0.pdf) / [archive.org mirror](https://web.archive.org/web/20230702091554/https://dwarfstd.org/doc/dwarf_1_1_0.pdf)
+
+### MIPS ABI
+
+- [MIPS EABI](https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html) / [in-repo mirror](docs/mirror/mips_eabi.txt) / [archive.org mirror](https://web.archive.org/web/20231222053837/https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html)
+- [System V Application Binary Interface MIPS RISC Processor Supplement](https://refspecs.linuxfoundation.org/elf/mipsabi.pdf) / [in-repo mirror](docs/mirror/mipsabi.pdf) / [archive.org mirror](https://web.archive.org/web/20240724010702/https://refspecs.linuxfoundation.org/elf/mipsabi.pdf)
 
 ### MIPS Debug (.mdebug) Section
 
@@ -71,10 +78,6 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 - `mdebugread.c` from gdb (reading)
 - `ecoff.c` from gas (writing)
 - `include/coff/sym.h` from binutils (headers)
-
-### MIPS EABI
-
-- [MIPS EABI](https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html) / [in-repo mirror](docs/mirror/mips_eabi.txt) / [archive.org mirror](https://web.archive.org/web/20231222053837/https://sourceware.org/legacy-ml/binutils/2003-06/msg00436.html)
 
 ### STABS
 
