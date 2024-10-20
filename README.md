@@ -52,6 +52,7 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 ### Chaos Compiler Collection
 
 - [Compiler Bugs](docs/CompilerBugs.md)
+- [Error Handling](docs/ErrorHandling.md)
 - [JSON Format](docs/JsonFormat.md)
 - [Project Structure](docs/ProjectStructure.md)
 - [Symbol Database](docs/SymbolDatabase.md)
