@@ -535,6 +535,11 @@ CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 
 // *****************************************************************************
 
+Symbol::Symbol() = default;
+Symbol::Symbol(Symbol&& rhs) = default;
+Symbol::~Symbol() = default;
+Symbol& Symbol::operator=(Symbol&& rhs) = default;
+
 void Symbol::set_type(std::unique_ptr<ast::Node> type)
 {
 	m_type = std::move(type);
