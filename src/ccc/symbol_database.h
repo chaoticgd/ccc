@@ -642,7 +642,8 @@ public:
 	void clear();
 	
 	template <typename Callback>
-	void for_each_symbol(Callback callback) {
+	void for_each_symbol(Callback callback)
+	{
 		// Use indices here to avoid iterator invalidation.
 		#define CCC_X(SymbolType, symbol_list) \
 			for (s32 i = 0; i < symbol_list.size(); i++) { \
