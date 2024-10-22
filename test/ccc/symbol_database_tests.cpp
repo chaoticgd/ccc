@@ -14,14 +14,14 @@ TEST(CCCSymbolDatabase, SymbolFromHandle)
 	SymbolSourceHandle handles[10];
 	
 	// Create the symbols.
-	for(s32 i = 0; i < 10; i++) {
+	for (s32 i = 0; i < 10; i++) {
 		Result<SymbolSource*> source = database.symbol_sources.create_symbol(std::to_string(i), SymbolSourceHandle());
 		CCC_GTEST_FAIL_IF_ERROR(source);
 		handles[i] = (*source)->handle();
 	}
 	
 	// Make sure we can still look them up.
-	for(s32 i = 0; i < 10; i++) {
+	for (s32 i = 0; i < 10; i++) {
 		SymbolSource* source = database.symbol_sources.symbol_from_handle(handles[i]);
 		ASSERT_TRUE(source);
 		EXPECT_EQ(source->name(), std::to_string(i));
@@ -37,7 +37,7 @@ TEST(CCCSymbolDatabase, HandlesFromAddressRange)
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
 	// Create the symbols.
-	for(u32 address = 10; address < 20; address++) {
+	for (u32 address = 10; address < 20; address++) {
 		Result<Function*> function = database.functions.create_symbol("", address, (*source)->handle(), nullptr);
 		CCC_GTEST_FAIL_IF_ERROR(function);
 		handles[address] = (*function)->handle();
@@ -84,14 +84,14 @@ TEST(CCCSymbolDatabase, HandleFromStartingAddress)
 	CCC_GTEST_FAIL_IF_ERROR(source);
 	
 	// Create the symbols.
-	for(u32 address = 0; address < 10; address++) {
+	for (u32 address = 0; address < 10; address++) {
 		Result<Function*> function = database.functions.create_symbol("", address, (*source)->handle(), nullptr);
 		CCC_GTEST_FAIL_IF_ERROR(function);
 		handles[address] = (*function)->handle();
 	}
 	
 	// Make sure we can look them up by their address.
-	for(u32 address = 0; address < 10; address++) {
+	for (u32 address = 0; address < 10; address++) {
 		EXPECT_EQ(database.functions.first_handle_from_starting_address(address), handles[address]);
 	}
 }
@@ -142,7 +142,7 @@ static Result<FunctionHandle> create_function(SymbolDatabase& database, SymbolSo
 
 static FunctionHandle handle_from_function(Function* function)
 {
-	if(function) {
+	if (function) {
 		return function->handle();
 	} else {
 		return FunctionHandle();
@@ -240,25 +240,25 @@ TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles)
 	SymbolSourceHandle handles[10];
 	
 	// Create the symbols.
-	for(s32 i = 0; i < 10; i++) {
+	for (s32 i = 0; i < 10; i++) {
 		Result<SymbolSource*> source = database.symbol_sources.create_symbol(std::to_string(i), SymbolSourceHandle());
 		CCC_GTEST_FAIL_IF_ERROR(source);
 		handles[i] = (*source)->handle();
 	}
 	
 	// Destroy every other symbol.
-	for(s32 i = 0; i < 10; i += 2) {
+	for (s32 i = 0; i < 10; i += 2) {
 		database.symbol_sources.mark_symbol_for_destruction(handles[i], &database);
 	}
 	database.destroy_marked_symbols();
 	
 	// Make sure we can't look them up anymore.
-	for(s32 i = 0; i < 10; i += 2) {
+	for (s32 i = 0; i < 10; i += 2) {
 		EXPECT_FALSE(database.symbol_sources.symbol_from_handle(handles[i]));
 	}
 	
 	// Make sure we can still lookup the other ones.
-	for(s32 i = 1; i < 10; i += 2) {
+	for (s32 i = 1; i < 10; i += 2) {
 		EXPECT_TRUE(database.symbol_sources.symbol_from_handle(handles[i]));
 	}
 }
@@ -275,22 +275,22 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
 	CCC_GTEST_FAIL_IF_ERROR(user_defined_source);
 	SymbolSourceHandle user_defined_handle = (*user_defined_source)->handle();
 	
-	for(s32 i = 0; i < 5; i++) {
+	for (s32 i = 0; i < 5; i++) {
 		Result<DataType*> result = database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
 		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
 	
-	for(s32 i = 0; i < 5; i++) {
+	for (s32 i = 0; i < 5; i++) {
 		Result<DataType*> result = database.data_types.create_symbol("UserDefinedType", user_defined_handle);
 		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
 	
-	for(s32 i = 0; i < 5; i++) {
+	for (s32 i = 0; i < 5; i++) {
 		Result<DataType*> result = database.data_types.create_symbol("SymbolTableType", symbol_table_handle);
 		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
 	
-	for(s32 i = 0; i < 5; i++) {
+	for (s32 i = 0; i < 5; i++) {
 		Result<DataType*> result = database.data_types.create_symbol("UserDefinedType", user_defined_handle);
 		CCC_GTEST_FAIL_IF_ERROR(result);
 	}
@@ -299,7 +299,7 @@ TEST(CCCSymbolDatabase, DestroySymbolsFromSource)
 	database.destroy_symbols_from_source(symbol_table_handle, true);
 	
 	s32 user_symbols_remaining = 0;
-	for(const DataType& data_type : database.data_types) {
+	for (const DataType& data_type : database.data_types) {
 		ASSERT_TRUE(data_type.source() == user_defined_handle);
 		user_symbols_remaining++;
 	}

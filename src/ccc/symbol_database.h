@@ -645,7 +645,7 @@ public:
 	void for_each_symbol(Callback callback) {
 		// Use indices here to avoid iterator invalidation.
 		#define CCC_X(SymbolType, symbol_list) \
-			for(s32 i = 0; i < symbol_list.size(); i++) { \
+			for (s32 i = 0; i < symbol_list.size(); i++) { \
 				callback(symbol_list.symbol_from_index(i)); \
 			}
 		CCC_FOR_EACH_SYMBOL_TYPE_DO_X

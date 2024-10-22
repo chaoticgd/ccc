@@ -70,8 +70,8 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 
 u32 parse_importer_flag(const char* argument)
 {
-	for(const ImporterFlagInfo& flag : IMPORTER_FLAGS) {
-		if(strcmp(flag.argument, argument) == 0) {
+	for (const ImporterFlagInfo& flag : IMPORTER_FLAGS) {
+		if (strcmp(flag.argument, argument) == 0) {
 			return flag.flag;
 		}
 	}
@@ -80,11 +80,11 @@ u32 parse_importer_flag(const char* argument)
 
 void print_importer_flags_help(FILE* out)
 {
-	for(const ImporterFlagInfo& flag : IMPORTER_FLAGS) {
+	for (const ImporterFlagInfo& flag : IMPORTER_FLAGS) {
 		fprintf(out, "\n");
 		fprintf(out, "  %-29s ", flag.argument);
-		for(size_t i = 0; i < flag.help_text.size(); i++) {
-			if(i > 0) {
+		for (size_t i = 0; i < flag.help_text.size(); i++) {
+			if (i > 0) {
 				fprintf(out, "                                ");
 			}
 			fprintf(out, "%s\n", flag.help_text[i]);

@@ -17,11 +17,11 @@ int main(int argc, char** argv)
 {
 	testing::InitGoogleTest(&argc, argv);
 	int result = RUN_ALL_TESTS();
-	if(result != 0) {
+	if (result != 0) {
 		return result;
 	}
 	
-	if(argc != 2) {
+	if (argc != 2) {
 		return 1;
 	}
 	
@@ -38,8 +38,8 @@ static int main_test(const fs::path& input_directory)
 {
 	CCC_EXIT_IF_FALSE(fs::is_directory(input_directory), "Input path is not a directory.");
 	
-	for(auto entry : fs::recursive_directory_iterator(input_directory)) {
-		if(entry.is_regular_file()) {
+	for (auto entry : fs::recursive_directory_iterator(input_directory)) {
+		if (entry.is_regular_file()) {
 			printf("%s ", entry.path().string().c_str());
 			fflush(stdout);
 			
@@ -47,7 +47,7 @@ static int main_test(const fs::path& input_directory)
 			CCC_EXIT_IF_ERROR(image);
 			
 			Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(*image, entry.path().filename().string());
-			if(symbol_file.success()) {
+			if (symbol_file.success()) {
 				SymbolDatabase database;
 				
 				Result<std::vector<std::unique_ptr<SymbolTable>>> symbol_tables = (*symbol_file)->get_all_symbol_tables();
@@ -71,13 +71,13 @@ static int main_test(const fs::path& input_directory)
 				FILE* black_hole = fopen(compressor, "w");
 				CppPrinterConfig printer_config;
 				CppPrinter printer(black_hole, printer_config);
-				for(const DataType& data_type : database.data_types) {
+				for (const DataType& data_type : database.data_types) {
 					printer.data_type(data_type, database);
 				}
-				for(const Function& function : database.functions) {
+				for (const Function& function : database.functions) {
 					printer.function(function, database, nullptr);
 				}
-				for(const GlobalVariable& global_variable : database.global_variables) {
+				for (const GlobalVariable& global_variable : database.global_variables) {
 					printer.global_variable(global_variable, database, nullptr);
 				}
 				fclose(black_hole);

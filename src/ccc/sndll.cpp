@@ -58,7 +58,7 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, S
 	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.valid() ? "section" : "file");
 	
 	char version = *magic >> 24;
-	switch(version) {
+	switch (version) {
 		case '1': {
 			const SNDLLHeaderV1* header = get_packed<SNDLLHeaderV1>(image, 0);
 			CCC_CHECK(header, "File too small to contain SNDLL V1 header.");
@@ -83,9 +83,9 @@ static Result<SNDLLFile> parse_sndll_common(
 	sndll.type = type;
 	sndll.version = version;
 	
-	if(common.elf_path) {
+	if (common.elf_path) {
 		const char* elf_path = get_string(image, common.elf_path);
-		if(elf_path) {
+		if (elf_path) {
 			sndll.elf_path = elf_path;
 		}
 	}
@@ -93,13 +93,13 @@ static Result<SNDLLFile> parse_sndll_common(
 	CCC_CHECK(common.symbol_count < (32 * 1024 * 1024) / sizeof(SNDLLSymbol), "SNDLL symbol count is too high.");
 	sndll.symbols.reserve(common.symbol_count);
 	
-	for(u32 i = 0; i < common.symbol_count; i++) {
+	for (u32 i = 0; i < common.symbol_count; i++) {
 		u32 symbol_offset = common.symbols - address.get_or_zero() + i * sizeof(SNDLLSymbolHeader);
 		const SNDLLSymbolHeader* symbol_header = get_packed<SNDLLSymbolHeader>(image, symbol_offset);
 		CCC_CHECK(symbol_header, "SNDLL symbol out of range.");
 		
 		const char* string = nullptr;
-		if(symbol_header->string) {
+		if (symbol_header->string) {
 			string = get_string(image, symbol_header->string - address.get_or_zero());
 		}
 		
@@ -119,38 +119,38 @@ Result<void> import_sndll_symbols(
 	u32 importer_flags,
 	DemanglerFunctions demangler)
 {
-	for(const SNDLLSymbol& symbol : sndll.symbols) {
-		if(symbol.value == 0 || symbol.string.empty()) {
+	for (const SNDLLSymbol& symbol : sndll.symbols) {
+		if (symbol.value == 0 || symbol.string.empty()) {
 			continue;
 		}
 		
 		u32 address = symbol.value;
-		if(symbol.type != SNDLL_ABSOLUTE && sndll.type == SNDLLType::DYNAMIC_LIBRARY) {
+		if (symbol.type != SNDLL_ABSOLUTE && sndll.type == SNDLLType::DYNAMIC_LIBRARY) {
 			address += sndll.address.get_or_zero();
 		}
 		
-		if(!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
-			if(database.functions.first_handle_from_starting_address(address).valid()) {
+		if (!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
+			if (database.functions.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
 			
-			if(database.global_variables.first_handle_from_starting_address(address).valid()) {
+			if (database.global_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
 			
-			if(database.local_variables.first_handle_from_starting_address(address).valid()) {
+			if (database.local_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
 		}
 		
 		const Section* section = database.sections.symbol_overlapping_address(address);
-		if(section) {
-			if(section->contains_code()) {
+		if (section) {
+			if (section->contains_code()) {
 				Result<Function*> function = database.functions.create_symbol(
 					symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(function);
 				continue;
-			} else if(section->contains_data()) {
+			} else if (section->contains_data()) {
 				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
 					symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(global_variable);
@@ -169,7 +169,7 @@ Result<void> import_sndll_symbols(
 void print_sndll_symbols(FILE* out, const SNDLLFile& sndll)
 {
 	fprintf(out, "SNDLL SYMBOLS:\n");
-	for(const SNDLLSymbol& symbol : sndll.symbols) {
+	for (const SNDLLSymbol& symbol : sndll.symbols) {
 		const char* type = sndll_symbol_type_to_string(symbol.type);
 		const char* string = !symbol.string.empty() ? symbol.string.c_str() : "(no string)";
 		fprintf(out, "%8s %08x %s\n", type, symbol.value, string);
@@ -178,7 +178,7 @@ void print_sndll_symbols(FILE* out, const SNDLLFile& sndll)
 
 static const char* sndll_symbol_type_to_string(SNDLLSymbolType type)
 {
-	switch(type) {
+	switch (type) {
 		case SNDLL_NIL: return "NIL";
 		case SNDLL_EXTERNAL: return "EXTERNAL";
 		case SNDLL_RELATIVE: return "RELATIVE";

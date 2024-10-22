@@ -90,7 +90,7 @@ struct StabsType {
 	
 	virtual void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const
 	{
-		if(type_number.valid() && descriptor.has_value()) {
+		if (type_number.valid() && descriptor.has_value()) {
 			output.emplace(type_number, this);
 		}
 	}
@@ -237,21 +237,21 @@ struct StabsStructOrUnionType : StabsType {
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
-		for(const BaseClass& base_class : base_classes) {
+		for (const BaseClass& base_class : base_classes) {
 			base_class.type->enumerate_numbered_types(output);
 		}
-		for(const Field& field : fields) {
+		for (const Field& field : fields) {
 			field.type->enumerate_numbered_types(output);
 		}
-		for(const MemberFunctionSet& member_function_set : member_functions) {
-			for(const MemberFunction& member_function : member_function_set.overloads) {
+		for (const MemberFunctionSet& member_function_set : member_functions) {
+			for (const MemberFunction& member_function : member_function_set.overloads) {
 				member_function.type->enumerate_numbered_types(output);
-				if(member_function.virtual_type.get()) {
+				if (member_function.virtual_type.get()) {
 					member_function.virtual_type->enumerate_numbered_types(output);
 				}
 			}
 		}
-		if(first_base_class.get()) {
+		if (first_base_class.get()) {
 			first_base_class->enumerate_numbered_types(output);
 		}
 	}
@@ -296,10 +296,10 @@ struct StabsMethodType : StabsType {
 	{
 		StabsType::enumerate_numbered_types(output);
 		return_type->enumerate_numbered_types(output);
-		if(class_type.has_value()) {
+		if (class_type.has_value()) {
 			(*class_type)->enumerate_numbered_types(output);
 		}
-		for(const std::unique_ptr<StabsType>& parameter_type : parameter_types) {
+		for (const std::unique_ptr<StabsType>& parameter_type : parameter_types) {
 			parameter_type->enumerate_numbered_types(output);
 		}
 	}

@@ -45,7 +45,7 @@ static void print_help(int argc, char** argv);
 int main(int argc, char** argv)
 {
 	Options options = parse_command_line_arguments(argc, argv);
-	if(options.elf_path.empty()) {
+	if (options.elf_path.empty()) {
 		return 1;
 	}
 	
@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 	
 	std::vector<std::string> source_paths = parse_sources_file(sources_file_path);
 	FunctionsFile functions_file;
-	if(fs::exists(functions_file_path)) {
+	if (fs::exists(functions_file_path)) {
 		functions_file = parse_functions_file(functions_file_path);
 	}
 	
@@ -90,19 +90,19 @@ int main(int argc, char** argv)
 	// the SOURCES.txt file.
 	std::map<std::string, std::vector<SourceFileHandle>> path_to_source_file;
 	size_t path_index = 0;
-	for(SourceFile& source_file : database.source_files) {
-		if(path_index >= source_paths.size()) {
+	for (SourceFile& source_file : database.source_files) {
+		if (path_index >= source_paths.size()) {
 			break;
 		}
 		std::string source_name = extract_file_name(source_file.full_path());
 		std::string path_name = extract_file_name(source_paths.at(path_index));
-		if(source_name == path_name) {
+		if (source_name == path_name) {
 			path_to_source_file[source_paths[path_index++]].emplace_back(source_file.handle());
 		}
 	}
 	
 	// Write out all the source files.
-	for(auto& [relative_path, sources] : path_to_source_file) {
+	for (auto& [relative_path, sources] : path_to_source_file) {
 		fs::path relative_header_path = relative_path;
 		relative_header_path.replace_extension(".h");
 		
@@ -110,15 +110,15 @@ int main(int argc, char** argv)
 		fs::path header_path = options.output_path/relative_header_path;
 		
 		fs::create_directories(path.parent_path());
-		if(path.extension() == ".c" || path.extension() == ".cpp") {
+		if (path.extension() == ".c" || path.extension() == ".cpp") {
 			// Write .c/.cpp file.
-			if(should_overwrite_file(path)) {
+			if (should_overwrite_file(path)) {
 				write_c_cpp_file(path, relative_header_path, database, sources, functions_file, (*symbol_file)->elf());
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", path.string().c_str());
 			}
 			// Write .h file.
-			if(should_overwrite_file(header_path)) {
+			if (should_overwrite_file(header_path)) {
 				write_h_file(header_path, relative_header_path.string(), database, sources);
 			} else {
 				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
@@ -130,7 +130,7 @@ int main(int argc, char** argv)
 	
 	// Write out a lost+found file for types that can't be mapped to a specific
 	// source file if we need it.
-	if(needs_lost_and_found_file(database)) {
+	if (needs_lost_and_found_file(database)) {
 		write_lost_and_found_file(options.output_path/"lost+found.h", database);
 	}
 }
@@ -141,7 +141,7 @@ static std::vector<std::string> parse_sources_file(const fs::path& path)
 	CCC_EXIT_IF_FALSE(file.has_value(), "Failed to open file '%s'", path.string().c_str());
 	std::string_view input(*file);
 	std::vector<std::string> sources;
-	while(skip_whitespace(input), input.size() > 0) {
+	while (skip_whitespace(input), input.size() > 0) {
 		sources.emplace_back(eat_identifier(input));
 	}
 	return sources;
@@ -158,31 +158,31 @@ static FunctionsFile parse_functions_file(const fs::path& path)
 	// Parse the file.
 	std::span<char> input(result.contents);
 	std::span<char>* function = nullptr;
-	for(std::span<char> line = eat_line(input); line.data() != nullptr; line = eat_line(input)) {
-		if(line.size() >= 9 && memcmp(line.data(), "@function", 9) == 0) {
+	for (std::span<char> line = eat_line(input); line.data() != nullptr; line = eat_line(input)) {
+		if (line.size() >= 9 && memcmp(line.data(), "@function", 9) == 0) {
 			CCC_EXIT_IF_FALSE(line.size() > 10, "Bad @function directive in FUNCTIONS.txt file.");
 			char* end = nullptr;
 			u32 address = (u32) strtol(line.data() + 10, &end, 16);
 			CCC_EXIT_IF_FALSE(end != line.data() + 10, "Bad @function directive in FUNCTIONS.txt file.");
 			function = &result.functions[address];
 			*function = input.subspan(1);
-		} else if(function) {
+		} else if (function) {
 			*function = std::span<char>(function->data(), line.data() + line.size());
 		}
 	}
 	
-	for(auto& [address, code] : result.functions) {
+	for (auto& [address, code] : result.functions) {
 		// Remove everything before the function body.
-		for(size_t i = 0; i + 1 < code.size(); i++) {
-			if(code[i] == '{' && code[i + 1] == '\n') {
+		for (size_t i = 0; i + 1 < code.size(); i++) {
+			if (code[i] == '{' && code[i + 1] == '\n') {
 				code = code.subspan(i + 2);
 				break;
 			}
 		}
 		
 		// Remove everything after the function body.
-		for(size_t i = code.size(); i > 1; i--) {
-			if(code[i - 2] == '}' && code[i - 1] == '\n') {
+		for (size_t i = code.size(); i > 1; i--) {
+			if (code[i - 2] == '}' && code[i - 1] == '\n') {
 				code = code.subspan(0, i - 2);
 				break;
 			}
@@ -194,8 +194,8 @@ static FunctionsFile parse_functions_file(const fs::path& path)
 
 static std::span<char> eat_line(std::span<char>& input)
 {
-	for(size_t i = 0; i < input.size(); i++) {
-		if(input[i] == '\n') {
+	for (size_t i = 0; i < input.size(); i++) {
+		if (input[i] == '\n') {
 			std::span<char> result = input.subspan(0, i);
 			input = input.subspan(i + 1);
 			return result;
@@ -209,7 +209,7 @@ static std::string eat_identifier(std::string_view& input)
 	skip_whitespace(input);
 	std::string string;
 	size_t i;
-	for(i = 0; i < input.size() && !isspace(input[i]); i++) {
+	for (i = 0; i < input.size() && !isspace(input[i]); i++) {
 		string += input[i];
 	}
 	input = input.substr(i);
@@ -218,7 +218,7 @@ static std::string eat_identifier(std::string_view& input)
 
 static void skip_whitespace(std::string_view& input)
 {
-	while(input.size() > 0 && isspace(input[0])) {
+	while (input.size() > 0 && isspace(input[0])) {
 		input = input.substr(1);
 	}
 }
@@ -255,32 +255,32 @@ static void write_c_cpp_file(
 	printer.include_directive(header_path.filename().string().c_str());
 	
 	// Print types.
-	for(SourceFileHandle file_handle : files) {
-		for(const DataType& data_type : database.data_types) {
-			if(data_type.only_defined_in_single_translation_unit && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
+	for (SourceFileHandle file_handle : files) {
+		for (const DataType& data_type : database.data_types) {
+			if (data_type.only_defined_in_single_translation_unit && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
 				printer.data_type(data_type, database);
 			}
 		}
 	}
 	
 	// Print globals.
-	for(SourceFileHandle file_handle : files) {
+	for (SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		
 		const std::vector<GlobalVariableHandle>& global_variables = source_file->global_variables();
-		for(const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(global_variables)) {
+		for (const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(global_variables)) {
 			printer.global_variable(*global_variable, database, &elf);
 		}
 	}
 	
 	// Print functions.
-	for(SourceFileHandle file_handle : files) {
+	for (SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		
 		const std::vector<FunctionHandle>& functions = source_file->functions();
-		for(const Function* function : database.functions.symbols_from_handles(functions)) {
+		for (const Function* function : database.functions.symbols_from_handles(functions)) {
 			printer.function(*function, database, &elf);
 		}
 	}
@@ -310,18 +310,18 @@ static void write_h_file(
 	config.skip_member_functions_outside_types = true;
 	CppPrinter printer(out, config);
 	
-	for(char& c : relative_path) {
+	for (char& c : relative_path) {
 		c = toupper(c);
-		if(!isalnum(c)) {
+		if (!isalnum(c)) {
 			c = '_';
 		}
 	}
 	printer.begin_include_guard(relative_path.c_str());
 	
 	// Print types.
-	for(SourceFileHandle file_handle : files) {
-		for(const DataType& data_type : database.data_types) {
-			if(!data_type.only_defined_in_single_translation_unit && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
+	for (SourceFileHandle file_handle : files) {
+		for (const DataType& data_type : database.data_types) {
+			if (!data_type.only_defined_in_single_translation_unit && data_type.files.size() == 1 && data_type.files[0] == file_handle) {
 				printer.data_type(data_type, database);
 			}
 		}
@@ -329,28 +329,28 @@ static void write_h_file(
 	
 	// Print globals.
 	bool has_global = false;
-	for(SourceFileHandle file_handle : files) {
+	for (SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		
 		const std::vector<GlobalVariableHandle>& global_variables = source_file->global_variables();
-		for(const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(global_variables)) {
+		for (const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(global_variables)) {
 			printer.global_variable(*global_variable, database, nullptr);
 			has_global = true;
 		}
 	}
 	
-	if(has_global) {
+	if (has_global) {
 		fprintf(out, "\n");
 	}
 	
 	// Print functions.
-	for(SourceFileHandle file_handle : files) {
+	for (SourceFileHandle file_handle : files) {
 		const SourceFile* source_file = database.source_files.symbol_from_handle(file_handle);
 		CCC_ASSERT(source_file);
 		
 		const std::vector<FunctionHandle>& functions = source_file->functions();
-		for(const Function* function : database.functions.symbols_from_handles(functions)) {
+		for (const Function* function : database.functions.symbols_from_handles(functions)) {
 			printer.function(*function, database, nullptr);
 		}
 	}
@@ -362,8 +362,8 @@ static void write_h_file(
 
 static bool needs_lost_and_found_file(const SymbolDatabase& database)
 {
-	for(const DataType& data_type : database.data_types) {
-		if(data_type.files.size() != 1) {
+	for (const DataType& data_type : database.data_types) {
+		if (data_type.files.size() != 1) {
 			return true;
 		}
 	}
@@ -383,9 +383,9 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 	CppPrinter printer(out, config);
 	
 	s32 nodes_printed = 0;
-	for(const DataType& data_type : database.data_types) {
-		if(data_type.files.size() != 1) {
-			if(printer.data_type(data_type, database)) {
+	for (const DataType& data_type : database.data_types) {
+		if (data_type.files.size() != 1) {
+			if (printer.data_type(data_type, database)) {
 				nodes_printed++;
 			}
 		}
@@ -400,17 +400,17 @@ static Options parse_command_line_arguments(int argc, char** argv)
 {
 	Options options;
 	s32 positional = 0;
-	for(s32 i = 1; i < argc; i++) {
+	for (s32 i = 1; i < argc; i++) {
 		u32 importer_flag = parse_importer_flag(argv[i]);
-		if(importer_flag != NO_IMPORTER_FLAGS) {
+		if (importer_flag != NO_IMPORTER_FLAGS) {
 			options.importer_flags |= importer_flag;
-		} else if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+		} else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
 			print_help(argc, argv);
 			return Options();
-		} else if(positional == 0) {
+		} else if (positional == 0) {
 			options.elf_path = argv[i];
 			positional++;
-		} else if(positional == 1) {
+		} else if (positional == 1) {
 			options.output_path = argv[i];
 			positional++;
 		} else {
@@ -418,7 +418,7 @@ static Options parse_command_line_arguments(int argc, char** argv)
 		}
 	}
 	
-	if(options.elf_path.empty() || options.output_path.empty()) {
+	if (options.elf_path.empty() || options.output_path.empty()) {
 		print_help(argc, argv);
 		return Options();
 	}

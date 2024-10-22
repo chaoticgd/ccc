@@ -48,9 +48,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		type.type_number.file, type.type_number.type,
 		type.name.has_value() ? type.name->c_str() : "");
 	
-	if(depth > 200) {
+	if (depth > 200) {
 		const char* error_message = "Call depth greater than 200 in stabs_type_to_ast, probably infinite recursion.";
-		if(state.importer_flags & STRICT_PARSING) {
+		if (state.importer_flags & STRICT_PARSING) {
 			return CCC_FAILURE(error_message);
 		} else {
 			CCC_WARN(error_message);
@@ -63,7 +63,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	
 	// This makes sure that types are replaced with their type name in cases
 	// where that would be more appropriate.
-	if(type.name.has_value()) {
+	if (type.name.has_value()) {
 		bool try_substitute = depth > 0 && (type.is_root
 			|| type.descriptor == StabsTypeDescriptor::RANGE
 			|| type.descriptor == StabsTypeDescriptor::BUILTIN);
@@ -73,7 +73,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		// Cross references will be handled below.
 		bool is_cross_reference = type.descriptor == StabsTypeDescriptor::CROSS_REFERENCE;
 		bool is_void = is_void_like(type);
-		if((substitute_type_name || try_substitute) && !is_name_empty && !is_cross_reference && !is_void) {
+		if ((substitute_type_name || try_substitute) && !is_name_empty && !is_cross_reference && !is_void) {
 			auto type_name = std::make_unique<ast::TypeName>();
 			type_name->source = ast::TypeNameSource::REFERENCE;
 			type_name->unresolved_stabs = std::make_unique<ast::TypeName::UnresolvedStabs>();
@@ -87,7 +87,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	// This prevents infinite recursion when an automatically generated member
 	// function references an unnamed type.
 	bool can_compare_type_numbers = type.type_number.valid() && enclosing_struct && enclosing_struct->type_number.valid();
-	if(force_substitute && can_compare_type_numbers && type.type_number == enclosing_struct->type_number) {
+	if (force_substitute && can_compare_type_numbers && type.type_number == enclosing_struct->type_number) {
 		// It's probably a this parameter (or return type) for an unnamed type.
 		auto type_name = std::make_unique<ast::TypeName>();
 		type_name->source = ast::TypeNameSource::UNNAMED_THIS;
@@ -98,15 +98,15 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		return std::unique_ptr<ast::Node>(std::move(type_name));
 	}
 	
-	if(!type.descriptor.has_value()) {
+	if (!type.descriptor.has_value()) {
 		// The definition of the type has been defined previously, so we have to
 		// look it up by its type number.
 		CCC_CHECK(type.type_number.valid(), "Cannot lookup type (type is anonymous).");
 		auto stabs_type = state.stabs_types->find(type.type_number);
-		if(stabs_type == state.stabs_types->end()) {
+		if (stabs_type == state.stabs_types->end()) {
 			std::string error_message = "Failed to lookup STABS type by its type number ("
 				+ std::to_string(type.type_number.file) + "," + std::to_string(type.type_number.type) + ").";
-			if(state.importer_flags & STRICT_PARSING) {
+			if (state.importer_flags & STRICT_PARSING) {
 				return CCC_FAILURE("%s", error_message.c_str());
 			} else {
 				CCC_WARN("%s", error_message.c_str());
@@ -126,10 +126,10 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	
 	std::unique_ptr<ast::Node> result;
 	
-	switch(*type.descriptor) {
+	switch (*type.descriptor) {
 		case StabsTypeDescriptor::TYPE_REFERENCE: {
 			const auto& stabs_type_ref = type.as<StabsTypeReferenceType>();
-			if(!type.type_number.valid() || !stabs_type_ref.type->type_number.valid() || stabs_type_ref.type->type_number != type.type_number) {
+			if (!type.type_number.valid() || !stabs_type_ref.type->type_number.valid() || stabs_type_ref.type->type_number != type.type_number) {
 				auto node = stabs_type_to_ast(
 					*stabs_type_ref.type,
 					enclosing_struct,
@@ -175,7 +175,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			s64 high_value = strtoll(high, &end, 10);
 			CCC_CHECK(end != high, "Failed to parse low part of range as integer.");
 			
-			if(high_value == 4294967295) {
+			if (high_value == 4294967295) {
 				// Some compilers wrote out a wrapped around value here.
 				array->element_count = 0;
 			} else {
@@ -250,7 +250,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		case StabsTypeDescriptor::STRUCT:
 		case StabsTypeDescriptor::UNION: {
 			const StabsStructOrUnionType* stabs_struct_or_union;
-			if(type.descriptor == StabsTypeDescriptor::STRUCT) {
+			if (type.descriptor == StabsTypeDescriptor::STRUCT) {
 				stabs_struct_or_union = &type.as<StabsStructType>();
 			} else {
 				stabs_struct_or_union = &type.as<StabsUnionType>();
@@ -260,7 +260,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			struct_or_union->is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
 			struct_or_union->size_bits = (s32) stabs_struct_or_union->size * 8;
 			
-			for(const StabsStructOrUnionType::BaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
+			for (const StabsStructOrUnionType::BaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
 				auto base_class = stabs_type_to_ast(
 					*stabs_base_class.type,
 					&type,
@@ -273,7 +273,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				(*base_class)->offset_bytes = stabs_base_class.offset;
 				(*base_class)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_base_class.visibility), state.importer_flags);
 				
-				if(stabs_base_class.is_virtual) {
+				if (stabs_base_class.is_virtual) {
 					(*base_class)->is_virtual_base_class = true;
 				}
 				
@@ -281,7 +281,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			}
 			
 			AST_DEBUG_PRINTF("%-*s beginfields\n", depth * 4, "");
-			for(const StabsStructOrUnionType::Field& field : stabs_struct_or_union->fields) {
+			for (const StabsStructOrUnionType::Field& field : stabs_struct_or_union->fields) {
 				auto node = field_to_ast(field, type, state, depth);
 				CCC_RETURN_IF_ERROR(node);
 				struct_or_union->fields.emplace_back(std::move(*node));
@@ -311,7 +311,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 		case ccc::StabsTypeDescriptor::FLOATING_POINT_BUILTIN: {
 			const auto& fp_builtin = type.as<StabsFloatingPointBuiltInType>();
 			auto builtin = std::make_unique<ast::BuiltIn>();
-			switch(fp_builtin.bytes) {
+			switch (fp_builtin.bytes) {
 				case 1: builtin->bclass = ast::BuiltInClass::UNSIGNED_8; break;
 				case 2: builtin->bclass = ast::BuiltInClass::UNSIGNED_16; break;
 				case 4: builtin->bclass = ast::BuiltInClass::UNSIGNED_32; break;
@@ -337,7 +337,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			function->return_type = std::move(*return_node);
 			
 			function->parameters.emplace();
-			for(const std::unique_ptr<StabsType>& parameter_type : stabs_method.parameter_types) {
+			for (const std::unique_ptr<StabsType>& parameter_type : stabs_method.parameter_types) {
 				auto parameter_node = stabs_type_to_ast(
 					*parameter_type,
 					enclosing_struct,
@@ -447,8 +447,8 @@ static bool is_void_like(const StabsType& type)
 	// Unfortunately, a common case seems to be that various types (most
 	// commonly __builtin_va_list) are indistinguishable from void or void*, so
 	// we have to output them as a void built-in.
-	if(type.descriptor.has_value()) {
-		switch(*type.descriptor) {
+	if (type.descriptor.has_value()) {
+		switch (*type.descriptor) {
 			case StabsTypeDescriptor::POINTER: {
 				return is_void_like(*type.as<StabsPointerType>().value_type.get());
 			}
@@ -489,8 +489,8 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
 		{"0", "-1", ast::BuiltInClass::UNQUALIFIED_128} // Old homebrew toolchain
 	};
 	
-	for(const auto& range : strings) {
-		if(strcmp(range.low, low) == 0 && strcmp(range.high, high) == 0) {
+	for (const auto& range : strings) {
+		if (strcmp(range.low, low) == 0 && strcmp(range.high, high) == 0) {
 			return range.classification;
 		}
 	}
@@ -512,8 +512,8 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
 		{-2147483648, 2147483647, ast::BuiltInClass::SIGNED_32},
 	};
 	
-	for(const auto& range : integers) {
-		if((range.low == low_value || range.low == -low_value) && range.high == high_value) {
+	for (const auto& range : integers) {
+		if ((range.low == low_value || range.low == -low_value) && range.high == high_value) {
 			return range.classification;
 		}
 	}
@@ -532,7 +532,7 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 	Result<u32> bitfield_storage_unit_size_bits = detect_bitfield(field, state);
 	CCC_RETURN_IF_ERROR(bitfield_storage_unit_size_bits);
 	
-	if(*bitfield_storage_unit_size_bits) {
+	if (*bitfield_storage_unit_size_bits) {
 		// Process bitfields.
 		auto bitfield_node = stabs_type_to_ast(
 			*field.type,
@@ -568,11 +568,11 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		(*node)->size_bits = field.size_bits;
 		(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(field.visibility), state.importer_flags);
 		
-		if(field.name.starts_with("$vf") || field.name.starts_with("_vptr$") || field.name.starts_with("_vptr.")) {
+		if (field.name.starts_with("$vf") || field.name.starts_with("_vptr$") || field.name.starts_with("_vptr.")) {
 			(*node)->is_vtable_pointer = true;
 		}
 		
-		if(field.is_static) {
+		if (field.is_static) {
 			(*node)->storage_class = STORAGE_CLASS_STATIC;
 		}
 		
@@ -583,41 +583,41 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state)
 {
 	// Static fields can't be bitfields.
-	if(field.is_static) {
+	if (field.is_static) {
 		return 0;
 	}
 	
 	// Resolve type references.
 	const StabsType* type = field.type.get();
-	for(s32 i = 0; i < 50; i++) {
-		if(!type->descriptor.has_value()) {
-			if(!type->type_number.valid()) {
+	for (s32 i = 0; i < 50; i++) {
+		if (!type->descriptor.has_value()) {
+			if (!type->type_number.valid()) {
 				return 0;
 			}
 			auto next_type = state.stabs_types->find(type->type_number);
-			if(next_type == state.stabs_types->end() || next_type->second == type) {
+			if (next_type == state.stabs_types->end() || next_type->second == type) {
 				return 0;
 			}
 			type = next_type->second;
-		} else if(type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
+		} else if (type->descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
 			type = type->as<StabsTypeReferenceType>().type.get();
-		} else if(type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
+		} else if (type->descriptor == StabsTypeDescriptor::CONST_QUALIFIER) {
 			type = type->as<StabsConstQualifierType>().type.get();
-		} else if(type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
+		} else if (type->descriptor == StabsTypeDescriptor::VOLATILE_QUALIFIER) {
 			type = type->as<StabsVolatileQualifierType>().type.get();
 		} else {
 			break;
 		}
 		
 		// Prevent an infinite loop if there's a cycle (fatal frame).
-		if(i == 49) {
+		if (i == 49) {
 			return 0;
 		}
 	}
 	
 	// Determine the size of the underlying storage unit.
 	s32 storage_unit_size_bits = 0;
-	switch(*type->descriptor) {
+	switch (*type->descriptor) {
 		case ccc::StabsTypeDescriptor::RANGE: {
 			Result<ast::BuiltInClass> bclass = classify_range(type->as<StabsRangeType>());
 			CCC_RETURN_IF_ERROR(bclass);
@@ -625,7 +625,7 @@ static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, c
 			break;
 		}
 		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {
-			if(type->as<StabsCrossReferenceType>().type == ast::ForwardDeclaredType::ENUM) {
+			if (type->as<StabsCrossReferenceType>().type == ast::ForwardDeclaredType::ENUM) {
 				storage_unit_size_bits = 32;
 			} else {
 				return 0;
@@ -645,7 +645,7 @@ static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, c
 		}
 	}
 	
-	if(storage_unit_size_bits == field.size_bits) {
+	if (storage_unit_size_bits == field.size_bits) {
 		return 0;
 	}
 	
@@ -655,12 +655,12 @@ static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, c
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth)
 {
-	if(state.importer_flags & NO_MEMBER_FUNCTIONS) {
+	if (state.importer_flags & NO_MEMBER_FUNCTIONS) {
 		return std::vector<std::unique_ptr<ast::Node>>();
 	}
 	
 	std::string_view type_name_no_template_args;
-	if(type.name.has_value()) {
+	if (type.name.has_value()) {
 		type_name_no_template_args =
 			std::string_view(*type.name).substr(0, type.name->find("<"));
 	}
@@ -668,15 +668,15 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	std::vector<std::unique_ptr<ast::Node>> member_functions;
 	bool only_special_functions = true;
 	
-	for(const StabsStructOrUnionType::MemberFunctionSet& function_set : type.member_functions) {
+	for (const StabsStructOrUnionType::MemberFunctionSet& function_set : type.member_functions) {
 		MemberFunctionInfo info = check_member_function(
 			function_set.name, type_name_no_template_args, state.demangler, state.importer_flags);
 		
-		if(!info.is_special_member_function) {
+		if (!info.is_special_member_function) {
 			only_special_functions = false;
 		}
 		
-		for(const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
+		for (const StabsStructOrUnionType::MemberFunction& stabs_func : function_set.overloads) {
 			auto node = stabs_type_to_ast(
 				*stabs_func.type,
 				&type,
@@ -693,7 +693,7 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 			(*node)->name = info.name;
 			(*node)->set_access_specifier(stabs_field_visibility_to_access_specifier(stabs_func.visibility), state.importer_flags);
 			
-			if((*node)->descriptor == ast::FUNCTION) {
+			if ((*node)->descriptor == ast::FUNCTION) {
 				ast::Function& function = (*node)->as<ast::Function>();
 				function.modifier = stabs_func.modifier;
 				function.vtable_index = stabs_func.vtable_index;
@@ -703,7 +703,7 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 		}
 	}
 	
-	if(only_special_functions && (state.importer_flags & INCLUDE_GENERATED_MEMBER_FUNCTIONS) == 0) {
+	if (only_special_functions && (state.importer_flags & INCLUDE_GENERATED_MEMBER_FUNCTIONS) == 0) {
 		return std::vector<std::unique_ptr<ast::Node>>();
 	}
 	
@@ -720,14 +720,14 @@ static MemberFunctionInfo check_member_function(
 	
 	// Some compiler versions output gcc opnames for overloaded operators
 	// instead of their proper names.
-	if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle_opname) {
+	if ((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle_opname) {
 		char* demangled_name = demangler.cplus_demangle_opname(mangled_name.c_str(), 0);
-		if(demangled_name) {
+		if (demangled_name) {
 			info.name = demangled_name;
 			free(static_cast<void*>(demangled_name));
 		}
 	}
-	if(info.name.empty()) {
+	if (info.name.empty()) {
 		info.name = mangled_name;
 	}
 	
@@ -736,7 +736,7 @@ static MemberFunctionInfo check_member_function(
 		info.name == "__comp_ctor" || // Constructs virtual base classes.
 		info.name == "__base_ctor"; // Does not construct virtual base classes.
 	
-	if(!is_constructor && !type_name_no_template_args.empty()) {
+	if (!is_constructor && !type_name_no_template_args.empty()) {
 		is_constructor |= info.name == type_name_no_template_args; // Named constructor.
 	}
 	
@@ -746,7 +746,7 @@ static MemberFunctionInfo check_member_function(
 		info.name == "__base_dtor" || // Does not construct virtual base classes.
 		info.name == "__deleting_dtor"; // Destructs virtual base clases then deletes the entire object.
 	
-	if(!is_destructor && !info.name.empty()) {
+	if (!is_destructor && !info.name.empty()) {
 		is_destructor |= info.name[0] == '~' && std::string_view(info.name).substr(1) == type_name_no_template_args; // Named destructor.
 	}
 	
@@ -768,23 +768,23 @@ void fix_recursively_emitted_structures(
 	// The game Sega Soccer Slam is affected by this. See the PeculiarParameter
 	// test case in mdebug_importer_tests.cpp for a bare bones example.
 	
-	for(std::unique_ptr<ast::Node>& node : outer_struct.member_functions) {
-		if(node->descriptor != ast::FUNCTION) {
+	for (std::unique_ptr<ast::Node>& node : outer_struct.member_functions) {
+		if (node->descriptor != ast::FUNCTION) {
 			continue;
 		}
 		
 		ast::Function& function = node->as<ast::Function>();
-		if(!function.parameters.has_value()) {
+		if (!function.parameters.has_value()) {
 			continue;
 		}
 		
-		for(std::unique_ptr<ast::Node>& parameter : *function.parameters) {
-			if(parameter->descriptor != ast::POINTER_OR_REFERENCE) {
+		for (std::unique_ptr<ast::Node>& parameter : *function.parameters) {
+			if (parameter->descriptor != ast::POINTER_OR_REFERENCE) {
 				continue;
 			}
 			
 			ast::PointerOrReference& pointer_or_reference = parameter->as<ast::PointerOrReference>();
-			if(pointer_or_reference.value_type->descriptor != ast::STRUCT_OR_UNION) {
+			if (pointer_or_reference.value_type->descriptor != ast::STRUCT_OR_UNION) {
 				continue;
 			}
 			
@@ -795,15 +795,15 @@ void fix_recursively_emitted_structures(
 			// parameters aren't even filled in by GCC, this is a really rare
 			// case, so here we only bother to do some very basic checks to
 			// verify that the inner struct is similar to the outer struct.
-			if(inner_struct.base_classes.size() != outer_struct.base_classes.size()) {
+			if (inner_struct.base_classes.size() != outer_struct.base_classes.size()) {
 				continue;
 			}
 			
-			if(inner_struct.fields.size() != outer_struct.fields.size()) {
+			if (inner_struct.fields.size() != outer_struct.fields.size()) {
 				continue;
 			}
 			
-			if(inner_struct.member_functions.size() != outer_struct.member_functions.size()) {
+			if (inner_struct.member_functions.size() != outer_struct.member_functions.size()) {
 				continue;
 			}
 			
@@ -821,7 +821,7 @@ void fix_recursively_emitted_structures(
 ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility)
 {
 	ast::AccessSpecifier access_specifier = ast::AS_PUBLIC;
-	switch(visibility) {
+	switch (visibility) {
 		case StabsStructOrUnionType::Visibility::NONE: access_specifier = ast::AS_PUBLIC; break;
 		case StabsStructOrUnionType::Visibility::PUBLIC: access_specifier = ast::AS_PUBLIC; break;
 		case StabsStructOrUnionType::Visibility::PROTECTED: access_specifier = ast::AS_PROTECTED; break;
