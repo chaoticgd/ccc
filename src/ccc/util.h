@@ -65,14 +65,14 @@ void set_custom_error_callback(CustomErrorCallback callback);
 	}
 
 #define CCC_EXIT_IF_FALSE(condition, ...) \
-	if(!(condition)) { \
+	if (!(condition)) { \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
 		ccc::report_error(error); \
 		exit(1); \
 	}
 
 #define CCC_ABORT_IF_FALSE(condition, ...) \
-	if(!(condition)) { \
+	if (!(condition)) { \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
 		ccc::report_error(error); \
 		abort(); \
@@ -165,7 +165,7 @@ public:
 #define CCC_FAILURE(...) ccc::Result<int>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
 
 #define CCC_CHECK(condition, ...) \
-	if(!(condition)) { \
+	if (!(condition)) { \
 		return CCC_FAILURE(__VA_ARGS__); \
 	}
 
@@ -175,18 +175,18 @@ public:
 		c, context, *(input - 1), *(input - 1))
 
 #define CCC_RETURN_IF_ERROR(result) \
-	if(!(result).success()) { \
+	if (!(result).success()) { \
 		return (result); \
 	}
 
 #define CCC_EXIT_IF_ERROR(result) \
-	if(!(result).success()) { \
+	if (!(result).success()) { \
 		ccc::report_error((result).error()); \
 		exit(1); \
 	}
 
 #define CCC_GTEST_FAIL_IF_ERROR(result) \
-	if(!(result).success()) { \
+	if (!(result).success()) { \
 		FAIL() << (result).error().message; \
 	}
 
@@ -210,7 +210,7 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 template <typename T>
 const T* get_packed(std::span<const u8> bytes, u64 offset)
 {
-	if(offset + sizeof(T) <= bytes.size()) {
+	if (offset + sizeof(T) <= bytes.size()) {
 		return reinterpret_cast<const T*>(&bytes[offset]);
 	} else {
 		return nullptr;
@@ -237,7 +237,7 @@ struct Address {
 	
 	u32 get_or_zero() const
 	{
-		if(valid()) {
+		if (valid()) {
 			return value;
 		} else {
 			return 0;
@@ -246,7 +246,7 @@ struct Address {
 	
 	Address add_base_address(Address base_address) const
 	{
-		if(valid()) {
+		if (valid()) {
 			return base_address.get_or_zero() + value;
 		} else {
 			return Address();
@@ -256,7 +256,7 @@ struct Address {
 	static Address non_zero(u32 address)
 	{
 		Address result;
-		if(address != 0) {
+		if (address != 0) {
 			result = address;
 		}
 		return result;

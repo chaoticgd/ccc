@@ -22,7 +22,7 @@ static Result<SymbolDatabase> run_importer(const char* name, mdebug::File& input
 	context.group.source = (*symbol_source)->handle();
 	context.importer_flags = DONT_DEDUPLICATE_SYMBOLS | STRICT_PARSING;
 	
-	for(mdebug::Symbol& symbol : input.symbols) {
+	for (mdebug::Symbol& symbol : input.symbols) {
 		symbol.procedure_descriptor = &procedure_descriptor;
 	}
 	
@@ -264,8 +264,8 @@ MDEBUG_IMPORTER_TEST(SimpleFunctionIOP,
 // ee-g++ -gstabs
 // int ComplicatedFunction(int a, float b, char* c) {
 // 	int x = b < 0;
-// 	if(a) { int y = b + *c; return y; }
-// 	for(int i = 0; i < 5; i++) { int z = b + i; x += z; }
+// 	if (a) { int y = b + *c; return y; }
+// 	for (int i = 0; i < 5; i++) { int z = b + i; x += z; }
 // 	return x;
 // }
 MDEBUG_IMPORTER_TEST(ComplicatedFunction,
@@ -307,8 +307,8 @@ MDEBUG_IMPORTER_TEST(ComplicatedFunction,
 // iop-gcc -gstabs
 // int ComplicatedFunctionIOP(int a, float b, char* c) {
 // 	int x = b < 0, i;
-// 	if(a) { int y = b + *c; return y; }
-// 	for(i = 0; i < 5; i++) { int z = b + i; x += z; }
+// 	if (a) { int y = b + *c; return y; }
+// 	for (i = 0; i < 5; i++) { int z = b + i; x += z; }
 // 	return x;
 // }
 MDEBUG_IMPORTER_TEST(ComplicatedFunctionIOP,

@@ -11,12 +11,12 @@ namespace ccc {
 template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::symbol_from_handle(SymbolHandle<SymbolType> handle)
 {
-	if(!handle.valid()) {
+	if (!handle.valid()) {
 		return nullptr;
 	}
 	
 	size_t index = binary_search(handle);
-	if(index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
+	if (index >= m_symbols.size() || m_symbols[index].m_handle != handle) {
 		return nullptr;
 	}
 	
@@ -34,9 +34,9 @@ std::vector<SymbolType*> SymbolList<SymbolType>::symbols_from_handles(
 	const std::vector<SymbolHandle<SymbolType>>& handles)
 {
 	std::vector<SymbolType*> result;
-	for(SymbolHandle<SymbolType> handle : handles) {
+	for (SymbolHandle<SymbolType> handle : handles) {
 		SymbolType* symbol = symbol_from_handle(handle);
-		if(symbol) {
+		if (symbol) {
 			result.emplace_back(symbol);
 		}
 	}
@@ -48,9 +48,9 @@ std::vector<const SymbolType*> SymbolList<SymbolType>::symbols_from_handles(
 	const std::vector<SymbolHandle<SymbolType>>& handles) const
 {
 	std::vector<const SymbolType*> result;
-	for(SymbolHandle<SymbolType> handle : handles) {
+	for (SymbolHandle<SymbolType> handle : handles) {
 		const SymbolType* symbol = symbol_from_handle(handle);
-		if(symbol) {
+		if (symbol) {
 			result.emplace_back(symbol);
 		}
 	}
@@ -61,7 +61,7 @@ template <typename SymbolType>
 std::vector<SymbolType*> SymbolList<SymbolType>::optional_symbols_from_handles(
 	const std::optional<std::vector<SymbolHandle<SymbolType>>>& handles)
 {
-	if(handles.has_value()) {
+	if (handles.has_value()) {
 		return symbols_from_handles(*handles);
 	} else {
 		return std::vector<SymbolType*>();
@@ -72,7 +72,7 @@ template <typename SymbolType>
 std::vector<const SymbolType*> SymbolList<SymbolType>::optional_symbols_from_handles(
 	const std::optional<std::vector<SymbolHandle<SymbolType>>>& handles) const
 {
-	if(handles.has_value()) {
+	if (handles.has_value()) {
 		return symbols_from_handles(*handles);
 	} else {
 		return std::vector<const SymbolType*>();
@@ -109,7 +109,7 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_start
 	std::vector<SymbolHandle<SymbolType>> handles;
 	
 	auto [begin, end] = m_address_to_handle.equal_range(address.value);
-	for(auto iterator = begin; iterator != end; iterator++) {
+	for (auto iterator = begin; iterator != end; iterator++) {
 		handles.emplace_back(iterator->second);
 	}
 	
@@ -122,10 +122,10 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_addre
 	std::vector<SymbolHandle<SymbolType>> handles;
 	
 	typename AddressToHandleMap::const_iterator begin, end;
-	if(range.low.valid()) {
+	if (range.low.valid()) {
 		begin = m_address_to_handle.lower_bound(range.low.value);
 		end = m_address_to_handle.lower_bound(range.high.value);
-	} else if(range.high.valid()) {
+	} else if (range.high.valid()) {
 		begin = m_address_to_handle.begin();
 		end = m_address_to_handle.lower_bound(range.high.value);
 	} else {
@@ -133,7 +133,7 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_addre
 		end = m_address_to_handle.end();
 	}
 	
-	for(auto iterator = begin; iterator != end; iterator++) {
+	for (auto iterator = begin; iterator != end; iterator++) {
 		handles.emplace_back(iterator->second);
 	}
 	
@@ -144,7 +144,7 @@ template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_address(Address address) const
 {
 	auto iterator = m_address_to_handle.find(address.value);
-	if(iterator != m_address_to_handle.end()) {
+	if (iterator != m_address_to_handle.end()) {
 		return iterator->second;
 	} else {
 		return SymbolHandle<SymbolType>();
@@ -157,7 +157,7 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_name(
 	std::vector<SymbolHandle<SymbolType>> handles;
 	
 	auto [begin, end] = m_name_to_handle.equal_range(name);
-	for(auto iterator = begin; iterator != end; iterator++) {
+	for (auto iterator = begin; iterator != end; iterator++) {
 		handles.emplace_back(iterator->second);
 	}
 	
@@ -168,7 +168,7 @@ template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_after_address(Address address) const
 {
 	auto iterator = m_address_to_handle.upper_bound(address.value);
-	if(iterator != m_address_to_handle.end()) {
+	if (iterator != m_address_to_handle.end()) {
 		return iterator->second;
 	} else {
 		return SymbolHandle<SymbolType>();
@@ -179,7 +179,7 @@ template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
 {
 	auto iterator = m_name_to_handle.find(name);
-	if(iterator != m_name_to_handle.end()) {
+	if (iterator != m_name_to_handle.end()) {
 		return iterator->second;
 	} else {
 		return SymbolHandle<SymbolType>();
@@ -190,10 +190,10 @@ template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address address)
 {
 	auto iterator = m_address_to_handle.upper_bound(address.value);
-	if(iterator != m_address_to_handle.begin()) {
+	if (iterator != m_address_to_handle.begin()) {
 		iterator--; // Find the greatest element that is less than or equal to the address.
 		SymbolType* symbol = symbol_from_handle(iterator->second);
-		if(symbol && address.value < symbol->address().value + symbol->size()) {
+		if (symbol && address.value < symbol->address().value + symbol->size()) {
 			return symbol;
 		}
 	}
@@ -209,12 +209,12 @@ const SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address add
 template <typename SymbolType>
 s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
 {
-	if(!handle.valid()) {
+	if (!handle.valid()) {
 		return -1;
 	}
 	
 	size_t index = binary_search(handle);
-	if(index >= m_symbols.size() || m_symbols[index].handle() != handle) {
+	if (index >= m_symbols.size() || m_symbols[index].handle() != handle) {
 		return -1;
 	}
 	
@@ -255,7 +255,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 		handle = m_next_handle;
 		CCC_CHECK(handle != NULL_SYMBOL_HANDLE,
 			"Ran out of handles to use for %s symbols.", SymbolType::NAME);
-	} while(!m_next_handle.compare_exchange_weak(handle, handle + 1));
+	} while (!m_next_handle.compare_exchange_weak(handle, handle + 1));
 	
 	SymbolType& symbol = m_symbols.emplace_back();
 	
@@ -263,7 +263,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	symbol.m_name = std::move(name);
 	symbol.m_source = source;
 	
-	if(module_symbol) {
+	if (module_symbol) {
 		symbol.m_address = address.add_base_address(module_symbol->address());
 		symbol.m_module = module_symbol->handle();
 	} else {
@@ -296,12 +296,12 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	
 	std::string demangled_name;
 	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
-		if((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
+		if ((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
 			int demangler_flags = 0;
-			if(importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
-			if(importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
+			if (importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
+			if (importer_flags & DEMANGLE_RETURN_TYPE) demangler_flags |= DMGL_RET_POSTFIX;
 			char* demangled_name_ptr = demangler.cplus_demangle(name.c_str(), demangler_flags);
-			if(demangled_name_ptr) {
+			if (demangled_name_ptr) {
 				demangled_name = demangled_name_ptr;
 				free(static_cast<void*>(demangled_name_ptr));
 			}
@@ -314,7 +314,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	CCC_RETURN_IF_ERROR(symbol);
 	
 	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
-		if(!demangled_name.empty()) {
+		if (!demangled_name.empty()) {
 			(*symbol)->set_mangled_name(name);
 		}
 	}
@@ -326,11 +326,11 @@ template <typename SymbolType>
 bool SymbolList<SymbolType>::move_symbol(SymbolHandle<SymbolType> handle, Address new_address)
 {
 	SymbolType* symbol = symbol_from_handle(handle);
-	if(!symbol) {
+	if (!symbol) {
 		return false;
 	}
 	
-	if(symbol->address() != new_address) {
+	if (symbol->address() != new_address) {
 		unlink_address_map(*symbol);
 		symbol->m_address = new_address;
 		link_address_map(*symbol);
@@ -343,11 +343,11 @@ template <typename SymbolType>
 bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name)
 {
 	SymbolType* symbol = symbol_from_handle(handle);
-	if(!symbol) {
+	if (!symbol) {
 		return false;
 	}
 	
-	if(symbol->name() != new_name) {
+	if (symbol->name() != new_name) {
 		unlink_name_map(*symbol);
 		symbol->m_name = std::move(new_name);
 		link_name_map(*symbol);
@@ -370,11 +370,11 @@ void SymbolList<SymbolType>::merge_from(SymbolList<SymbolType>& list)
 	
 	size_t lhs_pos = 0;
 	size_t rhs_pos = 0;
-	for(;;) {
+	for (;;) {
 		SymbolType* symbol;
-		if(lhs_pos < lhs.size() && (rhs_pos >= rhs.size() || lhs[lhs_pos].handle() < rhs[rhs_pos].handle())) {
+		if (lhs_pos < lhs.size() && (rhs_pos >= rhs.size() || lhs[lhs_pos].handle() < rhs[rhs_pos].handle())) {
 			symbol = &m_symbols.emplace_back(std::move(lhs[lhs_pos++]));
-		} else if(rhs_pos < rhs.size()) {
+		} else if (rhs_pos < rhs.size()) {
 			symbol = &m_symbols.emplace_back(std::move(rhs[rhs_pos++]));
 		} else {
 			break;
@@ -395,7 +395,7 @@ template <typename SymbolType>
 bool SymbolList<SymbolType>::mark_symbol_for_destruction(SymbolHandle<SymbolType> handle, SymbolDatabase* database)
 {
 	SymbolType* symbol = symbol_from_handle(handle);
-	if(!symbol) {
+	if (!symbol) {
 		return false;
 	}
 	
@@ -409,8 +409,8 @@ bool SymbolList<SymbolType>::mark_symbol_for_destruction(SymbolHandle<SymbolType
 template <typename SymbolType>
 void SymbolList<SymbolType>::mark_symbols_from_source_for_destruction(SymbolSourceHandle source, SymbolDatabase* database)
 {
-	for(SymbolType& symbol : m_symbols) {
-		if(symbol.source() != source) {
+	for (SymbolType& symbol : m_symbols) {
+		if (symbol.source() != source) {
 			continue;
 		}
 		
@@ -423,8 +423,8 @@ void SymbolList<SymbolType>::mark_symbols_from_source_for_destruction(SymbolSour
 template <typename SymbolType>
 void SymbolList<SymbolType>::mark_symbols_from_module_for_destruction(ModuleHandle module_handle, SymbolDatabase* database)
 {
-	for(SymbolType& symbol : m_symbols) {
-		if(symbol.module_handle() != module_handle) {
+	for (SymbolType& symbol : m_symbols) {
+		if (symbol.module_handle() != module_handle) {
 			continue;
 		}
 		
@@ -438,8 +438,8 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::destroy_marked_symbols()
 {
 	std::vector<SymbolType> remaining_symbols;
-	for(SymbolType& symbol : m_symbols) {
-		if(symbol.m_marked_for_destruction) {
+	for (SymbolType& symbol : m_symbols) {
+		if (symbol.m_marked_for_destruction) {
 			unlink_address_map(symbol);
 			unlink_name_map(symbol);
 		} else {
@@ -464,11 +464,11 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 	size_t begin = 0;
 	size_t end = m_symbols.size();
 	
-	while(begin < end) {
+	while (begin < end) {
 		size_t mid = (begin + end) / 2;
-		if(m_symbols[mid].handle() < handle) {
+		if (m_symbols[mid].handle() < handle) {
 			begin = mid + 1;
-		} else if(m_symbols[mid].handle() > handle) {
+		} else if (m_symbols[mid].handle() > handle) {
 			end = mid;
 		} else {
 			return mid;
@@ -482,7 +482,7 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
-		if(symbol.address().valid()) {
+		if (symbol.address().valid()) {
 			m_address_to_handle.emplace(symbol.address().value, symbol.handle());
 		}
 	}
@@ -492,10 +492,10 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		if(symbol.address().valid()) {
+		if (symbol.address().valid()) {
 			auto iterators = m_address_to_handle.equal_range(symbol.address().value);
-			for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
-				if(iterator->second == symbol.handle()) {
+			for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
+				if (iterator->second == symbol.handle()) {
 					m_address_to_handle.erase(iterator);
 					break;
 				}
@@ -517,8 +517,8 @@ void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 {
 	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
 		auto iterators = m_name_to_handle.equal_range(symbol.name());
-		for(auto iterator = iterators.first; iterator != iterators.second; iterator++) {
-			if(iterator->second == symbol.handle()) {
+		for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
+			if (iterator->second == symbol.handle()) {
 				m_name_to_handle.erase(iterator);
 				break;
 			}
@@ -550,7 +550,7 @@ void Symbol::set_type(std::unique_ptr<ast::Node> type)
 
 const char* global_storage_location_to_string(GlobalStorageLocation location)
 {
-	switch(location) {
+	switch (location) {
 		case NIL: return "nil";
 		case DATA: return "data";
 		case BSS: return "bss";
@@ -575,10 +575,10 @@ const std::optional<std::vector<ParameterVariableHandle>>& Function::parameter_v
 void Function::set_parameter_variables(
 	std::optional<std::vector<ParameterVariableHandle>> parameter_variables, SymbolDatabase& database)
 {
-	if(m_parameter_variables.has_value()) {
-		for(ParameterVariableHandle parameter_variable_handle : *m_parameter_variables) {
+	if (m_parameter_variables.has_value()) {
+		for (ParameterVariableHandle parameter_variable_handle : *m_parameter_variables) {
 			ParameterVariable* parameter_variable = database.parameter_variables.symbol_from_handle(parameter_variable_handle);
-			if(parameter_variable && parameter_variable->m_function == handle()) {
+			if (parameter_variable && parameter_variable->m_function == handle()) {
 				parameter_variable->m_function = FunctionHandle();
 			}
 		}
@@ -586,10 +586,10 @@ void Function::set_parameter_variables(
 	
 	m_parameter_variables = std::move(parameter_variables);
 	
-	if(m_parameter_variables.has_value()) {
-		for(ParameterVariableHandle parameter_variable_handle : *m_parameter_variables) {
+	if (m_parameter_variables.has_value()) {
+		for (ParameterVariableHandle parameter_variable_handle : *m_parameter_variables) {
 			ParameterVariable* parameter_variable = database.parameter_variables.symbol_from_handle(parameter_variable_handle);
-			if(parameter_variable) {
+			if (parameter_variable) {
 				parameter_variable->m_function = handle();
 			}
 		}
@@ -604,10 +604,10 @@ const std::optional<std::vector<LocalVariableHandle>>& Function::local_variables
 void Function::set_local_variables(
 	std::optional<std::vector<LocalVariableHandle>> local_variables, SymbolDatabase& database)
 {
-	if(m_local_variables.has_value()) {
-		for(LocalVariableHandle local_variable_handle : *m_local_variables) {
+	if (m_local_variables.has_value()) {
+		for (LocalVariableHandle local_variable_handle : *m_local_variables) {
 			LocalVariable* local_variable = database.local_variables.symbol_from_handle(local_variable_handle);
-			if(local_variable && local_variable->m_function == handle()) {
+			if (local_variable && local_variable->m_function == handle()) {
 				local_variable->m_function = FunctionHandle();
 			}
 		}
@@ -615,10 +615,10 @@ void Function::set_local_variables(
 	
 	m_local_variables = std::move(local_variables);
 	
-	if(m_local_variables.has_value()) {
-		for(LocalVariableHandle local_variable_handle : *m_local_variables) {
+	if (m_local_variables.has_value()) {
+		for (LocalVariableHandle local_variable_handle : *m_local_variables) {
 			LocalVariable* local_variable = database.local_variables.symbol_from_handle(local_variable_handle);
-			if(local_variable) {
+			if (local_variable) {
 				local_variable->m_function = handle();
 			}
 		}
@@ -627,7 +627,7 @@ void Function::set_local_variables(
 
 const std::string& Function::mangled_name() const
 {
-	if(!m_mangled_name.empty()) {
+	if (!m_mangled_name.empty()) {
 		return m_mangled_name;
 	} else {
 		return name();
@@ -661,18 +661,18 @@ void Function::set_current_hash(FunctionHash hash)
 
 void Function::on_destroy(SymbolDatabase* database)
 {
-	if(!database) {
+	if (!database) {
 		return;
 	}
 	
-	if(m_parameter_variables.has_value()) {
-		for(ParameterVariableHandle parameter_variable : *m_parameter_variables) {
+	if (m_parameter_variables.has_value()) {
+		for (ParameterVariableHandle parameter_variable : *m_parameter_variables) {
 			database->parameter_variables.mark_symbol_for_destruction(parameter_variable, database);
 		}
 	}
 	
-	if(m_local_variables.has_value()) {
-		for(LocalVariableHandle local_variable : *m_local_variables) {
+	if (m_local_variables.has_value()) {
+		for (LocalVariableHandle local_variable : *m_local_variables) {
 			database->local_variables.mark_symbol_for_destruction(local_variable, database);
 		}
 	}
@@ -682,7 +682,7 @@ void Function::on_destroy(SymbolDatabase* database)
 
 const std::string& GlobalVariable::mangled_name() const
 {
-	if(!m_mangled_name.empty()) {
+	if (!m_mangled_name.empty()) {
 		return m_mangled_name;
 	} else {
 		return name();
@@ -731,18 +731,18 @@ const std::vector<FunctionHandle>& SourceFile::functions() const
 
 void SourceFile::set_functions(std::vector<FunctionHandle> functions, SymbolDatabase& database)
 {
-	for(FunctionHandle function_handle : m_functions) {
+	for (FunctionHandle function_handle : m_functions) {
 		Function* function = database.functions.symbol_from_handle(function_handle);
-		if(function && function->m_source_file == handle()) {
+		if (function && function->m_source_file == handle()) {
 			function->m_source_file = SourceFileHandle();
 		}
 	}
 	
 	m_functions = std::move(functions);
 	
-	for(FunctionHandle function_handle : m_functions) {
+	for (FunctionHandle function_handle : m_functions) {
 		Function* function = database.functions.symbol_from_handle(function_handle);
-		if(function) {
+		if (function) {
 			function->m_source_file = handle();
 		}
 	}
@@ -755,18 +755,18 @@ const std::vector<GlobalVariableHandle>& SourceFile::global_variables() const
 
 void SourceFile::set_global_variables(std::vector<GlobalVariableHandle> global_variables, SymbolDatabase& database)
 {
-	for(GlobalVariableHandle global_variable_handle : m_global_variables) {
+	for (GlobalVariableHandle global_variable_handle : m_global_variables) {
 		GlobalVariable* global_variable = database.global_variables.symbol_from_handle(global_variable_handle);
-		if(global_variable && global_variable->m_source_file == handle()) {
+		if (global_variable && global_variable->m_source_file == handle()) {
 			global_variable->m_source_file = SourceFileHandle();
 		}
 	}
 	
 	m_global_variables = std::move(global_variables);
 	
-	for(GlobalVariableHandle global_variable_handle : m_global_variables) {
+	for (GlobalVariableHandle global_variable_handle : m_global_variables) {
 		GlobalVariable* global_variable = database.global_variables.symbol_from_handle(global_variable_handle);
-		if(global_variable) {
+		if (global_variable) {
 			global_variable->m_source_file = handle();
 		}
 	}
@@ -781,13 +781,13 @@ void SourceFile::check_functions_match(const SymbolDatabase& database)
 {
 	u32 matching = 0;
 	u32 modified = 0;
-	for(FunctionHandle function_handle : functions()) {
+	for (FunctionHandle function_handle : functions()) {
 		const ccc::Function* function = database.functions.symbol_from_handle(function_handle);
-		if(!function || function->original_hash() == 0) {
+		if (!function || function->original_hash() == 0) {
 			continue;
 		}
 		
-		if(function->current_hash() == function->original_hash()) {
+		if (function->current_hash() == function->original_hash()) {
 			matching++;
 		} else {
 			modified++;
@@ -799,15 +799,15 @@ void SourceFile::check_functions_match(const SymbolDatabase& database)
 
 void SourceFile::on_destroy(SymbolDatabase* database)
 {
-	if(!database) {
+	if (!database) {
 		return;
 	}
 	
-	for(FunctionHandle function : m_functions) {
+	for (FunctionHandle function : m_functions) {
 		database->functions.mark_symbol_for_destruction(function, database);
 	}
 	
-	for(GlobalVariableHandle global_variable : m_global_variables) {
+	for (GlobalVariableHandle global_variable : m_global_variables) {
 		database->global_variables.mark_symbol_for_destruction(global_variable, database);
 	}
 }
@@ -842,11 +842,11 @@ const Symbol* SymbolDatabase::symbol_starting_at_address(
 {
 	#define CCC_X(SymbolType, symbol_list) \
 		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
-			if(descriptors & SymbolType::DESCRIPTOR) { \
+			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_starting_address(address); \
 				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
-				if(symbol) { \
-					if(descriptor_out) { \
+				if (symbol) { \
+					if (descriptor_out) { \
 						*descriptor_out = SymbolType::DESCRIPTOR; \
 					} \
 					return symbol; \
@@ -864,11 +864,11 @@ const Symbol* SymbolDatabase::symbol_after_address(
 	const Symbol* result = nullptr;
 	#define CCC_X(SymbolType, symbol_list) \
 		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
-			if(descriptors & SymbolType::DESCRIPTOR) { \
+			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_after_address(address); \
 				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
-				if(symbol && (!result || symbol->address() < result->address())) { \
-					if(descriptor_out) { \
+				if (symbol && (!result || symbol->address() < result->address())) { \
+					if (descriptor_out) { \
 						*descriptor_out = SymbolType::DESCRIPTOR; \
 					} \
 					result = symbol; \
@@ -885,10 +885,10 @@ const Symbol* SymbolDatabase::symbol_overlapping_address(
 {
 	#define CCC_X(SymbolType, symbol_list) \
 		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
-			if(descriptors & SymbolType::DESCRIPTOR) { \
+			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolType* symbol = symbol_list.symbol_overlapping_address(address); \
-				if(symbol) { \
-					if(descriptor_out) { \
+				if (symbol) { \
+					if (descriptor_out) { \
 						*descriptor_out = SymbolType::DESCRIPTOR; \
 					} \
 					return symbol; \
@@ -905,11 +905,11 @@ const Symbol* SymbolDatabase::symbol_with_name(
 {
 	#define CCC_X(SymbolType, symbol_list) \
 		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
-			if(descriptors & SymbolType::DESCRIPTOR) { \
+			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_name(name); \
 				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
-				if(symbol) { \
-					if(descriptor_out) { \
+				if (symbol) { \
+					if (descriptor_out) { \
 						*descriptor_out = SymbolType::DESCRIPTOR; \
 					} \
 					return symbol; \
@@ -924,7 +924,7 @@ const Symbol* SymbolDatabase::symbol_with_name(
 Result<SymbolSourceHandle> SymbolDatabase::get_symbol_source(const std::string& name)
 {
 	SymbolSourceHandle handle = symbol_sources.first_handle_from_name(name);
-	if(!handle.valid()) {
+	if (!handle.valid()) {
 		Result<SymbolSource*> source = symbol_sources.create_symbol(name, SymbolSourceHandle(), nullptr);
 		CCC_RETURN_IF_ERROR(source);
 		handle = (*source)->handle();
@@ -941,13 +941,13 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 {
 	auto types_with_same_name = data_types.handles_from_name(name);
 	const char* compare_fail_reason = nullptr;
-	if(types_with_same_name.begin() == types_with_same_name.end()) {
+	if (types_with_same_name.begin() == types_with_same_name.end()) {
 		// No types with this name have previously been processed.
 		Result<DataType*> data_type = data_types.create_symbol(name, group.source, group.module_symbol);
 		CCC_RETURN_IF_ERROR(data_type);
 		
 		(*data_type)->files = {source_file.handle()};
-		if(number.type > -1) {
+		if (number.type > -1) {
 			source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 		}
 		
@@ -958,34 +958,34 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 		// Types with this name have previously been processed, we need to
 		// figure out if this one matches any of the previous ones.
 		bool match = false;
-		for(DataTypeHandle existing_type_handle : types_with_same_name) {
+		for (DataTypeHandle existing_type_handle : types_with_same_name) {
 			DataType* existing_type = data_types.symbol_from_handle(existing_type_handle);
 			CCC_ASSERT(existing_type);
 			
 			// We don't want to merge together types from different sources or
 			// modules so that we can destroy all the types from one source
 			// without breaking anything else.
-			if(!group.is_in_group(*existing_type)) {
+			if (!group.is_in_group(*existing_type)) {
 				continue;
 			}
 			
 			CCC_ASSERT(existing_type->type());
 			ast::CompareResult compare_result = compare_nodes(*existing_type->type(), *node.get(), this, true);
-			if(compare_result.type == ast::CompareResultType::DIFFERS) {
+			if (compare_result.type == ast::CompareResultType::DIFFERS) {
 				// The new node doesn't match this existing node.
 				bool is_anonymous_enum = existing_type->type()->descriptor == ast::ENUM
 					&& existing_type->name().empty();
-				if(!is_anonymous_enum) {
+				if (!is_anonymous_enum) {
 					existing_type->compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
 					compare_fail_reason = compare_fail_reason_to_string(compare_result.fail_reason);
 				}
 			} else {
 				// The new node matches this existing node.
 				existing_type->files.emplace_back(source_file.handle());
-				if(number.type > -1) {
+				if (number.type > -1) {
 					source_file.stabs_type_number_to_handle[number] = existing_type->handle();
 				}
-				if(compare_result.type == ast::CompareResultType::MATCHES_FAVOUR_RHS) {
+				if (compare_result.type == ast::CompareResultType::MATCHES_FAVOUR_RHS) {
 					// The new node almost matches the old one, but the new one
 					// is slightly better, so we replace the old type.
 					existing_type->set_type(std::move(node));
@@ -995,14 +995,14 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 			}
 		}
 		
-		if(!match) {
+		if (!match) {
 			// This type doesn't match any of the others with the same name
 			// that have already been processed.
 			Result<DataType*> data_type = data_types.create_symbol(name, group.source, group.module_symbol);
 			CCC_RETURN_IF_ERROR(data_type);
 			
 			(*data_type)->files = {source_file.handle()};
-			if(number.type > -1) {
+			if (number.type > -1) {
 				source_file.stabs_type_number_to_handle[number] = (*data_type)->handle();
 			}
 			(*data_type)->compare_fail_reason = compare_fail_reason;
@@ -1088,11 +1088,11 @@ RawSymbolHandle MultiSymbolHandle::handle() const
 
 Symbol* MultiSymbolHandle::lookup_symbol(SymbolDatabase& database)
 {
-	if(m_handle == NULL_SYMBOL_HANDLE) {
+	if (m_handle == NULL_SYMBOL_HANDLE) {
 		return nullptr;
 	}
 	
-	switch(m_descriptor) {
+	switch (m_descriptor) {
 		#define CCC_X(SymbolType, symbol_list) \
 			case SymbolType::DESCRIPTOR: \
 				return database.symbol_list.symbol_from_handle(m_handle);
@@ -1110,8 +1110,8 @@ const Symbol* MultiSymbolHandle::lookup_symbol(const SymbolDatabase& database) c
 
 bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 {
-	if(m_handle != NULL_SYMBOL_HANDLE) {
-		switch(m_descriptor) {
+	if (m_handle != NULL_SYMBOL_HANDLE) {
+		switch (m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
 					return SymbolType::FLAGS & flag;
@@ -1125,8 +1125,8 @@ bool MultiSymbolHandle::is_flag_set(SymbolFlag flag) const
 
 bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& database) const
 {
-	if(m_handle != NULL_SYMBOL_HANDLE) {
-		switch(m_descriptor) {
+	if (m_handle != NULL_SYMBOL_HANDLE) {
+		switch (m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
 					return database.symbol_list.move_symbol(m_handle, new_address);
@@ -1140,8 +1140,8 @@ bool MultiSymbolHandle::move_symbol(Address new_address, SymbolDatabase& databas
 
 bool MultiSymbolHandle::rename_symbol(std::string new_name, SymbolDatabase& database) const
 {
-	if(m_handle != NULL_SYMBOL_HANDLE) {
-		switch(m_descriptor) {
+	if (m_handle != NULL_SYMBOL_HANDLE) {
+		switch (m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
 					return database.symbol_list.rename_symbol(m_handle, std::move(new_name));
@@ -1157,10 +1157,10 @@ bool MultiSymbolHandle::destroy_symbol(SymbolDatabase& database, bool destroy_de
 {
 	bool success = false;
 	
-	if(m_handle != NULL_SYMBOL_HANDLE) {
+	if (m_handle != NULL_SYMBOL_HANDLE) {
 		SymbolDatabase* database_ptr = destroy_descendants ? &database : nullptr;
 		
-		switch(m_descriptor) {
+		switch (m_descriptor) {
 			#define CCC_X(SymbolType, symbol_list) \
 				case SymbolType::DESCRIPTOR: \
 					success = database.symbol_list.mark_symbol_for_destruction(m_handle, database_ptr); \
@@ -1170,7 +1170,7 @@ bool MultiSymbolHandle::destroy_symbol(SymbolDatabase& database, bool destroy_de
 		}
 	}
 	
-	if(success) {
+	if (success) {
 		database.destroy_marked_symbols();
 	}
 	
@@ -1209,9 +1209,9 @@ const MultiSymbolHandle& NodeHandle::symbol() const
 
 const ast::Node* NodeHandle::lookup_node(const SymbolDatabase& database) const
 {
-	if(m_symbol.valid()) {
+	if (m_symbol.valid()) {
 		const Symbol* symbol = m_symbol.lookup_symbol(database);
-		if(!symbol || symbol->generation() != m_generation) {
+		if (!symbol || symbol->generation() != m_generation) {
 			return nullptr;
 		}
 	}

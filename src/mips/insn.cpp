@@ -23,36 +23,36 @@ Insn::Insn(u32 val) : value(val) {}
 
 InsnClass Insn::iclass() const
 {
-	if(opcode() == OPCODE_SPECIAL) {
+	if (opcode() == OPCODE_SPECIAL) {
 		return INSN_CLASS_MIPS_SPECIAL;
-	} else if(opcode() == OPCODE_COP0) {
-		if(rs() == COP0_BC0) {
+	} else if (opcode() == OPCODE_COP0) {
+		if (rs() == COP0_BC0) {
 			return INSN_CLASS_COP0_BC0;
-		} else if(rs() == COP0_C0) {
+		} else if (rs() == COP0_C0) {
 			return INSN_CLASS_COP0_C0;
 		} else {
 			return INSN_CLASS_COP0;
 		}
-	} else if(opcode() == OPCODE_COP1) {
-		if(rs() == COP1_BC1) {
+	} else if (opcode() == OPCODE_COP1) {
+		if (rs() == COP1_BC1) {
 			return INSN_CLASS_COP1_BC1;
-		} else if(rs() == COP1_S) {
+		} else if (rs() == COP1_S) {
 			return INSN_CLASS_COP1_S;
-		} else if(rs() == COP1_W) {
+		} else if (rs() == COP1_W) {
 			return INSN_CLASS_COP1_W;
 		} else {
 			return INSN_CLASS_COP1;
 		}
-	} else if(opcode() == OPCODE_COP2) {
+	} else if (opcode() == OPCODE_COP2) {
 		return INSN_CLASS_COP2;
-	} else if(opcode() == OPCODE_MMI) {
-		if(func() == MMI_MMI0) {
+	} else if (opcode() == OPCODE_MMI) {
+		if (func() == MMI_MMI0) {
 			return INSN_CLASS_MMI0;
-		} else if(func() == MMI_MMI1) {
+		} else if (func() == MMI_MMI1) {
 			return INSN_CLASS_MMI1;
-		} else if(func() == MMI_MMI2) {
+		} else if (func() == MMI_MMI2) {
 			return INSN_CLASS_MMI2;
-		} else if(func() == MMI_MMI3) {
+		} else if (func() == MMI_MMI3) {
 			return INSN_CLASS_MMI3;
 		} else {
 			return INSN_CLASS_MMI;
@@ -64,7 +64,7 @@ InsnClass Insn::iclass() const
 
 const InsnInfo& Insn::info() const
 {
-	switch(iclass()) {
+	switch (iclass()) {
 		case INSN_CLASS_MIPS: return MIPS_OPCODE_TABLE[opcode()];
 		case INSN_CLASS_MIPS_SPECIAL: return MIPS_SPECIAL_TABLE[func()];
 		case INSN_CLASS_MIPS_REGIMM: return MIPS_REGIMM_TABLE[rt()];
@@ -132,7 +132,7 @@ u32 Insn::target_bytes() const
 
 u32 Insn::field(InsnField field) const
 {
-	switch(field) {
+	switch (field) {
 		case InsnField::NONE: return 0;
 		case InsnField::RS: return rs();
 		case InsnField::RT: return rt();

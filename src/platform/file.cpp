@@ -28,7 +28,7 @@ std::optional<std::string> read_text_file(const fs::path& path)
 {
 	std::ifstream file_stream;
 	file_stream.open(path);
-	if(!file_stream.is_open()) {
+	if (!file_stream.is_open()) {
 		return std::nullopt;
 	}
 	std::stringstream string_stream;

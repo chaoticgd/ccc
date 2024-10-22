@@ -9,7 +9,7 @@
 	TEST(GNUDemangler, name) { \
 		char* demangled = cplus_demangle_opname(mangled, 0); \
 		const char* expected = expected_demangled; \
-		if(demangled) { \
+		if (demangled) { \
 			ASSERT_TRUE(expected && strcmp(demangled, expected) == 0); \
 			free((void*) demangled); \
 		} else { \

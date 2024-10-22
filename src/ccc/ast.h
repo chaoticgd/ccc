@@ -313,10 +313,10 @@ enum ExplorationMode {
 template <typename ThisNode, typename Callback>
 void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 {
-	if(order == PREORDER_TRAVERSAL && callback(node) == DONT_EXPLORE_CHILDREN) {
+	if (order == PREORDER_TRAVERSAL && callback(node) == DONT_EXPLORE_CHILDREN) {
 		return;
 	}
-	switch(node.descriptor) {
+	switch (node.descriptor) {
 		case ARRAY: {
 			auto& array = node.template as<Array>();
 			for_each_node(*array.element_type.get(), order, callback);
@@ -338,11 +338,11 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 		}
 		case FUNCTION: {
 			auto& func = node.template as<Function>();
-			if(func.return_type.has_value()) {
+			if (func.return_type.has_value()) {
 				for_each_node(*func.return_type->get(), order, callback);
 			}
-			if(func.parameters.has_value()) {
-				for(auto& child : *func.parameters) {
+			if (func.parameters.has_value()) {
+				for (auto& child : *func.parameters) {
 					for_each_node(*child.get(), order, callback);
 				}
 			}
@@ -361,13 +361,13 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 		}
 		case STRUCT_OR_UNION: {
 			auto& struct_or_union = node.template as<StructOrUnion>();
-			for(auto& child : struct_or_union.base_classes) {
+			for (auto& child : struct_or_union.base_classes) {
 				for_each_node(*child.get(), order, callback);
 			}
-			for(auto& child : struct_or_union.fields) {
+			for (auto& child : struct_or_union.fields) {
 				for_each_node(*child.get(), order, callback);
 			}
-			for(auto& child : struct_or_union.member_functions) {
+			for (auto& child : struct_or_union.member_functions) {
 				for_each_node(*child.get(), order, callback);
 			}
 			break;
@@ -376,7 +376,7 @@ void for_each_node(ThisNode& node, TraversalOrder order, Callback callback)
 			break;
 		}
 	}
-	if(order == POSTORDER_TRAVERSAL) {
+	if (order == POSTORDER_TRAVERSAL) {
 		callback(node);
 	}
 }

@@ -13,9 +13,9 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 {
 	std::vector<ParsedSymbol> output;
 	std::string prefix;
-	for(const mdebug::Symbol& symbol : input) {
-		if(symbol.is_stabs()) {
-			switch(symbol.code()) {
+	for (const mdebug::Symbol& symbol : input) {
+		if (symbol.is_stabs()) {
+			switch (symbol.code()) {
 				case mdebug::N_GSYM: // Global variable
 				case mdebug::N_FUN: // Function
 				case mdebug::N_STSYM: // Data section static global variable
@@ -24,13 +24,13 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 				case mdebug::N_LSYM: // Automatic variable or type definition
 				case mdebug::N_PSYM: { // Parameter variable
 					// Some STABS symbols are split between multiple strings.
-					if(symbol.string[0] != '\0') {
-						if(symbol.string[strlen(symbol.string) - 1] == '\\') {
+					if (symbol.string[0] != '\0') {
+						if (symbol.string[strlen(symbol.string) - 1] == '\\') {
 							prefix += std::string(symbol.string, symbol.string + strlen(symbol.string) - 1);
 						} else {
 							std::string merged_string;
 							const char* string;
-							if(!prefix.empty()) {
+							if (!prefix.empty()) {
 								merged_string = prefix + symbol.string;
 								string = merged_string.c_str();
 								prefix.clear();
@@ -40,9 +40,9 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 							
 							const char* input = string;
 							Result<StabsSymbol> parse_result = parse_stabs_symbol(input);
-							if(parse_result.success()) {
-								if(*input != '\0') {
-									if(importer_flags & STRICT_PARSING) {
+							if (parse_result.success()) {
+								if (*input != '\0') {
+									if (importer_flags & STRICT_PARSING) {
 										return CCC_FAILURE("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
 									} else {
 										CCC_WARN("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
@@ -53,7 +53,7 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 								parsed.type = ParsedSymbolType::NAME_COLON_TYPE;
 								parsed.raw = &symbol;
 								parsed.name_colon_type = std::move(*parse_result);
-							} else if(parse_result.error().message == STAB_TRUNCATED_ERROR_MESSAGE) {
+							} else if (parse_result.error().message == STAB_TRUNCATED_ERROR_MESSAGE) {
 								// Symbol truncated due to a GCC bug. Report a
 								// warning and try to tolerate further faults
 								// caused as a result of this.
@@ -66,7 +66,7 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 						}
 					} else {
 						CCC_CHECK(prefix.empty(), "Invalid STABS continuation.");
-						if(symbol.code() == mdebug::N_FUN) {
+						if (symbol.code() == mdebug::N_FUN) {
 							ParsedSymbol& func_end = output.emplace_back();
 							func_end.type = ParsedSymbolType::FUNCTION_END;
 							func_end.raw = &symbol;
@@ -149,43 +149,43 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 {
 	std::map<StabsTypeNumber, size_t> stabs_type_number_to_symbol;
-	for(size_t i = 0; i < symbols.size(); i++) {
+	for (size_t i = 0; i < symbols.size(); i++) {
 		ParsedSymbol& symbol = symbols[i];
-		if(symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
+		if (symbol.type == ParsedSymbolType::NAME_COLON_TYPE) {
 			StabsType& type = *symbol.name_colon_type.type;
-			if(type.type_number.valid() && type.descriptor.has_value()) {
+			if (type.type_number.valid() && type.descriptor.has_value()) {
 				stabs_type_number_to_symbol.emplace(type.type_number, i);
 			}
 		}
 	}
 	
-	for(ParsedSymbol& symbol : symbols) {
+	for (ParsedSymbol& symbol : symbols) {
 		symbol.is_typedef =
 			symbol.type == ParsedSymbolType::NAME_COLON_TYPE &&
 			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME &&
 			symbol.name_colon_type.type->descriptor != StabsTypeDescriptor::ENUM;
 	}
 	
-	for(size_t i = 0; i < symbols.size(); i++) {
+	for (size_t i = 0; i < symbols.size(); i++) {
 		ParsedSymbol& symbol = symbols[i];
-		if(symbol.type != ParsedSymbolType::NAME_COLON_TYPE) {
+		if (symbol.type != ParsedSymbolType::NAME_COLON_TYPE) {
 			continue;
 		}
 		
 		bool is_type =
 			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME ||
 			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG;
-		if(!is_type) {
+		if (!is_type) {
 			continue;
 		}
 		
 		StabsType& type = *symbol.name_colon_type.type;
 		
-		if(!type.descriptor.has_value()) {
+		if (!type.descriptor.has_value()) {
 			auto referenced_index = stabs_type_number_to_symbol.find(type.type_number);
-			if(referenced_index != stabs_type_number_to_symbol.end()) {
+			if (referenced_index != stabs_type_number_to_symbol.end()) {
 				ParsedSymbol& referenced = symbols[referenced_index->second];
-				if(referenced.name_colon_type.name == symbol.name_colon_type.name) {
+				if (referenced.name_colon_type.name == symbol.name_colon_type.name) {
 					// symbol:     "Struct:T(1,1)=s1;"
 					// referenced: "Struct:t(1,1)"
 					symbol.duplicate = true;
@@ -193,12 +193,12 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 			}
 		}
 		
-		if(type.descriptor.has_value() && type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
+		if (type.descriptor.has_value() && type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
 			auto referenced_index = stabs_type_number_to_symbol.find(type.as<StabsTypeReferenceType>().type->type_number);
-			if(referenced_index != stabs_type_number_to_symbol.end() && referenced_index->second != i) {
+			if (referenced_index != stabs_type_number_to_symbol.end() && referenced_index->second != i) {
 				ParsedSymbol& referenced = symbols[referenced_index->second];
 				
-				if(referenced.name_colon_type.name == " ") {
+				if (referenced.name_colon_type.name == " ") {
 					// referenced: " :T(1,1)=e;"
 					// symbol:     "ErraticEnum:t(1,2)=(1,1)"
 					referenced.name_colon_type.name = symbol.name_colon_type.name;
@@ -206,7 +206,7 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 					symbol.duplicate = true;
 				}
 				
-				if(referenced.name_colon_type.name == symbol.name_colon_type.name) {
+				if (referenced.name_colon_type.name == symbol.name_colon_type.name) {
 					// referenced: "NamedTypedefedStruct:T(1,1)=s1;"
 					// symbol:     "NamedTypedefedStruct:t(1,2)=(1,1)"
 					referenced.is_typedef = true;

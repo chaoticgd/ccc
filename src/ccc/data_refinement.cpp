@@ -25,11 +25,11 @@ static std::string stringf(const char* format, ...);
 
 bool can_refine_variable(const VariableToRefine& variable)
 {
-	if(!variable.storage) return false;
-	if(variable.storage->location == GlobalStorageLocation::BSS) return false;
-	if(variable.storage->location == GlobalStorageLocation::SBSS) return false;
-	if(!variable.address.valid()) return false;
-	if(!variable.type) return false;
+	if (!variable.storage) return false;
+	if (variable.storage->location == GlobalStorageLocation::BSS) return false;
+	if (variable.storage->location == GlobalStorageLocation::SBSS) return false;
+	if (!variable.address.valid()) return false;
+	if (!variable.type) return false;
 	return true;
 }
 
@@ -43,7 +43,7 @@ Result<RefinedData> refine_variable(
 static Result<RefinedData> refine_node(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf, s32 depth)
 {
-	if(depth > 200) {
+	if (depth > 200) {
 		const char* error_message = "Call depth greater than 200 in refine_node, probably infinite recursion.";
 		
 		CCC_WARN(error_message);
@@ -53,13 +53,13 @@ static Result<RefinedData> refine_node(
 		return data;
 	}
 	
-	switch(type.descriptor) {
+	switch (type.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
 			CCC_CHECK(array.element_type->size_bytes > -1, "Cannot compute element size for '%s' array.", array.name.c_str());
 			RefinedData list;
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
-			for(s32 i = 0; i < array.element_count; i++) {
+			for (s32 i = 0; i < array.element_count; i++) {
 				s32 offset = i * array.element_type->size_bytes;
 				Result<RefinedData> element = refine_node(virtual_address + offset, *array.element_type.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(element);
@@ -84,8 +84,8 @@ static Result<RefinedData> refine_node(
 			CCC_RETURN_IF_ERROR(read_result);
 			
 			RefinedData data;
-			for(const auto& [number, name] : enumeration.constants) {
-				if(number == value) {
+			for (const auto& [number, name] : enumeration.constants) {
+				if (number == value) {
 					data.value = name;
 					return data;
 				}
@@ -111,7 +111,7 @@ static Result<RefinedData> refine_node(
 			RefinedData list;
 			std::vector<RefinedData>& children = list.value.emplace<std::vector<RefinedData>>();
 			
-			for(s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
+			for (s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
 				Result<RefinedData> child = refine_node(virtual_address + base_class->offset_bytes, *base_class.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
@@ -119,8 +119,8 @@ static Result<RefinedData> refine_node(
 				children.emplace_back(std::move(*child));
 			}
 			
-			for(const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
-				if(field->storage_class == STORAGE_CLASS_STATIC) {
+			for (const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
+				if (field->storage_class == STORAGE_CLASS_STATIC) {
 					continue;
 				}
 				Result<RefinedData> child = refine_node(virtual_address + field->offset_bytes, *field.get(), database, elf, depth + 1);
@@ -147,7 +147,7 @@ static Result<RefinedData> refine_bitfield(
 	ast::BuiltInClass storage_unit_type = bit_field.storage_unit_type(database);
 	
 	u128 value;
-	switch(storage_unit_type) {
+	switch (storage_unit_type) {
 		case ast::BuiltInClass::UNSIGNED_8:
 		case ast::BuiltInClass::UNQUALIFIED_8: {
 			Result<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
@@ -234,7 +234,7 @@ static Result<RefinedData> refine_builtin(
 	u32 virtual_address, ast::BuiltInClass bclass, const SymbolDatabase& database, const ElfFile& elf)
 {
 	u128 value;
-	switch(bclass) {
+	switch (bclass) {
 		case ast::BuiltInClass::VOID_TYPE: {
 			break;
 		}
@@ -287,26 +287,26 @@ static Result<RefinedData> refine_pointer_or_reference(
 	CCC_RETURN_IF_ERROR(read_result);
 	
 	std::string string;
-	if(pointer != 0) {
+	if (pointer != 0) {
 		FunctionHandle function_handle = database.functions.first_handle_from_starting_address(pointer);
 		const Function* function_symbol = database.functions.symbol_from_handle(function_handle);
 		
 		GlobalVariableHandle global_variable_handle = database.global_variables.first_handle_from_starting_address(pointer);
 		const GlobalVariable* global_variable_symbol = database.global_variables.symbol_from_handle(global_variable_handle);
 		
-		if(function_symbol) {
+		if (function_symbol) {
 			bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
 				&& type.as<ast::PointerOrReference>().is_pointer;
-			if(is_pointer) {
+			if (is_pointer) {
 				string += "&";
 			}
 			string += function_symbol->name();
-		} else if(global_variable_symbol) {
+		} else if (global_variable_symbol) {
 			bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
 				&& type.as<ast::PointerOrReference>().is_pointer;
 			bool pointing_at_array = global_variable_symbol->type()
 				&& global_variable_symbol->type()->descriptor == ast::ARRAY;
-			if(is_pointer && !pointing_at_array) {
+			if (is_pointer && !pointing_at_array) {
 				string += "&";
 			}
 			string += global_variable_symbol->name();
@@ -325,7 +325,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 {
 	std::string result;
 	
-	switch(bclass) {
+	switch (bclass) {
 		case ast::BuiltInClass::VOID_TYPE: {
 			break;
 		}
@@ -361,7 +361,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 			static_assert(sizeof(double) == 8);
 			
 			std::string string = stringf("%g", value.low);
-			if(strtof(string.c_str(), nullptr) != value.low) {
+			if (strtof(string.c_str(), nullptr) != value.low) {
 				string = stringf("%.17g", value.low);
 			}
 			
@@ -383,7 +383,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 
 static const char* generate_format_string(s32 size, bool is_signed)
 {
-	switch(size) {
+	switch (size) {
 		case 1: return is_signed ? "%hhd" : "%hhu";
 		case 2: return is_signed ? "%hd" : "%hu";
 		case 4: return is_signed ? "%d" : "%hu";
@@ -394,10 +394,10 @@ static const char* generate_format_string(s32 size, bool is_signed)
 static std::string single_precision_float_to_string(float value)
 {
 	std::string result = stringf("%g", value);
-	if(strtof(result.c_str(), nullptr) != value) {
+	if (strtof(result.c_str(), nullptr) != value) {
 		result = stringf("%.9g", value);
 	}
-	if(result.find(".") == std::string::npos) {
+	if (result.find(".") == std::string::npos) {
 		result += ".";
 	}
 	result += "f";

@@ -189,9 +189,9 @@ const char* VU0_STRINGS[32] = {
 
 std::pair<RegisterClass, s32> map_dbx_register_index(s32 index)
 {
-	if(index >= 0 && index <= 31) {
+	if (index >= 0 && index <= 31) {
 		return {RegisterClass::GPR, index};
-	} else if(index >= 38 && index <= 69) {
+	} else if (index >= 38 && index <= 69) {
 		return {RegisterClass::FPR, index - 38};
 	} else {
 		return{RegisterClass::INVALID, 0};

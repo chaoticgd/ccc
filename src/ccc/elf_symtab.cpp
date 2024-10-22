@@ -59,29 +59,29 @@ Result<void> import_symbols(
 	u32 importer_flags,
 	DemanglerFunctions demangler)
 {
-	for(u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
+	for (u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
 		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));
 		CCC_ASSERT(symbol);
 		
 		Address address;
-		if(symbol->value != 0) {
+		if (symbol->value != 0) {
 			address = symbol->value;
 		}
 		
-		if(!address.valid() || symbol->visibility() != SymbolVisibility::DEFAULT) {
+		if (!address.valid() || symbol->visibility() != SymbolVisibility::DEFAULT) {
 			continue;
 		}
 		
-		if(!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
-			if(database.functions.first_handle_from_starting_address(address).valid()) {
+		if (!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
+			if (database.functions.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
 			
-			if(database.global_variables.first_handle_from_starting_address(address).valid()) {
+			if (database.global_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
 			
-			if(database.local_variables.first_handle_from_starting_address(address).valid()) {
+			if (database.local_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
 		}
@@ -89,7 +89,7 @@ Result<void> import_symbols(
 		const char* string = get_string(strtab, symbol->name);
 		CCC_CHECK(string, "Symbol string out of range.");
 		
-		switch(symbol->type()) {
+		switch (symbol->type()) {
 			case SymbolType::NOTYPE: {
 				Result<Label*> label = database.labels.create_symbol(
 					string, group.source, group.module_symbol, address, importer_flags, demangler);
@@ -106,12 +106,12 @@ Result<void> import_symbols(
 				break;
 			}
 			case SymbolType::OBJECT: {
-				if(symbol->size != 0) {
+				if (symbol->size != 0) {
 					Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
 						string, group.source, group.module_symbol, address, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(global_variable);
 					
-					if(*global_variable) {
+					if (*global_variable) {
 						(*global_variable)->set_size(symbol->size);
 					}
 				} else {
@@ -127,7 +127,7 @@ Result<void> import_symbols(
 					string, group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(function);
 				
-				if(*function) {
+				if (*function) {
 					(*function)->set_size(symbol->size);
 				}
 				
@@ -152,7 +152,7 @@ Result<void> print_symbol_table(FILE* out, std::span<const u8> symtab, std::span
 	fprintf(out, "ELF SYMBOLS:\n");
 	fprintf(out, "   Num:    Value  Size Type    Bind   Vis      Ndx Name\n");
 	
-	for(u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
+	for (u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
 		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));
 		CCC_ASSERT(symbol);
 		
@@ -173,7 +173,7 @@ Result<void> print_symbol_table(FILE* out, std::span<const u8> symtab, std::span
 
 static const char* symbol_bind_to_string(SymbolBind bind)
 {
-	switch(bind) {
+	switch (bind) {
 		case SymbolBind::LOCAL: return "LOCAL";
 		case SymbolBind::GLOBAL: return "GLOBAL";
 		case SymbolBind::WEAK: return "WEAK";
@@ -185,7 +185,7 @@ static const char* symbol_bind_to_string(SymbolBind bind)
 
 static const char* symbol_type_to_string(SymbolType type)
 {
-	switch(type) {
+	switch (type) {
 		case SymbolType::NOTYPE: return "NOTYPE";
 		case SymbolType::OBJECT: return "OBJECT";
 		case SymbolType::FUNC: return "FUNC";
@@ -201,7 +201,7 @@ static const char* symbol_type_to_string(SymbolType type)
 
 static const char* symbol_visibility_to_string(SymbolVisibility visibility)
 {
-	switch(visibility) {
+	switch (visibility) {
 		case SymbolVisibility::DEFAULT: return "DEFAULT";
 		case SymbolVisibility::INTERNAL: return "INTERNAL";
 		case SymbolVisibility::HIDDEN: return "HIDDEN";

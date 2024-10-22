@@ -19,8 +19,8 @@ const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS = {
 
 const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format)
 {
-	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
-		if(SYMBOL_TABLE_FORMATS[i].format == format) {
+	for (size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
+		if (SYMBOL_TABLE_FORMATS[i].format == format) {
 			return &SYMBOL_TABLE_FORMATS[i];
 		}
 	}
@@ -29,8 +29,8 @@ const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat for
 
 const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name)
 {
-	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
-		if(strcmp(SYMBOL_TABLE_FORMATS[i].format_name, format_name) == 0) {
+	for (size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
+		if (strcmp(SYMBOL_TABLE_FORMATS[i].format_name, format_name) == 0) {
 			return &SYMBOL_TABLE_FORMATS[i];
 		}
 	}
@@ -39,8 +39,8 @@ const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_na
 
 const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name)
 {
-	for(size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
-		if(strcmp(SYMBOL_TABLE_FORMATS[i].section_name, section_name) == 0) {
+	for (size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
+		if (strcmp(SYMBOL_TABLE_FORMATS[i].section_name, section_name) == 0) {
 			return &SYMBOL_TABLE_FORMATS[i];
 		}
 	}
@@ -53,7 +53,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	const ElfSection& section, const ElfFile& elf, SymbolTableFormat format)
 {
 	std::unique_ptr<SymbolTable> symbol_table;
-	switch(format) {
+	switch (format) {
 		case MDEBUG: {
 			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.header.offset);
 			break;
@@ -82,7 +82,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 				"Section '%s' out of range.", section.name.c_str());
 			std::span<const u8> data = std::span(elf.image).subspan(section.header.offset, section.header.size);
 			
-			if(data.size() >= 4 && data[0] != '\0') {
+			if (data.size() >= 4 && data[0] != '\0') {
 				Result<SNDLLFile> file = parse_sndll_file(data, Address::non_zero(section.header.addr), SNDLLType::SNDATA_SECTION);
 				CCC_RETURN_IF_ERROR(file);
 				
@@ -114,11 +114,11 @@ Result<ModuleHandle> import_symbol_tables(
 	
 	ModuleHandle module_handle = (*module_symbol)->handle();
 	
-	for(const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
+	for (const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
 		// Find a symbol source object with the right name, or create one if one
 		// doesn't already exist.
 		Result<SymbolSourceHandle> source = database.get_symbol_source(symbol_table->name());
-		if(!source.success()) {
+		if (!source.success()) {
 			database.destroy_symbols_from_module(module_handle, false);
 			return source;
 		}
@@ -130,7 +130,7 @@ Result<ModuleHandle> import_symbol_tables(
 		
 		Result<void> result = symbol_table->import(
 			database, group, importer_flags, demangler, interrupt);
-		if(!result.success()) {
+		if (!result.success()) {
 			database.destroy_symbols_from_module(module_handle, false);
 			return result;
 		}

@@ -22,7 +22,7 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 	const ElfSectionHeader* shstr_section_header = get_packed<ElfSectionHeader>(elf.image, header->shoff + header->shstrndx * sizeof(ElfSectionHeader));
 	CCC_CHECK(shstr_section_header, "ELF section name header out of range.");
 	
-	for(u32 i = 0; i < header->shnum; i++) {
+	for (u32 i = 0; i < header->shnum; i++) {
 		u64 header_offset = header->shoff + i * sizeof(ElfSectionHeader);
 		const ElfSectionHeader* section_header = get_packed<ElfSectionHeader>(elf.image, header_offset);
 		CCC_CHECK(section_header, "ELF section header out of range.");
@@ -35,7 +35,7 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 		section.header = *section_header;
 	}
 	
-	for(u32 i = 0; i < header->phnum; i++) {
+	for (u32 i = 0; i < header->phnum; i++) {
 		u64 header_offset = header->phoff + i * sizeof(ElfProgramHeader);
 		const ElfProgramHeader* program_header = get_packed<ElfProgramHeader>(elf.image, header_offset);
 		CCC_CHECK(program_header, "ELF program header out of range.");
@@ -49,7 +49,7 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 Result<void> ElfFile::create_section_symbols(
 	SymbolDatabase& database, const SymbolGroup& group) const
 {
-	for(const ElfSection& section : sections) {
+	for (const ElfSection& section : sections) {
 		Address address = Address::non_zero(section.header.addr);
 		
 		Result<Section*> symbol = database.sections.create_symbol(
@@ -64,8 +64,8 @@ Result<void> ElfFile::create_section_symbols(
 
 const ElfSection* ElfFile::lookup_section(const char* name) const
 {
-	for(const ElfSection& section : sections) {
-		if(section.name == name) {
+	for (const ElfSection& section : sections) {
+		if (section.name == name) {
 			return &section;
 		}
 	}
@@ -74,8 +74,8 @@ const ElfSection* ElfFile::lookup_section(const char* name) const
 
 std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) const
 {
-	for(const ElfProgramHeader& segment : segments) {
-		if(file_offset >= segment.offset && file_offset < segment.offset + segment.filesz) {
+	for (const ElfProgramHeader& segment : segments) {
+		if (file_offset >= segment.offset && file_offset < segment.offset + segment.filesz) {
 			return segment.vaddr + file_offset - segment.offset;
 		}
 	}
@@ -85,8 +85,8 @@ std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) cons
 const ElfProgramHeader* ElfFile::entry_point_segment() const
 {
 	const ccc::ElfProgramHeader* entry_segment = nullptr;
-	for(const ccc::ElfProgramHeader& segment : segments) {
-		if(file_header.entry >= segment.vaddr && file_header.entry < segment.vaddr + segment.filesz) {
+	for (const ccc::ElfProgramHeader& segment : segments) {
+		if (file_header.entry >= segment.vaddr && file_header.entry < segment.vaddr + segment.filesz) {
 			entry_segment = &segment;
 		}
 	}
@@ -97,12 +97,12 @@ Result<std::span<const u8>> ElfFile::get_virtual(u32 address, u32 size) const
 {
 	u32 end_address = address + size;
 	
-	if(end_address >= address) {
-		for(const ElfProgramHeader& segment : segments) {
-			if(address >= segment.vaddr && end_address <= segment.vaddr + segment.filesz) {
+	if (end_address >= address) {
+		for (const ElfProgramHeader& segment : segments) {
+			if (address >= segment.vaddr && end_address <= segment.vaddr + segment.filesz) {
 				size_t begin_offset = segment.offset + (address - segment.vaddr);
 				size_t end_offset = begin_offset + size;
-				if(begin_offset <= image.size() && end_offset <= image.size()) {
+				if (begin_offset <= image.size() && end_offset <= image.size()) {
 					return std::span<const u8>(image.data() + begin_offset, image.data() + end_offset);
 				}
 			}

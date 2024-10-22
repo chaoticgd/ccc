@@ -8,7 +8,7 @@
 #include "symbol_database.h"
 
 namespace ccc {
-	
+
 struct StabsToAstState {
 	SourceFileHandle file_handle;
 	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
