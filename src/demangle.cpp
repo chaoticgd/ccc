@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 	if(argc == 2 && !(strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
 		const char* demangled = cplus_demangle(argv[1], DMGL_PARAMS | DMGL_RET_POSTFIX);
 		CCC_EXIT_IF_FALSE(demangled, "Cannot demangle input!");
-		printf("%s", demangled);
+		printf("%s\n", demangled);
 		return 0;
 	} else {
 		printf("demangle %s -- https://github.com/chaoticgd/ccc\n",
