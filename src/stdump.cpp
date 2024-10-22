@@ -565,7 +565,11 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			if(i + 2 < argc) {
 				SymbolTableLocation& section = options.sections.emplace_back();
 				section.section_name = argv[++i];
-				section.format = symbol_table_format_from_name(argv[++i])->format;
+				
+				const SymbolTableFormatInfo* info = symbol_table_format_from_name(argv[++i]);
+				CCC_EXIT_IF_FALSE(info, "Invalid symbol table format specified.");
+				
+				section.format = info->format;
 			} else if(i + 1 < argc) {
 				CCC_EXIT("Missing format after --section.");
 			} else {
