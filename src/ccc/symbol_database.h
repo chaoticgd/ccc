@@ -152,7 +152,7 @@ public:
 		const Module* module_symbol,
 		Address address,
 		u32 importer_flags,
-		DemanglerFunctions demangler);
+		const DemanglerFunctions& demangler);
 	
 	// Update the address of a symbol without changing its handle.
 	bool move_symbol(SymbolHandle<SymbolType> handle, Address new_address);

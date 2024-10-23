@@ -103,7 +103,7 @@ Result<ModuleHandle> import_symbol_tables(
 	std::string module_name,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	u32 importer_flags,
-	DemanglerFunctions demangler,
+	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt)
 {
 	Result<SymbolSourceHandle> module_source = database.get_symbol_source("Symbol Table Importer");
@@ -153,7 +153,7 @@ Result<void> MdebugSymbolTable::import(
 	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
-	DemanglerFunctions demangler,
+	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt) const
 {
 	return mdebug::import_symbol_table(
@@ -199,7 +199,7 @@ Result<void> SymtabSymbolTable::import(
 	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
-	DemanglerFunctions demangler,
+	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt) const
 {
 	return elf::import_symbols(database, group, m_symtab, m_strtab, importer_flags, demangler);
@@ -232,7 +232,7 @@ Result<void> SNDLLSymbolTable::import(
 	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
-	DemanglerFunctions demangler,
+	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt) const
 {
 	return import_sndll_symbols(database, *m_sndll, group, importer_flags, demangler);
@@ -264,7 +264,7 @@ Result<void> ElfSectionHeadersSymbolTable::import(
 	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
-	DemanglerFunctions demangler,
+	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt) const
 {
 	return m_elf.import_section_headers(database, group, importer_flags, demangler);

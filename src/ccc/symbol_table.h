@@ -47,7 +47,7 @@ public:
 		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
-		DemanglerFunctions demangler,
+		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const = 0;
 	
 	// Print out all the field in the header structure if one exists.
@@ -74,7 +74,7 @@ Result<ModuleHandle> import_symbol_tables(
 	std::string module_name,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	u32 importer_flags,
-	DemanglerFunctions demangler,
+	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt);
 
 class MdebugSymbolTable : public SymbolTable {
@@ -87,7 +87,7 @@ public:
 		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
-		DemanglerFunctions demangler,
+		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
@@ -108,7 +108,7 @@ public:
 		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
-		DemanglerFunctions demangler,
+		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
@@ -131,7 +131,7 @@ public:
 		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
-		DemanglerFunctions demangler,
+		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;
@@ -151,7 +151,7 @@ public:
 		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
-		DemanglerFunctions demangler,
+		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
 	
 	Result<void> print_headers(FILE* out) const override;

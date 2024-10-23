@@ -13,7 +13,7 @@ Result<void> import_symbols(
 	std::span<const u8> symtab,
 	std::span<const u8> strtab,
 	u32 importer_flags,
-	DemanglerFunctions demangler);
+	const DemanglerFunctions& demangler);
 	
 Result<void> print_symbol_table(FILE* out, std::span<const u8> symtab, std::span<const u8> strtab);
 

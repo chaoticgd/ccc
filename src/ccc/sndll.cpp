@@ -117,7 +117,7 @@ Result<void> import_sndll_symbols(
 	const SNDLLFile& sndll,
 	const SymbolGroup& group,
 	u32 importer_flags,
-	DemanglerFunctions demangler)
+	const DemanglerFunctions& demangler)
 {
 	for (const SNDLLSymbol& symbol : sndll.symbols) {
 		if (symbol.value == 0 || symbol.string.empty()) {

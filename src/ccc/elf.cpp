@@ -63,7 +63,7 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 }
 
 Result<void> ElfFile::import_section_headers(
-	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const
 {
 	for (const ElfSection& section : sections) {
 		Address address = Address::non_zero(section.header.addr);
@@ -89,7 +89,7 @@ Result<void> ElfFile::import_section_headers(
 }
 
 Result<void> ElfFile::import_symbol_sections(
-	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const
 {
 	// Parse sections generated as a result of passing -ffunction-sections and
 	// -fdata-sections to gcc. For example for a function "MyFunc" in the .text
@@ -143,7 +143,7 @@ Result<void> ElfFile::import_symbol_sections(
 }
 
 Result<void> ElfFile::import_link_once_sections(
-	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const
 {
 	// Parse .gnu.linkonce.* section names. These are be generated as part of
 	// vague linking e.g. for template instantiations, and can be left in the
