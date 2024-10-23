@@ -160,8 +160,8 @@ public:
 	// Update the name of a symbol without changing its handle.
 	bool rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name);
 	
-	// Move all the symbols from the passed list into this list.
-	void merge_from(SymbolList<SymbolType>& list);
+	// Move all the symbols from the passed src_list into this list.
+	void merge_from(SymbolList<SymbolType>& src_list, SymbolDatabase& src_database, SymbolDatabase& dest_database);
 	
 	// Mark a symbol for destruction. If the correct symbol database pointer is
 	// passed, all descendants will also be marked. For example, marking a
@@ -226,6 +226,7 @@ public:
 	const std::string& name() const { return m_name; }
 	RawSymbolHandle raw_handle() const { return m_handle; }
 	SymbolSourceHandle source() const { return m_source; }
+	void set_source(SymbolSourceHandle source) { m_source = source; }
 	ModuleHandle module_handle() const { return m_module; }
 	
 	Address address() const { return m_address; }

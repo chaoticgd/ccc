@@ -212,26 +212,59 @@ TEST(CCCSymbolDatabase, RenameSymbol)
 	EXPECT_NE(new_handles.begin(), new_handles.end());
 }
 
-TEST(CCCSymbolDatabase, MergeSymbolLists)
+TEST(CCCSymbolDatabase, MergeSymbolDatabases)
 {
-	SymbolList<SymbolSource> list;
-	Result<SymbolSource*> source = list.create_symbol("Source", SymbolSourceHandle());
-	CCC_GTEST_FAIL_IF_ERROR(source);
+	// Create our first database.
+	SymbolDatabase database;
 	
-	SymbolList<SymbolSource> other_list;
-	Result<SymbolSource*> other_source = list.create_symbol("Other Source", SymbolSourceHandle());
-	CCC_GTEST_FAIL_IF_ERROR(other_source);
+	Result<SymbolSourceHandle> source_1 = database.get_symbol_source("Source");
+	CCC_GTEST_FAIL_IF_ERROR(source_1);
 	
-	list.merge_from(other_list);
+	Result<Function*> function_1 = database.functions.create_symbol("function_1", *source_1, nullptr);
+	CCC_GTEST_FAIL_IF_ERROR(function_1);
 	
-	SymbolSourceHandle handle = list.first_handle_from_name("Source");
-	SymbolSourceHandle other_handle = list.first_handle_from_name("Other Source");
+	// Create another database.
+	SymbolDatabase other_database;
 	
-	EXPECT_TRUE(handle.valid());
-	EXPECT_TRUE(other_handle.valid());
+	Result<SymbolSourceHandle> source_2 = other_database.get_symbol_source("Source");
+	CCC_GTEST_FAIL_IF_ERROR(source_2);
 	
-	EXPECT_TRUE(list.symbol_from_handle(handle));
-	EXPECT_TRUE(list.symbol_from_handle(other_handle));
+	Result<Function*> function_2 = other_database.functions.create_symbol("function_2", *source_2, nullptr);
+	CCC_GTEST_FAIL_IF_ERROR(function_2);
+	
+	Result<SymbolSourceHandle> source_3 = other_database.get_symbol_source("Other Source");
+	CCC_GTEST_FAIL_IF_ERROR(source_3);
+	
+	Result<Function*> function_3 = other_database.functions.create_symbol("function_3", *source_3, nullptr);
+	CCC_GTEST_FAIL_IF_ERROR(function_3);
+	
+	// Merge the second database into the first.
+	database.merge_from(other_database);
+	
+	// Make sure our functions still exist and have the correct sources.
+	Function* test_1 = database.functions.symbol_from_handle(database.functions.first_handle_from_name("function_1"));
+	EXPECT_TRUE(test_1);
+	
+	SymbolSource* test_source_1 = database.symbol_sources.symbol_from_handle(test_1->source());
+	EXPECT_TRUE(test_source_1);
+	EXPECT_EQ(test_source_1->name(), "Source");
+	
+	Function* test_2 = database.functions.symbol_from_handle(database.functions.first_handle_from_name("function_2"));
+	EXPECT_TRUE(test_2);
+	
+	SymbolSource* test_source_2 = database.symbol_sources.symbol_from_handle(test_2->source());
+	EXPECT_TRUE(test_source_2);
+	EXPECT_EQ(test_source_2->name(), "Source");
+	
+	Function* test_3 = database.functions.symbol_from_handle(database.functions.first_handle_from_name("function_3"));
+	EXPECT_TRUE(test_3);
+	
+	SymbolSource* test_source_3 = database.symbol_sources.symbol_from_handle(test_3->source());
+	EXPECT_TRUE(test_source_3);
+	EXPECT_EQ(test_source_3->name(), "Other Source");
+	
+	// Make sure symbol sources with the same name were merged together.
+	EXPECT_EQ(database.symbol_sources.size(), 2);
 }
 
 TEST(CCCSymbolDatabase, DestroySymbolsDanglingHandles)
