@@ -6,7 +6,8 @@
 #include "demangle.h"
 
 #define DEMANGLER_OPNAME_TEST(name, mangled, expected_demangled) \
-	TEST(GNUDemangler, name) { \
+	TEST(GNUDemangler, name) \
+	{ \
 		char* demangled = cplus_demangle_opname(mangled, 0); \
 		const char* expected = expected_demangled; \
 		if (demangled) { \

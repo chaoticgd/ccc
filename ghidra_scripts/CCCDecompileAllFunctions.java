@@ -13,15 +13,15 @@ public class CCCDecompileAllFunctions extends GhidraScript {
 	public void run() throws Exception {
 		FlatDecompilerAPI decompiler = new FlatDecompilerAPI(this);
 		String outputPath = askString("Choose Output File Path", "");
-		try(FileWriter writer = new FileWriter(outputPath)) {
-			for(Function function : currentProgram.getFunctionManager().getFunctions(true)) {
+		try (FileWriter writer = new FileWriter(outputPath)) {
+			for (Function function : currentProgram.getFunctionManager().getFunctions(true)) {
 				writer.write("@function ");
 				writer.write(Long.toHexString(function.getEntryPoint().getOffset()));
 				writer.write("\n");
 				try {
 					writer.write(decompiler.decompile(function));
 					writer.write("\n");
-				} catch(Exception e) {
+				} catch (Exception e) {
 					println("[" + function.getName() + "] " + e.getMessage());
 				}
 			}
