@@ -295,7 +295,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	static const int DMGL_RET_POSTFIX = 1 << 5;
 	
 	std::string demangled_name;
-	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+	if constexpr (SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
 		if ((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
 			int demangler_flags = 0;
 			if (importer_flags & DEMANGLE_PARAMETERS) demangler_flags |= DMGL_PARAMS;
@@ -313,7 +313,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	Result<SymbolType*> symbol = create_symbol(non_mangled_name, address, source, module_symbol);
 	CCC_RETURN_IF_ERROR(symbol);
 	
-	if constexpr(SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+	if constexpr (SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
 		if (!demangled_name.empty()) {
 			(*symbol)->set_mangled_name(name);
 		}
@@ -357,7 +357,7 @@ bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std:
 }
 
 template <typename SymbolType>
-void SymbolList<SymbolType>::merge_from(SymbolList<SymbolType>& list)
+void SymbolList<SymbolType>::merge_from(SymbolList<SymbolType>& list, SymbolDatabase& src_database, SymbolDatabase& dest_database)
 {
 	m_address_to_handle.clear();
 	m_name_to_handle.clear();
@@ -376,6 +376,15 @@ void SymbolList<SymbolType>::merge_from(SymbolList<SymbolType>& list)
 			symbol = &m_symbols.emplace_back(std::move(lhs[lhs_pos++]));
 		} else if (rhs_pos < rhs.size()) {
 			symbol = &m_symbols.emplace_back(std::move(rhs[rhs_pos++]));
+			
+			// Deduplicate the symbol sources.
+			SymbolSource* source = src_database.symbol_sources.symbol_from_handle(symbol->source());
+			if (source) {
+				Result<SymbolSourceHandle> new_source = dest_database.get_symbol_source(source->name());
+				symbol->set_source(new_source.success() ? *new_source : SymbolSourceHandle());
+			} else {
+				symbol->set_source(SymbolSourceHandle());
+			}
 		} else {
 			break;
 		}
@@ -481,7 +490,7 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
-	if constexpr((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
+	if constexpr ((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
 		if (symbol.address().valid()) {
 			m_address_to_handle.emplace(symbol.address().value, symbol.handle());
 		}
@@ -491,7 +500,7 @@ void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
-	if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) {
+	if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) {
 		if (symbol.address().valid()) {
 			auto iterators = m_address_to_handle.equal_range(symbol.address().value);
 			for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
@@ -507,7 +516,7 @@ void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_name_map(SymbolType& symbol)
 {
-	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
+	if constexpr (SymbolType::FLAGS & WITH_NAME_MAP) {
 		m_name_to_handle.emplace(symbol.name(), symbol.handle());
 	}
 }
@@ -515,7 +524,7 @@ void SymbolList<SymbolType>::link_name_map(SymbolType& symbol)
 template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 {
-	if constexpr(SymbolType::FLAGS & WITH_NAME_MAP) {
+	if constexpr (SymbolType::FLAGS & WITH_NAME_MAP) {
 		auto iterators = m_name_to_handle.equal_range(symbol.name());
 		for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
 			if (iterator->second == symbol.handle()) {
@@ -841,7 +850,7 @@ const Symbol* SymbolDatabase::symbol_starting_at_address(
 	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
-		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+		if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
 			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_starting_address(address); \
 				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
@@ -863,7 +872,7 @@ const Symbol* SymbolDatabase::symbol_after_address(
 {
 	const Symbol* result = nullptr;
 	#define CCC_X(SymbolType, symbol_list) \
-		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+		if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
 			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_after_address(address); \
 				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
@@ -884,7 +893,7 @@ const Symbol* SymbolDatabase::symbol_overlapping_address(
 	Address address, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
-		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+		if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
 			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolType* symbol = symbol_list.symbol_overlapping_address(address); \
 				if (symbol) { \
@@ -904,7 +913,7 @@ const Symbol* SymbolDatabase::symbol_with_name(
 	const std::string& name, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 	#define CCC_X(SymbolType, symbol_list) \
-		if constexpr(SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
+		if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) { \
 			if (descriptors & SymbolType::DESCRIPTOR) { \
 				const SymbolHandle<SymbolType> handle = symbol_list.first_handle_from_name(name); \
 				const SymbolType* symbol = symbol_list.symbol_from_handle(handle); \
@@ -1018,7 +1027,12 @@ Result<DataType*> SymbolDatabase::create_data_type_if_unique(
 
 void SymbolDatabase::merge_from(SymbolDatabase& database)
 {
-	#define CCC_X(SymbolType, symbol_list) symbol_list.merge_from(database.symbol_list);
+	// Merge all the symbol lists except for the symbol sources, as these will
+	// be deduplicated separately.
+	#define CCC_X(SymbolType, symbol_list) \
+		if constexpr (SymbolType::DESCRIPTOR != SYMBOL_SOURCE) { \
+			symbol_list.merge_from(database.symbol_list, database, *this); \
+		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
 }
