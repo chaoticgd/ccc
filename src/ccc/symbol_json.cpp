@@ -3,35 +3,37 @@
 
 #include "symbol_json.h"
 
+#include "ast_json.h"
 #include "registers.h"
 
 namespace ccc {
 
 const u32 JSON_FORMAT_VERSION = 15;
 
-template <typename SymbolType>
+template <typename Writer, typename SymbolType>
 static void write_symbol_list(
-	JsonWriter& json,
+	Writer& json,
 	const SymbolList<SymbolType>& list,
 	const SymbolDatabase& database,
 	const std::set<SymbolSourceHandle>* sources);
 
-static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const RegisterStorage& storage, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const StackStorage& storage, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const Function& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const Module& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database);
-static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const GlobalStorage& storage, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const RegisterStorage& storage, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const StackStorage& storage, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const DataType& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const Function& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const GlobalVariable& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const Label& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const LocalVariable& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const Module& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const ParameterVariable& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const Section& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const SourceFile& symbol, const SymbolDatabase& database);
+template <typename Writer> static void write_json(Writer& json, const SymbolSource& symbol, const SymbolDatabase& database);
 
+template <typename Writer>
 void write_json(
-	JsonWriter& json,
+	Writer& json,
 	const SymbolDatabase& database,
 	const char* application_name,
 	const std::set<SymbolSourceHandle>* sources)
@@ -50,7 +52,7 @@ void write_json(
 	#define CCC_X(SymbolType, symbol_list) \
 		if (!std::is_same_v<SymbolType, SymbolSource>) { \
 			json.Key(#symbol_list); \
-			write_symbol_list<SymbolType>(json, database.symbol_list, database, sources); \
+			write_symbol_list<Writer, SymbolType>(json, database.symbol_list, database, sources); \
 		}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 	#undef CCC_X
@@ -58,9 +60,21 @@ void write_json(
 	json.EndObject();
 }
 
-template <typename SymbolType>
+template void write_json<rapidjson::Writer<rapidjson::StringBuffer>>(
+	rapidjson::Writer<rapidjson::StringBuffer>& json,
+	const SymbolDatabase& database,
+	const char* application_name,
+	const std::set<SymbolSourceHandle>* sources);
+
+template void write_json<rapidjson::PrettyWriter<rapidjson::StringBuffer>>(
+	rapidjson::PrettyWriter<rapidjson::StringBuffer>& json,
+	const SymbolDatabase& database,
+	const char* application_name,
+	const std::set<SymbolSourceHandle>* sources);
+
+template <typename Writer, typename SymbolType>
 static void write_symbol_list(
-	JsonWriter& json,
+	Writer& json,
 	const SymbolList<SymbolType>& list,
 	const SymbolDatabase& database,
 	const std::set<SymbolSourceHandle>* sources)
@@ -105,7 +119,8 @@ static void write_symbol_list(
 	json.EndArray();
 }
 
-static void write_json(JsonWriter& json, const GlobalStorage& storage, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const GlobalStorage& storage, const SymbolDatabase& database)
 {
 	json.Key("storage");
 	json.StartObject();
@@ -116,7 +131,8 @@ static void write_json(JsonWriter& json, const GlobalStorage& storage, const Sym
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const RegisterStorage& storage, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const RegisterStorage& storage, const SymbolDatabase& database)
 {
 	json.Key("storage");
 	json.StartObject();
@@ -137,7 +153,8 @@ static void write_json(JsonWriter& json, const RegisterStorage& storage, const S
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const StackStorage& storage, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const StackStorage& storage, const SymbolDatabase& database)
 {
 	json.Key("storage");
 	json.StartObject();
@@ -148,7 +165,8 @@ static void write_json(JsonWriter& json, const StackStorage& storage, const Symb
 	json.EndObject();
 }
 
-static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const DataType& symbol, const SymbolDatabase& database)
 {
 	if (symbol.files.empty()) {
 		json.Key("files");
@@ -160,7 +178,8 @@ static void write_json(JsonWriter& json, const DataType& symbol, const SymbolDat
 	}
 }
 
-static void write_json(JsonWriter& json, const Function& symbol, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const Function& symbol, const SymbolDatabase& database)
 {
 	if (!symbol.relative_path.empty()) {
 		json.Key("relative_path");
@@ -236,7 +255,8 @@ static void write_json(JsonWriter& json, const Function& symbol, const SymbolDat
 	}
 }
 
-static void write_json(JsonWriter& json, const GlobalVariable& symbol, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const GlobalVariable& symbol, const SymbolDatabase& database)
 {
 	write_json(json, symbol.storage, database);
 	
@@ -246,9 +266,11 @@ static void write_json(JsonWriter& json, const GlobalVariable& symbol, const Sym
 	}
 }
 
-static void write_json(JsonWriter& json, const Label& symbol, const SymbolDatabase& database) {}
+template <typename Writer>
+static void write_json(Writer& json, const Label& symbol, const SymbolDatabase& database) {}
 
-static void write_json(JsonWriter& json, const LocalVariable& symbol, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const LocalVariable& symbol, const SymbolDatabase& database)
 {
 	if (const GlobalStorage* storage = std::get_if<GlobalStorage>(&symbol.storage)) {
 		write_json(json, *storage, database);
@@ -271,9 +293,11 @@ static void write_json(JsonWriter& json, const LocalVariable& symbol, const Symb
 	}
 }
 
-static void write_json(JsonWriter& json, const Module& symbol, const SymbolDatabase& database) {}
+template <typename Writer>
+static void write_json(Writer& json, const Module& symbol, const SymbolDatabase& database) {}
 
-static void write_json(JsonWriter& json, const ParameterVariable& symbol, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const ParameterVariable& symbol, const SymbolDatabase& database)
 {
 	if (const RegisterStorage* storage = std::get_if<RegisterStorage>(&symbol.storage)) {
 		write_json(json, *storage, database);
@@ -284,9 +308,11 @@ static void write_json(JsonWriter& json, const ParameterVariable& symbol, const 
 	}
 }
 
-static void write_json(JsonWriter& json, const Section& symbol, const SymbolDatabase& database) {}
+template <typename Writer>
+static void write_json(Writer& json, const Section& symbol, const SymbolDatabase& database) {}
 
-static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolDatabase& database)
+template <typename Writer>
+static void write_json(Writer& json, const SourceFile& symbol, const SymbolDatabase& database)
 {
 	if (!symbol.working_dir.empty()) {
 		json.Key("working_dir");
@@ -332,6 +358,7 @@ static void write_json(JsonWriter& json, const SourceFile& symbol, const SymbolD
 	}
 }
 
-static void write_json(JsonWriter& json, const SymbolSource& symbol, const SymbolDatabase& database) {}
+template <typename Writer>
+static void write_json(Writer& json, const SymbolSource& symbol, const SymbolDatabase& database) {}
 
 }
