@@ -101,7 +101,7 @@ public:
 	template <typename OtherValue>
 	Result(Result<OtherValue>&& rhs)
 	{
-		CCC_ASSERT(rhs.m_error != nullptr);
+		CCC_ABORT_IF_FALSE(rhs.m_error != nullptr, "Tried to convert a Result object containing a value to another type.");
 		m_error = std::move(rhs.m_error);
 	}
 	
@@ -119,31 +119,31 @@ public:
 	
 	const Error& error() const
 	{
-		CCC_ASSERT(m_error != nullptr);
+		CCC_ABORT_IF_FALSE(m_error != nullptr, "Called error() on a Result object that doesn't contain an error.");
 		return *m_error;
 	}
 	
 	Value& operator*()
 	{
-		CCC_ASSERT(m_error == nullptr);
+		CCC_ABORT_IF_FALSE(m_error == nullptr, "Dereferenced Result object that does not contain a value.");
 		return m_value;
 	}
 	
 	const Value& operator*() const
 	{
-		CCC_ASSERT(m_error == nullptr);
+		CCC_ABORT_IF_FALSE(m_error == nullptr, "Dereferenced Result object that does not contain a value.");
 		return m_value;
 	}
 	
 	Value* operator->()
 	{
-		CCC_ASSERT(m_error == nullptr);
+		CCC_ABORT_IF_FALSE(m_error == nullptr, "Used arrow operator on Result object that does not contain a value.");
 		return &m_value;
 	}
 	
 	const Value* operator->() const
 	{
-		CCC_ASSERT(m_error == nullptr);
+		CCC_ABORT_IF_FALSE(m_error == nullptr, "Used arrow operator on Result object that does not contain a value.");
 		return &m_value;
 	}
 };
