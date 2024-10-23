@@ -106,6 +106,12 @@ CCC_PACKED_STRUCT(ElfProgramHeader,
 	/* 0x1c */ u32 align;
 )
 
+struct ElfLinkOnceSection {
+	bool is_text = false;
+	GlobalStorageLocation location = GlobalStorageLocation::NIL;
+	std::string symbol_name;
+};
+
 struct ElfFile {
 	ElfFileHeader file_header;
 	std::vector<u8> image;
@@ -115,8 +121,9 @@ struct ElfFile {
 	// Parse the ELF file header, section headers and program headers.
 	static Result<ElfFile> parse(std::vector<u8> image);
 	
-	// Create a section object for each section header in the ELF file.
-	Result<void> create_section_symbols(SymbolDatabase& database, const SymbolGroup& group) const;
+	Result<void> import_section_headers(
+		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const;
+	static std::optional<ElfLinkOnceSection> parse_link_once_section_name(const std::string& section_name);
 	
 	const ElfSection* lookup_section(const char* name) const;
 	std::optional<u32> file_offset_to_virtual_address(u32 file_offset) const;

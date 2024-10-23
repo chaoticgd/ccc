@@ -267,7 +267,7 @@ Result<void> ElfSectionHeadersSymbolTable::import(
 	DemanglerFunctions demangler,
 	const std::atomic_bool* interrupt) const
 {
-	return m_elf.create_section_symbols(database, group);
+	return m_elf.import_section_headers(database, group, importer_flags, demangler);
 }
 
 Result<void> ElfSectionHeadersSymbolTable::print_headers(FILE* out) const

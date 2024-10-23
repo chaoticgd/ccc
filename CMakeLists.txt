@@ -95,6 +95,7 @@ add_library(ccc_platform STATIC
 set(TEST_SOURCES
 	test/demangler_tests.cpp
 	test/collision_tests.cpp
+	test/ccc/elf_tests.cpp
 	test/ccc/int128_tests.cpp
 	test/ccc/mdebug_importer_tests.cpp
 	test/ccc/stabs_tests.cpp
