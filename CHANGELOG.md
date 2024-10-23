@@ -4,6 +4,8 @@
 
 - Improved support for bitfields.
 - Improved support for 128-bit types.
+- Added support for parsing .gnu.linkonce.* section names.
+- Added support for parsing -fdata-sections and -ffunction-sections section names.
 - Mac builds compiled for x64 processors are now provided in addition to the arm64 builds.
 - demangle: A newline is now printed at the end of the output.
 - stdump: The `functions` and `globals` subcommands now output a header comment like the `types` command.

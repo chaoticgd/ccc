@@ -112,6 +112,13 @@ struct ElfLinkOnceSection {
 	std::string symbol_name;
 };
 
+enum class KnownElfSectionClass {
+	CODE,
+	DATA
+};
+
+extern const std::map<std::string, KnownElfSectionClass> KNOWN_ELF_SECTIONS;
+
 struct ElfFile {
 	ElfFileHeader file_header;
 	std::vector<u8> image;
@@ -123,6 +130,9 @@ struct ElfFile {
 	
 	Result<void> import_section_headers(
 		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const;
+	Result<void> import_symbol_sections(
+		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const;
+	Result<void> import_link_once_sections(SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const;
 	static std::optional<ElfLinkOnceSection> parse_link_once_section_name(const std::string& section_name);
 	
 	const ElfSection* lookup_section(const char* name) const;
