@@ -7,6 +7,20 @@
 
 namespace ccc {
 
+extern const std::map<std::string, KnownElfSectionClass> KNOWN_ELF_SECTIONS = {
+	{".bss",    KnownElfSectionClass::DATA},
+	{".data",   KnownElfSectionClass::DATA},
+	{".lit",    KnownElfSectionClass::DATA},
+	{".lita",   KnownElfSectionClass::DATA},
+	{".lit4",   KnownElfSectionClass::DATA},
+	{".lit8",   KnownElfSectionClass::DATA},
+	{".rdata",  KnownElfSectionClass::DATA},
+	{".rodata", KnownElfSectionClass::DATA},
+	{".sbss",   KnownElfSectionClass::DATA},
+	{".sdata",  KnownElfSectionClass::DATA},
+	{".text",   KnownElfSectionClass::CODE}
+};
+
 Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 {
 	ElfFile elf;
@@ -61,37 +75,105 @@ Result<void> ElfFile::import_section_headers(
 		(*symbol)->set_size(section.header.size);
 	}
 	
-	// Parse .gnu.linkonce.* section names. These are be generated as part of
-	// vague linking e.g. for template instantiations, and can be left in the
-	// final binary if the linker script doesn't have proper support for them.
-	if ((importer_flags & NO_LINKONCE_SYMBOLS) == 0) {
-		for (const ElfSection& section : sections) {
-			std::optional<ElfLinkOnceSection> link_once = parse_link_once_section_name(section.name);
-			if (!link_once.has_value()) {
+	if ((importer_flags & NO_SYMBOL_SECTIONS) == 0) {
+		Result<void> result = import_symbol_sections(database, group, importer_flags, demangler);
+		CCC_RETURN_IF_ERROR(result);
+	}
+	
+	if ((importer_flags & NO_LINKONCE_SECTIONS) == 0) {
+		Result<void> result = import_link_once_sections(database, group, importer_flags, demangler);
+		CCC_RETURN_IF_ERROR(result);
+	}
+	
+	return Result<void>();
+}
+
+Result<void> ElfFile::import_symbol_sections(
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const
+{
+	// Parse sections generated as a result of passing -ffunction-sections and
+	// -fdata-sections to gcc. For example for a function "MyFunc" in the .text
+	// section a ".text.MyFunc" section would be generated.
+	for (const ElfSection& known_section : sections) {
+		auto known_section_info = KNOWN_ELF_SECTIONS.find(known_section.name);
+		if (known_section_info == KNOWN_ELF_SECTIONS.end()) {
+			continue;
+		}
+		
+		for (const ElfSection& symbol_section : sections) {
+			bool is_symbol_section = 
+				symbol_section.name.size() > known_section.name.size() &&
+				symbol_section.name.starts_with(known_section.name) &&
+				symbol_section.name[known_section.name.size()] == '.';
+				
+			if (!is_symbol_section) {
 				continue;
 			}
 			
-			Address address = Address::non_zero(section.header.addr);
-			
-			if (link_once->is_text) {
-				if (database.functions.first_handle_from_starting_address(address).valid()) {
-					continue;
-				}
-				
-				Result<Function*> function = database.functions.create_symbol(
-					std::move(link_once->symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
-				CCC_RETURN_IF_ERROR(function);
-			} else {
-				if (database.global_variables.first_handle_from_starting_address(address).valid()) {
-					continue;
-				}
-				
-				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
-					std::move(link_once->symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
-				CCC_RETURN_IF_ERROR(global_variable);
-				
-				(*global_variable)->storage.location = link_once->location;
+			std::string symbol_name = symbol_section.name.substr(known_section.name.size() + 1);
+			if (symbol_name.empty()) {
+				continue;
 			}
+			
+			Address address = Address::non_zero(symbol_section.header.addr);
+			if (!address.valid()) {
+				continue;
+			}
+			
+			switch (known_section_info->second) {
+				case KnownElfSectionClass::CODE: {
+					Result<Function*> function = database.functions.create_symbol(
+						std::move(symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
+					CCC_RETURN_IF_ERROR(function);
+					
+					break;
+				}
+				case KnownElfSectionClass::DATA: {
+					Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
+						std::move(symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
+					CCC_RETURN_IF_ERROR(global_variable);
+					
+					break;
+				}
+			}
+		}
+	}
+	
+	return Result<void>();
+}
+
+Result<void> ElfFile::import_link_once_sections(
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const
+{
+	// Parse .gnu.linkonce.* section names. These are be generated as part of
+	// vague linking e.g. for template instantiations, and can be left in the
+	// final binary if the linker script doesn't have proper support for them.
+	for (const ElfSection& section : sections) {
+		std::optional<ElfLinkOnceSection> link_once = parse_link_once_section_name(section.name);
+		if (!link_once.has_value()) {
+			continue;
+		}
+		
+		Address address = Address::non_zero(section.header.addr);
+		
+		if (link_once->is_text) {
+			if (database.functions.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
+			
+			Result<Function*> function = database.functions.create_symbol(
+				std::move(link_once->symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
+			CCC_RETURN_IF_ERROR(function);
+		} else {
+			if (database.global_variables.first_handle_from_starting_address(address).valid()) {
+				continue;
+			}
+			
+			Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
+				std::move(link_once->symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
+			CCC_RETURN_IF_ERROR(global_variable);
+			
+			(*global_variable)->storage.location = link_once->location;
 		}
 	}
 	
@@ -127,6 +209,7 @@ std::optional<ElfLinkOnceSection> ElfFile::parse_link_once_section_name(const st
 			case 't': { // .text
 				result.is_text = true;
 				result.symbol_name = section_name.substr(16);
+				break;
 			}
 		}
 	} else if (section_name[14] == 's' && section_name[15] == 'b' && section_name[16] == '.') { // .sbss

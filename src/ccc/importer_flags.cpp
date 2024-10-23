@@ -33,7 +33,7 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 	{NO_ACCESS_SPECIFIERS, "--no-access-specifiers", {
 		"Do not print access specifiers."
 	}},
-	{NO_LINKONCE_SYMBOLS, "--no-linkonce-symbols", {
+	{NO_LINKONCE_SECTIONS, "--no-linkonce-sections", {
 		"Do not convert .gnu.linkonce.* sections into",
 		"symbols for functions and global variables."
 	}},
@@ -42,6 +42,15 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 	}},
 	{NO_OPTIMIZED_OUT_FUNCTIONS, "--no-optimized-out-functions", {
 		"Discard functions that were optimized out."
+	}},
+	{NO_SYMBOL_SECTIONS, "--no-symbol-sections", {
+		"Do not convert sections generated as a result",
+		"of the command line flags -ffunction-sections",
+		"and -fdata-sections being passed to GCC into",
+		"function symbols and global variable symbols",
+		"respectively. For example, this flag would",
+		"prevent \".text.MyFunc\" from being converted into",
+		"a function symbol with the name \"MyFunc\"."
 	}},
 	{STRICT_PARSING, "--strict", {
 		"Make more types of errors fatal."

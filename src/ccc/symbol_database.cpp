@@ -4,6 +4,7 @@
 #include "symbol_database.h"
 
 #include "ast.h"
+#include "elf.h"
 #include "importer_flags.h"
 
 namespace ccc {
@@ -714,21 +715,22 @@ void Module::on_create()
 
 bool Section::contains_code() const
 {
-	return name() == ".text";
+	auto section = KNOWN_ELF_SECTIONS.find(name());
+	if (section == KNOWN_ELF_SECTIONS.end()) {
+		return false;
+	}
+	
+	return section->second == KnownElfSectionClass::CODE;
 }
 
 bool Section::contains_data() const
 {
-	return name() == ".bss"
-		|| name() == ".data"
-		|| name() == ".lit"
-		|| name() == ".lita"
-		|| name() == ".lit4"
-		|| name() == ".lit8"
-		|| name() == ".rdata"
-		|| name() == ".rodata"
-		|| name() == ".sbss"
-		|| name() == ".sdata";
+	auto section = KNOWN_ELF_SECTIONS.find(name());
+	if (section == KNOWN_ELF_SECTIONS.end()) {
+		return false;
+	}
+	
+	return section->second == KnownElfSectionClass::DATA;
 }
 
 // *****************************************************************************
