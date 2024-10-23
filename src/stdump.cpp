@@ -16,7 +16,8 @@ enum Flags {
 	FLAG_CALLER_STACK_OFFSETS = 1 << 1,
 	FLAG_LOCAL_SYMBOLS = 1 << 2,
 	FLAG_PROCEDURE_DESCRIPTORS = 1 << 3,
-	FLAG_EXTERNAL_SYMBOLS = 1 << 4
+	FLAG_EXTERNAL_SYMBOLS = 1 << 4,
+	FLAG_COMPACT_JSON = 1 << 5
 };
 
 struct Options {
@@ -78,7 +79,9 @@ static const StdumpCommand commands[] = {
 		"may include other symbols where their type is not recoverable."
 	}},
 	{print_json, "json", {
-		"Print all of the above as JSON."
+		"Print all of the above as JSON.",
+		"",
+		"--compact                     Omit whitespace and newlines from the output."
 	}},
 	{print_symbols, "symbols", {
 		"Print the raw symbols in the input symbol table(s). If no additional options",
@@ -374,8 +377,13 @@ static void print_json(FILE* out, const Options& options)
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	rapidjson::StringBuffer buffer;
-	JsonWriter writer(buffer);
-	write_json(writer, database, "stdump");
+	if (options.flags & FLAG_COMPACT_JSON) {
+		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+		write_json(writer, database, "stdump");
+	} else {
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+		write_json(writer, database, "stdump");
+	}
 	fprintf(out, "%s", buffer.GetString());
 }
 
@@ -555,6 +563,8 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			options.flags |= FLAG_PROCEDURE_DESCRIPTORS;
 		} else if (strcmp(arg, "--externals") == 0) {
 			options.flags |= FLAG_EXTERNAL_SYMBOLS;
+		} else if (strcmp(arg, "--compact") == 0) {
+			options.flags |= FLAG_COMPACT_JSON;
 		} else if (strcmp(arg, "--output") == 0 || strcmp(arg, "-o") == 0) {
 			if (i + 1 < argc) {
 				options.output_file = argv[++i];

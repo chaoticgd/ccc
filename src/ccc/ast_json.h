@@ -8,16 +8,11 @@
 #include <rapidjson/prettywriter.h>
 
 #include "ast.h"
+#include "symbol_database.h"
 
-namespace ccc {
+namespace ccc::ast {
 
-class SymbolDatabase;
+template <typename Writer>
+void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database);
 
-using JsonWriter = rapidjson::PrettyWriter<rapidjson::StringBuffer>;
-
-namespace ast {
-
-void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& database);
-
-}
 }

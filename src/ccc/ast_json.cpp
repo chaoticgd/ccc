@@ -7,7 +7,8 @@
 
 namespace ccc::ast {
 
-void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& database)
+template <typename Writer>
+void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 {
 	CCC_ASSERT(ptr);
 	const Node& node = *ptr;
@@ -196,5 +197,11 @@ void write_json(JsonWriter& json, const Node* ptr, const SymbolDatabase& databas
 	
 	json.EndObject();
 }
+
+template void write_json<rapidjson::Writer<rapidjson::StringBuffer>>(
+	rapidjson::Writer<rapidjson::StringBuffer>& json, const Node* ptr, const SymbolDatabase& database);
+
+template void write_json<rapidjson::PrettyWriter<rapidjson::StringBuffer>>(
+	rapidjson::PrettyWriter<rapidjson::StringBuffer>& json, const Node* ptr, const SymbolDatabase& database);
 
 }
