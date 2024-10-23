@@ -57,7 +57,7 @@ Result<void> import_symbols(
 	std::span<const u8> symtab,
 	std::span<const u8> strtab,
 	u32 importer_flags,
-	DemanglerFunctions demangler)
+	const DemanglerFunctions& demangler)
 {
 	for (u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
 		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));

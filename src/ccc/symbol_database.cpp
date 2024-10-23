@@ -290,7 +290,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 
 template <typename SymbolType>
 Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
-	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address, u32 importer_flags, DemanglerFunctions demangler)
+	std::string name, SymbolSourceHandle source, const Module* module_symbol, Address address, u32 importer_flags, const DemanglerFunctions& demangler)
 {
 	static const int DMGL_PARAMS = 1 << 0;
 	static const int DMGL_RET_POSTFIX = 1 << 5;

@@ -48,7 +48,7 @@ Result<void> import_sndll_symbols(
 	const SNDLLFile& sndll,
 	const SymbolGroup& group,
 	u32 importer_flags,
-	DemanglerFunctions demangler);
+	const DemanglerFunctions& demangler);
 
 void print_sndll_symbols(FILE* out, const SNDLLFile& sndll);
 

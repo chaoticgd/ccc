@@ -129,10 +129,10 @@ struct ElfFile {
 	static Result<ElfFile> parse(std::vector<u8> image);
 	
 	Result<void> import_section_headers(
-		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const;
+		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const;
 	Result<void> import_symbol_sections(
-		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const;
-	Result<void> import_link_once_sections(SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const;
+		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const;
+	Result<void> import_link_once_sections(SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const;
 	static std::optional<ElfLinkOnceSection> parse_link_once_section_name(const std::string& section_name);
 	
 	const ElfSection* lookup_section(const char* name) const;
