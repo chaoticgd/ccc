@@ -3,6 +3,8 @@
 
 #include "elf.h"
 
+#include "importer_flags.h"
+
 namespace ccc {
 
 Result<ElfFile> ElfFile::parse(std::vector<u8> image)
@@ -46,8 +48,8 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 	return elf;
 }
 
-Result<void> ElfFile::create_section_symbols(
-	SymbolDatabase& database, const SymbolGroup& group) const
+Result<void> ElfFile::import_section_headers(
+	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, DemanglerFunctions demangler) const
 {
 	for (const ElfSection& section : sections) {
 		Address address = Address::non_zero(section.header.addr);
@@ -59,7 +61,84 @@ Result<void> ElfFile::create_section_symbols(
 		(*symbol)->set_size(section.header.size);
 	}
 	
+	// Parse .gnu.linkonce.* section names. These are be generated as part of
+	// vague linking e.g. for template instantiations, and can be left in the
+	// final binary if the linker script doesn't have proper support for them.
+	if ((importer_flags & NO_LINKONCE_SYMBOLS) == 0) {
+		for (const ElfSection& section : sections) {
+			std::optional<ElfLinkOnceSection> link_once = parse_link_once_section_name(section.name);
+			if (!link_once.has_value()) {
+				continue;
+			}
+			
+			Address address = Address::non_zero(section.header.addr);
+			
+			if (link_once->is_text) {
+				if (database.functions.first_handle_from_starting_address(address).valid()) {
+					continue;
+				}
+				
+				Result<Function*> function = database.functions.create_symbol(
+					std::move(link_once->symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
+				CCC_RETURN_IF_ERROR(function);
+			} else {
+				if (database.global_variables.first_handle_from_starting_address(address).valid()) {
+					continue;
+				}
+				
+				Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
+					std::move(link_once->symbol_name), group.source, group.module_symbol, address, importer_flags, demangler);
+				CCC_RETURN_IF_ERROR(global_variable);
+				
+				(*global_variable)->storage.location = link_once->location;
+			}
+		}
+	}
+	
 	return Result<void>();
+}
+
+std::optional<ElfLinkOnceSection> ElfFile::parse_link_once_section_name(const std::string& section_name)
+{
+	if (!section_name.starts_with(".gnu.linkonce.") || section_name.size() < 17) {
+		return std::nullopt;
+	}
+	
+	ElfLinkOnceSection result;
+	
+	if (section_name[15] == '.') {
+		char type = section_name[14];
+		switch (type) {
+			case 'b': { // .bss
+				result.location = GlobalStorageLocation::BSS;
+				result.symbol_name = section_name.substr(16);
+				break;
+			}
+			case 'd': { // .data
+				result.location = GlobalStorageLocation::DATA;
+				result.symbol_name = section_name.substr(16);
+				break;
+			}
+			case 's': { // .sdata
+				result.location = GlobalStorageLocation::SDATA;
+				result.symbol_name = section_name.substr(16);
+				break;
+			}
+			case 't': { // .text
+				result.is_text = true;
+				result.symbol_name = section_name.substr(16);
+			}
+		}
+	} else if (section_name[14] == 's' && section_name[15] == 'b' && section_name[16] == '.') { // .sbss
+		result.location = GlobalStorageLocation::SBSS;
+		result.symbol_name = section_name.substr(17);
+	}
+	
+	if (result.symbol_name.empty()) {
+		return std::nullopt;
+	}
+	
+	return result;
 }
 
 const ElfSection* ElfFile::lookup_section(const char* name) const

@@ -33,6 +33,10 @@ const std::vector<ImporterFlagInfo> IMPORTER_FLAGS = {
 	{NO_ACCESS_SPECIFIERS, "--no-access-specifiers", {
 		"Do not print access specifiers."
 	}},
+	{NO_LINKONCE_SYMBOLS, "--no-linkonce-symbols", {
+		"Do not convert .gnu.linkonce.* sections into",
+		"symbols for functions and global variables."
+	}},
 	{NO_MEMBER_FUNCTIONS, "--no-member-functions", {
 		"Do not print member functions."
 	}},

@@ -385,7 +385,7 @@ public:
 	};
 	
 	std::string relative_path;
-	StorageClass storage_class;
+	StorageClass storage_class = STORAGE_CLASS_NONE;
 	s32 stack_frame_size = -1;
 	std::vector<LineNumberPair> line_numbers;
 	std::vector<SubSourceFile> sub_source_files;
@@ -420,7 +420,7 @@ public:
 	void set_mangled_name(std::string mangled);
 	
 	GlobalStorage storage;
-	StorageClass storage_class;
+	StorageClass storage_class = STORAGE_CLASS_NONE;
 	
 protected:
 	SourceFileHandle m_source_file;
