@@ -11,10 +11,12 @@ namespace ccc {
 
 // Determine which symbol tables are present in a given file.
 
+// A lower number means the symbol table will be imported first.
 enum SymbolTableFormat {
 	MDEBUG = 0, // The infamous Third Eye symbol table.
-	SYMTAB = 1, // Standard ELF symbol table.
-	SNDLL  = 2  // SNDLL dynamic linker symbol table.
+	DWARF = 1, // DWARF symbol table.
+	SYMTAB = 2, // Standard ELF symbol table.
+	SNDLL  = 3  // SNDLL dynamic linker symbol table.
 };
 
 struct SymbolTableFormatInfo {
@@ -96,6 +98,27 @@ public:
 protected:
 	std::span<const u8> m_image;
 	s32 m_section_offset;
+};
+
+class DwarfSymbolTable : public SymbolTable {
+public:
+	DwarfSymbolTable(std::span<const u8> debug, std::span<const u8> line);
+	
+	const char* name() const override;
+	
+	Result<void> import(
+		SymbolDatabase& database,
+		const SymbolGroup& group,
+		u32 importer_flags,
+		const DemanglerFunctions& demangler,
+		const std::atomic_bool* interrupt) const override;
+	
+	Result<void> print_headers(FILE* out) const override;
+	Result<void> print_symbols(FILE* out, u32 flags) const override;
+	
+protected:
+	std::span<const u8> m_debug;
+	std::span<const u8> m_line;
 };
 
 class SymtabSymbolTable : public SymbolTable {

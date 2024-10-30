@@ -208,13 +208,35 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 #endif
 
 template <typename T>
-const T* get_packed(std::span<const u8> bytes, u64 offset)
+const T* get_aligned(std::span<const u8> bytes, u64 offset)
 {
-	if (offset + sizeof(T) <= bytes.size()) {
-		return reinterpret_cast<const T*>(&bytes[offset]);
-	} else {
+	if (offset + sizeof(T) > bytes.size() || offset % alignof(T) != 0) {
 		return nullptr;
 	}
+	
+	return reinterpret_cast<const T*>(&bytes[offset]);
+}
+
+template <typename T>
+const T* get_unaligned(std::span<const u8> bytes, u64 offset)
+{
+	if (offset + sizeof(T) > bytes.size()) {
+		return nullptr;
+	}
+	
+	return reinterpret_cast<const T*>(&bytes[offset]);
+}
+
+template <typename T>
+const std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
+{
+	if (offset + sizeof(T) > bytes.size()) {
+		return std::nullopt;
+	}
+	
+	T value;
+	memcpy(&value, &bytes[offset], sizeof(T));
+	return value;
 }
 
 const char* get_string(std::span<const u8> bytes, u64 offset);

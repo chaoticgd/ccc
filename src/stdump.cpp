@@ -158,8 +158,8 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 	Result<std::vector<u8>> file = platform::read_binary_file(file_path);
 	CCC_EXIT_IF_ERROR(file);
 	
-	const u32* fourcc = get_packed<u32>(*file, 0);
-	if (!fourcc) {
+	const std::optional<u32> fourcc = copy_unaligned<u32>(*file, 0);
+	if (!fourcc.has_value()) {
 		fprintf(out, " file too small\n");
 		return;
 	}

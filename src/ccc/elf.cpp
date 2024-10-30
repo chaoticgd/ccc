@@ -26,21 +26,21 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 	ElfFile elf;
 	elf.image = std::move(image);
 	
-	const ElfIdentHeader* ident = get_packed<ElfIdentHeader>(elf.image, 0);
+	const ElfIdentHeader* ident = get_unaligned<ElfIdentHeader>(elf.image, 0);
 	CCC_CHECK(ident, "ELF ident header out of range.");
 	CCC_CHECK(ident->magic == CCC_FOURCC("\x7f\x45\x4c\x46"), "Not an ELF file.");
 	CCC_CHECK(ident->e_class == ElfIdentClass::B32, "Wrong ELF class (not 32 bit).");
 	
-	const ElfFileHeader* header = get_packed<ElfFileHeader>(elf.image, sizeof(ElfIdentHeader));
+	const ElfFileHeader* header = get_unaligned<ElfFileHeader>(elf.image, sizeof(ElfIdentHeader));
 	CCC_CHECK(header, "ELF file header out of range.");
 	elf.file_header = *header;
 	
-	const ElfSectionHeader* shstr_section_header = get_packed<ElfSectionHeader>(elf.image, header->shoff + header->shstrndx * sizeof(ElfSectionHeader));
+	const ElfSectionHeader* shstr_section_header = get_unaligned<ElfSectionHeader>(elf.image, header->shoff + header->shstrndx * sizeof(ElfSectionHeader));
 	CCC_CHECK(shstr_section_header, "ELF section name header out of range.");
 	
 	for (u32 i = 0; i < header->shnum; i++) {
 		u64 header_offset = header->shoff + i * sizeof(ElfSectionHeader);
-		const ElfSectionHeader* section_header = get_packed<ElfSectionHeader>(elf.image, header_offset);
+		const ElfSectionHeader* section_header = get_unaligned<ElfSectionHeader>(elf.image, header_offset);
 		CCC_CHECK(section_header, "ELF section header out of range.");
 		
 		const char* name = get_string(elf.image, shstr_section_header->offset + section_header->name);
@@ -53,7 +53,7 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 	
 	for (u32 i = 0; i < header->phnum; i++) {
 		u64 header_offset = header->phoff + i * sizeof(ElfProgramHeader);
-		const ElfProgramHeader* program_header = get_packed<ElfProgramHeader>(elf.image, header_offset);
+		const ElfProgramHeader* program_header = get_unaligned<ElfProgramHeader>(elf.image, header_offset);
 		CCC_CHECK(program_header, "ELF program header out of range.");
 		
 		elf.segments.emplace_back(*program_header);
@@ -232,6 +232,14 @@ const ElfSection* ElfFile::lookup_section(const char* name) const
 		}
 	}
 	return nullptr;
+}
+
+Result<std::span<const u8>> ElfFile::section_contents(const ElfSection& section) const
+{
+	CCC_CHECK((u64) section.header.offset + section.header.size <= image.size(),
+		"Section '%s' out of range.", section.name.c_str());
+	
+	return std::span(image).subspan(section.header.offset, section.header.size);
 }
 
 std::optional<u32> ElfFile::file_offset_to_virtual_address(u32 file_offset) const

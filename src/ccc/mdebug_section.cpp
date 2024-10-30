@@ -103,7 +103,7 @@ Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset
 	m_elf = elf;
 	m_section_offset = section_offset;
 	
-	m_hdrr = get_packed<SymbolicHeader>(m_elf, m_section_offset);
+	m_hdrr = get_unaligned<SymbolicHeader>(m_elf, m_section_offset);
 	CCC_CHECK(m_hdrr != nullptr, "MIPS debug section header out of bounds.");
 	CCC_CHECK(m_hdrr->magic == 0x7009, "Invalid symbolic header.");
 	
@@ -129,7 +129,7 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	File file;
 	
 	u64 fd_offset = m_hdrr->file_descriptors_offset + index * sizeof(FileDescriptor);
-	const FileDescriptor* fd_header = get_packed<FileDescriptor>(m_elf, fd_offset + m_fudge_offset);
+	const FileDescriptor* fd_header = get_unaligned<FileDescriptor>(m_elf, fd_offset + m_fudge_offset);
 	CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
 	CCC_CHECK(fd_header->f_big_endian() == 0, "Not little endian or bad file descriptor table.");
 	
@@ -146,7 +146,7 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	for (s64 j = 0; j < fd_header->symbol_count; j++) {
 		u64 rel_symbol_offset = (fd_header->isym_base + j) * sizeof(SymbolHeader);
 		u64 symbol_offset = m_hdrr->local_symbols_offset + rel_symbol_offset + m_fudge_offset;
-		const SymbolHeader* symbol_header = get_packed<SymbolHeader>(m_elf, symbol_offset);
+		const SymbolHeader* symbol_header = get_unaligned<SymbolHeader>(m_elf, symbol_offset);
 		CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
 		
 		s32 strings_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + m_fudge_offset;
@@ -168,7 +168,7 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	for (s64 i = 0; i < fd_header->procedure_descriptor_count; i++) {
 		u64 rel_procedure_offset = (fd_header->ipd_first + i) * sizeof(ProcedureDescriptor);
 		u64 procedure_offset = m_hdrr->procedure_descriptors_offset + rel_procedure_offset + m_fudge_offset;
-		const ProcedureDescriptor* procedure_descriptor = get_packed<ProcedureDescriptor>(m_elf, procedure_offset);
+		const ProcedureDescriptor* procedure_descriptor = get_unaligned<ProcedureDescriptor>(m_elf, procedure_offset);
 		CCC_CHECK(procedure_descriptor != nullptr, "Procedure descriptor out of bounds.");
 		
 		CCC_CHECK(procedure_descriptor->symbol_index < file.symbols.size(), "Symbol index out of bounds.");
@@ -188,7 +188,7 @@ Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const
 	std::vector<Symbol> external_symbols;
 	for (s64 i = 0; i < m_hdrr->external_symbols_count; i++) {
 		u64 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
-		const ExternalSymbolHeader* external_header = get_packed<ExternalSymbolHeader>(m_elf, sym_offset + m_fudge_offset);
+		const ExternalSymbolHeader* external_header = get_unaligned<ExternalSymbolHeader>(m_elf, sym_offset + m_fudge_offset);
 		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
 		
 		Result<Symbol> sym = get_symbol(external_header->symbol, m_elf, m_hdrr->external_strings_offset + m_fudge_offset);

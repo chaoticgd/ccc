@@ -54,18 +54,19 @@ static const char* sndll_symbol_type_to_string(SNDLLSymbolType type);
 
 Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, SNDLLType type)
 {
-	const u32* magic = get_packed<u32>(image, 0);
+	const std::optional<u32> magic = copy_unaligned<u32>(image, 0);
+	CCC_CHECK(magic.has_value(), "File too small.");
 	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.valid() ? "section" : "file");
 	
 	char version = *magic >> 24;
 	switch (version) {
 		case '1': {
-			const SNDLLHeaderV1* header = get_packed<SNDLLHeaderV1>(image, 0);
+			const SNDLLHeaderV1* header = get_unaligned<SNDLLHeaderV1>(image, 0);
 			CCC_CHECK(header, "File too small to contain SNDLL V1 header.");
 			return parse_sndll_common(image, address, type, header->common, SNDLL_V1);
 		}
 		case '2': {
-			const SNDLLHeaderV2* header = get_packed<SNDLLHeaderV2>(image, 0);
+			const SNDLLHeaderV2* header = get_unaligned<SNDLLHeaderV2>(image, 0);
 			CCC_CHECK(header, "File too small to contain SNDLL V2 header.");
 			return parse_sndll_common(image, address, type, header->common, SNDLL_V2);
 		}
@@ -95,7 +96,7 @@ static Result<SNDLLFile> parse_sndll_common(
 	
 	for (u32 i = 0; i < common.symbol_count; i++) {
 		u32 symbol_offset = common.symbols - address.get_or_zero() + i * sizeof(SNDLLSymbolHeader);
-		const SNDLLSymbolHeader* symbol_header = get_packed<SNDLLSymbolHeader>(image, symbol_offset);
+		const SNDLLSymbolHeader* symbol_header = get_unaligned<SNDLLSymbolHeader>(image, symbol_offset);
 		CCC_CHECK(symbol_header, "SNDLL symbol out of range.");
 		
 		const char* string = nullptr;
