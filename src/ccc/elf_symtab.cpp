@@ -60,7 +60,7 @@ Result<void> import_symbols(
 	const DemanglerFunctions& demangler)
 {
 	for (u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
-		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));
+		const Symbol* symbol = get_unaligned<Symbol>(symtab, i * sizeof(Symbol));
 		CCC_ASSERT(symbol);
 		
 		Address address;
@@ -153,7 +153,7 @@ Result<void> print_symbol_table(FILE* out, std::span<const u8> symtab, std::span
 	fprintf(out, "   Num:    Value  Size Type    Bind   Vis      Ndx Name\n");
 	
 	for (u32 i = 0; i < symtab.size() / sizeof(Symbol); i++) {
-		const Symbol* symbol = get_packed<Symbol>(symtab, i * sizeof(Symbol));
+		const Symbol* symbol = get_unaligned<Symbol>(symtab, i * sizeof(Symbol));
 		CCC_ASSERT(symbol);
 		
 		const char* type = symbol_type_to_string(symbol->type());

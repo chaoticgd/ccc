@@ -136,6 +136,8 @@ struct ElfFile {
 	static std::optional<ElfLinkOnceSection> parse_link_once_section_name(const std::string& section_name);
 	
 	const ElfSection* lookup_section(const char* name) const;
+	Result<std::span<const u8>> section_contents(const ElfSection& section) const;
+	
 	std::optional<u32> file_offset_to_virtual_address(u32 file_offset) const;
 	
 	// Find the program header for the segment that contains the entry point.

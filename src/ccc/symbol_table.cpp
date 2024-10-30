@@ -5,6 +5,7 @@
 
 #include "elf.h"
 #include "elf_symtab.h"
+#include "dwarf_section.h"
 #include "mdebug_importer.h"
 #include "mdebug_section.h"
 #include "sndll.h"
@@ -13,6 +14,7 @@ namespace ccc {
 
 const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS = {
 	{MDEBUG, "mdebug", ".mdebug"},
+	{DWARF, "dwarf", ".debug"},
 	{SYMTAB, "symtab", ".symtab"},
 	{SNDLL, "sndll", ".sndata"}
 };
@@ -58,8 +60,25 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.header.offset);
 			break;
 		}
+		case DWARF: {
+			const ElfSection* debug_section = elf.lookup_section(".debug");
+			CCC_CHECK(debug_section, "No .debug section.");
+			
+			const ElfSection* line_section = elf.lookup_section(".line");
+			CCC_CHECK(line_section, "No .line section.");
+			
+			Result<std::span<const u8>> debug = elf.section_contents(*debug_section);
+			CCC_RETURN_IF_ERROR(debug);
+			
+			Result<std::span<const u8>> line = elf.section_contents(*line_section);
+			CCC_RETURN_IF_ERROR(line);
+			
+			symbol_table = std::make_unique<DwarfSymbolTable>(*debug, *line);
+			
+			break;
+		}
 		case SYMTAB: {
-			CCC_CHECK(section.header.offset + section.header.size <= elf.image.size(),
+			CCC_CHECK((u64) section.header.offset + section.header.size <= elf.image.size(),
 				"Section '%s' out of range.", section.name.c_str());
 			std::span<const u8> data = std::span(elf.image).subspan(section.header.offset, section.header.size);
 			
@@ -68,7 +87,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 				"Section '%s' has out of range link field.", section.name.c_str());
 			const ElfSection& linked_section = elf.sections[section.header.link];
 			
-			CCC_CHECK(linked_section.header.offset + linked_section.header.size <= elf.image.size(),
+			CCC_CHECK((u64) linked_section.header.offset + linked_section.header.size <= elf.image.size(),
 				"Linked section '%s' out of range.", linked_section.name.c_str());
 			std::span<const u8> linked_data = std::span(elf.image).subspan(
 				linked_section.header.offset, linked_section.header.size);
@@ -78,7 +97,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 			break;
 		}
 		case SNDLL: {
-			CCC_CHECK(section.header.offset + section.header.size <= elf.image.size(),
+			CCC_CHECK((u64) section.header.offset + section.header.size <= elf.image.size(),
 				"Section '%s' out of range.", section.name.c_str());
 			std::span<const u8> data = std::span(elf.image).subspan(section.header.offset, section.header.size);
 			
@@ -183,6 +202,40 @@ Result<void> MdebugSymbolTable::print_symbols(FILE* out, u32 flags) const
 	CCC_RETURN_IF_ERROR(print_result);
 	
 	return Result<void>();
+}
+// *****************************************************************************
+
+DwarfSymbolTable::DwarfSymbolTable(std::span<const u8> debug, std::span<const u8> line)
+	: m_debug(debug), m_line(line) {}
+
+const char* DwarfSymbolTable::name() const
+{
+	return "DWARF Symbol Table";
+}
+
+Result<void> DwarfSymbolTable::import(
+	SymbolDatabase& database,
+	const SymbolGroup& group,
+	u32 importer_flags,
+	const DemanglerFunctions& demangler,
+	const std::atomic_bool* interrupt) const
+{
+	return Result<void>();
+}
+
+Result<void> DwarfSymbolTable::print_headers(FILE* out) const
+{
+	return Result<void>();
+}
+
+Result<void> DwarfSymbolTable::print_symbols(FILE* out, u32 flags) const
+{
+	dwarf::SectionReader reader(m_debug, m_line);
+	
+	Result<dwarf::DIE> first_die = reader.first_die(NO_IMPORTER_FLAGS);
+	CCC_RETURN_IF_ERROR(first_die);
+	
+	return reader.print_dies(out, std::move(*first_die), 0);
 }
 
 // *****************************************************************************

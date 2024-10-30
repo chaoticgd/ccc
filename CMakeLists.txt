@@ -40,6 +40,8 @@ add_library(ccc STATIC
 	src/ccc/data_refinement.h
 	src/ccc/dependency.cpp
 	src/ccc/dependency.h
+	src/ccc/dwarf_section.cpp
+	src/ccc/dwarf_section.h
 	src/ccc/elf.cpp
 	src/ccc/elf.h
 	src/ccc/elf_symtab.cpp
