@@ -107,7 +107,9 @@ static Result<SNDLLFile> parse_sndll_common(
 		SNDLLSymbol& symbol = sndll.symbols.emplace_back();
 		symbol.type = symbol_header->type;
 		symbol.value = symbol_header->value;
-		symbol.string = string;
+		if (string) {
+			symbol.string = string;
+		}
 	}
 	
 	return sndll;
