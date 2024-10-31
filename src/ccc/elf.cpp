@@ -44,7 +44,7 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 		CCC_CHECK(section_header, "ELF section header out of range.");
 		
 		const char* name = get_string(elf.image, shstr_section_header->offset + section_header->name);
-		CCC_CHECK(section_header, "ELF section name out of range.");
+		CCC_CHECK(name, "ELF section name out of range.");
 		
 		ElfSection& section = elf.sections.emplace_back();
 		section.name = name;
