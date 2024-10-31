@@ -130,6 +130,11 @@ const char* Value::string() const
 
 // *****************************************************************************
 
+#define DIE_CHECK(condition, message) \
+	CCC_CHECK(condition, message " at 0x%x inside DIE at 0x%x.", offset, m_offset);
+#define DIE_CHECK_ARGS(condition, message, ...) \
+	CCC_CHECK(condition, message " at 0x%x inside DIE at 0x%x.", __VA_ARGS__, offset, m_offset);
+
 Result<std::optional<DIE>> DIE::parse(std::span<const u8> debug, u32 offset, u32 importer_flags)
 {
 	DIE die;
@@ -228,10 +233,8 @@ Result<void> DIE::attributes(std::span<Value*> output, const RequiredAttributes&
 			continue;
 		}
 		
-		CCC_CHECK(iterator->second.valid_forms & 1 << (attribute->value.form()),
-			"Attribute %s has an unexpected form %s.",
-			form_to_string(attribute->value.form()),
-			attribute_to_string(attribute->attribute));
+		DIE_CHECK_ARGS(iterator->second.valid_forms & 1 << (attribute->value.form()),
+			"Attribute %x has an unexpected form %s", attribute->attribute, form_to_string(attribute->value.form()));
 		
 		*output[iterator->second.index] = std::move(attribute->value);
 	}
@@ -254,11 +257,6 @@ Result<std::vector<AttributeTuple>> DIE::all_attributes() const
 	return result;
 }
 
-#define ATTRIBUTE_PARSER_CHECK(condition, message) \
-	CCC_CHECK(condition, message " at 0x%x inside DIE at 0x%x.", offset, m_offset);
-#define ATTRIBUTE_PARSER_CHECK_ARG(condition, message, arg) \
-	CCC_CHECK(condition, message " at 0x%x inside DIE at 0x%x.", arg, offset, m_offset);
-
 Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 {
 	AttributeTuple result;
@@ -266,17 +264,17 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 	result.offset = offset;
 	
 	const std::optional<u16> name = copy_unaligned<u16>(m_debug, offset);
-	ATTRIBUTE_PARSER_CHECK(name.has_value(), "Cannot read attribute name");
+	DIE_CHECK(name.has_value(), "Cannot read attribute name");
 	offset += sizeof(u16);
 	
 	u8 form = *name & 0xf;
-	ATTRIBUTE_PARSER_CHECK_ARG(form_to_string(form) != nullptr, "Unknown attribute form 0x%hhx", form);
+	DIE_CHECK_ARGS(form_to_string(form) != nullptr, "Unknown attribute form 0x%hhx", form);
 	
 	u16 attribute = *name >> 4;
 	bool known_attribute = attribute_to_string(attribute);
 	if (!known_attribute) {
 		const char* uknown_attribute_error_message =
-			"Unknown user attribute name 0x%03hx at 0x%x inside DIE at 0x%x.";
+			"Unknown attribute name 0x%03hx at 0x%x inside DIE at 0x%x.";
 		if ((m_importer_flags & STRICT_PARSING) == 0 && attribute >= AT_lo_user && attribute <= AT_hi_user) {
 			CCC_WARN(uknown_attribute_error_message, *name, offset, m_offset);
 		} else {
@@ -289,24 +287,24 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 	switch (form) {
 		case FORM_ADDR: {
 			std::optional<u32> address = copy_unaligned<u32>(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(address.has_value(), "Cannot read address attribute");
+			DIE_CHECK(address.has_value(), "Cannot read address attribute");
 			result.value = Value::from_address(*address);
 			offset += sizeof(u32);
 			break;
 		}
 		case FORM_REF: {
 			std::optional<u32> reference = copy_unaligned<u32>(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(reference.has_value(), "Cannot read reference attribute");
+			DIE_CHECK(reference.has_value(), "Cannot read reference attribute");
 			result.value = Value::from_reference(*reference);
 			offset += sizeof(u32);
 			break;
 		}
 		case FORM_BLOCK2: {
 			std::optional<u16> size = copy_unaligned<u16>(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(size.has_value(), "Cannot read block attribute size");
+			DIE_CHECK(size.has_value(), "Cannot read block attribute size");
 			offset += sizeof(u16);
 			
-			ATTRIBUTE_PARSER_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
+			DIE_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
 			result.value = Value::from_block_2(m_debug.subspan(offset, *size));
 			offset += *size;
 			
@@ -314,10 +312,10 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 		}
 		case FORM_BLOCK4: {
 			std::optional<u32> size = copy_unaligned<u32>(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(size.has_value(), "Cannot read block attribute size");
+			DIE_CHECK(size.has_value(), "Cannot read block attribute size");
 			offset += sizeof(u32);
 			
-			ATTRIBUTE_PARSER_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
+			DIE_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
 			result.value = Value::from_block_4(m_debug.subspan(offset, *size));
 			offset += *size;
 			
@@ -325,28 +323,28 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 		}
 		case FORM_DATA2: {
 			std::optional<u16> constant = copy_unaligned<u16>(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(constant.has_value(), "Cannot read constant attribute");
+			DIE_CHECK(constant.has_value(), "Cannot read constant attribute");
 			result.value = Value::from_constant_2(*constant);
 			offset += sizeof(u16);
 			break;
 		}
 		case FORM_DATA4: {
 			std::optional<u32> constant = copy_unaligned<u32>(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(constant.has_value(), "Cannot read constant attribute");
+			DIE_CHECK(constant.has_value(), "Cannot read constant attribute");
 			result.value = Value::from_constant_4(*constant);
 			offset += sizeof(u32);
 			break;
 		}
 		case FORM_DATA8: {
 			std::optional<u64> constant = copy_unaligned<u64>(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(constant.has_value(), "Cannot read constant attribute");
+			DIE_CHECK(constant.has_value(), "Cannot read constant attribute");
 			result.value = Value::from_constant_8(*constant);
 			offset += sizeof(u64);
 			break;
 		}
 		case FORM_STRING: {
 			const char* string = get_string(m_debug, offset);
-			ATTRIBUTE_PARSER_CHECK(string, "Cannot read string attribute");
+			DIE_CHECK(string, "Cannot read string attribute");
 			result.value = Value::from_string(string);
 			offset += strlen(string) + 1;
 			break;
