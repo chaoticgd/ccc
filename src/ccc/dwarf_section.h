@@ -118,12 +118,16 @@ public:
 	~Value();
 	Value& operator=(const Value& rhs);
 	
+	Form form() const;
 	bool valid() const;
 	
 	static Value from_address(u32 address);
 	static Value from_reference(u32 reference);
-	static Value from_constant(u64 constant);
-	static Value from_block(std::span<const u8> block);
+	static Value from_constant_2(u16 constant);
+	static Value from_constant_4(u32 constant);
+	static Value from_constant_8(u64 constant);
+	static Value from_block_2(std::span<const u8> block);
+	static Value from_block_4(std::span<const u8> block);
 	static Value from_string(const char* string);
 	
 	u32 address() const;
@@ -147,8 +151,8 @@ protected:
 };
 
 struct AttributeTuple {
+	u32 offset;
 	Attribute attribute;
-	Form form;
 	Value value;
 };
 
@@ -174,6 +178,7 @@ public:
 	Result<std::optional<DIE>> first_child() const;
 	Result<std::optional<DIE>> sibling() const;
 	
+	u32 offset() const;
 	Tag tag() const;
 	
 	// Parse the attributes, and output the ones specified by the required parameter.

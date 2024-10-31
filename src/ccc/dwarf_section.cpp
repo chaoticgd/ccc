@@ -22,6 +22,11 @@ Value& Value::operator=(const Value& rhs)
 	return *this;
 }
 
+Form Value::form() const
+{
+	return static_cast<Form>(m_form);
+}
+
 bool Value::valid() const
 {
 	return form_to_string(m_form) != nullptr;
@@ -43,7 +48,23 @@ Value Value::from_reference(u32 reference)
 	return result;
 }
 
-Value Value::from_constant(u64 constant)
+Value Value::from_constant_2(u16 constant)
+{
+	Value result;
+	result.m_form = FORM_DATA2;
+	result.m_value.constant = constant;
+	return result;
+}
+
+Value Value::from_constant_4(u32 constant)
+{
+	Value result;
+	result.m_form = FORM_DATA4;
+	result.m_value.constant = constant;
+	return result;
+}
+
+Value Value::from_constant_8(u64 constant)
 {
 	Value result;
 	result.m_form = FORM_DATA8;
@@ -51,7 +72,16 @@ Value Value::from_constant(u64 constant)
 	return result;
 }
 
-Value Value::from_block(std::span<const u8> block)
+Value Value::from_block_2(std::span<const u8> block)
+{
+	Value result;
+	result.m_form = FORM_BLOCK2;
+	result.m_value.block.begin = block.data();
+	result.m_value.block.end = block.data() + block.size();
+	return result;
+}
+
+Value Value::from_block_4(std::span<const u8> block)
 {
 	Value result;
 	result.m_form = FORM_BLOCK4;
@@ -82,13 +112,13 @@ u32 Value::reference() const
 
 u64 Value::constant() const
 {
-	CCC_ASSERT(m_form == FORM_DATA8);
+	CCC_ASSERT(m_form == FORM_DATA2 || m_form == FORM_DATA4 || m_form == FORM_DATA8);
 	return m_value.constant;
 }
 
 std::span<const u8> Value::block() const
 {
-	CCC_ASSERT(m_form == FORM_BLOCK4);
+	CCC_ASSERT(m_form == FORM_BLOCK2 || m_form == FORM_BLOCK4);
 	return std::span<const u8>(m_value.block.begin, m_value.block.end);
 }
 
@@ -146,7 +176,7 @@ Result<std::optional<DIE>> DIE::first_child() const
 		Result<AttributeTuple> attribute = parse_attribute(offset);
 		CCC_RETURN_IF_ERROR(attribute);
 		
-		if (attribute->attribute == AT_sibling && attribute->form == FORM_REF) {
+		if (attribute->attribute == AT_sibling && attribute->value.form() == FORM_REF) {
 			sibling_offset = attribute->value.reference();
 		}
 	}
@@ -165,12 +195,17 @@ Result<std::optional<DIE>> DIE::sibling() const
 		Result<AttributeTuple> attribute = parse_attribute(offset);
 		CCC_RETURN_IF_ERROR(attribute);
 		
-		if (attribute->attribute == AT_sibling && attribute->form == FORM_REF) {
+		if (attribute->attribute == AT_sibling && attribute->value.form() == FORM_REF) {
 			return DIE::parse(m_debug, attribute->value.reference(), m_importer_flags);
 		}
 	}
 	
 	return std::optional<DIE>(std::nullopt);
+}
+
+u32 DIE::offset() const
+{
+	return m_offset;
 }
 
 Tag DIE::tag() const
@@ -190,9 +225,9 @@ Result<void> DIE::attributes(std::span<Value*> output, const RequiredAttributes&
 			continue;
 		}
 		
-		CCC_CHECK(iterator->second.valid_forms & 1 << (attribute->form),
+		CCC_CHECK(iterator->second.valid_forms & 1 << (attribute->value.form()),
 			"Attribute %s has an unexpected form %s.",
-			form_to_string(attribute->form),
+			form_to_string(attribute->value.form()),
 			attribute_to_string(attribute->attribute));
 		
 		*output[iterator->second.index] = std::move(attribute->value);
@@ -225,6 +260,8 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 {
 	AttributeTuple result;
 	
+	result.offset = offset;
+	
 	const std::optional<u16> name = copy_unaligned<u16>(m_debug, offset);
 	ATTRIBUTE_PARSER_CHECK(name.has_value(), "Cannot read attribute name");
 	offset += sizeof(u16);
@@ -244,7 +281,6 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 		}
 	}
 	
-	result.form = static_cast<Form>(form);
 	result.attribute = static_cast<Attribute>(attribute);
 	
 	switch (form) {
@@ -268,7 +304,7 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 			offset += sizeof(u16);
 			
 			ATTRIBUTE_PARSER_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
-			result.value = Value::from_block(m_debug.subspan(offset, *size));
+			result.value = Value::from_block_2(m_debug.subspan(offset, *size));
 			offset += *size;
 			
 			break;
@@ -279,7 +315,7 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 			offset += sizeof(u32);
 			
 			ATTRIBUTE_PARSER_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
-			result.value = Value::from_block(m_debug.subspan(offset, *size));
+			result.value = Value::from_block_4(m_debug.subspan(offset, *size));
 			offset += *size;
 			
 			break;
@@ -287,21 +323,21 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 		case FORM_DATA2: {
 			std::optional<u16> constant = copy_unaligned<u16>(m_debug, offset);
 			ATTRIBUTE_PARSER_CHECK(constant.has_value(), "Cannot read constant attribute");
-			result.value = Value::from_constant(*constant);
+			result.value = Value::from_constant_2(*constant);
 			offset += sizeof(u16);
 			break;
 		}
 		case FORM_DATA4: {
 			std::optional<u32> constant = copy_unaligned<u32>(m_debug, offset);
 			ATTRIBUTE_PARSER_CHECK(constant.has_value(), "Cannot read constant attribute");
-			result.value = Value::from_constant(*constant);
+			result.value = Value::from_constant_4(*constant);
 			offset += sizeof(u32);
 			break;
 		}
 		case FORM_DATA8: {
 			std::optional<u64> constant = copy_unaligned<u64>(m_debug, offset);
 			ATTRIBUTE_PARSER_CHECK(constant.has_value(), "Cannot read constant attribute");
-			result.value = Value::from_constant(*constant);
+			result.value = Value::from_constant_8(*constant);
 			offset += sizeof(u64);
 			break;
 		}
@@ -343,8 +379,15 @@ Result<void> SectionReader::print_dies(FILE* out, DIE die, s32 depth) const
 	std::optional<DIE> current_die = std::move(die);
 	
 	while (current_die.has_value()) {
-		indent(out, depth);
-		fprintf(out, "%s ", tag_to_string(current_die->tag()));
+		fprintf(out, "%8x:", current_die->offset());
+		indent(out, depth + 1);
+		
+		const char* tag = tag_to_string(current_die->tag());
+		if (tag) {
+			fprintf(out, "%s", tag);
+		} else {
+			fprintf(out, "unknown(%hx)", current_die->tag());
+		}
 		
 		Result<void> result = print_attributes(out, *current_die);
 		CCC_RETURN_IF_ERROR(result);
@@ -370,19 +413,81 @@ Result<void> SectionReader::print_attributes(FILE* out, const DIE& die) const
 	Result<std::vector<AttributeTuple>> attributes = die.all_attributes();
 	CCC_RETURN_IF_ERROR(attributes);
 	
-	for (const auto& [attribute, form, value] : *attributes) {
-		fprintf(out, "%s=", attribute_to_string(attribute));
-		switch (form) {
-			case FORM_ADDR: fprintf(out, "0x%x", value.address()); break;
-			case FORM_REF: fprintf(out, "DIE@0x%x", value.reference()); break;
-			case FORM_BLOCK2: fprintf(out, "(block2)"); break;
-			case FORM_BLOCK4: fprintf(out, "(block4)"); break;
-			case FORM_DATA2: fprintf(out, "0x%hx", (short) value.constant()); break;
-			case FORM_DATA4: fprintf(out, "0x%x", (int) value.constant()); break;
-			case FORM_DATA8: fprintf(out, "0x%llx", (long long) value.constant()); break;
-			case FORM_STRING: fprintf(out, "\"%s\"", value.string()); break;
+	for (const auto& [offset, attribute, value] : *attributes) {
+		// The sibling attributes are just used to represent the structure of
+		// the graph, which is displayed anyway, so skip over them for the sake
+		// of readability.
+		if (attribute == AT_sibling) {
+			continue;
 		}
-		fprintf(out, " ");
+		
+		const char* name = attribute_to_string(attribute);
+		if (name) {
+			fprintf(out, " %s=", name);
+		} else {
+			fprintf(out, " unknown(%x)=", attribute);
+		}
+		
+		switch (value.form()) {
+			case FORM_ADDR: {
+				fprintf(out, "0x%x", value.address());
+				break;
+			}
+			case FORM_REF: {
+				Result<std::optional<DIE>> referenced_die = DIE::parse(m_debug, value.reference(), NO_IMPORTER_FLAGS);
+				if (referenced_die.success()) {
+					if (referenced_die->has_value()) {
+						const char* referenced_die_tag = tag_to_string((*referenced_die)->tag());
+						if (referenced_die_tag) {
+							fprintf(out, "%s", referenced_die_tag);
+						} else {
+							fprintf(out, "unknown(%hx)", (*referenced_die)->tag());
+						}
+					} else {
+						// The DIE was less than 8 bytes in size.
+						fprintf(out, "null");
+					}
+				} else {
+					// The DIE could not be read.
+					fprintf(out, "???");
+				}
+				
+				fprintf(out, "@%x", value.reference());
+				break;
+			}
+			case FORM_BLOCK2:
+			case FORM_BLOCK4: {
+				fprintf(out, "{");
+				
+				size_t max_bytes_to_display = 3;
+				std::span<const u8> block = value.block();
+				
+				for (size_t i = 0; i < std::min(block.size(), max_bytes_to_display); i++) {
+					if (i != 0) {
+						fprintf(out, ",");
+					}
+					fprintf(out, "%02hhx", block[i]);
+				}
+				
+				if (block.size() > max_bytes_to_display) {
+					fprintf(out, ",...");
+				}
+				
+				fprintf(out, "}@%x", offset);
+				
+				break;
+			}
+			case FORM_DATA2:
+			case FORM_DATA4:
+			case FORM_DATA8: {
+				fprintf(out, "0x%llx", (long long) value.constant());
+				break;
+			}
+			case FORM_STRING: {
+				fprintf(out, "\"%s\"", value.string());
+				break;
+			}
+		}
 	}
 	fprintf(out, "\n");
 	
