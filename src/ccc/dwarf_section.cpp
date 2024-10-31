@@ -196,6 +196,9 @@ Result<std::optional<DIE>> DIE::sibling() const
 		CCC_RETURN_IF_ERROR(attribute);
 		
 		if (attribute->attribute == AT_sibling && attribute->value.form() == FORM_REF) {
+			// Prevent infinite recursion if the file contains a cycle.
+			CCC_CHECK(attribute->value.reference() > m_offset,
+				"Sibling attribute of DIE at 0x%x points backwards.", m_offset);
 			return DIE::parse(m_debug, attribute->value.reference(), m_importer_flags);
 		}
 	}
