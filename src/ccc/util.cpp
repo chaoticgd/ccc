@@ -53,8 +53,8 @@ void set_custom_error_callback(CustomErrorCallback callback)
 
 const char* get_string(std::span<const u8> bytes, u64 offset)
 {
-	for (const unsigned char* c = bytes.data() + offset; c < bytes.data() + bytes.size(); c++) {
-		if (*c == '\0') {
+	for (u64 i = offset; i < bytes.size(); i++) {
+		if (bytes[i] == '\0') {
 			return (const char*) &bytes[offset];
 		}
 	}

@@ -102,6 +102,7 @@ set(TEST_SOURCES
 	test/ccc/mdebug_importer_tests.cpp
 	test/ccc/stabs_tests.cpp
 	test/ccc/symbol_database_tests.cpp
+	test/ccc/util_tests.cpp
 )
 
 add_executable(demangle src/demangle.cpp)
