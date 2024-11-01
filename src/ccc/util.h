@@ -210,7 +210,7 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 template <typename T>
 const T* get_aligned(std::span<const u8> bytes, u64 offset)
 {
-	if (offset + sizeof(T) > bytes.size() || offset % alignof(T) != 0) {
+	if (offset + sizeof(T) > bytes.size() || offset + sizeof(T) < offset || offset % alignof(T) != 0) {
 		return nullptr;
 	}
 	
@@ -220,7 +220,7 @@ const T* get_aligned(std::span<const u8> bytes, u64 offset)
 template <typename T>
 const T* get_unaligned(std::span<const u8> bytes, u64 offset)
 {
-	if (offset + sizeof(T) > bytes.size()) {
+	if (offset + sizeof(T) > bytes.size() || offset + sizeof(T) < offset) {
 		return nullptr;
 	}
 	
@@ -230,7 +230,7 @@ const T* get_unaligned(std::span<const u8> bytes, u64 offset)
 template <typename T>
 const std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 {
-	if (offset + sizeof(T) > bytes.size()) {
+	if (offset + sizeof(T) > bytes.size() || offset + sizeof(T) < offset) {
 		return std::nullopt;
 	}
 	
