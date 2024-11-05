@@ -42,13 +42,11 @@ enum Tag : u16 {
 	TAG_set_type               = 0x0020,
 	TAG_subrange_type          = 0x0021,
 	TAG_with_stmt              = 0x0022,
-	
-	/* GNU extensions */
-	
-	TAG_format_label = 0x8000,  /* for FORTRAN 77 and Fortran 90 */
-	TAG_namelist = 0x8001,  /* For Fortran 90 */
-	TAG_function_template = 0x8002,  /* for C++ */
-	TAG_class_template = 0x8003   /* for C++ */
+	TAG_overlay                = 0x4080,
+	TAG_format_label           = 0x8000,
+	TAG_namelist               = 0x8001,
+	TAG_function_template      = 0x8002,
+	TAG_class_template         = 0x8003
 };
 
 enum Form {
@@ -106,8 +104,9 @@ enum Attribute {
 	AT_stride_size        = 0x02e,
 	AT_upper_bound        = 0x02f,
 	AT_virtual            = 0x030,
-	AT_lo_user            = 0x200,
-	AT_hi_user            = 0x3ff
+	AT_mangled_name       = 0x200,
+	AT_overlay_id         = 0x229,
+	AT_overlay_name       = 0x22a
 };
 
 // The value of an attribute.
@@ -128,13 +127,13 @@ public:
 	static Value from_constant_8(u64 constant);
 	static Value from_block_2(std::span<const u8> block);
 	static Value from_block_4(std::span<const u8> block);
-	static Value from_string(const char* string);
+	static Value from_string(std::string_view string); // Must be null terminated.
 	
 	u32 address() const;
 	u32 reference() const;
 	u64 constant() const;
 	std::span<const u8> block() const;
-	const char* string() const;
+	std::string_view string() const;
 	
 protected:
 	u8 m_form = 0;
@@ -146,7 +145,10 @@ protected:
 			const u8* begin;
 			const u8* end;
 		} block;
-		const char* string;
+		struct {
+			const char* begin;
+			const char* end;
+		} string;
 	} m_value;
 };
 
@@ -156,13 +158,14 @@ struct AttributeTuple {
 	Value value;
 };
 
-struct RequiredAttribute {
+struct AttributeSpec {
 	Attribute attribute;
-	u32 valid_forms;
 	u32 index;
+	bool required;
+	u32 valid_forms;
 };
 
-using RequiredAttributes = std::map<Attribute, RequiredAttribute>;
+using AttributesSpec = std::map<Attribute, AttributeSpec>;
 
 // Represents a Debugging Information Entry. Intended to be used to
 // incrementally parse a .debug section.
@@ -173,7 +176,43 @@ public:
 	static Result<std::optional<DIE>> parse(std::span<const u8> debug, u32 offset, u32 importer_flags);
 	
 	// Generate a map of attributes to read, to be used for parsing attributes.
-	static RequiredAttributes require_attributes(std::span<const RequiredAttribute> input);
+	static inline AttributesSpec specify_attributes(std::vector<AttributeSpec> input)
+	{
+		AttributesSpec output;
+		
+		for (u32 i = 0; i < static_cast<u32>(input.size()); i++) {
+			AttributeSpec& attribute = output.emplace(input[i].attribute, input[i]).first->second;
+			attribute.index = i;
+		}
+		
+		return output;
+	}
+	
+	// Generate a specification for a required attribute.
+	static inline AttributeSpec required_attribute(Attribute attribute, std::vector<u32> valid_forms)
+	{
+		AttributeSpec result;
+		result.attribute = attribute;
+		result.required = true;
+		result.valid_forms = 0;
+		for (u32 form : valid_forms) {
+			result.valid_forms |= 1 << form;
+		}
+		return result;
+	}
+	
+	// Generate a specification for an optional attribute.
+	static inline AttributeSpec optional_attribute(Attribute attribute, std::vector<u32> valid_forms)
+	{
+		AttributeSpec result;
+		result.attribute = attribute;
+		result.required = false;
+		result.valid_forms = 0;
+		for (u32 form : valid_forms) {
+			result.valid_forms |= 1 << form;
+		}
+		return result;
+	}
 	
 	Result<std::optional<DIE>> first_child() const;
 	Result<std::optional<DIE>> sibling() const;
@@ -182,7 +221,7 @@ public:
 	Tag tag() const;
 	
 	// Parse the attributes, and output the ones specified by the required parameter.
-	Result<void> attributes(std::span<Value*> output, const RequiredAttributes& required) const;
+	Result<void> attributes(const AttributesSpec& spec, std::vector<Value*> output) const;
 	
 	// Parse the attributes, and output them all in order.
 	Result<std::vector<AttributeTuple>> all_attributes() const;

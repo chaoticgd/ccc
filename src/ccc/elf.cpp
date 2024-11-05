@@ -43,11 +43,11 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 		const ElfSectionHeader* section_header = get_unaligned<ElfSectionHeader>(elf.image, header_offset);
 		CCC_CHECK(section_header, "ELF section header out of range.");
 		
-		const char* name = get_string(elf.image, shstr_section_header->offset + section_header->name);
+		std::optional<std::string_view> name = get_string(elf.image, shstr_section_header->offset + section_header->name);
 		CCC_CHECK(name, "ELF section name out of range.");
 		
 		ElfSection& section = elf.sections.emplace_back();
-		section.name = name;
+		section.name = *name;
 		section.header = *section_header;
 	}
 	

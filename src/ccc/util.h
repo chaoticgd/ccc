@@ -239,7 +239,7 @@ const std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 	return value;
 }
 
-const char* get_string(std::span<const u8> bytes, u64 offset);
+std::optional<std::string_view> get_string(std::span<const u8> bytes, u64 offset);
 
 #define CCC_BEGIN_END(x) (x).begin(), (x).end()
 #define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))

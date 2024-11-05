@@ -137,9 +137,9 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	
 	s32 rel_raw_path_offset = fd_header->strings_offset + fd_header->file_path_string_offset;
 	s32 raw_path_offset = m_hdrr->local_strings_offset + rel_raw_path_offset + m_fudge_offset;
-	const char* command_line_path = get_string(m_elf, raw_path_offset);
-	if (command_line_path) {
-		file.command_line_path = command_line_path;
+	std::optional<std::string_view> command_line_path = get_string(m_elf, raw_path_offset);
+	if (command_line_path.has_value()) {
+		file.command_line_path = *command_line_path;
 	}
 	
 	// Parse local symbols.
@@ -364,9 +364,9 @@ static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8>
 {
 	Symbol symbol;
 	
-	const char* string = get_string(elf, strings_offset + header.iss);
-	CCC_CHECK(string, "Symbol has invalid string.");
-	symbol.string = string;
+	std::optional<std::string_view> string = get_string(elf, strings_offset + header.iss);
+	CCC_CHECK(string.has_value(), "Symbol has invalid string.");
+	symbol.string = string->data();
 	
 	symbol.value = header.value;
 	symbol.symbol_type = static_cast<SymbolType>(header.symbol_type());

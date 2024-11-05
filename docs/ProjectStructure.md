@@ -1,19 +1,23 @@
 # Project Structure
 
 - src/demangle.cpp: Main file for demangle.
+- src/fuzztest.cpp: Fuzzing harness for libfuzzer.
 - src/objdump.cpp: Main file for objdump.
 - src/stdump.cpp: Main file for stdump.
+- src/tests.cpp: Test runner.
 - src/uncc.cpp: Main file for uncc.
 - src/ccc/ast.cpp: Defines a C++ AST structure for types.
 - src/ccc/ast_json.cpp: Reads/writes the AST structure as JSON.
 - src/ccc/data_refinement.cpp: Converts global variable data into structured initializer lists and literals.
 - src/ccc/dependency.cpp: Tries to infer information about which types belong to which files.
+- src/ccc/dwarf_importer.cpp: Imports .debug (DWARF) symbol tables into the symbol database.
+- src/ccc/dwarf_section.cpp: Parses the .debug (DWARF) binary format.
 - src/ccc/elf.cpp: Parses ELF files.
 - src/ccc/elf_symtab.cpp: Parses the ELF symbol table.
 - src/ccc/importer_flags.cpp: An enum and help information printing for importer configuration flags.
 - src/ccc/int128.cpp: 128-bit integer types.
 - src/ccc/mdebug_analysis.cpp: Accepts a stream of symbols and imports the data.
-- src/ccc/mdebug_importer.cpp: Top-level file for parsing .mdebug symbol tables.
+- src/ccc/mdebug_importer.cpp: Imports .mdebug (STABS) symbol tables into the symbol database.
 - src/ccc/mdebug_section.cpp: Parses the .mdebug binary format.
 - src/ccc/mdebug_symbols.cpp: Parses symbols from the .mdebug section.
 - src/ccc/print_cpp.cpp: Prints out AST nodes as C++ code.
@@ -30,3 +34,4 @@
 - src/mips/opcodes.h: Enums for different types of EE core MIPS opcodes.
 - src/mips/tables.cpp: Table of EE core MIPS instructions.
 - src/platform/file.cpp: Utility functions for reading files.
+- tests/: Unit tests.

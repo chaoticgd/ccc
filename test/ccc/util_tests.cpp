@@ -10,7 +10,7 @@ using namespace ccc;
 
 TEST(CCCUtil, GetAligned)
 {
-	u8 data[7] = {1, 0, 0, 1, 0, 0, 1};
+	alignas(8) u8 data[7] = {1, 0, 0, 1, 0, 0, 1};
 	
 	EXPECT_EQ(DEREF_OR_ZERO(get_aligned<u32>(data, 0)), 0x01000001);
 	EXPECT_EQ(get_aligned<u32>(data, 1), nullptr);
@@ -22,7 +22,7 @@ TEST(CCCUtil, GetAligned)
 
 TEST(CCCUtil, GetUnaligned)
 {
-	u8 data[7] = {1, 2, 3, 4, 5, 6, 7};
+	alignas(8) u8 data[7] = {1, 2, 3, 4, 5, 6, 7};
 	
 	EXPECT_EQ(DEREF_OR_ZERO(get_unaligned<u8>(data, 0)), 1);
 	EXPECT_EQ(DEREF_OR_ZERO(get_unaligned<u8>(data, 1)), 2);
@@ -32,7 +32,7 @@ TEST(CCCUtil, GetUnaligned)
 
 TEST(CCCUtil, CopyUnaligned)
 {
-	u8 data[7] = {1, 0, 0, 1, 0, 0, 1};
+	alignas(8) u8 data[7] = {1, 0, 0, 1, 0, 0, 1};
 	
 	EXPECT_EQ(DEREF_OR_ZERO(copy_unaligned<u32>(data, 0)), 0x01000001);
 	EXPECT_EQ(DEREF_OR_ZERO(copy_unaligned<u32>(data, 3)), 0x01000001);
@@ -43,11 +43,11 @@ TEST(CCCUtil, CopyUnaligned)
 
 TEST(CCCUtil, GetString)
 {
-	u8 data[7] = {'h', 'e', 'l', 'l', 'o', '\0', '!'};
+	alignas(8) u8 data[7] = {'h', 'e', 'l', 'l', 'o', '\0', '!'};
 	
 	EXPECT_EQ(get_string(data, 0), std::string("hello"));
 	EXPECT_EQ(get_string(data, 5), std::string(""));
-	EXPECT_EQ(get_string(data, 6), nullptr);
-	EXPECT_EQ(get_string(data, 7), nullptr);
-	EXPECT_EQ(get_string(data, 0xffffffffffffffff), nullptr);
+	EXPECT_EQ(get_string(data, 6), std::nullopt);
+	EXPECT_EQ(get_string(data, 7), std::nullopt);
+	EXPECT_EQ(get_string(data, 0xffffffffffffffff), std::nullopt);
 }

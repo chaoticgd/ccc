@@ -90,11 +90,12 @@ Value Value::from_block_4(std::span<const u8> block)
 	return result;
 }
 
-Value Value::from_string(const char* string)
+Value Value::from_string(std::string_view string)
 {
 	Value result;
 	result.m_form = FORM_STRING;
-	result.m_value.string = string;
+	result.m_value.string.begin = string.data();
+	result.m_value.string.end = string.data() + string.size();
 	return result;
 }
 
@@ -122,10 +123,10 @@ std::span<const u8> Value::block() const
 	return std::span<const u8>(m_value.block.begin, m_value.block.end);
 }
 
-const char* Value::string() const
+std::string_view Value::string() const
 {
 	CCC_ASSERT(m_form == FORM_STRING);
-	return m_value.string;
+	return std::string_view(m_value.string.begin, m_value.string.end);
 }
 
 // *****************************************************************************
@@ -143,7 +144,9 @@ Result<std::optional<DIE>> DIE::parse(std::span<const u8> debug, u32 offset, u32
 	die.m_offset = offset;
 	
 	std::optional<u32> length = copy_unaligned<u32>(debug, offset);
-	CCC_CHECK(length.has_value(), "Cannot read length for die at 0x%x.", offset);
+	if (!length.has_value()) {
+		return std::optional<DIE>(std::nullopt);
+	}
 	die.m_length = *length;
 	offset += sizeof(u32);
 	
@@ -153,24 +156,13 @@ Result<std::optional<DIE>> DIE::parse(std::span<const u8> debug, u32 offset, u32
 	
 	std::optional<u16> tag = copy_unaligned<u16>(debug, offset);
 	CCC_CHECK(tag.has_value(), "Cannot read tag for die at 0x%x.", offset);
+	CCC_CHECK(tag_to_string(*tag), "Unknown tag 0x%hx for die at 0x%x.", *tag, offset);
 	die.m_tag = static_cast<Tag>(*tag);
 	offset += sizeof(u16);
 	
 	die.m_importer_flags = importer_flags;
 	
 	return std::optional<DIE>(die);
-}
-
-RequiredAttributes DIE::require_attributes(std::span<const RequiredAttribute> input)
-{
-	RequiredAttributes output;
-	
-	for (u32 i = 0; i < static_cast<u32>(input.size()); i++) {
-		RequiredAttribute& attribute = output.emplace(input[i].attribute, input[i]).first->second;
-		attribute.index = i;
-	}
-	
-	return output;
 }
 
 Result<std::optional<DIE>> DIE::first_child() const
@@ -221,22 +213,33 @@ Tag DIE::tag() const
 	return m_tag;
 }
 
-Result<void> DIE::attributes(std::span<Value*> output, const RequiredAttributes& required) const
+Result<void> DIE::attributes(const AttributesSpec& spec, std::vector<Value*> output) const
 {
+	// Parse the attributes and save the ones specified.
 	u32 offset = m_offset + 6;
 	while (offset < m_offset + m_length) {
 		Result<AttributeTuple> attribute = parse_attribute(offset);
 		CCC_RETURN_IF_ERROR(attribute);
 		
-		auto iterator = required.find(attribute->attribute);
-		if (iterator == required.end()) {
+		auto iterator = spec.find(attribute->attribute);
+		if (iterator == spec.end()) {
 			continue;
 		}
 		
 		DIE_CHECK_ARGS(iterator->second.valid_forms & 1 << (attribute->value.form()),
 			"Attribute %x has an unexpected form %s", attribute->attribute, form_to_string(attribute->value.form()));
 		
+		CCC_ASSERT(iterator->second.index < output.size());
 		*output[iterator->second.index] = std::move(attribute->value);
+	}
+	
+	// Check that we have all the required attributes.
+	for (auto& [attribute, attribute_spec] : spec) {
+		if (attribute_spec.required) {
+			CCC_ASSERT(attribute_spec.index < output.size());
+			CCC_CHECK(output[attribute_spec.index]->valid(),
+				"Missing %s attribute for DIE at 0x%x\n", attribute_to_string(attribute), m_offset);
+		}
 	}
 	
 	return Result<void>();
@@ -272,14 +275,8 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 	
 	u16 attribute = *name >> 4;
 	bool known_attribute = attribute_to_string(attribute);
-	if (!known_attribute) {
-		const char* uknown_attribute_error_message =
-			"Unknown attribute name 0x%03hx at 0x%x inside DIE at 0x%x.";
-		if ((m_importer_flags & STRICT_PARSING) == 0 && attribute >= AT_lo_user && attribute <= AT_hi_user) {
-			CCC_WARN(uknown_attribute_error_message, *name, offset, m_offset);
-		} else {
-			return CCC_FAILURE(uknown_attribute_error_message, *name, offset, m_offset);
-		}
+	if (!known_attribute && (m_importer_flags & STRICT_PARSING)) {
+		CCC_WARN("Unknown attribute name 0x%03hx at 0x%x inside DIE at 0x%x.", *name, offset, m_offset);
 	}
 	
 	result.attribute = static_cast<Attribute>(attribute);
@@ -343,10 +340,10 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 			break;
 		}
 		case FORM_STRING: {
-			const char* string = get_string(m_debug, offset);
-			DIE_CHECK(string, "Cannot read string attribute");
-			result.value = Value::from_string(string);
-			offset += strlen(string) + 1;
+			std::optional<std::string_view> string = get_string(m_debug, offset);
+			DIE_CHECK(string.has_value(), "Cannot read string attribute");
+			result.value = Value::from_string(*string);
+			offset += static_cast<u32>(string->size()) + 1;
 			break;
 		}
 	}
@@ -485,7 +482,7 @@ Result<void> SectionReader::print_attributes(FILE* out, const DIE& die) const
 				break;
 			}
 			case FORM_STRING: {
-				fprintf(out, "\"%s\"", value.string());
+				fprintf(out, "\"%s\"", value.string().data());
 				break;
 			}
 		}
@@ -530,13 +527,14 @@ const char* tag_to_string(u32 tag)
 		case TAG_set_type: return "set_type";
 		case TAG_subrange_type: return "subrange_type";
 		case TAG_with_stmt: return "with_stmt";
+		case TAG_overlay: return "overlay";
 		case TAG_format_label: return "format_label";
 		case TAG_namelist: return "namelist";
 		case TAG_function_template: return "function_template";
 		case TAG_class_template: return "class_template";
 	}
 	
-	return "unknown";
+	return nullptr;
 }
 
 const char* form_to_string(u32 form)
@@ -601,6 +599,8 @@ const char* attribute_to_string(u32 attribute)
 		case AT_stride_size: return "stride_size";
 		case AT_upper_bound: return "upper_bound";
 		case AT_virtual: return "virtual";
+		case AT_overlay_id: return "overlay_id";
+		case AT_overlay_name: return "overlay_name";
 	}
 	
 	return nullptr;

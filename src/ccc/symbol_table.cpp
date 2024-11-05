@@ -5,6 +5,7 @@
 
 #include "elf.h"
 #include "elf_symtab.h"
+#include "dwarf_importer.h"
 #include "dwarf_section.h"
 #include "mdebug_importer.h"
 #include "mdebug_section.h"
@@ -220,7 +221,9 @@ Result<void> DwarfSymbolTable::import(
 	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt) const
 {
-	return Result<void>();
+	dwarf::SectionReader reader(m_debug, m_line);
+	dwarf::SymbolTableImporter importer(database, reader, importer_flags, demangler, interrupt);
+	return importer.import_symbol_table(group);
 }
 
 Result<void> DwarfSymbolTable::print_headers(FILE* out) const
