@@ -4,6 +4,7 @@
 #include "dwarf_section.h"
 
 #include "importer_flags.h"
+#include "registers.h"
 
 namespace ccc::dwarf {
 
@@ -351,6 +352,66 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 	return result;
 }
 
+// *****************************************************************************
+
+LocationDescription::LocationDescription(std::span<const u8> block)
+	: m_block(block) {}
+
+Result<void> LocationDescription::print(FILE* out)
+{
+	fprintf(out, "{");
+	
+	u32 offset = 0;
+	while (offset < m_block.size()) {
+		if (offset != 0) {
+			fprintf(out, ",");
+		}
+		
+		Result<LocationAtom> atom = parse_atom(offset);
+		CCC_RETURN_IF_ERROR(atom);
+		
+		const char* op_name = location_op_to_string(atom->op);
+		CCC_ASSERT(op_name);
+		
+		fprintf(out, "%s", op_name);
+		
+		if (atom->value.has_value()) {
+			if ((atom->op == OP_REG || atom->op == OP_BASEREG) && *atom->value < 32) {
+				fprintf(out, "(%s)", mips::GPR_STRINGS[*atom->value]);
+			} else {
+				fprintf(out, "(0x%x)", *atom->value);
+			}
+		}
+	}
+	
+	fprintf(out, "}");
+	
+	return Result<void>();
+}
+
+Result<LocationAtom> LocationDescription::parse_atom(u32& offset) const
+{
+	LocationAtom atom;
+	
+	const u8* op = get_unaligned<u8>(m_block, offset);
+	CCC_CHECK(op, "Invalid location description (cannot read op).");
+	offset += sizeof(u8);
+	
+	const char* op_name = location_op_to_string(*op);
+	CCC_CHECK(op_name, "Invalid location description (unknown op 0x%hhx).", *op);
+	
+	atom.op = static_cast<LocationOp>(*op);
+	
+	if (*op == OP_REG || *op == OP_BASEREG || *op == OP_ADDR || *op == OP_CONST || *op == OP_80) {
+		const u32* value = get_unaligned<u32>(m_block, offset);
+		CCC_CHECK(value, "Invalid location descripton (cannot read value).");
+		offset += sizeof(u32);
+		
+		atom.value = *value;
+	}
+	
+	return atom;
+}
 
 // *****************************************************************************
 
@@ -432,47 +493,14 @@ Result<void> SectionReader::print_attributes(FILE* out, const DIE& die) const
 				break;
 			}
 			case FORM_REF: {
-				Result<std::optional<DIE>> referenced_die = DIE::parse(m_debug, value.reference(), NO_IMPORTER_FLAGS);
-				if (referenced_die.success()) {
-					if (referenced_die->has_value()) {
-						const char* referenced_die_tag = tag_to_string((*referenced_die)->tag());
-						if (referenced_die_tag) {
-							fprintf(out, "%s", referenced_die_tag);
-						} else {
-							fprintf(out, "unknown(%hx)", (*referenced_die)->tag());
-						}
-					} else {
-						// The DIE was less than 8 bytes in size.
-						fprintf(out, "null");
-					}
-				} else {
-					// The DIE could not be read.
-					fprintf(out, "???");
-				}
-				
-				fprintf(out, "@%x", value.reference());
+				Result<void> ref_result = print_ref_value(out, value);
+				CCC_RETURN_IF_ERROR(ref_result);
 				break;
 			}
 			case FORM_BLOCK2:
 			case FORM_BLOCK4: {
-				fprintf(out, "{");
-				
-				size_t max_bytes_to_display = 3;
-				std::span<const u8> block = value.block();
-				
-				for (size_t i = 0; i < std::min(block.size(), max_bytes_to_display); i++) {
-					if (i != 0) {
-						fprintf(out, ",");
-					}
-					fprintf(out, "%02hhx", block[i]);
-				}
-				
-				if (block.size() > max_bytes_to_display) {
-					fprintf(out, ",...");
-				}
-				
-				fprintf(out, "}@%x", offset);
-				
+				Result<void> block_result = print_block_value(out, offset, attribute, value);
+				CCC_RETURN_IF_ERROR(block_result);
 				break;
 			}
 			case FORM_DATA2:
@@ -488,6 +516,67 @@ Result<void> SectionReader::print_attributes(FILE* out, const DIE& die) const
 		}
 	}
 	fprintf(out, "\n");
+	
+	return Result<void>();
+}
+
+Result<void> SectionReader::print_ref_value(FILE* out, const Value& value) const
+{
+	Result<std::optional<DIE>> referenced_die = DIE::parse(m_debug, value.reference(), NO_IMPORTER_FLAGS);
+	if (referenced_die.success()) {
+		if (referenced_die->has_value()) {
+			const char* referenced_die_tag = tag_to_string((*referenced_die)->tag());
+			if (referenced_die_tag) {
+				fprintf(out, "%s", referenced_die_tag);
+			} else {
+				fprintf(out, "unknown(%hx)", (*referenced_die)->tag());
+			}
+		} else {
+			// The DIE was less than 8 bytes in size.
+			fprintf(out, "null");
+		}
+	} else {
+		// The DIE could not be read.
+		fprintf(out, "???");
+	}
+	
+	fprintf(out, "@%x", value.reference());
+	
+	return Result<void>();
+}
+
+Result<void> SectionReader::print_block_value(FILE* out, u32 offset, Attribute attribute, const Value& value) const
+{
+	std::span<const u8> block = value.block();
+	
+	switch (attribute) {
+		case AT_location: {
+			LocationDescription location(value.block());
+			
+			Result<void> print_result = location.print(out);
+			CCC_RETURN_IF_ERROR(print_result);
+			
+			break;
+		}
+		default: {
+			fprintf(out, "{");
+			
+			size_t max_bytes_to_display = 3;
+			
+			for (size_t i = 0; i < std::min(block.size(), max_bytes_to_display); i++) {
+				if (i != 0) {
+					fprintf(out, ",");
+				}
+				fprintf(out, "%02hhx", block[i]);
+			}
+			
+			if (block.size() > max_bytes_to_display) {
+				fprintf(out, ",...");
+			}
+			
+			fprintf(out, "}@%x", offset);
+		}
+	}
 	
 	return Result<void>();
 }
@@ -599,8 +688,25 @@ const char* attribute_to_string(u32 attribute)
 		case AT_stride_size: return "stride_size";
 		case AT_upper_bound: return "upper_bound";
 		case AT_virtual: return "virtual";
+		case AT_mangled_name: return "mangled_name";
 		case AT_overlay_id: return "overlay_id";
 		case AT_overlay_name: return "overlay_name";
+	}
+	
+	return nullptr;
+}
+
+const char* location_op_to_string(u32 op)
+{
+	switch (op) {
+		case OP_REG: return "reg";
+		case OP_BASEREG: return "basereg";
+		case OP_ADDR: return "addr";
+		case OP_CONST: return "const";
+		case OP_DEREF2: return "deref2";
+		case OP_DEREF: return "deref";
+		case OP_ADD: return "add";
+		case OP_80: return "op80";
 	}
 	
 	return nullptr;

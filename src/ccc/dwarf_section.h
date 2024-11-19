@@ -237,6 +237,34 @@ protected:
 	u32 m_importer_flags;
 };
 
+enum LocationOp : u8 {
+	OP_REG = 0x01,
+	OP_BASEREG = 0x02,
+	OP_ADDR = 0x03,
+	OP_CONST = 0x04,
+	OP_DEREF2 = 0x05,
+	OP_DEREF = 0x06,
+	OP_ADD = 0x07,
+	OP_80 = 0x80
+};
+
+struct LocationAtom {
+	LocationOp op;
+	std::optional<u32> value;
+};
+
+class LocationDescription {
+public:
+	LocationDescription(std::span<const u8> block);
+	
+	Result<void> print(FILE* out);
+	
+protected:
+	Result<LocationAtom> parse_atom(u32& offset) const;
+	
+	std::span<const u8> m_block;
+};
+
 class SectionReader {
 public:
 	SectionReader(std::span<const u8> debug, std::span<const u8> line);
@@ -245,6 +273,8 @@ public:
 	
 	Result<void> print_dies(FILE* out, DIE die, s32 depth) const;
 	Result<void> print_attributes(FILE* out, const DIE& die) const;
+	Result<void> print_ref_value(FILE* out, const Value& value) const;
+	Result<void> print_block_value(FILE* out, u32 offset, Attribute attribute, const Value& value) const;
 	
 protected:
 	std::span<const u8> m_debug;
@@ -254,5 +284,6 @@ protected:
 const char* tag_to_string(u32 tag);
 const char* form_to_string(u32 form);
 const char* attribute_to_string(u32 attribute);
+const char* location_op_to_string(u32 op);
 
 }
