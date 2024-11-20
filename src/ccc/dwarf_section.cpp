@@ -4,133 +4,8 @@
 #include "dwarf_section.h"
 
 #include "importer_flags.h"
-#include "registers.h"
 
 namespace ccc::dwarf {
-
-Value::Value() = default;
-
-Value::Value(const Value& rhs)
-{
-	memcpy(this, &rhs, sizeof(Value));
-}
-
-Value::~Value() = default;
-
-Value& Value::operator=(const Value& rhs)
-{
-	memcpy(this, &rhs, sizeof(Value));
-	return *this;
-}
-
-Form Value::form() const
-{
-	return static_cast<Form>(m_form);
-}
-
-bool Value::valid() const
-{
-	return form_to_string(m_form) != nullptr;
-}
-
-Value Value::from_address(u32 address)
-{
-	Value result;
-	result.m_form = FORM_ADDR;
-	result.m_value.address = address;
-	return result;
-}
-
-Value Value::from_reference(u32 reference)
-{
-	Value result;
-	result.m_form = FORM_REF;
-	result.m_value.reference = reference;
-	return result;
-}
-
-Value Value::from_constant_2(u16 constant)
-{
-	Value result;
-	result.m_form = FORM_DATA2;
-	result.m_value.constant = constant;
-	return result;
-}
-
-Value Value::from_constant_4(u32 constant)
-{
-	Value result;
-	result.m_form = FORM_DATA4;
-	result.m_value.constant = constant;
-	return result;
-}
-
-Value Value::from_constant_8(u64 constant)
-{
-	Value result;
-	result.m_form = FORM_DATA8;
-	result.m_value.constant = constant;
-	return result;
-}
-
-Value Value::from_block_2(std::span<const u8> block)
-{
-	Value result;
-	result.m_form = FORM_BLOCK2;
-	result.m_value.block.begin = block.data();
-	result.m_value.block.end = block.data() + block.size();
-	return result;
-}
-
-Value Value::from_block_4(std::span<const u8> block)
-{
-	Value result;
-	result.m_form = FORM_BLOCK4;
-	result.m_value.block.begin = block.data();
-	result.m_value.block.end = block.data() + block.size();
-	return result;
-}
-
-Value Value::from_string(std::string_view string)
-{
-	Value result;
-	result.m_form = FORM_STRING;
-	result.m_value.string.begin = string.data();
-	result.m_value.string.end = string.data() + string.size();
-	return result;
-}
-
-u32 Value::address() const
-{
-	CCC_ASSERT(m_form == FORM_ADDR);
-	return m_value.address;
-}
-
-u32 Value::reference() const
-{
-	CCC_ASSERT(m_form == FORM_REF);
-	return m_value.reference;
-}
-
-u64 Value::constant() const
-{
-	CCC_ASSERT(m_form == FORM_DATA2 || m_form == FORM_DATA4 || m_form == FORM_DATA8);
-	return m_value.constant;
-}
-
-std::span<const u8> Value::block() const
-{
-	CCC_ASSERT(m_form == FORM_BLOCK2 || m_form == FORM_BLOCK4);
-	return std::span<const u8>(m_value.block.begin, m_value.block.end);
-}
-
-std::string_view Value::string() const
-{
-	CCC_ASSERT(m_form == FORM_STRING);
-	return std::string_view(m_value.string.begin, m_value.string.end);
-}
-
-// *****************************************************************************
 
 #define DIE_CHECK(condition, message) \
 	CCC_CHECK(condition, message " at 0x%x inside DIE at 0x%x.", offset, m_offset);
@@ -354,67 +229,6 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 
 // *****************************************************************************
 
-LocationDescription::LocationDescription(std::span<const u8> block)
-	: m_block(block) {}
-
-Result<void> LocationDescription::print(FILE* out)
-{
-	fprintf(out, "{");
-	
-	u32 offset = 0;
-	while (offset < m_block.size()) {
-		if (offset != 0) {
-			fprintf(out, ",");
-		}
-		
-		Result<LocationAtom> atom = parse_atom(offset);
-		CCC_RETURN_IF_ERROR(atom);
-		
-		const char* op_name = location_op_to_string(atom->op);
-		CCC_ASSERT(op_name);
-		
-		fprintf(out, "%s", op_name);
-		
-		if (atom->value.has_value()) {
-			if ((atom->op == OP_REG || atom->op == OP_BASEREG) && *atom->value < 32) {
-				fprintf(out, "(%s)", mips::GPR_STRINGS[*atom->value]);
-			} else {
-				fprintf(out, "(0x%x)", *atom->value);
-			}
-		}
-	}
-	
-	fprintf(out, "}");
-	
-	return Result<void>();
-}
-
-Result<LocationAtom> LocationDescription::parse_atom(u32& offset) const
-{
-	LocationAtom atom;
-	
-	const u8* op = get_unaligned<u8>(m_block, offset);
-	CCC_CHECK(op, "Invalid location description (cannot read op).");
-	offset += sizeof(u8);
-	
-	const char* op_name = location_op_to_string(*op);
-	CCC_CHECK(op_name, "Invalid location description (unknown op 0x%hhx).", *op);
-	
-	atom.op = static_cast<LocationOp>(*op);
-	
-	if (*op == OP_REG || *op == OP_BASEREG || *op == OP_ADDR || *op == OP_CONST || *op == OP_80) {
-		const u32* value = get_unaligned<u32>(m_block, offset);
-		CCC_CHECK(value, "Invalid location descripton (cannot read value).");
-		offset += sizeof(u32);
-		
-		atom.value = *value;
-	}
-	
-	return atom;
-}
-
-// *****************************************************************************
-
 SectionReader::SectionReader(std::span<const u8> debug, std::span<const u8> line)
 	: m_debug(debug), m_line(line) {}
 	
@@ -493,20 +307,21 @@ Result<void> SectionReader::print_attributes(FILE* out, const DIE& die) const
 				break;
 			}
 			case FORM_REF: {
-				Result<void> ref_result = print_ref_value(out, value);
-				CCC_RETURN_IF_ERROR(ref_result);
+				Result<void> print_result = print_reference(out, value.reference());
+				CCC_RETURN_IF_ERROR(print_result);
 				break;
 			}
 			case FORM_BLOCK2:
 			case FORM_BLOCK4: {
-				Result<void> block_result = print_block_value(out, offset, attribute, value);
-				CCC_RETURN_IF_ERROR(block_result);
+				Result<void> print_result = print_block(out, offset, attribute, value);
+				CCC_RETURN_IF_ERROR(print_result);
 				break;
 			}
 			case FORM_DATA2:
 			case FORM_DATA4:
 			case FORM_DATA8: {
-				fprintf(out, "0x%llx", (long long) value.constant());
+				Result<void> print_result = print_constant(out, attribute, value);
+				CCC_RETURN_IF_ERROR(print_result);
 				break;
 			}
 			case FORM_STRING: {
@@ -520,42 +335,48 @@ Result<void> SectionReader::print_attributes(FILE* out, const DIE& die) const
 	return Result<void>();
 }
 
-Result<void> SectionReader::print_ref_value(FILE* out, const Value& value) const
+Result<void> SectionReader::print_reference(FILE* out, u32 reference) const
 {
-	Result<std::optional<DIE>> referenced_die = DIE::parse(m_debug, value.reference(), NO_IMPORTER_FLAGS);
-	if (referenced_die.success()) {
-		if (referenced_die->has_value()) {
-			const char* referenced_die_tag = tag_to_string((*referenced_die)->tag());
-			if (referenced_die_tag) {
-				fprintf(out, "%s", referenced_die_tag);
-			} else {
-				fprintf(out, "unknown(%hx)", (*referenced_die)->tag());
-			}
+	Result<std::optional<DIE>> referenced_die = DIE::parse(m_debug, reference, NO_IMPORTER_FLAGS);
+	CCC_RETURN_IF_ERROR(referenced_die);
+	
+	if (referenced_die->has_value()) {
+		const char* referenced_die_tag = tag_to_string((*referenced_die)->tag());
+		if (referenced_die_tag) {
+			fprintf(out, "%s", referenced_die_tag);
 		} else {
-			// The DIE was less than 8 bytes in size.
-			fprintf(out, "null");
+			fprintf(out, "unknown(%hx)", (*referenced_die)->tag());
 		}
 	} else {
-		// The DIE could not be read.
-		fprintf(out, "???");
+		fprintf(out, "null");
 	}
 	
-	fprintf(out, "@%x", value.reference());
+	fprintf(out, "@%x", reference);
 	
 	return Result<void>();
 }
 
-Result<void> SectionReader::print_block_value(FILE* out, u32 offset, Attribute attribute, const Value& value) const
+Result<void> SectionReader::print_block(FILE* out, u32 offset, Attribute attribute, const Value& value) const
 {
 	std::span<const u8> block = value.block();
 	
 	switch (attribute) {
 		case AT_location: {
 			LocationDescription location(value.block());
-			
 			Result<void> print_result = location.print(out);
 			CCC_RETURN_IF_ERROR(print_result);
-			
+			break;
+		}
+		case AT_mod_fund_type: {
+			Type type = Type::from_mod_fund_type(value);
+			Result<void> print_result = print_type(out, type);
+			CCC_RETURN_IF_ERROR(print_result);
+			break;
+		}
+		case AT_mod_u_d_type: {
+			Type type = Type::from_mod_u_d_type(value);
+			Result<void> print_result = print_type(out, type);
+			CCC_RETURN_IF_ERROR(print_result);
 			break;
 		}
 		default: {
@@ -580,6 +401,73 @@ Result<void> SectionReader::print_block_value(FILE* out, u32 offset, Attribute a
 	
 	return Result<void>();
 }
+
+Result<void> SectionReader::print_constant(FILE* out, Attribute attribute, const Value& value) const
+{
+	switch (attribute) {
+		case AT_fund_type: {
+			Type type = Type::from_fund_type(value);
+			Result<void> print_result = print_type(out, type);
+			CCC_RETURN_IF_ERROR(print_result);
+			break;
+		}
+		case AT_user_def_type: {
+			Type type = Type::from_user_def_type(value);
+			Result<void> print_result = print_type(out, type);
+			CCC_RETURN_IF_ERROR(print_result);
+			break;
+		}
+		default: {
+			fprintf(out, "0x%llx", (long long) value.constant());
+		}
+	}
+	
+	return Result<void>();
+}
+
+Result<void> SectionReader::print_type(FILE* out, const Type& type) const
+{
+	Result<std::span<const TypeModifier>> mods = type.modifiers();
+	CCC_RETURN_IF_ERROR(mods);
+	
+	if (!mods->empty()) {
+		fprintf(out, "{");
+	}
+	
+	for (TypeModifier mod : *mods) {
+		fprintf(out, "%s,", type_modifier_to_string(mod));
+	}
+	
+	switch (type.attribute()) {
+		case AT_fund_type:
+		case AT_mod_fund_type: {
+			Result<FundamentalType> fund_type = type.fund_type();
+			CCC_RETURN_IF_ERROR(fund_type);
+			
+			fprintf(out, "%s", fundamental_type_to_string(*fund_type));
+			
+			break;
+		}
+		case AT_user_def_type:
+		case AT_mod_u_d_type: {
+			Result<u32> reference = type.user_def_type();
+			CCC_RETURN_IF_ERROR(reference);
+			
+			Result<void> print_result = print_reference(out, *reference);
+			CCC_RETURN_IF_ERROR(print_result);
+			
+			break;
+		}
+	}
+	
+	if (!mods->empty()) {
+		fprintf(out, "}");
+	}
+	
+	return Result<void>();
+}
+
+// *****************************************************************************
 
 const char* tag_to_string(u32 tag)
 {
@@ -621,92 +509,6 @@ const char* tag_to_string(u32 tag)
 		case TAG_namelist: return "namelist";
 		case TAG_function_template: return "function_template";
 		case TAG_class_template: return "class_template";
-	}
-	
-	return nullptr;
-}
-
-const char* form_to_string(u32 form)
-{
-	switch (form) {
-		case FORM_ADDR: return "addr";
-		case FORM_REF: return "ref";
-		case FORM_BLOCK2: return "block2";
-		case FORM_BLOCK4: return "block4";
-		case FORM_DATA2: return "data2";
-		case FORM_DATA4: return "data4";
-		case FORM_DATA8: return "data8";
-		case FORM_STRING: return "string";
-	}
-	
-	return nullptr;
-}
-
-const char* attribute_to_string(u32 attribute)
-{
-	switch (attribute) {
-		case AT_sibling: return "sibling";
-		case AT_location: return "location";
-		case AT_name: return "name";
-		case AT_fund_type: return "fund_type";
-		case AT_mod_fund_type: return "mod_fund_type";
-		case AT_user_def_type: return "user_def_type";
-		case AT_mod_u_d_type: return "mod_u_d_type";
-		case AT_ordering: return "ordering";
-		case AT_subscr_data: return "subscr_data";
-		case AT_byte_size: return "byte_size";
-		case AT_bit_offset: return "bit_offset";
-		case AT_bit_size: return "bit_size";
-		case AT_element_list: return "element_list";
-		case AT_stmt_list: return "stmt_list";
-		case AT_low_pc: return "low_pc";
-		case AT_high_pc: return "high_pc";
-		case AT_language: return "language";
-		case AT_member: return "member";
-		case AT_discr: return "discr";
-		case AT_discr_value: return "discr_value";
-		case AT_string_length: return "string_length";
-		case AT_common_reference: return "common_reference";
-		case AT_comp_dir: return "comp_dir";
-		case AT_const_value: return "const_value";
-		case AT_containing_type: return "containing_type";
-		case AT_default_value: return "default_value";
-		case AT_friends: return "friends";
-		case AT_inline: return "inline";
-		case AT_is_optional: return "is_optional";
-		case AT_lower_bound: return "lower_bound";
-		case AT_program: return "program";
-		case AT_private: return "private";
-		case AT_producer: return "producer";
-		case AT_protected: return "protected";
-		case AT_prototyped: return "prototyped";
-		case AT_public: return "public";
-		case AT_pure_virtual: return "pure_virtual";
-		case AT_return_addr: return "return_addr";
-		case AT_specification: return "specification";
-		case AT_start_scope: return "start_scope";
-		case AT_stride_size: return "stride_size";
-		case AT_upper_bound: return "upper_bound";
-		case AT_virtual: return "virtual";
-		case AT_mangled_name: return "mangled_name";
-		case AT_overlay_id: return "overlay_id";
-		case AT_overlay_name: return "overlay_name";
-	}
-	
-	return nullptr;
-}
-
-const char* location_op_to_string(u32 op)
-{
-	switch (op) {
-		case OP_REG: return "reg";
-		case OP_BASEREG: return "basereg";
-		case OP_ADDR: return "addr";
-		case OP_CONST: return "const";
-		case OP_DEREF2: return "deref2";
-		case OP_DEREF: return "deref";
-		case OP_ADD: return "add";
-		case OP_80: return "op80";
 	}
 	
 	return nullptr;

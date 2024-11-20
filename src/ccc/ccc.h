@@ -7,6 +7,7 @@
 #include "ast_json.h"
 #include "data_refinement.h"
 #include "dependency.h"
+#include "dwarf_attributes.h"
 #include "dwarf_importer.h"
 #include "dwarf_section.h"
 #include "elf.h"

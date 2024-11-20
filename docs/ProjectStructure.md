@@ -10,8 +10,9 @@
 - src/ccc/ast_json.cpp: Reads/writes the AST structure as JSON.
 - src/ccc/data_refinement.cpp: Converts global variable data into structured initializer lists and literals.
 - src/ccc/dependency.cpp: Tries to infer information about which types belong to which files.
-- src/ccc/dwarf_importer.cpp: Imports .debug (DWARF) symbol tables into the symbol database.
-- src/ccc/dwarf_section.cpp: Parses the .debug (DWARF) binary format.
+- src/ccc/dwarf_attributes.cpp: Parses DWARF 1 attributes.
+- src/ccc/dwarf_importer.cpp: Imports DWARF 1 symbol tables into the symbol database.
+- src/ccc/dwarf_section.cpp: Parses the DWARF 1 binary format.
 - src/ccc/elf.cpp: Parses ELF files.
 - src/ccc/elf_symtab.cpp: Parses the ELF symbol table.
 - src/ccc/importer_flags.cpp: An enum and help information printing for importer configuration flags.

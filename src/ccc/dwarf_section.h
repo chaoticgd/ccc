@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "dwarf_attributes.h"
 #include "util.h"
 
 #include <map>
@@ -47,109 +48,6 @@ enum Tag : u16 {
 	TAG_namelist               = 0x8001,
 	TAG_function_template      = 0x8002,
 	TAG_class_template         = 0x8003
-};
-
-enum Form {
-	FORM_ADDR   = 0x1,
-	FORM_REF    = 0x2,
-	FORM_BLOCK2 = 0x3,
-	FORM_BLOCK4 = 0x4,
-	FORM_DATA2  = 0x5,
-	FORM_DATA4  = 0x6,
-	FORM_DATA8  = 0x7,
-	FORM_STRING = 0x8,
-};
-
-enum Attribute {
-	AT_sibling            = 0x001,
-	AT_location           = 0x002,
-	AT_name               = 0x003,
-	AT_fund_type          = 0x005,
-	AT_mod_fund_type      = 0x006,
-	AT_user_def_type      = 0x007,
-	AT_mod_u_d_type       = 0x008,
-	AT_ordering           = 0x009,
-	AT_subscr_data        = 0x00a,
-	AT_byte_size          = 0x00b,
-	AT_bit_offset         = 0x00c,
-	AT_bit_size           = 0x00d,
-	AT_element_list       = 0x00f,
-	AT_stmt_list          = 0x010,
-	AT_low_pc             = 0x011,
-	AT_high_pc            = 0x012,
-	AT_language           = 0x013,
-	AT_member             = 0x014,
-	AT_discr              = 0x015,
-	AT_discr_value        = 0x016,
-	AT_string_length      = 0x019,
-	AT_common_reference   = 0x01a,
-	AT_comp_dir           = 0x01b,
-	AT_const_value        = 0x01c,
-	AT_containing_type    = 0x01d,
-	AT_default_value      = 0x01e,
-	AT_friends            = 0x01f,
-	AT_inline             = 0x020,
-	AT_is_optional        = 0x021,
-	AT_lower_bound        = 0x022,
-	AT_program            = 0x023,
-	AT_private            = 0x024,
-	AT_producer           = 0x025,
-	AT_protected          = 0x026,
-	AT_prototyped         = 0x027,
-	AT_public             = 0x028,
-	AT_pure_virtual       = 0x029,
-	AT_return_addr        = 0x02a,
-	AT_specification      = 0x02b,
-	AT_start_scope        = 0x02c,
-	AT_stride_size        = 0x02e,
-	AT_upper_bound        = 0x02f,
-	AT_virtual            = 0x030,
-	AT_mangled_name       = 0x200,
-	AT_overlay_id         = 0x229,
-	AT_overlay_name       = 0x22a
-};
-
-// The value of an attribute.
-class Value {
-public:
-	Value();
-	Value(const Value& rhs);
-	~Value();
-	Value& operator=(const Value& rhs);
-	
-	Form form() const;
-	bool valid() const;
-	
-	static Value from_address(u32 address);
-	static Value from_reference(u32 reference);
-	static Value from_constant_2(u16 constant);
-	static Value from_constant_4(u32 constant);
-	static Value from_constant_8(u64 constant);
-	static Value from_block_2(std::span<const u8> block);
-	static Value from_block_4(std::span<const u8> block);
-	static Value from_string(std::string_view string); // Must be null terminated.
-	
-	u32 address() const;
-	u32 reference() const;
-	u64 constant() const;
-	std::span<const u8> block() const;
-	std::string_view string() const;
-	
-protected:
-	u8 m_form = 0;
-	union {
-		u32 address;
-		u32 reference;
-		u64 constant;
-		struct {
-			const u8* begin;
-			const u8* end;
-		} block;
-		struct {
-			const char* begin;
-			const char* end;
-		} string;
-	} m_value;
 };
 
 struct AttributeTuple {
@@ -237,34 +135,6 @@ protected:
 	u32 m_importer_flags;
 };
 
-enum LocationOp : u8 {
-	OP_REG = 0x01,
-	OP_BASEREG = 0x02,
-	OP_ADDR = 0x03,
-	OP_CONST = 0x04,
-	OP_DEREF2 = 0x05,
-	OP_DEREF = 0x06,
-	OP_ADD = 0x07,
-	OP_80 = 0x80
-};
-
-struct LocationAtom {
-	LocationOp op;
-	std::optional<u32> value;
-};
-
-class LocationDescription {
-public:
-	LocationDescription(std::span<const u8> block);
-	
-	Result<void> print(FILE* out);
-	
-protected:
-	Result<LocationAtom> parse_atom(u32& offset) const;
-	
-	std::span<const u8> m_block;
-};
-
 class SectionReader {
 public:
 	SectionReader(std::span<const u8> debug, std::span<const u8> line);
@@ -273,8 +143,10 @@ public:
 	
 	Result<void> print_dies(FILE* out, DIE die, s32 depth) const;
 	Result<void> print_attributes(FILE* out, const DIE& die) const;
-	Result<void> print_ref_value(FILE* out, const Value& value) const;
-	Result<void> print_block_value(FILE* out, u32 offset, Attribute attribute, const Value& value) const;
+	Result<void> print_reference(FILE* out, u32 reference) const;
+	Result<void> print_block(FILE* out, u32 offset, Attribute attribute, const Value& value) const;
+	Result<void> print_constant(FILE* out, Attribute attribute, const Value& value) const;
+	Result<void> print_type(FILE* out, const Type& type) const;
 	
 protected:
 	std::span<const u8> m_debug;
@@ -282,8 +154,5 @@ protected:
 };
 
 const char* tag_to_string(u32 tag);
-const char* form_to_string(u32 form);
-const char* attribute_to_string(u32 attribute);
-const char* location_op_to_string(u32 op);
 
 }
