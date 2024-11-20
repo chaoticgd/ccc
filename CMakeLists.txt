@@ -46,6 +46,8 @@ add_library(ccc STATIC
 	src/ccc/dwarf_importer.h
 	src/ccc/dwarf_section.cpp
 	src/ccc/dwarf_section.h
+	src/ccc/dwarf_to_ast.cpp
+	src/ccc/dwarf_to_ast.h
 	src/ccc/elf.cpp
 	src/ccc/elf.h
 	src/ccc/elf_symtab.cpp

@@ -221,7 +221,7 @@ Result<void> DwarfSymbolTable::import(
 	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt) const
 {
-	dwarf::SectionReader reader(m_debug, m_line);
+	dwarf::SectionReader reader(m_debug, m_line, importer_flags);
 	dwarf::SymbolTableImporter importer(database, reader, importer_flags, demangler, interrupt);
 	return importer.import_symbol_table(group);
 }
@@ -233,9 +233,9 @@ Result<void> DwarfSymbolTable::print_headers(FILE* out) const
 
 Result<void> DwarfSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
-	dwarf::SectionReader reader(m_debug, m_line);
+	dwarf::SectionReader reader(m_debug, m_line, NO_IMPORTER_FLAGS);
 	
-	Result<dwarf::DIE> first_die = reader.first_die(NO_IMPORTER_FLAGS);
+	Result<dwarf::DIE> first_die = reader.first_die();
 	CCC_RETURN_IF_ERROR(first_die);
 	
 	return reader.print_dies(out, std::move(*first_die), 0);

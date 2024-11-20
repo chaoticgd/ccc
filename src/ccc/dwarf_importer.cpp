@@ -3,6 +3,8 @@
 
 #include "dwarf_importer.h"
 
+#include "dwarf_to_ast.h"
+
 namespace ccc::dwarf {
 
 static Result<std::map<u32, u32>> parse_overlays(SymbolDatabase& database, const DIE& first_die);
@@ -32,7 +34,7 @@ Result<void> SymbolTableImporter::import_overlay(u32 overlay_id, SymbolGroup gro
 
 Result<void> SymbolTableImporter::import_compile_units(std::optional<u32> overlay_id, SymbolGroup group)
 {
-	Result<DIE> first_die = m_dwarf.first_die(m_importer_flags);
+	Result<DIE> first_die = m_dwarf.first_die();
 	CCC_RETURN_IF_ERROR(first_die);
 	
 	Result<std::map<u32, u32>> compile_unit_offset_to_overlay_id = parse_overlays(m_database, *first_die);
@@ -68,7 +70,7 @@ Result<void> SymbolTableImporter::import_compile_units(std::optional<u32> overla
 	return Result<void>();
 }
 
-Result<void> SymbolTableImporter::import_compile_unit(const DIE& compile_unit)
+Result<void> SymbolTableImporter::import_compile_unit(const DIE& die)
 {
 	static const AttributesSpec compile_unit_attributes = DIE::specify_attributes({
 		DIE::required_attribute(AT_name, {FORM_STRING}),
@@ -85,7 +87,7 @@ Result<void> SymbolTableImporter::import_compile_unit(const DIE& compile_unit)
 	Value stmt_list;
 	Value low_pc;
 	Value high_pc;
-	Result<void> attribute_result = compile_unit.attributes(
+	Result<void> attribute_result = die.attributes(
 		compile_unit_attributes, {&name, &producer, &language, &stmt_list, &low_pc, &high_pc});
 	CCC_RETURN_IF_ERROR(attribute_result);
 	
@@ -123,19 +125,24 @@ Result<void> SymbolTableImporter::import_compile_unit(const DIE& compile_unit)
 		}
 	}
 	
-	Result<std::optional<DIE>> first_child = compile_unit.first_child();
+	Result<std::optional<DIE>> first_child = die.first_child();
 	CCC_RETURN_IF_ERROR(first_child);
 	
 	std::optional<DIE> child = *first_child;
 	while (child.has_value()) {
-		switch (child->tag()) {
-			case TAG_global_subroutine:
-			case TAG_subroutine: {
-				Result<void> subroutine_result = import_subroutine(*child);
-				CCC_RETURN_IF_ERROR(subroutine_result);
-				break;
+		if (die_is_type(*child)) {
+			Result<void> data_type_result = import_data_type(*child);
+			CCC_RETURN_IF_ERROR(data_type_result);
+		} else {
+			switch (child->tag()) {
+				case TAG_global_subroutine:
+				case TAG_subroutine: {
+					Result<void> subroutine_result = import_subroutine(*child);
+					CCC_RETURN_IF_ERROR(subroutine_result);
+					break;
+				}
+				default: {}
 			}
-			default: {}
 		}
 		
 		Result<std::optional<DIE>> next_child = child->sibling();
@@ -146,9 +153,24 @@ Result<void> SymbolTableImporter::import_compile_unit(const DIE& compile_unit)
 	return Result<void>();
 }
 
-Result<void> SymbolTableImporter::import_subroutine(const DIE& subroutine)
+Result<void> SymbolTableImporter::import_data_type(const DIE& die)
 {
-	static const AttributesSpec compile_unit_attributes = DIE::specify_attributes({
+	Result<DataType*> data_type = m_database.data_types.create_symbol("test", m_group.source, m_group.module_symbol);
+	CCC_RETURN_IF_ERROR(data_type);
+	
+	TypeImporter type_importer(m_database, m_dwarf, m_importer_flags);
+	
+	Result<std::unique_ptr<ast::Node>> node = type_importer.die_to_ast(die);
+	CCC_RETURN_IF_ERROR(node);
+	
+	(*data_type)->set_type(std::move(*node));
+	
+	return Result<void>();
+}
+
+Result<void> SymbolTableImporter::import_subroutine(const DIE& die)
+{
+	static const AttributesSpec subroutine_attributes = DIE::specify_attributes({
 		DIE::optional_attribute(AT_name, {FORM_STRING}),
 		DIE::optional_attribute(AT_mangled_name, {FORM_STRING}),
 		DIE::optional_attribute(AT_low_pc, {FORM_ADDR}),
@@ -159,8 +181,8 @@ Result<void> SymbolTableImporter::import_subroutine(const DIE& subroutine)
 	Value mangled_name;
 	Value low_pc;
 	Value high_pc;
-	Result<void> attribute_result = subroutine.attributes(
-		compile_unit_attributes, {&name, &mangled_name, &low_pc, &high_pc});
+	Result<void> attribute_result = die.attributes(
+		subroutine_attributes, {&name, &mangled_name, &low_pc, &high_pc});
 	CCC_RETURN_IF_ERROR(attribute_result);
 	
 	Address address;
@@ -179,9 +201,9 @@ Result<void> SymbolTableImporter::import_subroutine(const DIE& subroutine)
 	return Result<void>();
 }
 
-Result<std::vector<OverlayInfo>> enumerate_overlays(const SectionReader& dwarf, u32 importer_flags)
+Result<std::vector<OverlayInfo>> enumerate_overlays(const SectionReader& dwarf)
 {
-	Result<DIE> first_die = dwarf.first_die(importer_flags);
+	Result<DIE> first_die = dwarf.first_die();
 	CCC_RETURN_IF_ERROR(first_die);
 	
 	std::vector<OverlayInfo> overlays;

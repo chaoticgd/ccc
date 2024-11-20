@@ -229,15 +229,20 @@ Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
 
 // *****************************************************************************
 
-SectionReader::SectionReader(std::span<const u8> debug, std::span<const u8> line)
-	: m_debug(debug), m_line(line) {}
+SectionReader::SectionReader(std::span<const u8> debug, std::span<const u8> line, u32 importer_flags)
+	: m_debug(debug), m_line(line), m_importer_flags(importer_flags) {}
 	
-Result<DIE> SectionReader::first_die(u32 importer_flags) const
+Result<DIE> SectionReader::first_die() const
 {
-	Result<std::optional<DIE>> die = DIE::parse(m_debug, 0, importer_flags);
+	Result<std::optional<DIE>> die = DIE::parse(m_debug, 0, m_importer_flags);
 	CCC_RETURN_IF_ERROR(die);
 	CCC_CHECK(die->has_value(), "DIE at offset 0x0 is null.");
 	return **die;
+}
+
+Result<std::optional<DIE>> SectionReader::die_at(u32 offset) const
+{
+	return DIE::parse(m_debug, offset, m_importer_flags);
 }
 
 static void indent(FILE* out, s32 depth)

@@ -7,6 +7,7 @@
 #include "util.h"
 
 #include <map>
+#include <initializer_list>
 
 namespace ccc::dwarf {
 
@@ -137,9 +138,10 @@ protected:
 
 class SectionReader {
 public:
-	SectionReader(std::span<const u8> debug, std::span<const u8> line);
+	SectionReader(std::span<const u8> debug, std::span<const u8> line, u32 importer_flags);
 	
-	Result<DIE> first_die(u32 importer_flags) const;
+	Result<DIE> first_die() const;
+	Result<std::optional<DIE>> die_at(u32 offset) const;
 	
 	Result<void> print_dies(FILE* out, DIE die, s32 depth) const;
 	Result<void> print_attributes(FILE* out, const DIE& die) const;
@@ -151,6 +153,7 @@ public:
 protected:
 	std::span<const u8> m_debug;
 	std::span<const u8> m_line;
+	u32 m_importer_flags;
 };
 
 const char* tag_to_string(u32 tag);

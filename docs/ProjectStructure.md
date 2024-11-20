@@ -13,6 +13,7 @@
 - src/ccc/dwarf_attributes.cpp: Parses DWARF 1 attributes.
 - src/ccc/dwarf_importer.cpp: Imports DWARF 1 symbol tables into the symbol database.
 - src/ccc/dwarf_section.cpp: Parses the DWARF 1 binary format.
+- src/ccc/dwarf_to_ast.cpp: Converts DWARF 1 types into a C++ AST.
 - src/ccc/elf.cpp: Parses ELF files.
 - src/ccc/elf_symtab.cpp: Parses the ELF symbol table.
 - src/ccc/importer_flags.cpp: An enum and help information printing for importer configuration flags.
@@ -25,7 +26,7 @@
 - src/ccc/registers.cpp: Enums for EE core MIPS registers.
 - src/ccc/sndll.cpp: Parses SNDLL files and imports symbols.
 - src/ccc/stabs.cpp: Parses STABS types.
-- src/ccc/stabs_to_ast.cpp: Converts parsed STABS types into an AST.
+- src/ccc/stabs_to_ast.cpp: Converts parsed STABS types into a C++ AST.
 - src/ccc/symbol_database.cpp: Data structures for storing symbols in memory.
 - src/ccc/symbol_file.cpp: Top-level file for parsing files containing symbol tables.
 - src/ccc/symbol_json.cpp: Reads/writes the symbol database as JSON.

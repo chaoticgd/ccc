@@ -193,16 +193,16 @@ Result<LocationAtom> LocationDescription::parse_atom(u32& offset) const
 // *****************************************************************************
 
 std::optional<Type> Type::from_attributes(
-	const Value* fund_type, const Value* mod_fund_type, const Value* user_def_type, const Value* mod_u_d_type)
+	const Value& fund_type, const Value& mod_fund_type, const Value& user_def_type, const Value& mod_u_d_type)
 {
-	if (fund_type) {
-		return from_fund_type(*fund_type);
-	} else if (mod_fund_type) {
-		return from_user_def_type(*mod_fund_type);
-	} else if (user_def_type) {
-		return from_fund_type(*user_def_type);
-	} else if (mod_u_d_type) {
-		return from_mod_u_d_type(*mod_u_d_type);
+	if (fund_type.valid()) {
+		return from_fund_type(fund_type);
+	} else if (mod_fund_type.valid()) {
+		return from_user_def_type(mod_fund_type);
+	} else if (user_def_type.valid()) {
+		return from_fund_type(user_def_type);
+	} else if (mod_u_d_type.valid()) {
+		return from_mod_u_d_type(mod_u_d_type);
 	}
 	
 	return std::nullopt;

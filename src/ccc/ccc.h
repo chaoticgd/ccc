@@ -10,6 +10,7 @@
 #include "dwarf_attributes.h"
 #include "dwarf_importer.h"
 #include "dwarf_section.h"
+#include "dwarf_to_ast.h"
 #include "elf.h"
 #include "elf_symtab.h"
 #include "importer_flags.h"

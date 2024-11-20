@@ -179,7 +179,7 @@ enum TypeModifier : u8 {
 class Type {
 public:
 	static std::optional<Type> from_attributes(
-		const Value* fund_type, const Value* mod_fund_type, const Value* user_def_type, const Value* mod_u_d_type);
+		const Value& fund_type, const Value& mod_fund_type, const Value& user_def_type, const Value& mod_u_d_type);
 	
 	static Type from_fund_type(const Value& fund_type);
 	static Type from_mod_fund_type(const Value& mod_fund_type);

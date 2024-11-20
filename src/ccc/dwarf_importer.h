@@ -27,8 +27,9 @@ public:
 	
 protected:
 	Result<void> import_compile_units(std::optional<u32> overlay_id, SymbolGroup group);
-	Result<void> import_compile_unit(const DIE& compile_unit);
-	Result<void> import_subroutine(const DIE& subroutine);
+	Result<void> import_compile_unit(const DIE& die);
+	Result<void> import_data_type(const DIE& die);
+	Result<void> import_subroutine(const DIE& die);
 	
 	SymbolDatabase& m_database;
 	const SectionReader& m_dwarf;
@@ -47,6 +48,6 @@ struct OverlayInfo {
 
 // Enumerate all the overlays defined in the symbol table. The ID values
 // provided can then be fed into the import_overlay function above.
-Result<std::vector<OverlayInfo>> enumerate_overlays(const SectionReader& dwarf, u32 importer_flags);
+Result<std::vector<OverlayInfo>> enumerate_overlays(const SectionReader& dwarf);
 
 }
