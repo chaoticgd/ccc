@@ -41,6 +41,29 @@ Result<std::optional<DIE>> DIE::parse(std::span<const u8> debug, u32 offset, u32
 	return std::optional<DIE>(die);
 }
 
+AttributeListFormat DIE::attribute_list_format(std::vector<AttributeFormat> input)
+{
+	AttributeListFormat output;
+	
+	for (u32 i = 0; i < static_cast<u32>(input.size()); i++) {
+		AttributeFormat& attribute = output.emplace(input[i].attribute, input[i]).first->second;
+		attribute.index = i;
+	}
+	
+	return output;
+}
+
+AttributeFormat DIE::attribute_format(Attribute attribute, std::vector<u32> valid_forms)
+{
+	AttributeFormat result;
+	result.attribute = attribute;
+	result.valid_forms = 0;
+	for (u32 form : valid_forms) {
+		result.valid_forms |= 1 << form;
+	}
+	return result;
+}
+
 Result<std::optional<DIE>> DIE::first_child() const
 {
 	u32 sibling_offset = 0;
@@ -89,16 +112,15 @@ Tag DIE::tag() const
 	return m_tag;
 }
 
-Result<void> DIE::attributes(const AttributesSpec& spec, std::vector<Value*> output) const
+Result<void> DIE::scan_attributes(const AttributeListFormat& format, std::initializer_list<Value*> output) const
 {
-	// Parse the attributes and save the ones specified.
 	u32 offset = m_offset + 6;
 	while (offset < m_offset + m_length) {
 		Result<AttributeTuple> attribute = parse_attribute(offset);
 		CCC_RETURN_IF_ERROR(attribute);
 		
-		auto iterator = spec.find(attribute->attribute);
-		if (iterator == spec.end()) {
+		auto iterator = format.find(attribute->attribute);
+		if (iterator == format.end()) {
 			continue;
 		}
 		
@@ -106,16 +128,7 @@ Result<void> DIE::attributes(const AttributesSpec& spec, std::vector<Value*> out
 			"Attribute %x has an unexpected form %s", attribute->attribute, form_to_string(attribute->value.form()));
 		
 		CCC_ASSERT(iterator->second.index < output.size());
-		*output[iterator->second.index] = std::move(attribute->value);
-	}
-	
-	// Check that we have all the required attributes.
-	for (auto& [attribute, attribute_spec] : spec) {
-		if (attribute_spec.required) {
-			CCC_ASSERT(attribute_spec.index < output.size());
-			CCC_CHECK(output[attribute_spec.index]->valid(),
-				"Missing %s attribute for DIE at 0x%x\n", attribute_to_string(attribute), m_offset);
-		}
+		**(output.begin() + iterator->second.index) = std::move(attribute->value);
 	}
 	
 	return Result<void>();

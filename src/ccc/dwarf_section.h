@@ -57,14 +57,13 @@ struct AttributeTuple {
 	Value value;
 };
 
-struct AttributeSpec {
+struct AttributeFormat {
 	Attribute attribute;
 	u32 index;
-	bool required;
 	u32 valid_forms;
 };
 
-using AttributesSpec = std::map<Attribute, AttributeSpec>;
+using AttributeListFormat = std::map<Attribute, AttributeFormat>;
 
 // Represents a Debugging Information Entry. Intended to be used to
 // incrementally parse a .debug section.
@@ -75,43 +74,10 @@ public:
 	static Result<std::optional<DIE>> parse(std::span<const u8> debug, u32 offset, u32 importer_flags);
 	
 	// Generate a map of attributes to read, to be used for parsing attributes.
-	static inline AttributesSpec specify_attributes(std::vector<AttributeSpec> input)
-	{
-		AttributesSpec output;
-		
-		for (u32 i = 0; i < static_cast<u32>(input.size()); i++) {
-			AttributeSpec& attribute = output.emplace(input[i].attribute, input[i]).first->second;
-			attribute.index = i;
-		}
-		
-		return output;
-	}
+	static AttributeListFormat attribute_list_format(std::vector<AttributeFormat> input);
 	
-	// Generate a specification for a required attribute.
-	static inline AttributeSpec required_attribute(Attribute attribute, std::vector<u32> valid_forms)
-	{
-		AttributeSpec result;
-		result.attribute = attribute;
-		result.required = true;
-		result.valid_forms = 0;
-		for (u32 form : valid_forms) {
-			result.valid_forms |= 1 << form;
-		}
-		return result;
-	}
-	
-	// Generate a specification for an optional attribute.
-	static inline AttributeSpec optional_attribute(Attribute attribute, std::vector<u32> valid_forms)
-	{
-		AttributeSpec result;
-		result.attribute = attribute;
-		result.required = false;
-		result.valid_forms = 0;
-		for (u32 form : valid_forms) {
-			result.valid_forms |= 1 << form;
-		}
-		return result;
-	}
+	// Generate a specification for an attribute to read.
+	static AttributeFormat attribute_format(Attribute attribute, std::vector<u32> valid_forms);
 	
 	Result<std::optional<DIE>> first_child() const;
 	Result<std::optional<DIE>> sibling() const;
@@ -119,8 +85,8 @@ public:
 	u32 offset() const;
 	Tag tag() const;
 	
-	// Parse the attributes, and output the ones specified by the required parameter.
-	Result<void> attributes(const AttributesSpec& spec, std::vector<Value*> output) const;
+	// Parse the attributes, and output the ones specified by the format parameter.
+	Result<void> scan_attributes(const AttributeListFormat& format, std::initializer_list<Value*> output) const;
 	
 	// Parse the attributes, and output them all in order.
 	Result<std::vector<AttributeTuple>> all_attributes() const;

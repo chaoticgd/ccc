@@ -93,6 +93,12 @@ public:
 	std::span<const u8> block() const;
 	std::string_view string() const;
 	
+	Address address_or_null() const;
+	std::optional<u32> reference_or_null() const;
+	std::optional<u64> constant_or_null() const;
+	std::span<const u8> block_or_null() const;
+	std::string_view string_or_null() const;
+	
 protected:
 	u8 m_form = 0;
 	union {

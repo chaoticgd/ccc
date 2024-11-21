@@ -129,6 +129,51 @@ std::string_view Value::string() const
 	return std::string_view(m_value.string.begin, m_value.string.end);
 }
 
+Address Value::address_or_null() const
+{
+	if (!valid() || m_form != FORM_ADDR) {
+		return Address();
+	}
+	
+	return m_value.address;
+}
+
+std::optional<u32> Value::reference_or_null() const
+{
+	if (!valid() || m_form != FORM_REF) {
+		return std::nullopt;
+	}
+	
+	return m_value.reference;
+}
+
+std::optional<u64> Value::constant_or_null() const
+{
+	if (!valid() || (m_form != FORM_DATA2 && m_form != FORM_DATA4 && m_form != FORM_DATA8)) {
+		return std::nullopt;
+	}
+	
+	return m_value.constant;
+}
+
+std::span<const u8> Value::block_or_null() const
+{
+	if (!valid() || (m_form != FORM_BLOCK2 && m_form != FORM_BLOCK4)) {
+		return std::span<const u8>();
+	}
+	
+	return std::span<const u8>(m_value.block.begin, m_value.block.end);
+}
+
+std::string_view Value::string_or_null() const
+{
+	if (!valid() || m_form != FORM_STRING) {
+		return std::string_view();
+	}
+	
+	return std::string_view(m_value.string.begin, m_value.string.end);
+}
+
 // *****************************************************************************
 
 LocationDescription::LocationDescription(std::span<const u8> block)

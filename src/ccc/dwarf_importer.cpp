@@ -70,37 +70,32 @@ Result<void> SymbolTableImporter::import_compile_units(std::optional<u32> overla
 	return Result<void>();
 }
 
+static const AttributeListFormat compile_unit_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_name, {FORM_STRING}),
+	DIE::attribute_format(AT_producer, {FORM_STRING}),
+	DIE::attribute_format(AT_language, {FORM_DATA4}),
+	DIE::attribute_format(AT_stmt_list, {FORM_DATA4}),
+	DIE::attribute_format(AT_low_pc, {FORM_ADDR}),
+	DIE::attribute_format(AT_high_pc, {FORM_ADDR})
+});
+
 Result<void> SymbolTableImporter::import_compile_unit(const DIE& die)
 {
-	static const AttributesSpec compile_unit_attributes = DIE::specify_attributes({
-		DIE::required_attribute(AT_name, {FORM_STRING}),
-		DIE::optional_attribute(AT_producer, {FORM_STRING}),
-		DIE::optional_attribute(AT_language, {FORM_DATA4}),
-		DIE::optional_attribute(AT_stmt_list, {FORM_DATA4}),
-		DIE::optional_attribute(AT_low_pc, {FORM_ADDR}),
-		DIE::optional_attribute(AT_high_pc, {FORM_ADDR})
-	});
-	
 	Value name;
 	Value producer;
 	Value language;
 	Value stmt_list;
 	Value low_pc;
 	Value high_pc;
-	Result<void> attribute_result = die.attributes(
+	Result<void> attribute_result = die.scan_attributes(
 		compile_unit_attributes, {&name, &producer, &language, &stmt_list, &low_pc, &high_pc});
 	CCC_RETURN_IF_ERROR(attribute_result);
 	
-	Address address;
-	if (low_pc.valid()) {
-		address = low_pc.address();
-	}
-	
 	// The Metrowerks compiler outputs multiple compile_unit DIEs for a single
 	// logical source file, so we need to deduplicate them here.
-	if (!m_source_file || m_source_file->name() != name.string()) {
+	if (!m_source_file || m_source_file->name() != name.string_or_null()) {
 		Result<SourceFile*> new_source_file = m_database.source_files.create_symbol(
-			std::string(name.string()), Address(), m_group.source, m_group.module_symbol);
+			std::string(name.string_or_null()), Address(), m_group.source, m_group.module_symbol);
 		CCC_RETURN_IF_ERROR(new_source_file);
 		m_source_file = *new_source_file;
 	}
@@ -168,27 +163,24 @@ Result<void> SymbolTableImporter::import_data_type(const DIE& die)
 	return Result<void>();
 }
 
+static const AttributeListFormat subroutine_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_name, {FORM_STRING}),
+	DIE::attribute_format(AT_mangled_name, {FORM_STRING}),
+	DIE::attribute_format(AT_low_pc, {FORM_ADDR}),
+	DIE::attribute_format(AT_high_pc, {FORM_ADDR})
+});
+
 Result<void> SymbolTableImporter::import_subroutine(const DIE& die)
-{
-	static const AttributesSpec subroutine_attributes = DIE::specify_attributes({
-		DIE::optional_attribute(AT_name, {FORM_STRING}),
-		DIE::optional_attribute(AT_mangled_name, {FORM_STRING}),
-		DIE::optional_attribute(AT_low_pc, {FORM_ADDR}),
-		DIE::optional_attribute(AT_high_pc, {FORM_ADDR})
-	});
-	
+{	
 	Value name;
 	Value mangled_name;
 	Value low_pc;
 	Value high_pc;
-	Result<void> attribute_result = die.attributes(
+	Result<void> attribute_result = die.scan_attributes(
 		subroutine_attributes, {&name, &mangled_name, &low_pc, &high_pc});
 	CCC_RETURN_IF_ERROR(attribute_result);
 	
-	Address address;
-	if (low_pc.valid()) {
-		address = low_pc.address();
-	}
+	Address address = low_pc.address_or_null();
 	
 	Result<Function*> function = m_database.functions.create_symbol(
 		get_name(name, mangled_name), m_group.source, m_group.module_symbol, address, m_importer_flags, m_demangler);
@@ -201,6 +193,11 @@ Result<void> SymbolTableImporter::import_subroutine(const DIE& die)
 	return Result<void>();
 }
 
+static const AttributeListFormat overlay_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_overlay_id, {FORM_DATA4}),
+	DIE::attribute_format(AT_overlay_name, {FORM_STRING})
+});
+
 Result<std::vector<OverlayInfo>> enumerate_overlays(const SectionReader& dwarf)
 {
 	Result<DIE> first_die = dwarf.first_die();
@@ -211,19 +208,17 @@ Result<std::vector<OverlayInfo>> enumerate_overlays(const SectionReader& dwarf)
 	std::optional<DIE> die = *first_die;
 	while (die.has_value()) {
 		if (die->tag() == TAG_overlay) {
-			static const AttributesSpec overlay_attributes = DIE::specify_attributes({
-				DIE::required_attribute(AT_overlay_id, {FORM_DATA4}),
-				DIE::required_attribute(AT_overlay_name, {FORM_STRING})
-			});
-			
 			Value overlay_id;
 			Value overlay_name;
-			Result<void> attribute_result = die->attributes(overlay_attributes, {&overlay_id, &overlay_name});
+			Result<void> attribute_result = die->scan_attributes(
+				overlay_attributes, {&overlay_id, &overlay_name});
 			CCC_RETURN_IF_ERROR(attribute_result);
 			
-			OverlayInfo& info = overlays.emplace_back();
-			info.id = static_cast<u32>(overlay_id.constant());
-			info.name = overlay_name.string();
+			if (overlay_id.valid()) {
+				OverlayInfo& info = overlays.emplace_back();
+				info.id = static_cast<u32>(overlay_id.constant());
+				info.name = overlay_name.string_or_null();
+			}
 		}
 		
 		Result<std::optional<DIE>> next_die = die->sibling();
@@ -241,26 +236,24 @@ static Result<std::map<u32, u32>> parse_overlays(SymbolDatabase& database, const
 	std::optional<DIE> die = first_die;
 	while (die.has_value()) {
 		if (die->tag() == TAG_overlay) {
-			static const AttributesSpec overlay_attributes = DIE::specify_attributes({
-				DIE::required_attribute(AT_overlay_id, {FORM_DATA4}),
-				DIE::required_attribute(AT_overlay_name, {FORM_STRING})
-			});
-			
 			Value overlay_id;
 			Value overlay_name;
-			Result<void> attribute_result = die->attributes(overlay_attributes, {&overlay_id, &overlay_name});
+			Result<void> attribute_result = die->scan_attributes(
+				overlay_attributes, {&overlay_id, &overlay_name});
 			CCC_RETURN_IF_ERROR(attribute_result);
 			
-			// We need to iterate over all the attributes here rather than use
-			// my fancy API because, despite what page 3 of the spec says, there
-			// are multiple attributes of the same type.
-			Result<std::vector<AttributeTuple>> attributes = die->all_attributes();
-			CCC_RETURN_IF_ERROR(attributes);
-			
-			for (const auto& [offset, attribute, value] : *attributes) {
-				if (attribute == AT_member && value.form() == FORM_REF) {
-					compile_unit_offset_to_overlay_id.emplace(
-						value.reference(), static_cast<u32>(overlay_id.constant()));
+			if (overlay_id.valid()) {
+				// We need to iterate over all the attributes here rather than
+				// use my fancy API because, despite what page 3 of the spec
+				// says, there are multiple attributes of the same type.
+				Result<std::vector<AttributeTuple>> attributes = die->all_attributes();
+				CCC_RETURN_IF_ERROR(attributes);
+				
+				for (const auto& [offset, attribute, value] : *attributes) {
+					if (attribute == AT_member && value.form() == FORM_REF) {
+						compile_unit_offset_to_overlay_id.emplace(
+							value.reference(), static_cast<u32>(overlay_id.constant()));
+					}
 				}
 			}
 		}

@@ -14,22 +14,22 @@ TypeImporter::TypeImporter(SymbolDatabase& database, const SectionReader& dwarf,
 	, m_dwarf(dwarf)
 	, m_importer_flags(importer_flags) {}
 
+static const AttributeListFormat type_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_fund_type, {FORM_DATA2}),
+	DIE::attribute_format(AT_mod_fund_type, {FORM_BLOCK2}),
+	DIE::attribute_format(AT_user_def_type, {FORM_REF}),
+	DIE::attribute_format(AT_mod_u_d_type, {FORM_BLOCK2})
+});
+
 Result<std::unique_ptr<ast::Node>> TypeImporter::type_attribute_to_ast(const DIE& die)
 {
 	// DWARF 1 has 4 different types of type attributes, but each DIE should
 	// only have one of them.
-	static const AttributesSpec type_attributes = DIE::specify_attributes({
-		DIE::optional_attribute(AT_fund_type, {FORM_DATA2}),
-		DIE::optional_attribute(AT_mod_fund_type, {FORM_BLOCK2}),
-		DIE::optional_attribute(AT_user_def_type, {FORM_REF}),
-		DIE::optional_attribute(AT_mod_u_d_type, {FORM_BLOCK2})
-	});
-	
 	Value fund_type;
 	Value mod_fund_type;
 	Value user_def_type;
 	Value mod_u_d_type;
-	Result<void> attribute_result = die.attributes(
+	Result<void> attribute_result = die.scan_attributes(
 		type_attributes, {&fund_type, &mod_fund_type, &user_def_type, &mod_u_d_type});
 	CCC_RETURN_IF_ERROR(attribute_result);
 	
