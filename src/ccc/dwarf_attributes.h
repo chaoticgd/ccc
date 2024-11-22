@@ -291,6 +291,23 @@ protected:
 	std::span<const u8> m_block;
 };
 
+struct EnumerationElement {
+	u32 value;
+	std::string name;
+};
+
+class EnumerationElementList {
+public:
+	static EnumerationElementList from_block(std::span<const u8> block);
+	
+	u32 size() const;
+	
+	Result<EnumerationElement> parse_element(u32& offset) const;
+	
+protected:
+	std::span<const u8> m_block;
+};
+
 const char* form_to_string(u32 value);
 const char* attribute_to_string(u32 value);
 const char* location_op_to_string(u32 value);

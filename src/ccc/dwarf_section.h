@@ -107,6 +107,7 @@ public:
 	Result<void> print_constant(FILE* out, Attribute attribute, const Value& value) const;
 	Result<void> print_type(FILE* out, const Type& type) const;
 	Result<void> print_subscr_data(FILE* out, const ArraySubscriptData& subscript_data) const;
+	Result<void> print_enumeration_element_list(FILE* out, const EnumerationElementList& element_list) const;
 	
 protected:
 	std::span<const u8> m_debug;

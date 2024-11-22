@@ -687,6 +687,37 @@ Result<LocationDescription> ArraySubscriptData::parse_location_description(u32& 
 
 // *****************************************************************************
 
+EnumerationElementList EnumerationElementList::from_block(std::span<const u8> block)
+{
+	EnumerationElementList list;
+	list.m_block = block;
+	return list;
+}
+
+u32 EnumerationElementList::size() const
+{
+	return static_cast<u32>(m_block.size());
+}
+
+Result<EnumerationElement> EnumerationElementList::parse_element(u32& offset) const
+{
+	EnumerationElement element;
+	
+	std::optional<u32> value = copy_unaligned<u32>(m_block, offset);
+	CCC_CHECK(value.has_value(), "Failed to read value of enumeration element.");
+	element.value = *value;
+	offset += sizeof(u32);
+	
+	std::optional<std::string_view> name = get_string(m_block, offset);
+	CCC_CHECK(name.has_value(), "Failed to read name of enumeration element.");
+	element.name = *name;
+	offset += static_cast<u32>(element.name.size()) + 1;
+	
+	return element;
+}
+
+// *****************************************************************************
+
 const char* form_to_string(u32 value)
 {
 	switch (value) {

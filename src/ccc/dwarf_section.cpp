@@ -309,6 +309,12 @@ Result<void> SectionReader::print_block(FILE* out, u32 offset, Attribute attribu
 			CCC_RETURN_IF_ERROR(print_result);
 			break;
 		}
+		case AT_element_list: {
+			EnumerationElementList element_list = EnumerationElementList::from_block(value.block());
+			Result<void> print_result = print_enumeration_element_list(out, element_list);
+			CCC_RETURN_IF_ERROR(print_result);
+			break;
+		}
 		default: {
 			fprintf(out, "{");
 			
@@ -443,6 +449,27 @@ Result<void> SectionReader::print_subscr_data(FILE* out, const ArraySubscriptDat
 			
 			fprintf(out, "]");
 		}
+	}
+	
+	fprintf(out, "}");
+	
+	return Result<void>();
+}
+
+Result<void> SectionReader::print_enumeration_element_list(FILE* out, const EnumerationElementList& element_list) const
+{
+	fprintf(out, "{");
+	
+	u32 offset = 0;
+	while (offset < element_list.size()) {
+		if (offset > 0) {
+			fprintf(out, ",");
+		}
+		
+		Result<EnumerationElement> element = element_list.parse_element(offset);
+		CCC_RETURN_IF_ERROR(element);
+		
+		fprintf(out, "%s=%d", element->name.c_str(), element->value);
 	}
 	
 	fprintf(out, "}");
