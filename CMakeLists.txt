@@ -44,6 +44,8 @@ add_library(ccc STATIC
 	src/ccc/dwarf_attributes.h
 	src/ccc/dwarf_importer.cpp
 	src/ccc/dwarf_importer.h
+	src/ccc/dwarf_printer.cpp
+	src/ccc/dwarf_printer.h
 	src/ccc/dwarf_section.cpp
 	src/ccc/dwarf_section.h
 	src/ccc/dwarf_to_ast.cpp

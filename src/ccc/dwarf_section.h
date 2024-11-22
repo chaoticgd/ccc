@@ -100,14 +100,7 @@ public:
 	Result<DIE> first_die() const;
 	Result<std::optional<DIE>> die_at(u32 offset) const;
 	
-	Result<void> print_dies(FILE* out, DIE die, s32 depth) const;
-	Result<void> print_attributes(FILE* out, const DIE& die) const;
-	Result<void> print_reference(FILE* out, u32 reference) const;
-	Result<void> print_block(FILE* out, u32 offset, Attribute attribute, const Value& value) const;
-	Result<void> print_constant(FILE* out, Attribute attribute, const Value& value) const;
-	Result<void> print_type(FILE* out, const Type& type) const;
-	Result<void> print_subscr_data(FILE* out, const ArraySubscriptData& subscript_data) const;
-	Result<void> print_enumeration_element_list(FILE* out, const EnumerationElementList& element_list) const;
+	u32 importer_flags() const;
 	
 protected:
 	std::span<const u8> m_debug;

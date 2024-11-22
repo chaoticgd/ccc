@@ -12,6 +12,7 @@
 - src/ccc/dependency.cpp: Tries to infer information about which types belong to which files.
 - src/ccc/dwarf_attributes.cpp: Parses DWARF 1 attributes.
 - src/ccc/dwarf_importer.cpp: Imports DWARF 1 symbol tables into the symbol database.
+- src/ccc/dwarf_printer.cpp: Prints out DWARF 1 symbol tables.
 - src/ccc/dwarf_section.cpp: Parses the DWARF 1 binary format.
 - src/ccc/dwarf_to_ast.cpp: Converts DWARF 1 types into a C++ AST.
 - src/ccc/elf.cpp: Parses ELF files.

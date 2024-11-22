@@ -6,7 +6,7 @@
 #include "elf.h"
 #include "elf_symtab.h"
 #include "dwarf_importer.h"
-#include "dwarf_section.h"
+#include "dwarf_printer.h"
 #include "mdebug_importer.h"
 #include "mdebug_section.h"
 #include "sndll.h"
@@ -234,11 +234,12 @@ Result<void> DwarfSymbolTable::print_headers(FILE* out) const
 Result<void> DwarfSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	dwarf::SectionReader reader(m_debug, m_line, NO_IMPORTER_FLAGS);
+	dwarf::SymbolPrinter printer(reader);
 	
 	Result<dwarf::DIE> first_die = reader.first_die();
 	CCC_RETURN_IF_ERROR(first_die);
 	
-	return reader.print_dies(out, std::move(*first_die), 0);
+	return printer.print_dies(out, std::move(*first_die), 0);
 }
 
 // *****************************************************************************
