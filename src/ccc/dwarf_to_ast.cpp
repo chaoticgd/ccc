@@ -7,6 +7,18 @@
 
 namespace ccc::dwarf {
 
+#define REQUIRE_ATTRIBUTE(value, die) \
+	if (!value.valid()) { \
+		const char* message = "Missing " #value " attribute."; \
+		if (m_importer_flags & STRICT_PARSING) { \
+			return CCC_FAILURE(message); \
+		} else { \
+			auto error = std::make_unique<ast::Error>(); \
+			error->message = message; \
+			return std::unique_ptr<ast::Node>(std::move(error)); \
+		} \
+	}
+
 static std::unique_ptr<ast::Node> not_yet_implemented(const char* name);
 
 TypeImporter::TypeImporter(SymbolDatabase& database, const SectionReader& dwarf, u32 importer_flags)
@@ -36,11 +48,16 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::type_attribute_to_ast(const DIE
 	std::optional<Type> type = Type::from_attributes(fund_type, mod_fund_type, user_def_type, mod_u_d_type);
 	CCC_CHECK(type.has_value(), "DIE at 0x%x has no type attributes.", die.offset());
 	
+	return type_to_ast(*type);
+}
+
+Result<std::unique_ptr<ast::Node>> TypeImporter::type_to_ast(const Type& type)
+{
 	std::unique_ptr<ast::Node> node;
-	switch (type->attribute()) {
+	switch (type.attribute()) {
 		case AT_fund_type:
 		case AT_mod_fund_type: {
-			Result<FundamentalType> fund_type = type->fund_type();
+			Result<FundamentalType> fund_type = type.fund_type();
 			CCC_RETURN_IF_ERROR(fund_type);
 			
 			Result<std::unique_ptr<ast::Node>> fund_type_node = fundamental_type_to_ast(*fund_type);
@@ -51,12 +68,12 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::type_attribute_to_ast(const DIE
 		}
 		case AT_user_def_type:
 		case AT_mod_u_d_type: {
-			Result<u32> die_offset = type->user_def_type();
+			Result<u32> die_offset = type.user_def_type();
 			CCC_RETURN_IF_ERROR(die_offset);
 			
 			Result<std::optional<DIE>> referenced_die = m_dwarf.die_at(*die_offset);
 			CCC_RETURN_IF_ERROR(referenced_die);
-			CCC_CHECK(referenced_die->has_value(), "DIE at 0x%x has null user-defined type.", die.offset());
+			CCC_CHECK(referenced_die->has_value(), "User-defined type is null.");
 			
 			Result<std::unique_ptr<ast::Node>> user_def_node = die_to_ast(**referenced_die);
 			CCC_RETURN_IF_ERROR(user_def_node);
@@ -66,7 +83,7 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::type_attribute_to_ast(const DIE
 		}
 	}
 	
-	Result<std::span<const TypeModifier>> modifiers = type->modifiers();
+	Result<std::span<const TypeModifier>> modifiers = type.modifiers();
 	CCC_RETURN_IF_ERROR(modifiers);
 	
 	// DWARF 1 type modifiers are stored in the same order as they would appear
@@ -114,7 +131,9 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::die_to_ast(const DIE& die)
 	
 	switch (die.tag()) {
 		case TAG_array_type: {
-			node = not_yet_implemented("TAG_array_type");
+			Result<std::unique_ptr<ast::Node>> array_type = array_type_to_ast(die);
+			CCC_RETURN_IF_ERROR(array_type);
+			node = std::move(*array_type);
 			break;
 		}
 		case TAG_class_type: {
@@ -175,6 +194,41 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::die_to_ast(const DIE& die)
 	}
 	
 	return node;
+}
+
+static const AttributeListFormat array_type_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_ordering, {FORM_DATA2}),
+	DIE::attribute_format(AT_subscr_data, {FORM_BLOCK2})
+});
+
+Result<std::unique_ptr<ast::Node>> TypeImporter::array_type_to_ast(const DIE& die)
+{
+	Value ordering;
+	Value subscr_data;
+	Result<void> attribute_result = die.scan_attributes(array_type_attributes, {&ordering, &subscr_data});
+	REQUIRE_ATTRIBUTE(subscr_data, die);
+	
+	ArraySubscriptData subscript_data = ArraySubscriptData::from_block(subscr_data.block());
+	
+	u32 offset = 0;
+	
+	Result<ArraySubscriptItem> subscript = subscript_data.parse_item(offset, m_importer_flags);
+	CCC_RETURN_IF_ERROR(subscript);
+	CCC_CHECK(subscript->specifier == FMT_FT_C_C, "First array subscript item with specifier other than FMT_FT_C_C.");
+	CCC_CHECK(subscript->lower_bound.constant() == 0, "Lower bound of array subscript is non-zero.");
+	
+	Result<ArraySubscriptItem> et = subscript_data.parse_item(offset, m_importer_flags);
+	CCC_RETURN_IF_ERROR(et);
+	CCC_CHECK(et->specifier == FMT_ET, "Second array subscript item with specifier other than FMT_ET.");
+	
+	Result<std::unique_ptr<ast::Node>> element_type = type_to_ast(et->element_type);
+	CCC_RETURN_IF_ERROR(element_type);
+	
+	auto array = std::make_unique<ast::Array>();
+	array->element_type = std::move(*element_type);
+	array->element_count = subscript->upper_bound.constant() + 1;
+	
+	return std::unique_ptr<ast::Node>(std::move(array));
 }
 
 bool die_is_type(const DIE& die)

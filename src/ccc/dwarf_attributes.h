@@ -280,7 +280,7 @@ public:
 	
 	u32 size() const;
 	
-	Result<ArraySubscriptItem> parse_subscript(u32& offset, u32 importer_flags) const;
+	Result<ArraySubscriptItem> parse_item(u32& offset, u32 importer_flags) const;
 	
 protected:
 	Result<u16> parse_fund_type(u32& offset) const;

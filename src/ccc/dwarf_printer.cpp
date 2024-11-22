@@ -269,7 +269,7 @@ Result<void> SymbolPrinter::print_subscr_data(FILE* out, const ArraySubscriptDat
 			fprintf(out, ",");
 		}
 		
-		Result<ArraySubscriptItem> subscript = subscript_data.parse_subscript(offset, m_reader.importer_flags());
+		Result<ArraySubscriptItem> subscript = subscript_data.parse_item(offset, m_reader.importer_flags());
 		CCC_RETURN_IF_ERROR(subscript);
 		
 		if (subscript->specifier == FMT_ET) {

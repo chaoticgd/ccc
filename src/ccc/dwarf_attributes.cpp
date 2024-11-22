@@ -535,20 +535,20 @@ u32 ArraySubscriptData::size() const
 	return static_cast<u32>(m_block.size());
 }
 
-Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 importer_flags) const
+Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 importer_flags) const
 {
-	ArraySubscriptItem subscript;
+	ArraySubscriptItem item;
 	
 	std::optional<u8> specifier = copy_unaligned<u8>(m_block, offset);
 	CCC_CHECK(specifier.has_value(), "Failed to read array subscript format specifier.");
 	CCC_CHECK(array_subscript_format_specifier_to_string(*specifier),
 		"Invalid array subscript format specifier 0x%hhx.\n", *specifier);
-	subscript.specifier = static_cast<ArraySubscriptFormatSpecifier>(*specifier);
+	item.specifier = static_cast<ArraySubscriptFormatSpecifier>(*specifier);
 	offset += sizeof(u8);
 	
 	// Parse the subscript index type, which is either a fundamental type or a
 	// user-defined type.
-	switch (subscript.specifier) {
+	switch (item.specifier) {
 		case FMT_FT_C_C:
 		case FMT_FT_C_X:
 		case FMT_FT_X_C:
@@ -556,7 +556,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 			Result<u16> fund_type = parse_fund_type(offset);
 			CCC_RETURN_IF_ERROR(fund_type);
 			
-			subscript.subscript_index_type = Type::from_fund_type(
+			item.subscript_index_type = Type::from_fund_type(
 				Value::from_constant_2(*fund_type));
 			break;
 		}
@@ -567,7 +567,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 			Result<u32> user_def_type = parse_user_def_type(offset);
 			CCC_RETURN_IF_ERROR(user_def_type);
 			
-			subscript.subscript_index_type = Type::from_user_def_type(
+			item.subscript_index_type = Type::from_user_def_type(
 				Value::from_reference(*user_def_type));
 			break;
 		}
@@ -578,7 +578,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 	
 	// Parse the lower bound, which is either a constant (C) or a location
 	// description (X).
-	switch (subscript.specifier) {
+	switch (item.specifier) {
 		case FMT_FT_C_C:
 		case FMT_FT_C_X:
 		case FMT_UT_C_C:
@@ -586,7 +586,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 			Result<u32> constant = parse_constant(offset);
 			CCC_RETURN_IF_ERROR(constant);
 			
-			subscript.lower_bound = ArrayBound::from_constant(*constant);
+			item.lower_bound = ArrayBound::from_constant(*constant);
 			break;
 		}
 		case FMT_FT_X_C:
@@ -596,7 +596,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 			Result<LocationDescription> location_description = parse_location_description(offset);
 			CCC_RETURN_IF_ERROR(location_description);
 			
-			subscript.lower_bound = ArrayBound::from_location_description(*location_description);
+			item.lower_bound = ArrayBound::from_location_description(*location_description);
 			break;
 		}
 		default: {
@@ -606,7 +606,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 	
 	// Parse the upper bound, which is either a constant (C) or a location
 	// description (X).
-	switch (subscript.specifier) {
+	switch (item.specifier) {
 		case FMT_FT_C_C:
 		case FMT_FT_X_C:
 		case FMT_UT_C_C:
@@ -614,8 +614,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 			Result<u32> constant = parse_constant(offset);
 			CCC_RETURN_IF_ERROR(constant);
 			
-			subscript.upper_bound = ArrayBound::from_constant(*constant);
-			break;
+			item.upper_bound = ArrayBound::from_constant(*constant);
 			break;
 		}
 		case FMT_FT_C_X:
@@ -625,7 +624,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 			Result<LocationDescription> location_description = parse_location_description(offset);
 			CCC_RETURN_IF_ERROR(location_description);
 			
-			subscript.upper_bound = ArrayBound::from_location_description(*location_description);
+			item.upper_bound = ArrayBound::from_location_description(*location_description);
 			break;
 		}
 		default: {
@@ -634,16 +633,16 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 
 	}
 	
 	// Parse the element type.
-	if (subscript.specifier == FMT_ET) {
+	if (item.specifier == FMT_ET) {
 		Result<AttributeTuple> attribute = parse_attribute(m_block, offset, importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
 		
 		std::optional<Type> element_type = Type::from_attribute_tuple(*attribute);
 		CCC_CHECK(element_type.has_value(), "Element type is not a type attribute.");
-		subscript.element_type = std::move(*element_type);
+		item.element_type = std::move(*element_type);
 	}
 	
-	return subscript;
+	return item;
 }
 
 Result<u16> ArraySubscriptData::parse_fund_type(u32& offset) const
