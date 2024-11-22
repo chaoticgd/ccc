@@ -7,18 +7,6 @@
 
 namespace ccc::dwarf {
 
-#define REQUIRE_ATTRIBUTE(value, die) \
-	if (!value.valid()) { \
-		const char* message = "Missing " #value " attribute."; \
-		if (m_importer_flags & STRICT_PARSING) { \
-			return CCC_FAILURE(message); \
-		} else { \
-			auto error = std::make_unique<ast::Error>(); \
-			error->message = message; \
-			return std::unique_ptr<ast::Node>(std::move(error)); \
-		} \
-	}
-
 static std::unique_ptr<ast::Node> not_yet_implemented(const char* name);
 
 TypeImporter::TypeImporter(SymbolDatabase& database, const SectionReader& dwarf, u32 importer_flags)
@@ -198,7 +186,7 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::die_to_ast(const DIE& die)
 
 static const AttributeListFormat array_type_attributes = DIE::attribute_list_format({
 	DIE::attribute_format(AT_ordering, {FORM_DATA2}),
-	DIE::attribute_format(AT_subscr_data, {FORM_BLOCK2})
+	DIE::attribute_format(AT_subscr_data, {FORM_BLOCK2}, AFF_REQUIRED)
 });
 
 Result<std::unique_ptr<ast::Node>> TypeImporter::array_type_to_ast(const DIE& die)
@@ -206,7 +194,7 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::array_type_to_ast(const DIE& di
 	Value ordering;
 	Value subscr_data;
 	Result<void> attribute_result = die.scan_attributes(array_type_attributes, {&ordering, &subscr_data});
-	REQUIRE_ATTRIBUTE(subscr_data, die);
+	CCC_RETURN_IF_ERROR(attribute_result);
 	
 	ArraySubscriptData subscript_data = ArraySubscriptData::from_block(subscr_data.block());
 	

@@ -48,7 +48,7 @@ AttributeListFormat DIE::attribute_list_format(std::vector<AttributeFormat> inpu
 	return output;
 }
 
-AttributeFormat DIE::attribute_format(Attribute attribute, std::vector<u32> valid_forms)
+AttributeFormat DIE::attribute_format(Attribute attribute, std::vector<u32> valid_forms, u32 flags)
 {
 	AttributeFormat result;
 	result.attribute = attribute;
@@ -56,6 +56,7 @@ AttributeFormat DIE::attribute_format(Attribute attribute, std::vector<u32> vali
 	for (u32 form : valid_forms) {
 		result.valid_forms |= 1 << form;
 	}
+	result.flags = flags;
 	return result;
 }
 
@@ -126,6 +127,15 @@ Result<void> DIE::scan_attributes(const AttributeListFormat& format, std::initia
 		
 		CCC_ASSERT(iterator->second.index < output.size());
 		**(output.begin() + iterator->second.index) = std::move(attribute->value);
+	}
+	
+	// Check that we have all the required attributes.
+	for (auto& [attribute, attribute_format] : format) {
+		if (attribute_format.flags & AFF_REQUIRED) {
+			CCC_ASSERT(attribute_format.index < output.size());
+			CCC_CHECK((*(output.begin() + attribute_format.index))->valid(),
+				"Missing %s attribute for DIE at 0x%x\n", attribute_to_string(attribute), m_offset);
+		}
 	}
 	
 	return Result<void>();

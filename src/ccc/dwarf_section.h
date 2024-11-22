@@ -51,10 +51,22 @@ enum Tag : u16 {
 	TAG_class_template         = 0x8003
 };
 
+enum AttributeFormatFlag {
+	// Process the attribute normally; don't generate an error if the attribute
+	// is missing.
+	AFF_NONE = 0,
+	
+	// Generate an error if an attribute is missing. Note that even though the
+	// specification for DWARF 1 says that all attributes are optional, for our
+	// purposes this is still quite useful.
+	AFF_REQUIRED = 1 << 0
+};
+
 struct AttributeFormat {
 	Attribute attribute;
 	u32 index;
 	u32 valid_forms;
+	u32 flags;
 };
 
 using AttributeListFormat = std::map<Attribute, AttributeFormat>;
@@ -71,7 +83,8 @@ public:
 	static AttributeListFormat attribute_list_format(std::vector<AttributeFormat> input);
 	
 	// Generate a specification for an attribute to read.
-	static AttributeFormat attribute_format(Attribute attribute, std::vector<u32> valid_forms);
+	static AttributeFormat attribute_format(
+		Attribute attribute, std::vector<u32> valid_forms, u32 flags = AFF_NONE);
 	
 	Result<std::optional<DIE>> first_child() const;
 	Result<std::optional<DIE>> sibling() const;
