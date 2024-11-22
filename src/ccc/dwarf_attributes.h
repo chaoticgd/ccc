@@ -116,6 +116,15 @@ protected:
 	} m_value;
 };
 
+struct AttributeTuple {
+	u32 offset;
+	Attribute attribute;
+	Value value;
+};
+
+// Parse a single attribute and advance the offset.
+Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u32 importer_flags);
+
 enum LocationOp : u8 {
 	OP_REG     = 0x01,
 	OP_BASEREG = 0x02,
@@ -134,9 +143,9 @@ struct LocationAtom {
 
 class LocationDescription {
 public:
-	LocationDescription(std::span<const u8> block);
+	static LocationDescription from_block(std::span<const u8> block);
 	
-	Result<void> print(FILE* out);
+	Result<void> print(FILE* out) const;
 	
 protected:
 	Result<LocationAtom> parse_atom(u32& offset) const;
@@ -186,6 +195,7 @@ class Type {
 public:
 	static std::optional<Type> from_attributes(
 		const Value& fund_type, const Value& mod_fund_type, const Value& user_def_type, const Value& mod_u_d_type);
+	static std::optional<Type> from_attribute_tuple(const AttributeTuple& tuple);
 	
 	static Type from_fund_type(const Value& fund_type);
 	static Type from_mod_fund_type(const Value& mod_fund_type);
@@ -198,14 +208,96 @@ public:
 	Result<std::span<const TypeModifier>> modifiers() const;
 	
 protected:
-	u32 m_attribute;
+	u32 m_attribute = 0;
 	Value m_value;
 };
 
-const char* form_to_string(u32 form);
-const char* attribute_to_string(u32 attribute);
-const char* location_op_to_string(u32 op);
-const char* fundamental_type_to_string(u32 fund_type);
-const char* type_modifier_to_string(u32 modifier);
+enum Language : u32 {
+	LANG_C89         = 0x00000001,
+	LANG_C           = 0x00000002,
+	LANG_ADA83       = 0x00000003,
+	LANG_C_PLUS_PLUS = 0x00000004,
+	LANG_COBOL74     = 0x00000005,
+	LANG_COBOL85     = 0x00000006,
+	LANG_FORTRAN77   = 0x00000007,
+	LANG_FORTRAN90   = 0x00000008,
+	LANG_PASCAL83    = 0x00000009,
+	LANG_MODULA2     = 0x0000000a,
+	LANG_ASSEMBLY    = 0x00008000
+};
+
+enum ArrayOrdering : u8 {
+	ORD_col_major = 0,
+	ORD_row_major = 1
+};
+
+enum ArraySubscriptFormatSpecifier : u8 {
+	FMT_FT_C_C = 0x0,
+	FMT_FT_C_X = 0x1,
+	FMT_FT_X_C = 0x2,
+	FMT_FT_X_X = 0x3,
+	FMT_UT_C_C = 0x4,
+	FMT_UT_C_X = 0x5,
+	FMT_UT_X_C = 0x6,
+	FMT_UT_X_X = 0x7,
+	FMT_ET     = 0x8
+};
+
+enum class ArrayBoundType {
+	NIL,
+	CONSTANT,
+	LOCATION_DESCRIPTION
+};
+
+class ArrayBound {
+public:
+	static ArrayBound from_constant(u32 constant);
+	static ArrayBound from_location_description(LocationDescription location_description);
+	
+	ArrayBoundType type() const;
+	u32 constant() const;
+	const LocationDescription& location_description() const;
+	
+	Result<void> print(FILE* out) const;
+	
+protected:
+	ArrayBoundType m_type = ArrayBoundType::NIL;
+	u32 m_constant = 0;
+	LocationDescription m_location_description;
+};
+
+struct ArraySubscriptItem {
+	ArraySubscriptFormatSpecifier specifier;
+	Type subscript_index_type;
+	ArrayBound lower_bound;
+	ArrayBound upper_bound;
+	Type element_type;
+};
+
+class ArraySubscriptData {
+public:
+	static ArraySubscriptData from_block(std::span<const u8> block);
+	
+	u32 size() const;
+	
+	Result<ArraySubscriptItem> parse_subscript(u32& offset, u32 importer_flags) const;
+	
+protected:
+	Result<u16> parse_fund_type(u32& offset) const;
+	Result<u32> parse_user_def_type(u32& offset) const;
+	Result<u32> parse_constant(u32& offset) const;
+	Result<LocationDescription> parse_location_description(u32& offset) const;
+	
+	std::span<const u8> m_block;
+};
+
+const char* form_to_string(u32 value);
+const char* attribute_to_string(u32 value);
+const char* location_op_to_string(u32 value);
+const char* fundamental_type_to_string(u32 value);
+const char* type_modifier_to_string(u32 value);
+const char* language_to_string(u32 value);
+const char* array_ordering_to_string(u32 value);
+const char* array_subscript_format_specifier_to_string(u32 value);
 
 }

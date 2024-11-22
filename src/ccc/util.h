@@ -240,6 +240,7 @@ const std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 }
 
 std::optional<std::string_view> get_string(std::span<const u8> bytes, u64 offset);
+std::optional<std::span<const u8>> get_subspan(std::span<const u8> bytes, u64 offset, u64 size);
 
 #define CCC_BEGIN_END(x) (x).begin(), (x).end()
 #define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))

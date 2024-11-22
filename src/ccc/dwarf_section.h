@@ -51,12 +51,6 @@ enum Tag : u16 {
 	TAG_class_template         = 0x8003
 };
 
-struct AttributeTuple {
-	u32 offset;
-	Attribute attribute;
-	Value value;
-};
-
 struct AttributeFormat {
 	Attribute attribute;
 	u32 index;
@@ -92,9 +86,6 @@ public:
 	Result<std::vector<AttributeTuple>> all_attributes() const;
 	
 protected:
-	// Parse a single attribute and advance the offset.
-	Result<AttributeTuple> parse_attribute(u32& offset) const;
-	
 	std::span<const u8> m_debug;
 	u32 m_offset;
 	u32 m_length;
@@ -115,6 +106,7 @@ public:
 	Result<void> print_block(FILE* out, u32 offset, Attribute attribute, const Value& value) const;
 	Result<void> print_constant(FILE* out, Attribute attribute, const Value& value) const;
 	Result<void> print_type(FILE* out, const Type& type) const;
+	Result<void> print_subscr_data(FILE* out, const ArraySubscriptData& subscript_data) const;
 	
 protected:
 	std::span<const u8> m_debug;

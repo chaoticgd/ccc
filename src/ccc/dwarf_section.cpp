@@ -7,11 +7,6 @@
 
 namespace ccc::dwarf {
 
-#define DIE_CHECK(condition, message) \
-	CCC_CHECK(condition, message " at 0x%x inside DIE at 0x%x.", offset, m_offset);
-#define DIE_CHECK_ARGS(condition, message, ...) \
-	CCC_CHECK(condition, message " at 0x%x inside DIE at 0x%x.", __VA_ARGS__, offset, m_offset);
-
 Result<std::optional<DIE>> DIE::parse(std::span<const u8> debug, u32 offset, u32 importer_flags)
 {
 	DIE die;
@@ -69,7 +64,7 @@ Result<std::optional<DIE>> DIE::first_child() const
 	u32 sibling_offset = 0;
 	u32 offset = m_offset + 6;
 	while (offset < m_offset + m_length) {
-		Result<AttributeTuple> attribute = parse_attribute(offset);
+		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
 		
 		if (attribute->attribute == AT_sibling && attribute->value.form() == FORM_REF) {
@@ -88,7 +83,7 @@ Result<std::optional<DIE>> DIE::sibling() const
 {
 	u32 offset = m_offset + 6;
 	while (offset < m_offset + m_length) {
-		Result<AttributeTuple> attribute = parse_attribute(offset);
+		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
 		
 		if (attribute->attribute == AT_sibling && attribute->value.form() == FORM_REF) {
@@ -116,7 +111,8 @@ Result<void> DIE::scan_attributes(const AttributeListFormat& format, std::initia
 {
 	u32 offset = m_offset + 6;
 	while (offset < m_offset + m_length) {
-		Result<AttributeTuple> attribute = parse_attribute(offset);
+		u32 attribute_offset = offset;
+		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
 		
 		auto iterator = format.find(attribute->attribute);
@@ -124,8 +120,9 @@ Result<void> DIE::scan_attributes(const AttributeListFormat& format, std::initia
 			continue;
 		}
 		
-		DIE_CHECK_ARGS(iterator->second.valid_forms & 1 << (attribute->value.form()),
-			"Attribute %x has an unexpected form %s", attribute->attribute, form_to_string(attribute->value.form()));
+		CCC_CHECK(iterator->second.valid_forms & 1 << (attribute->value.form()),
+			"Attribute %x at 0x%x has an unexpected form %s.",
+			attribute->attribute, attribute_offset, form_to_string(attribute->value.form()));
 		
 		CCC_ASSERT(iterator->second.index < output.size());
 		**(output.begin() + iterator->second.index) = std::move(attribute->value);
@@ -140,101 +137,10 @@ Result<std::vector<AttributeTuple>> DIE::all_attributes() const
 	
 	u32 offset = m_offset + 6;
 	while (offset < m_offset + m_length) {
-		Result<AttributeTuple> attribute = parse_attribute(offset);
+		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
 		
 		result.emplace_back(std::move(*attribute));
-	}
-	
-	return result;
-}
-
-Result<AttributeTuple> DIE::parse_attribute(u32& offset) const
-{
-	AttributeTuple result;
-	
-	result.offset = offset;
-	
-	const std::optional<u16> name = copy_unaligned<u16>(m_debug, offset);
-	DIE_CHECK(name.has_value(), "Cannot read attribute name");
-	offset += sizeof(u16);
-	
-	u8 form = *name & 0xf;
-	DIE_CHECK_ARGS(form_to_string(form) != nullptr, "Unknown attribute form 0x%hhx", form);
-	
-	u16 attribute = *name >> 4;
-	bool known_attribute = attribute_to_string(attribute);
-	if (!known_attribute && (m_importer_flags & STRICT_PARSING)) {
-		CCC_WARN("Unknown attribute name 0x%03hx at 0x%x inside DIE at 0x%x.", *name, offset, m_offset);
-	}
-	
-	result.attribute = static_cast<Attribute>(attribute);
-	
-	switch (form) {
-		case FORM_ADDR: {
-			std::optional<u32> address = copy_unaligned<u32>(m_debug, offset);
-			DIE_CHECK(address.has_value(), "Cannot read address attribute");
-			result.value = Value::from_address(*address);
-			offset += sizeof(u32);
-			break;
-		}
-		case FORM_REF: {
-			std::optional<u32> reference = copy_unaligned<u32>(m_debug, offset);
-			DIE_CHECK(reference.has_value(), "Cannot read reference attribute");
-			result.value = Value::from_reference(*reference);
-			offset += sizeof(u32);
-			break;
-		}
-		case FORM_BLOCK2: {
-			std::optional<u16> size = copy_unaligned<u16>(m_debug, offset);
-			DIE_CHECK(size.has_value(), "Cannot read block attribute size");
-			offset += sizeof(u16);
-			
-			DIE_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
-			result.value = Value::from_block_2(m_debug.subspan(offset, *size));
-			offset += *size;
-			
-			break;
-		}
-		case FORM_BLOCK4: {
-			std::optional<u32> size = copy_unaligned<u32>(m_debug, offset);
-			DIE_CHECK(size.has_value(), "Cannot read block attribute size");
-			offset += sizeof(u32);
-			
-			DIE_CHECK((u64) offset + *size <= m_debug.size(), "Cannot read block attribute data");
-			result.value = Value::from_block_4(m_debug.subspan(offset, *size));
-			offset += *size;
-			
-			break;
-		}
-		case FORM_DATA2: {
-			std::optional<u16> constant = copy_unaligned<u16>(m_debug, offset);
-			DIE_CHECK(constant.has_value(), "Cannot read constant attribute");
-			result.value = Value::from_constant_2(*constant);
-			offset += sizeof(u16);
-			break;
-		}
-		case FORM_DATA4: {
-			std::optional<u32> constant = copy_unaligned<u32>(m_debug, offset);
-			DIE_CHECK(constant.has_value(), "Cannot read constant attribute");
-			result.value = Value::from_constant_4(*constant);
-			offset += sizeof(u32);
-			break;
-		}
-		case FORM_DATA8: {
-			std::optional<u64> constant = copy_unaligned<u64>(m_debug, offset);
-			DIE_CHECK(constant.has_value(), "Cannot read constant attribute");
-			result.value = Value::from_constant_8(*constant);
-			offset += sizeof(u64);
-			break;
-		}
-		case FORM_STRING: {
-			std::optional<std::string_view> string = get_string(m_debug, offset);
-			DIE_CHECK(string.has_value(), "Cannot read string attribute");
-			result.value = Value::from_string(*string);
-			offset += static_cast<u32>(string->size()) + 1;
-			break;
-		}
 	}
 	
 	return result;
@@ -380,7 +286,7 @@ Result<void> SectionReader::print_block(FILE* out, u32 offset, Attribute attribu
 	
 	switch (attribute) {
 		case AT_location: {
-			LocationDescription location(value.block());
+			LocationDescription location = LocationDescription::from_block(value.block());
 			Result<void> print_result = location.print(out);
 			CCC_RETURN_IF_ERROR(print_result);
 			break;
@@ -394,6 +300,12 @@ Result<void> SectionReader::print_block(FILE* out, u32 offset, Attribute attribu
 		case AT_mod_u_d_type: {
 			Type type = Type::from_mod_u_d_type(value);
 			Result<void> print_result = print_type(out, type);
+			CCC_RETURN_IF_ERROR(print_result);
+			break;
+		}
+		case AT_subscr_data: {
+			ArraySubscriptData subscript_data = ArraySubscriptData::from_block(value.block());
+			Result<void> print_result = print_subscr_data(out, subscript_data);
 			CCC_RETURN_IF_ERROR(print_result);
 			break;
 		}
@@ -435,8 +347,20 @@ Result<void> SectionReader::print_constant(FILE* out, Attribute attribute, const
 			CCC_RETURN_IF_ERROR(print_result);
 			break;
 		}
+		case AT_ordering: {
+			const char* ordering = array_ordering_to_string(value.constant());
+			CCC_CHECK(ordering, "Unknown array ordering 0x%x.\n", static_cast<u32>(value.constant()));
+			fprintf(out, "%s", ordering);
+			break;
+		}
+		case AT_language: {
+			const char* language = language_to_string(value.constant());
+			CCC_CHECK(language, "Unknown language 0x%x.", static_cast<u32>(value.constant()));
+			fprintf(out, "%s", language);
+			break;
+		}
 		default: {
-			fprintf(out, "0x%llx", (long long) value.constant());
+			fprintf(out, "0x%llx", static_cast<long long>(value.constant()));
 		}
 	}
 	
@@ -481,6 +405,47 @@ Result<void> SectionReader::print_type(FILE* out, const Type& type) const
 	if (!mods->empty()) {
 		fprintf(out, "}");
 	}
+	
+	return Result<void>();
+}
+
+Result<void> SectionReader::print_subscr_data(FILE* out, const ArraySubscriptData& subscript_data) const
+{
+	fprintf(out, "{");
+	
+	u32 offset = 0;
+	while (offset < subscript_data.size()) {
+		if (offset > 0) {
+			fprintf(out, ",");
+		}
+		
+		Result<ArraySubscriptItem> subscript = subscript_data.parse_subscript(offset, m_importer_flags);
+		CCC_RETURN_IF_ERROR(subscript);
+		
+		if (subscript->specifier == FMT_ET) {
+			Result<void> type_result = print_type(out, subscript->element_type);
+			CCC_RETURN_IF_ERROR(type_result);
+		} else {
+			fprintf(out, "[");
+			
+			Result<void> type_result = print_type(out, subscript->subscript_index_type);
+			CCC_RETURN_IF_ERROR(type_result);
+			
+			fprintf(out, ",");
+			
+			Result<void> lower_result = subscript->lower_bound.print(out);
+			CCC_RETURN_IF_ERROR(lower_result);
+			
+			fprintf(out, ",");
+			
+			Result<void> upper_result = subscript->upper_bound.print(out);
+			CCC_RETURN_IF_ERROR(upper_result);
+			
+			fprintf(out, "]");
+		}
+	}
+	
+	fprintf(out, "}");
 	
 	return Result<void>();
 }

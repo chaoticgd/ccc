@@ -3,6 +3,7 @@
 
 #include "dwarf_attributes.h"
 
+#include "importer_flags.h"
 #include "registers.h"
 
 namespace ccc::dwarf {
@@ -176,10 +177,110 @@ std::string_view Value::string_or_null() const
 
 // *****************************************************************************
 
-LocationDescription::LocationDescription(std::span<const u8> block)
-	: m_block(block) {}
+Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u32 importer_flags)
+{
+	AttributeTuple result;
+	
+	result.offset = offset;
+	
+	const std::optional<u16> name = copy_unaligned<u16>(bytes, offset);
+	CCC_CHECK(name.has_value(), "Cannot read attribute name at 0x%x.", offset);
+	offset += sizeof(u16);
+	
+	u8 form = *name & 0xf;
+	CCC_CHECK(form_to_string(form) != nullptr,
+		"Unknown attribute form 0x%hhx at 0x%x.", form, offset);
+	
+	u16 attribute = *name >> 4;
+	bool known_attribute = attribute_to_string(attribute);
+	if (!known_attribute && (importer_flags & STRICT_PARSING)) {
+		CCC_WARN("Unknown attribute name 0x%03hx at 0x%x.", *name, offset);
+	}
+	
+	result.attribute = static_cast<Attribute>(attribute);
+	
+	switch (form) {
+		case FORM_ADDR: {
+			std::optional<u32> address = copy_unaligned<u32>(bytes, offset);
+			CCC_CHECK(address.has_value(), "Cannot read address attribute at 0x%x.", offset);
+			result.value = Value::from_address(*address);
+			offset += sizeof(u32);
+			break;
+		}
+		case FORM_REF: {
+			std::optional<u32> reference = copy_unaligned<u32>(bytes, offset);
+			CCC_CHECK(reference.has_value(), "Cannot read reference attribute at 0x%x.", offset);
+			result.value = Value::from_reference(*reference);
+			offset += sizeof(u32);
+			break;
+		}
+		case FORM_BLOCK2: {
+			std::optional<u16> size = copy_unaligned<u16>(bytes, offset);
+			CCC_CHECK(size.has_value(), "Cannot read block attribute size at 0x%x.", offset);
+			offset += sizeof(u16);
+			
+			CCC_CHECK((u64) offset + *size <= bytes.size(),
+				"Cannot read block attribute data at 0x%x.", offset);
+			result.value = Value::from_block_2(bytes.subspan(offset, *size));
+			offset += *size;
+			
+			break;
+		}
+		case FORM_BLOCK4: {
+			std::optional<u32> size = copy_unaligned<u32>(bytes, offset);
+			CCC_CHECK(size.has_value(), "Cannot read block attribute size at 0x%x.", offset);
+			offset += sizeof(u32);
+			
+			CCC_CHECK((u64) offset + *size <= bytes.size(),
+				"Cannot read block attribute data at 0x%x.", offset);
+			result.value = Value::from_block_4(bytes.subspan(offset, *size));
+			offset += *size;
+			
+			break;
+		}
+		case FORM_DATA2: {
+			std::optional<u16> constant = copy_unaligned<u16>(bytes, offset);
+			CCC_CHECK(constant.has_value(), "Cannot read constant attribute at 0x%x.", offset);
+			result.value = Value::from_constant_2(*constant);
+			offset += sizeof(u16);
+			break;
+		}
+		case FORM_DATA4: {
+			std::optional<u32> constant = copy_unaligned<u32>(bytes, offset);
+			CCC_CHECK(constant.has_value(), "Cannot read constant attribute at 0x%x.", offset);
+			result.value = Value::from_constant_4(*constant);
+			offset += sizeof(u32);
+			break;
+		}
+		case FORM_DATA8: {
+			std::optional<u64> constant = copy_unaligned<u64>(bytes, offset);
+			CCC_CHECK(constant.has_value(), "Cannot read constant attribute at 0x%x.", offset);
+			result.value = Value::from_constant_8(*constant);
+			offset += sizeof(u64);
+			break;
+		}
+		case FORM_STRING: {
+			std::optional<std::string_view> string = get_string(bytes, offset);
+			CCC_CHECK(string.has_value(), "Cannot read string attribute at 0x%x.", offset);
+			result.value = Value::from_string(*string);
+			offset += static_cast<u32>(string->size()) + 1;
+			break;
+		}
+	}
+	
+	return result;
+}
 
-Result<void> LocationDescription::print(FILE* out)
+// *****************************************************************************
+
+LocationDescription LocationDescription::from_block(std::span<const u8> block)
+{
+	LocationDescription location_description;
+	location_description.m_block = block;
+	return location_description;
+}
+
+Result<void> LocationDescription::print(FILE* out) const
 {
 	fprintf(out, "{");
 	
@@ -253,6 +354,24 @@ std::optional<Type> Type::from_attributes(
 	return std::nullopt;
 }
 
+std::optional<Type> Type::from_attribute_tuple(const AttributeTuple& tuple)
+{
+	switch (tuple.attribute) {
+		case AT_fund_type:
+			return Type::from_fund_type(tuple.value);
+		case AT_mod_fund_type:
+			return Type::from_mod_fund_type(tuple.value);
+		case AT_user_def_type:
+			return Type::from_user_def_type(tuple.value);
+		case AT_mod_u_d_type:
+			return Type::from_mod_u_d_type(tuple.value);
+		default:
+			break;
+	}
+	
+	return std::nullopt;
+}
+
 Type Type::from_fund_type(const Value& fund_type)
 {
 	Type type;
@@ -308,7 +427,7 @@ Result<FundamentalType> Type::fund_type() const
 		}
 	}
 	
-	return CCC_FAILURE("Type::fund_type called on user-defined type.");
+	return CCC_FAILURE("Type::fund_type called on user-defined or null type.");
 }
 
 Result<u32> Type::user_def_type() const
@@ -326,7 +445,7 @@ Result<u32> Type::user_def_type() const
 		}
 	}
 	
-	return CCC_FAILURE("Type::user_def_type called on fundamental type.");
+	return CCC_FAILURE("Type::user_def_type called on fundamental or null type.");
 }
 
 Result<std::span<const TypeModifier>> Type::modifiers() const
@@ -349,9 +468,228 @@ Result<std::span<const TypeModifier>> Type::modifiers() const
 
 // *****************************************************************************
 
-const char* form_to_string(u32 form)
+ArrayBound ArrayBound::from_constant(u32 constant)
 {
-	switch (form) {
+	ArrayBound bound;
+	bound.m_type = ArrayBoundType::CONSTANT;
+	bound.m_constant = constant;
+	return bound;
+}
+
+ArrayBound ArrayBound::from_location_description(LocationDescription location_description)
+{
+	ArrayBound bound;
+	bound.m_type = ArrayBoundType::LOCATION_DESCRIPTION;
+	bound.m_location_description = location_description;
+	return bound;
+}
+
+ArrayBoundType ArrayBound::type() const
+{
+	return m_type;
+}
+
+u32 ArrayBound::constant() const
+{
+	CCC_ASSERT(m_type == ArrayBoundType::CONSTANT);
+	return m_constant;
+}
+
+const LocationDescription& ArrayBound::location_description() const
+{
+	CCC_ASSERT(m_type == ArrayBoundType::LOCATION_DESCRIPTION);
+	return m_location_description;
+}
+
+Result<void> ArrayBound::print(FILE* out) const
+{
+	switch (m_type) {
+		case ArrayBoundType::CONSTANT: {
+			fprintf(out, "0x%x", m_constant);
+			break;
+		}
+		case ArrayBoundType::LOCATION_DESCRIPTION: {
+			Result<void> print_result = m_location_description.print(out);
+			CCC_RETURN_IF_ERROR(print_result);
+			break;
+		}
+		default: {
+			return CCC_FAILURE("ArrayBound::print called on null array bound.");
+		}
+	}
+	
+	return Result<void>();
+}
+
+// *****************************************************************************
+
+ArraySubscriptData ArraySubscriptData::from_block(std::span<const u8> block)
+{
+	ArraySubscriptData subscript_data;
+	subscript_data.m_block = block;
+	return subscript_data;
+}
+
+u32 ArraySubscriptData::size() const
+{
+	return static_cast<u32>(m_block.size());
+}
+
+Result<ArraySubscriptItem> ArraySubscriptData::parse_subscript(u32& offset, u32 importer_flags) const
+{
+	ArraySubscriptItem subscript;
+	
+	std::optional<u8> specifier = copy_unaligned<u8>(m_block, offset);
+	CCC_CHECK(specifier.has_value(), "Failed to read array subscript format specifier.");
+	CCC_CHECK(array_subscript_format_specifier_to_string(*specifier),
+		"Invalid array subscript format specifier 0x%hhx.\n", *specifier);
+	subscript.specifier = static_cast<ArraySubscriptFormatSpecifier>(*specifier);
+	offset += sizeof(u8);
+	
+	// Parse the subscript index type, which is either a fundamental type or a
+	// user-defined type.
+	switch (subscript.specifier) {
+		case FMT_FT_C_C:
+		case FMT_FT_C_X:
+		case FMT_FT_X_C:
+		case FMT_FT_X_X: {
+			Result<u16> fund_type = parse_fund_type(offset);
+			CCC_RETURN_IF_ERROR(fund_type);
+			
+			subscript.subscript_index_type = Type::from_fund_type(
+				Value::from_constant_2(*fund_type));
+			break;
+		}
+		case FMT_UT_C_C:
+		case FMT_UT_C_X:
+		case FMT_UT_X_C:
+		case FMT_UT_X_X: {
+			Result<u32> user_def_type = parse_user_def_type(offset);
+			CCC_RETURN_IF_ERROR(user_def_type);
+			
+			subscript.subscript_index_type = Type::from_user_def_type(
+				Value::from_reference(*user_def_type));
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+	
+	// Parse the lower bound, which is either a constant (C) or a location
+	// description (X).
+	switch (subscript.specifier) {
+		case FMT_FT_C_C:
+		case FMT_FT_C_X:
+		case FMT_UT_C_C:
+		case FMT_UT_C_X: {
+			Result<u32> constant = parse_constant(offset);
+			CCC_RETURN_IF_ERROR(constant);
+			
+			subscript.lower_bound = ArrayBound::from_constant(*constant);
+			break;
+		}
+		case FMT_FT_X_C:
+		case FMT_FT_X_X:
+		case FMT_UT_X_C:
+		case FMT_UT_X_X: {
+			Result<LocationDescription> location_description = parse_location_description(offset);
+			CCC_RETURN_IF_ERROR(location_description);
+			
+			subscript.lower_bound = ArrayBound::from_location_description(*location_description);
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+	
+	// Parse the upper bound, which is either a constant (C) or a location
+	// description (X).
+	switch (subscript.specifier) {
+		case FMT_FT_C_C:
+		case FMT_FT_X_C:
+		case FMT_UT_C_C:
+		case FMT_UT_X_C: {
+			Result<u32> constant = parse_constant(offset);
+			CCC_RETURN_IF_ERROR(constant);
+			
+			subscript.upper_bound = ArrayBound::from_constant(*constant);
+			break;
+			break;
+		}
+		case FMT_FT_C_X:
+		case FMT_FT_X_X:
+		case FMT_UT_C_X:
+		case FMT_UT_X_X: {
+			Result<LocationDescription> location_description = parse_location_description(offset);
+			CCC_RETURN_IF_ERROR(location_description);
+			
+			subscript.upper_bound = ArrayBound::from_location_description(*location_description);
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+	
+	// Parse the element type.
+	if (subscript.specifier == FMT_ET) {
+		Result<AttributeTuple> attribute = parse_attribute(m_block, offset, importer_flags);
+		CCC_RETURN_IF_ERROR(attribute);
+		
+		std::optional<Type> element_type = Type::from_attribute_tuple(*attribute);
+		CCC_CHECK(element_type.has_value(), "Element type is not a type attribute.");
+		subscript.element_type = std::move(*element_type);
+	}
+	
+	return subscript;
+}
+
+Result<u16> ArraySubscriptData::parse_fund_type(u32& offset) const
+{
+	std::optional<u16> fund_type = copy_unaligned<u16>(m_block, offset);
+	CCC_CHECK(fund_type.has_value(), "Failed to read fundamental type in array subscript.");
+	CCC_CHECK(fundamental_type_to_string(*fund_type),
+		"Invalid fundamental type 0x%hx in array subscript.", *fund_type);
+	offset += sizeof(u16);
+	return *fund_type;
+}
+
+Result<u32> ArraySubscriptData::parse_user_def_type(u32& offset) const
+{
+	std::optional<u32> user_def_type = copy_unaligned<u32>(m_block, offset);
+	CCC_CHECK(user_def_type.has_value(), "Failed to read user-defined type in array subscript.");
+	offset += sizeof(u32);
+	return *user_def_type;
+}
+
+Result<u32> ArraySubscriptData::parse_constant(u32& offset) const
+{
+	std::optional<u32> constant = copy_unaligned<u32>(m_block, offset);
+	CCC_CHECK(constant.has_value(), "Failed to read constant in array subscript.");
+	offset += sizeof(u32);
+	return *constant;
+}
+
+Result<LocationDescription> ArraySubscriptData::parse_location_description(u32& offset) const
+{
+	std::optional<u16> size = copy_unaligned<u16>(m_block, offset);
+	CCC_CHECK(size.has_value(), "Failed to read location description size in array subscript.");
+	offset += sizeof(u16);
+	
+	std::optional<std::span<const u8>> location_description = get_subspan(m_block, offset, *size);
+	CCC_CHECK(location_description.has_value(), "Failed to read location description in array subscript.");
+	offset += *size;
+	
+	return LocationDescription::from_block(*location_description);
+}
+
+// *****************************************************************************
+
+const char* form_to_string(u32 value)
+{
+	switch (value) {
 		case FORM_ADDR: return "addr";
 		case FORM_REF: return "ref";
 		case FORM_BLOCK2: return "block2";
@@ -365,9 +703,9 @@ const char* form_to_string(u32 form)
 	return nullptr;
 }
 
-const char* attribute_to_string(u32 attribute)
+const char* attribute_to_string(u32 value)
 {
-	switch (attribute) {
+	switch (value) {
 		case AT_sibling: return "sibling";
 		case AT_location: return "location";
 		case AT_name: return "name";
@@ -419,9 +757,9 @@ const char* attribute_to_string(u32 attribute)
 	return nullptr;
 }
 
-const char* location_op_to_string(u32 op)
+const char* location_op_to_string(u32 value)
 {
-	switch (op) {
+	switch (value) {
 		case OP_REG: return "reg";
 		case OP_BASEREG: return "basereg";
 		case OP_ADDR: return "addr";
@@ -435,9 +773,9 @@ const char* location_op_to_string(u32 op)
 	return nullptr;
 }
 
-const char* fundamental_type_to_string(u32 fund_type)
+const char* fundamental_type_to_string(u32 value)
 {
-	switch (fund_type) {
+	switch (value) {
 		case FT_char: return "char";
 		case FT_signed_char: return "signed_char";
 		case FT_unsigned_char: return "unsigned_char";
@@ -469,13 +807,59 @@ const char* fundamental_type_to_string(u32 fund_type)
 	return nullptr;
 }
 
-const char* type_modifier_to_string(u32 modifier)
+const char* type_modifier_to_string(u32 value)
 {
-	switch (modifier) {
+	switch (value) {
 		case MOD_pointer_to: return "pointer_to";
 		case MOD_reference_to: return "reference_to";
 		case MOD_const: return "const";
 		case MOD_volatile: return "volatile";
+	}
+	
+	return nullptr;
+}
+
+const char* language_to_string(u32 value)
+{
+	switch (value) {
+		case LANG_C89: return "C89";
+		case LANG_C: return "C";
+		case LANG_ADA83: return "ADA83";
+		case LANG_C_PLUS_PLUS: return "C_PLUS_PLUS";
+		case LANG_COBOL74: return "COBOL74";
+		case LANG_COBOL85: return "COBOL85";
+		case LANG_FORTRAN77: return "FORTRAN77";
+		case LANG_FORTRAN90: return "FORTRAN90";
+		case LANG_PASCAL83: return "PASCAL83";
+		case LANG_MODULA2: return "MODULA2";
+		case LANG_ASSEMBLY: return "ASSEMBLY";
+	}
+	
+	return nullptr;
+}
+
+const char* array_ordering_to_string(u32 value)
+{
+	switch (value) {
+		case ORD_col_major: return "col_major";
+		case ORD_row_major: return "row_major";
+	}
+	
+	return nullptr;
+}
+
+const char* array_subscript_format_specifier_to_string(u32 value)
+{
+	switch (value) {
+		case FMT_FT_C_C: return "FT_C_C";
+		case FMT_FT_C_X: return "FT_C_X";
+		case FMT_FT_X_C: return "FT_X_C";
+		case FMT_FT_X_X: return "FT_X_X";
+		case FMT_UT_C_C: return "UT_C_C";
+		case FMT_UT_C_X: return "UT_C_X";
+		case FMT_UT_X_C: return "UT_X_C";
+		case FMT_UT_X_X: return "UT_X_X";
+		case FMT_ET: return "ET";
 	}
 	
 	return nullptr;
