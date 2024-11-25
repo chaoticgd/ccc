@@ -228,7 +228,7 @@ const T* get_unaligned(std::span<const u8> bytes, u64 offset)
 }
 
 template <typename T>
-const std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
+std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 {
 	if (offset + sizeof(T) > bytes.size() || offset + sizeof(T) < offset) {
 		return std::nullopt;
@@ -239,8 +239,17 @@ const std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 	return value;
 }
 
+template <typename T, size_t extent>
+std::optional<std::span<T>> get_subspan(std::span<T, extent> bytes, u64 offset, u64 count = std::dynamic_extent)
+{
+	if (offset > bytes.size() || (count != std::dynamic_extent && count > bytes.size() - offset)) {
+		return std::nullopt;
+	}
+	
+	return bytes.subspan(offset, count);
+}
+
 std::optional<std::string_view> get_string(std::span<const u8> bytes, u64 offset);
-std::optional<std::span<const u8>> get_subspan(std::span<const u8> bytes, u64 offset, u64 size);
 
 #define CCC_BEGIN_END(x) (x).begin(), (x).end()
 #define CCC_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))

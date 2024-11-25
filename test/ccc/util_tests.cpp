@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include "ccc/util.h"
 
+#include <initializer_list>
+
 using namespace ccc;
 
 #define DEREF_OR_ZERO(x) ((x) ? (*(x)) : 0)
@@ -41,9 +43,27 @@ TEST(CCCUtil, CopyUnaligned)
 	EXPECT_EQ(copy_unaligned<u32>(data, 0xffffffffffffffff).has_value(), false);
 }
 
+template <typename T, size_t extent>
+bool test_subspan(const std::optional<std::span<T, extent>>& lhs, std::initializer_list<T> rhs)
+{
+	return lhs.has_value() &&
+		lhs->size() == rhs.size() &&
+		memcmp(lhs->data(), &(*rhs.begin()), lhs->size() * sizeof(T)) == 0;
+}
+
+TEST(CCCUtil, GetSubSpan)
+{
+	s32 data[7] = {1, 2, 3, 4, 5, 6, 7};
+	
+	EXPECT_TRUE(test_subspan(get_subspan(std::span(data, data + CCC_ARRAY_SIZE(data)), 1, 2), {2, 3}));
+	EXPECT_TRUE(test_subspan(get_subspan(std::span(data, data + CCC_ARRAY_SIZE(data)), 5, 2), {6, 7}));
+	EXPECT_FALSE(get_subspan(std::span(data), 6, 2).has_value());
+	EXPECT_FALSE(get_subspan(std::span(data), 0xffffffffffffffff, 2).has_value());
+}
+
 TEST(CCCUtil, GetString)
 {
-	alignas(8) u8 data[7] = {'h', 'e', 'l', 'l', 'o', '\0', '!'};
+	u8 data[7] = {'h', 'e', 'l', 'l', 'o', '\0', '!'};
 	
 	EXPECT_EQ(get_string(data, 0), std::string("hello"));
 	EXPECT_EQ(get_string(data, 5), std::string(""));

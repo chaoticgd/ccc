@@ -64,15 +64,6 @@ std::optional<std::string_view> get_string(std::span<const u8> bytes, u64 offset
 	return std::nullopt;
 }
 
-std::optional<std::span<const u8>> get_subspan(std::span<const u8> bytes, u64 offset, u64 size)
-{
-	if (offset + size > bytes.size() || offset + size < offset) {
-		return std::nullopt;
-	}
-	
-	return bytes.subspan(offset, size);
-}
-
 std::string merge_paths(const std::string& base, const std::string& path)
 {
 	// Try to figure out if we're dealing with a Windows path of a UNIX path.

@@ -219,9 +219,9 @@ Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u
 			CCC_CHECK(size.has_value(), "Cannot read block attribute size at 0x%x.", offset);
 			offset += sizeof(u16);
 			
-			CCC_CHECK((u64) offset + *size <= bytes.size(),
-				"Cannot read block attribute data at 0x%x.", offset);
-			result.value = Value::from_block_2(bytes.subspan(offset, *size));
+			std::optional<std::span<const u8>> block = get_subspan(bytes, offset, *size);
+			CCC_CHECK(block.has_value(), "Cannot read block attribute data at 0x%x.", offset);
+			result.value = Value::from_block_2(*block);
 			offset += *size;
 			
 			break;
@@ -231,9 +231,9 @@ Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u
 			CCC_CHECK(size.has_value(), "Cannot read block attribute size at 0x%x.", offset);
 			offset += sizeof(u32);
 			
-			CCC_CHECK((u64) offset + *size <= bytes.size(),
-				"Cannot read block attribute data at 0x%x.", offset);
-			result.value = Value::from_block_4(bytes.subspan(offset, *size));
+			std::optional<std::span<const u8>> block = get_subspan(bytes, offset, *size);
+			CCC_CHECK(block.has_value(), "Cannot read block attribute data at 0x%x.", offset);
+			result.value = Value::from_block_4(*block);
 			offset += *size;
 			
 			break;
@@ -456,14 +456,15 @@ Result<std::span<const TypeModifier>> Type::modifiers() const
 	
 	u32 head_size = m_attribute == AT_mod_fund_type ? 2 : 4;
 	std::span<const u8> block = m_value.block();
-	std::span<const u8> modifiers = block.subspan(0, block.size() - head_size);
+	std::optional<std::span<const u8>> modifiers = get_subspan(block, 0, block.size() - head_size);
+	CCC_CHECK(modifiers.has_value(), "Invalid %s block.", attribute_to_string(m_attribute));
 	
-	for (u8 modifier : modifiers)
+	for (u8 modifier : *modifiers)
 		CCC_CHECK(type_modifier_to_string(modifier), "Invalid type modifier 0x%hhx.", modifier);
 	
 	return std::span<const TypeModifier>(
-		reinterpret_cast<const TypeModifier*>(modifiers.data()),
-		reinterpret_cast<const TypeModifier*>(modifiers.data() + modifiers.size()));
+		reinterpret_cast<const TypeModifier*>(modifiers->data()),
+		reinterpret_cast<const TypeModifier*>(modifiers->data() + modifiers->size()));
 }
 
 // *****************************************************************************
