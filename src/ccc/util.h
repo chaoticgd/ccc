@@ -210,7 +210,7 @@ void warn_impl(const char* source_file, int source_line, const char* format, Arg
 template <typename T>
 const T* get_aligned(std::span<const u8> bytes, u64 offset)
 {
-	if (offset + sizeof(T) > bytes.size() || offset + sizeof(T) < offset || offset % alignof(T) != 0) {
+	if (offset > bytes.size() || bytes.size() - offset < sizeof(T) || offset % alignof(T) != 0) {
 		return nullptr;
 	}
 	
@@ -220,7 +220,7 @@ const T* get_aligned(std::span<const u8> bytes, u64 offset)
 template <typename T>
 const T* get_unaligned(std::span<const u8> bytes, u64 offset)
 {
-	if (offset + sizeof(T) > bytes.size() || offset + sizeof(T) < offset) {
+	if (offset > bytes.size() || bytes.size() - offset < sizeof(T)) {
 		return nullptr;
 	}
 	
@@ -230,7 +230,7 @@ const T* get_unaligned(std::span<const u8> bytes, u64 offset)
 template <typename T>
 std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 {
-	if (offset + sizeof(T) > bytes.size() || offset + sizeof(T) < offset) {
+	if (offset > bytes.size() || bytes.size() - offset < sizeof(T)) {
 		return std::nullopt;
 	}
 	
@@ -242,7 +242,7 @@ std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 template <typename T, size_t extent>
 std::optional<std::span<T>> get_subspan(std::span<T, extent> bytes, u64 offset, u64 count = std::dynamic_extent)
 {
-	if (offset > bytes.size() || (count != std::dynamic_extent && count > bytes.size() - offset)) {
+	if (offset > bytes.size() || (count != std::dynamic_extent && bytes.size() - offset < count)) {
 		return std::nullopt;
 	}
 	
