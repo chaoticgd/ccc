@@ -24,8 +24,9 @@ int main(int argc, char** argv)
 	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->header.offset);
 	CCC_EXIT_IF_FALSE(text_address.has_value(), "Failed to translate file offset to virtual address.");
 	
-	Result<std::span<const mips::Insn>> insns = elf->get_array_virtual<mips::Insn>(*text_address, text->header.size / 4);
-	CCC_EXIT_IF_ERROR(insns);
+	std::optional<std::span<const mips::Insn>> insns =
+		elf->get_array_virtual<mips::Insn>(*text_address, text->header.size / 4);
+	CCC_EXIT_IF_FALSE(insns.has_value(), "Failed to read .text section.");
 	
 	for (u32 i = 0; i < text->header.size / 4; i++) {
 		mips::Insn insn = (*insns)[i];
