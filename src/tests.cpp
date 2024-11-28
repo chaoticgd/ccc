@@ -71,7 +71,7 @@ static int main_test(const fs::path& input_directory)
 		
 		// Test the importers.
 		Result<ModuleHandle> handle = import_symbol_tables(
-			database, (*symbol_file)->name(), *symbol_tables, importer_flags, demangler, nullptr);
+			database, *symbol_tables, (*symbol_file)->name(), Address(), importer_flags, demangler, nullptr);
 		CCC_EXIT_IF_ERROR(handle);
 		
 		// Test the C++ printing code.

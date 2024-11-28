@@ -507,7 +507,7 @@ static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file
 	demangler.cplus_demangle_opname = cplus_demangle_opname;
 	
 	Result<ModuleHandle> module_handle = import_symbol_tables(
-		database, symbol_file->name(), symbol_tables, options.importer_flags, demangler, nullptr);
+		database, symbol_tables, symbol_file->name(), Address(), options.importer_flags, demangler, nullptr);
 	CCC_EXIT_IF_ERROR(module_handle);
 	
 	return database;

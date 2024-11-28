@@ -80,8 +80,8 @@ static Result<RefinedData> refine_node(
 			const ast::Enum& enumeration = type.as<ast::Enum>();
 			
 			s32 value = 0;
-			Result<void> read_result = elf.copy_virtual((u8*) &value, virtual_address, 4);
-			CCC_RETURN_IF_ERROR(read_result);
+			bool read_result = elf.copy_virtual((u8*) &value, virtual_address, 4);
+			CCC_CHECK(read_result, "Failed to read enum at 0x%x.", virtual_address);
 			
 			RefinedData data;
 			for (const auto& [number, name] : enumeration.constants) {
@@ -150,56 +150,56 @@ static Result<RefinedData> refine_bitfield(
 	switch (storage_unit_type) {
 		case ast::BuiltInClass::UNSIGNED_8:
 		case ast::BuiltInClass::UNQUALIFIED_8: {
-			Result<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_unsigned(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::BOOL_8: {
-			Result<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_unsigned(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_8: {
-			Result<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_signed(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_16: {
-			Result<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 16-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_unsigned(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_16: {
-			Result<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 16-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_signed(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_32: {
-			Result<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 32-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_unsigned(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_32: {
-			Result<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 32-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_signed(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_64: {
-			Result<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 64-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_unsigned(*storage_unit);
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_64: {
-			Result<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
-			CCC_RETURN_IF_ERROR(storage_unit);
+			std::optional<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
+			CCC_CHECK(storage_unit, "Failed to read 64-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = bit_field.unpack_signed(*storage_unit);
 			break;
 		}
@@ -207,11 +207,13 @@ static Result<RefinedData> refine_bitfield(
 		case ast::BuiltInClass::SIGNED_128:
 		case ast::BuiltInClass::UNQUALIFIED_128:
 		case ast::BuiltInClass::FLOAT_128: {
-			Result<u64> low = elf.get_object_virtual<u64>(virtual_address);
-			CCC_RETURN_IF_ERROR(low);
+			std::optional<u64> low = elf.get_object_virtual<u64>(virtual_address);
+			CCC_CHECK(low.has_value(),
+				"Failed to read lower half of 128-bit bitfield storage unit at 0x%x.", virtual_address);
 			
-			Result<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
-			CCC_RETURN_IF_ERROR(high);
+			std::optional<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
+			CCC_CHECK(high.has_value(),
+				"Failed to read upper half of 128-bit bitfield storage unit at 0x%x.", virtual_address);
 			
 			u128 storage_unit;
 			storage_unit.low = *low;
@@ -251,19 +253,19 @@ static Result<RefinedData> refine_builtin(
 		case ast::BuiltInClass::SIGNED_64:
 		case ast::BuiltInClass::FLOAT_64: {
 			s32 size = builtin_class_size(bclass);
-			Result<void> read_result = elf.copy_virtual((u8*) &value.low, virtual_address, size);
-			CCC_RETURN_IF_ERROR(read_result);
+			bool read_result = elf.copy_virtual((u8*) &value.low, virtual_address, size);
+			CCC_CHECK(read_result, "Failed to read built-in at 0x%x.", virtual_address);
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_128:
 		case ast::BuiltInClass::SIGNED_128:
 		case ast::BuiltInClass::UNQUALIFIED_128:
 		case ast::BuiltInClass::FLOAT_128: {
-			Result<u64> low = elf.get_object_virtual<u64>(virtual_address);
-			CCC_RETURN_IF_ERROR(low);
+			std::optional<u64> low = elf.get_object_virtual<u64>(virtual_address);
+			CCC_CHECK(low, "Failed to read lower half of 128-bit built-in at 0x%x.", virtual_address);
 			
-			Result<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
-			CCC_RETURN_IF_ERROR(high);
+			std::optional<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
+			CCC_CHECK(high, "Failed to read upper half of 128-bit built-in at 0x%x.", virtual_address + 8);
 			
 			value.low = *low;
 			value.high = *high;
@@ -283,8 +285,8 @@ static Result<RefinedData> refine_pointer_or_reference(
 {
 	RefinedData data;
 	u32 pointer = 0;
-	Result<void> read_result = elf.copy_virtual((u8*) &pointer, virtual_address, 4);
-	CCC_RETURN_IF_ERROR(read_result);
+	bool read_result = elf.copy_virtual((u8*) &pointer, virtual_address, 4);
+	CCC_CHECK(read_result, "Failed to read pointer at 0x%x.", virtual_address);
 	
 	std::string string;
 	if (pointer != 0) {

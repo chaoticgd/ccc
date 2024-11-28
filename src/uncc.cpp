@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 	
 	SymbolDatabase database;
 	Result<ModuleHandle> module_handle = import_symbol_tables(
-		database, (*symbol_file)->name(), *symbol_tables, options.importer_flags, demangler, nullptr);
+		database, *symbol_tables, (*symbol_file)->name(), Address(), options.importer_flags, demangler, nullptr);
 	CCC_EXIT_IF_ERROR(module_handle);
 	
 	map_types_to_files_based_on_this_pointers(database);
