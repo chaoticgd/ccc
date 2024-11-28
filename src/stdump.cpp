@@ -685,10 +685,10 @@ static void print_help(FILE* out)
 	fprintf(out, "\n");
 	fprintf(out, "Importer Options:\n");
 	print_importer_flags_help(out);
-	printf("\n");
-	printf("The GNU demangler is used, which contains source files licensed under the GPL\n");
-	printf("and the LGPL. RapidJSON is used under the MIT license. The GoogleTest library is\n");
-	printf("used by the test suite under the 3-Clause BSD license.\n");
+	fprintf(out, "\n");
+	fprintf(out, "The GNU demangler is used, which contains source files licensed under the GPL\n");
+	fprintf(out, "and the LGPL. RapidJSON is used under the MIT license. The GoogleTest library is\n");
+	fprintf(out, "used by the test suite under the 3-Clause BSD license.\n");
 }
 
 extern const char* git_tag;
