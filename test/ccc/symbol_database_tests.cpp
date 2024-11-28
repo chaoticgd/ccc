@@ -105,12 +105,25 @@ TEST(CCCSymbolDatabase, HandlesFromName)
 	
 	// Create the symbols.
 	Result<DataType*> a = database.data_types.create_symbol("A", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(a);
+	
 	Result<DataType*> b_1 = database.data_types.create_symbol("B", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(b_1);
+	
 	Result<DataType*> b_2 = database.data_types.create_symbol("B", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(b_2);
+	
 	Result<DataType*> c_1 = database.data_types.create_symbol("C", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(c_1);
+	
 	Result<DataType*> c_2 = database.data_types.create_symbol("C", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(c_2);
+	
 	Result<DataType*> c_3 = database.data_types.create_symbol("C", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(c_3);
+	
 	Result<DataType*> d = database.data_types.create_symbol("D", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(d);
 	
 	// Destroy D.
 	database.data_types.mark_symbol_for_destruction((*d)->handle(), &database);
@@ -415,6 +428,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	std::unique_ptr<ast::BuiltIn> underlying_type = std::make_unique<ast::BuiltIn>();
 	Result<DataType*> underlying_symbol = database.create_data_type_if_unique(
 		std::move(underlying_type), StabsTypeNumber{1,1}, "Underlying", **file, group);
+	CCC_GTEST_FAIL_IF_ERROR(underlying_symbol);
 	
 	// Create a typedef for that builtin.
 	std::unique_ptr<ast::TypeName> typedef_type = std::make_unique<ast::TypeName>();
@@ -426,6 +440,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	typedef_type->unresolved_stabs->stabs_type_number.type = 1;
 	Result<DataType*> typedef_symbol = database.create_data_type_if_unique(
 		std::move(typedef_type), StabsTypeNumber{1,2}, "Typedef", **file, group);
+	CCC_GTEST_FAIL_IF_ERROR(typedef_symbol);
 	
 	// Create a struct referencing the builtin type directly.
 	std::unique_ptr<ast::StructOrUnion> struct_underlying_type = std::make_unique<ast::StructOrUnion>();
@@ -438,6 +453,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	struct_underlying_type->fields.emplace_back(std::move(member_underlying_type));
 	Result<DataType*> struct_underlying_symbol = database.create_data_type_if_unique(
 		std::move(struct_underlying_type), StabsTypeNumber{1,3}, "WobblyStruct", **file, group);
+	CCC_GTEST_FAIL_IF_ERROR(struct_underlying_symbol);
 	
 	// Create a struct referencing the builtin through the typedef.
 	std::unique_ptr<ast::StructOrUnion> struct_typedef_type = std::make_unique<ast::StructOrUnion>();
@@ -450,6 +466,7 @@ TEST(CCCSymbolDatabase, DeduplicateWobblyTypedefs)
 	struct_typedef_type->fields.emplace_back(std::move(member_typedef_type));
 	Result<DataType*> struct_typedef_symbol = database.create_data_type_if_unique(
 		std::move(struct_typedef_type), StabsTypeNumber{1,4}, "WobblyStruct", **file, group);
+	CCC_GTEST_FAIL_IF_ERROR(struct_typedef_symbol);
 	
 	// Validate that the two structs were deduplicated despite not being equal.
 	auto handles = database.data_types.handles_from_name("WobblyStruct");
