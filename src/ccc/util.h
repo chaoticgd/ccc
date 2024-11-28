@@ -81,11 +81,17 @@ void set_custom_error_callback(CustomErrorCallback callback);
 #define CCC_ASSERT(condition) \
 	CCC_ABORT_IF_FALSE(condition, #condition)
 
+#if defined(__GNUC__) || defined(__clang__)
+	#define CCC_WARN_UNUSED [[gnu::warn_unused]]
+#else
+	#define CCC_WARN_UNUSED
+#endif
+
 // The main error handling construct in CCC. This class is used to bundle
 // together a return value and a pointer to error information, so that errors
 // can be propagated up the stack.
 template <typename Value>
-class [[nodiscard]] Result {
+class [[nodiscard]] CCC_WARN_UNUSED Result {
 	template <typename OtherValue>
 	friend class Result;
 protected:
@@ -149,7 +155,7 @@ public:
 };
 
 template <>
-class [[nodiscard]] Result<void> : public Result<int> {
+class [[nodiscard]] CCC_WARN_UNUSED Result<void> : public Result<int> {
 public:
 	Result() : Result<int>(0) {}
 	

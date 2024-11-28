@@ -1,14 +1,14 @@
 # Error Handling
 
 CCC uses a custom type template for error handling called `Result` which
-packages together a return type and a pointer to error information. This allows
+packages together a return value and a pointer to error information. This allows
 errors to be treated as values, and enables CCC to be compiled in environments
 where C++ exceptions are disabled.
 
 It is defined like so:
 
 ```
-class [[nodiscard]] Result {
+class [[nodiscard]] CCC_WARN_UNUSED Result {
 	...
 protected:
 	Value m_value;
@@ -17,11 +17,14 @@ protected:
 };
 ```
 
-Note the `nodiscard` attribute. This means if you ignore the return value of a
-function returning a `Result` object, the compiler will warn you. Additionally,
-if you assign the return value to an object, but do not use the object, your
-compiler is likely to give you a warning about an unused variable. These two
-warnings in combination make these `Result` types much easier to use.
+Note the `nodiscard` attribute. This makes it so if you ignore the return value
+of a function returning a `Result` object, the compiler will generate a warning.
+
+Additionally, the `CCC_WARN_UNUSED` macro makes it so that if you assign a
+returned `Result` object to a local variable but do not use the local variable,
+supported compilers will generate a warning in that case too.
+
+These two warnings in combination make these `Result` types much easier to use.
 
 ## Basic Usage
 
