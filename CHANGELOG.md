@@ -2,6 +2,7 @@
 
 ## v2.2
 
+- **Added support for DWARF 1 symbol tables.**
 - Improved support for bitfields.
 - Improved support for 128-bit types.
 - Added support for parsing .gnu.linkonce.* section names.

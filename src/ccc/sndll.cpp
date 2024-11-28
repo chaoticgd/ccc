@@ -85,10 +85,9 @@ static Result<SNDLLFile> parse_sndll_common(
 	sndll.version = version;
 	
 	if (common.elf_path) {
-		const char* elf_path = get_string(image, common.elf_path);
-		if (elf_path) {
-			sndll.elf_path = elf_path;
-		}
+		std::optional<std::string_view> elf_path = get_string(image, common.elf_path);
+		CCC_CHECK(elf_path.has_value(), "SNDLL header has invalid ELF path field.");
+		sndll.elf_path = *elf_path;
 	}
 	
 	CCC_CHECK(common.symbol_count < (32 * 1024 * 1024) / sizeof(SNDLLSymbol), "SNDLL symbol count is too high.");
@@ -99,7 +98,7 @@ static Result<SNDLLFile> parse_sndll_common(
 		const SNDLLSymbolHeader* symbol_header = get_unaligned<SNDLLSymbolHeader>(image, symbol_offset);
 		CCC_CHECK(symbol_header, "SNDLL symbol out of range.");
 		
-		const char* string = nullptr;
+		std::optional<std::string_view> string;
 		if (symbol_header->string) {
 			string = get_string(image, symbol_header->string - address.get_or_zero());
 		}
@@ -107,8 +106,8 @@ static Result<SNDLLFile> parse_sndll_common(
 		SNDLLSymbol& symbol = sndll.symbols.emplace_back();
 		symbol.type = symbol_header->type;
 		symbol.value = symbol_header->value;
-		if (string) {
-			symbol.string = string;
+		if (string.has_value()) {
+			symbol.string = *string;
 		}
 	}
 	

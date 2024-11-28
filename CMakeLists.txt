@@ -40,8 +40,18 @@ add_library(ccc STATIC
 	src/ccc/data_refinement.h
 	src/ccc/dependency.cpp
 	src/ccc/dependency.h
+	src/ccc/dwarf_attributes.cpp
+	src/ccc/dwarf_attributes.h
+	src/ccc/dwarf_forge.cpp
+	src/ccc/dwarf_forge.h
+	src/ccc/dwarf_importer.cpp
+	src/ccc/dwarf_importer.h
+	src/ccc/dwarf_printer.cpp
+	src/ccc/dwarf_printer.h
 	src/ccc/dwarf_section.cpp
 	src/ccc/dwarf_section.h
+	src/ccc/dwarf_to_ast.cpp
+	src/ccc/dwarf_to_ast.h
 	src/ccc/elf.cpp
 	src/ccc/elf.h
 	src/ccc/elf_symtab.cpp
@@ -97,6 +107,7 @@ add_library(ccc_platform STATIC
 set(TEST_SOURCES
 	test/demangler_tests.cpp
 	test/collision_tests.cpp
+	test/ccc/dwarf_importer_tests.cpp
 	test/ccc/elf_tests.cpp
 	test/ccc/int128_tests.cpp
 	test/ccc/mdebug_importer_tests.cpp

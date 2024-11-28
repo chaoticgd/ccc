@@ -1,6 +1,6 @@
 # Chaos Compiler Collection
 
-A library and set of command line tools for parsing debugging symbols from PS2 games. The 1.x series of releases were focused on STABS symbols in .mdebug sections, while the 2.x series of releases can also parse standard ELF symbols and SNDLL linker symbols. DWARF support is planned.
+A library and set of command line tools for parsing debugging symbols from PS2 games. The 1.x series of releases were focused on STABS symbols in .mdebug sections, while the 2.x series of releases can also parse standard ELF symbols and SNDLL linker symbols. DWARF support is in the works.
 
 - [Releases](https://github.com/chaoticgd/ccc/releases)
 - [Unstable Builds](https://github.com/chaoticgd/ccc/releases/tag/unstable)

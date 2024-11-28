@@ -86,13 +86,14 @@ Result<void> import_symbols(
 			}
 		}
 		
-		const char* string = get_string(strtab, symbol->name);
-		CCC_CHECK(string, "Symbol string out of range.");
+		std::optional<std::string_view> string_view = get_string(strtab, symbol->name);
+		CCC_CHECK(string_view.has_value(), "Symbol string out of range.");
+		std::string string(*string_view);
 		
 		switch (symbol->type()) {
 			case SymbolType::NOTYPE: {
 				Result<Label*> label = database.labels.create_symbol(
-					string, group.source, group.module_symbol, address, importer_flags, demangler);
+					std::move(string), group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(label);
 				
 				// These symbols get emitted at the same addresses as functions
@@ -108,7 +109,7 @@ Result<void> import_symbols(
 			case SymbolType::OBJECT: {
 				if (symbol->size != 0) {
 					Result<GlobalVariable*> global_variable = database.global_variables.create_symbol(
-						string, group.source, group.module_symbol, address, importer_flags, demangler);
+						std::move(string), group.source, group.module_symbol, address, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(global_variable);
 					
 					if (*global_variable) {
@@ -116,7 +117,7 @@ Result<void> import_symbols(
 					}
 				} else {
 					Result<Label*> label = database.labels.create_symbol(
-						string, group.source, group.module_symbol, address, importer_flags, demangler);
+						std::move(string), group.source, group.module_symbol, address, importer_flags, demangler);
 					CCC_RETURN_IF_ERROR(label);
 				}
 				
@@ -124,7 +125,7 @@ Result<void> import_symbols(
 			}
 			case SymbolType::FUNC: {
 				Result<Function*> function = database.functions.create_symbol(
-					string, group.source, group.module_symbol, address, importer_flags, demangler);
+					std::move(string), group.source, group.module_symbol, address, importer_flags, demangler);
 				CCC_RETURN_IF_ERROR(function);
 				
 				if (*function) {
@@ -135,7 +136,7 @@ Result<void> import_symbols(
 			}
 			case SymbolType::FILE: {
 				Result<SourceFile*> source_file = database.source_files.create_symbol(
-					string, group.source, group.module_symbol);
+					std::move(string), group.source, group.module_symbol);
 				CCC_RETURN_IF_ERROR(source_file);
 				
 				break;
@@ -160,11 +161,11 @@ Result<void> print_symbol_table(FILE* out, std::span<const u8> symtab, std::span
 		const char* bind = symbol_bind_to_string(symbol->bind());
 		const char* visibility = symbol_visibility_to_string(symbol->visibility());
 		
-		const char* string = get_string(strtab, symbol->name);
-		CCC_CHECK(string, "Symbol string out of range.");
+		std::optional<std::string_view> string = get_string(strtab, symbol->name);
+		CCC_CHECK(string.has_value(), "Symbol string out of range.");
 		
 		fprintf(out, "%6u: %08x %5u %-7s %-7s %-7s %3u %s\n",
-			i, symbol->value, symbol->size, type, bind, visibility, symbol->shndx, string);
+			i, symbol->value, symbol->size, type, bind, visibility, symbol->shndx, string->data());
 		
 	}
 	

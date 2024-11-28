@@ -73,9 +73,7 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 	CCC_RETURN_IF_ERROR(file_count);
 	
 	for (s32 i = 0; i < *file_count; i++) {
-		if (interrupt && *interrupt) {
-			return CCC_FAILURE("Operation interrupted by user.");
-		}
+		CCC_CHECK(!interrupt || !*interrupt, "Operation interrupted by user.");
 		
 		Result<mdebug::File> file = context.reader->parse_file(i);
 		CCC_RETURN_IF_ERROR(file);
