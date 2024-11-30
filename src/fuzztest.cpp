@@ -26,11 +26,13 @@ extern "C" int LLVMFuzzerTestOneInput(const u8* data, size_t size)
 	
 	Result<ModuleHandle> module_handle = import_symbol_tables(
 		database,
-		(*symbol_file)->name(),
 		*symbol_tables,
+		(*symbol_file)->name(),
+		Address(),
 		NO_IMPORTER_FLAGS,
 		demangler,
 		nullptr);
+	static_cast<void>(module_handle);
 	
 	return 0;
 }
