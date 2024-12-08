@@ -115,7 +115,7 @@ Result<void> SymbolTableImporter::import_compile_unit(const DIE& die)
 			m_source_file->set_size(new_size);
 		}
 		
-		if(high_pc.valid() > m_source_file->address().value + m_source_file->size()) {
+		if (high_pc.address() > m_source_file->address().value + m_source_file->size()) {
 			m_source_file->set_size(high_pc.address() - m_source_file->address().value);
 		}
 	}
