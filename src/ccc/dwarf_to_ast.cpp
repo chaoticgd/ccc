@@ -9,10 +9,17 @@ namespace ccc::dwarf {
 
 static std::unique_ptr<ast::Node> not_yet_implemented(const char* name);
 
-TypeImporter::TypeImporter(SymbolDatabase& database, const SectionReader& dwarf, u32 importer_flags)
+TypeImporter::TypeImporter(
+	SymbolDatabase& database,
+	const SectionReader& dwarf,
+	SymbolGroup group,
+	u32 importer_flags,
+	std::map<u32, ReferenceCounts>& die_reference_counts)
 	: m_database(database)
 	, m_dwarf(dwarf)
-	, m_importer_flags(importer_flags) {}
+	, m_group(group)
+	, m_importer_flags(importer_flags)
+	, m_die_reference_counts(die_reference_counts) {}
 
 static const AttributeListFormat type_attributes = DIE::attribute_list_format({
 	DIE::attribute_format(AT_fund_type, {FORM_DATA2}),
@@ -23,8 +30,6 @@ static const AttributeListFormat type_attributes = DIE::attribute_list_format({
 
 Result<std::unique_ptr<ast::Node>> TypeImporter::type_attribute_to_ast(const DIE& die)
 {
-	// DWARF 1 has 4 different types of type attributes, but each DIE should
-	// only have one of them.
 	Value fund_type;
 	Value mod_fund_type;
 	Value user_def_type;
@@ -38,6 +43,10 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::type_attribute_to_ast(const DIE
 	
 	return type_to_ast(*type);
 }
+
+static const AttributeListFormat type_to_ast_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_name, {FORM_STRING})
+});
 
 Result<std::unique_ptr<ast::Node>> TypeImporter::type_to_ast(const Type& type)
 {
@@ -59,9 +68,28 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::type_to_ast(const Type& type)
 			Result<u32> die_offset = type.user_def_type();
 			CCC_RETURN_IF_ERROR(die_offset);
 			
+			if(m_currently_importing_die[*die_offset]) {
+				auto error_node = std::make_unique<ast::Error>();
+				error_node->message = "TODO: Circular reference.";
+				return std::unique_ptr<ast::Node>(std::move(error_node));
+			}
+			
 			Result<std::optional<DIE>> referenced_die = m_dwarf.die_at(*die_offset);
 			CCC_RETURN_IF_ERROR(referenced_die);
 			CCC_CHECK(referenced_die->has_value(), "User-defined type is null.");
+			
+			Value name;
+			Result<void> attribute_result = (*referenced_die)->scan_attributes(
+				type_to_ast_attributes, {&name});
+			CCC_RETURN_IF_ERROR(attribute_result);
+			
+			ReferenceCounts& counts = m_die_reference_counts[*die_offset];
+			
+			if (name.valid() || counts.references_from_types != 1 || counts.references_not_from_types != 0) {
+				auto error_node = std::make_unique<ast::Error>();
+				error_node->message = "TODO: Type name.";
+				return std::unique_ptr<ast::Node>(std::move(error_node));
+			}
 			
 			Result<std::unique_ptr<ast::Node>> user_def_node = die_to_ast(**referenced_die);
 			CCC_RETURN_IF_ERROR(user_def_node);
@@ -110,12 +138,75 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::type_to_ast(const Type& type)
 
 Result<std::unique_ptr<ast::Node>> TypeImporter::fundamental_type_to_ast(FundamentalType fund_type)
 {
-	return not_yet_implemented("Fundamental type");
+	std::optional<ast::BuiltInClass> bclass = fundamental_type_to_builtin_class(fund_type);
+	if (!bclass.has_value()) {
+		if (fund_type == FT_pointer) {
+			Result<std::unique_ptr<ast::Node>> value_type = fundamental_type_to_ast(FT_void);
+			CCC_RETURN_IF_ERROR(value_type);
+			
+			auto pointer = std::make_unique<ast::PointerOrReference>();
+			pointer->is_pointer = true;
+			pointer->value_type = std::move(*value_type);
+			pointer->size_bytes = 4;
+			return std::unique_ptr<ast::Node>(std::move(pointer));
+		} else {
+			return CCC_FAILURE("Unhandled fundamental type %s.", fundamental_type_to_string(fund_type));
+		}
+	}
+	
+	auto symbol_handle = m_fundamental_types.find(fund_type);
+	if (symbol_handle == m_fundamental_types.end()) {
+		std::string name;
+		
+		const char* string = fundamental_type_to_pretty_string(fund_type);
+		if (string) {
+			name = string;
+		}
+		
+		Result<DataType*> data_type = m_database.data_types.create_symbol(
+			std::move(name), m_group.source, m_group.module_symbol);
+		CCC_RETURN_IF_ERROR(data_type);
+		
+		auto built_in = std::make_unique<ast::BuiltIn>();
+		built_in->bclass = *bclass;
+		built_in->size_bytes = ast::builtin_class_size(built_in->bclass);
+		(*data_type)->set_type(std::move(built_in));
+		
+		symbol_handle = m_fundamental_types.emplace(fund_type, (*data_type)->handle()).first;
+	}
+	
+	auto type_name = std::make_unique<ast::TypeName>();
+	type_name->data_type_handle = symbol_handle->second;
+	return std::unique_ptr<ast::Node>(std::move(type_name));
 }
+
+class DieLocker {
+public:
+	DieLocker(std::map<u32, bool>& currently_importing_die, u32 offset)
+		: m_currently_importing_die(currently_importing_die)
+		, m_offset(offset)
+	{
+		m_currently_importing_die[m_offset] = true;
+	}
+	
+	~DieLocker()
+	{
+		m_currently_importing_die[m_offset] = false;
+	}
+	
+private:
+	std::map<u32, bool>& m_currently_importing_die;
+	u32 m_offset;
+};
 
 Result<std::unique_ptr<ast::Node>> TypeImporter::die_to_ast(const DIE& die)
 {
 	std::unique_ptr<ast::Node> node;
+	
+	// Mark the DIE as currently being processed so we can detect cycles. This
+	// needs to be a class so that the flag is unset if we return early due to
+	// an error.
+	DieLocker locker(m_currently_importing_die, die.offset());
 	
 	switch (die.tag()) {
 		case TAG_array_type: {
@@ -125,7 +216,9 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::die_to_ast(const DIE& die)
 			break;
 		}
 		case TAG_class_type: {
-			node = not_yet_implemented("TAG_class_type");
+			Result<std::unique_ptr<ast::Node>> class_type = class_type_to_ast(die);
+			CCC_RETURN_IF_ERROR(class_type);
+			node = std::move(*class_type);
 			break;
 		}
 		case TAG_enumeration_type: {
@@ -219,6 +312,60 @@ Result<std::unique_ptr<ast::Node>> TypeImporter::array_type_to_ast(const DIE& di
 	return std::unique_ptr<ast::Node>(std::move(array));
 }
 
+static const AttributeListFormat class_type_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_name, {FORM_STRING}),
+	DIE::attribute_format(AT_byte_size, {FORM_DATA4})
+});
+
+static const AttributeListFormat member_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_name, {FORM_STRING})
+});
+
+Result<std::unique_ptr<ast::Node>> TypeImporter::class_type_to_ast(const DIE& die)
+{
+	Value name;
+	Value byte_size;
+	Result<void> attribute_result = die.scan_attributes(class_type_attributes, {&name, &byte_size});
+	CCC_RETURN_IF_ERROR(attribute_result);
+	
+	auto struct_or_union = std::make_unique<ast::StructOrUnion>();
+	
+	if (name.valid()) {
+		struct_or_union->name = name.string();
+	}
+	
+	if (byte_size.valid()) {
+		struct_or_union->size_bytes = static_cast<s32>(byte_size.constant());
+	}
+	
+	Result<std::optional<DIE>> first_member = die.first_child();
+	CCC_RETURN_IF_ERROR(first_member);
+	
+	std::optional<DIE> member = *first_member;
+	while (member.has_value()) {
+		if (member->tag() == TAG_member) {
+			Result<std::unique_ptr<ast::Node>> field = type_attribute_to_ast(*member);
+			CCC_RETURN_IF_ERROR(field);
+			
+			Value member_name;
+			Result<void> member_attribute_result = member->scan_attributes(member_attributes, {&member_name});
+			CCC_RETURN_IF_ERROR(member_attribute_result);
+			
+			if (member_name.valid()) {
+				(*field)->name = member_name.string();
+			}
+			
+			struct_or_union->fields.emplace_back(std::move(*field));
+		}
+		
+		Result<std::optional<DIE>> next_member = member->sibling();
+		CCC_RETURN_IF_ERROR(next_member);
+		member = *next_member;
+	}
+	
+	return std::unique_ptr<ast::Node>(std::move(struct_or_union));
+}
+
 bool die_is_type(const DIE& die)
 {
 	bool is_type;
@@ -245,6 +392,41 @@ bool die_is_type(const DIE& die)
 	}
 	
 	return is_type;
+}
+
+std::optional<ast::BuiltInClass> fundamental_type_to_builtin_class(FundamentalType fund_type)
+{
+	switch (fund_type) {
+		case FT_char:               return ast::BuiltInClass::UNQUALIFIED_8;
+		case FT_signed_char:        return ast::BuiltInClass::SIGNED_8;
+		case FT_unsigned_char:      return ast::BuiltInClass::UNSIGNED_8;
+		case FT_short:              return ast::BuiltInClass::SIGNED_16;
+		case FT_signed_short:       return ast::BuiltInClass::SIGNED_16;
+		case FT_unsigned_short:     return ast::BuiltInClass::UNSIGNED_16;
+		case FT_integer:            return ast::BuiltInClass::SIGNED_32;
+		case FT_signed_integer:     return ast::BuiltInClass::SIGNED_32;
+		case FT_unsigned_integer:   return ast::BuiltInClass::UNSIGNED_32;
+		case FT_long:               return ast::BuiltInClass::SIGNED_64;
+		case FT_signed_long:        return ast::BuiltInClass::SIGNED_64;
+		case FT_unsigned_long:      return ast::BuiltInClass::UNSIGNED_64;
+		// case FT_pointer:            return ast::BuiltInClass::UNSIGNED_32;
+		case FT_float:              return ast::BuiltInClass::FLOAT_32;
+		case FT_dbl_prec_float:     return ast::BuiltInClass::FLOAT_64;
+		case FT_ext_prec_float:     return ast::BuiltInClass::FLOAT_64;
+		// case FT_complex:            return ast::BuiltInClass::FLOAT_32;
+		// case FT_dbl_prec_complex:   return ast::BuiltInClass::FLOAT_64;
+		case FT_void:               return ast::BuiltInClass::VOID_TYPE;
+		case FT_boolean:            return ast::BuiltInClass::BOOL_8;
+		// case FT_ext_prec_complex:   return ast::BuiltInClass::FLOAT_64;
+		// case FT_label:              return ast::BuiltInClass::VOID_TYPE;
+		case FT_long_long:          return ast::BuiltInClass::SIGNED_64;
+		case FT_signed_long_long:   return ast::BuiltInClass::SIGNED_64;
+		case FT_unsigned_long_long: return ast::BuiltInClass::UNSIGNED_64;
+		case FT_int128:             return ast::BuiltInClass::UNQUALIFIED_128;
+		default: {}
+	}
+	
+	return std::nullopt;
 }
 
 static std::unique_ptr<ast::Node> not_yet_implemented(const char* name)

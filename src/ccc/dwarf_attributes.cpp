@@ -344,9 +344,9 @@ std::optional<Type> Type::from_attributes(
 	if (fund_type.valid()) {
 		return from_fund_type(fund_type);
 	} else if (mod_fund_type.valid()) {
-		return from_user_def_type(mod_fund_type);
+		return from_mod_fund_type(mod_fund_type);
 	} else if (user_def_type.valid()) {
-		return from_fund_type(user_def_type);
+		return from_user_def_type(user_def_type);
 	} else if (mod_u_d_type.valid()) {
 		return from_mod_u_d_type(mod_u_d_type);
 	}
@@ -832,6 +832,40 @@ const char* fundamental_type_to_string(u32 value)
 		case FT_long_long: return "long_long";
 		case FT_signed_long_long: return "signed_long_long";
 		case FT_unsigned_long_long: return "unsigned_long_long";
+		case FT_int128: return "int128";
+	}
+	
+	return nullptr;
+}
+
+const char* fundamental_type_to_pretty_string(u32 value)
+{
+	switch (value) {
+		case FT_char: return "char";
+		case FT_signed_char: return "signed char";
+		case FT_unsigned_char: return "unsigned char";
+		case FT_short: return "short";
+		case FT_signed_short: return "signed short";
+		case FT_unsigned_short: return "unsigned short";
+		case FT_integer: return "int";
+		case FT_signed_integer: return "signed int";
+		case FT_unsigned_integer: return "unsigned int";
+		case FT_long: return "long";
+		case FT_signed_long: return "signed long";
+		case FT_unsigned_long: return "unsigned long";
+		case FT_pointer: return "pointer";
+		case FT_float: return "float";
+		case FT_dbl_prec_float: return "dbl_prec_float";
+		case FT_ext_prec_float: return "ext_prec_float";
+		case FT_complex: return "complex";
+		case FT_dbl_prec_complex: return "dbl_prec_complex";
+		case FT_void: return "void";
+		case FT_boolean: return "bool";
+		case FT_ext_prec_complex: return "ext_prec_complex";
+		case FT_label: return "label";
+		case FT_long_long: return "long long";
+		case FT_signed_long_long: return "signed long long";
+		case FT_unsigned_long_long: return "unsigned long long";
 		case FT_int128: return "int128";
 	}
 	

@@ -312,6 +312,7 @@ const char* form_to_string(u32 value);
 const char* attribute_to_string(u32 value);
 const char* location_op_to_string(u32 value);
 const char* fundamental_type_to_string(u32 value);
+const char* fundamental_type_to_pretty_string(u32 value);
 const char* type_modifier_to_string(u32 value);
 const char* language_to_string(u32 value);
 const char* array_ordering_to_string(u32 value);

@@ -121,6 +121,11 @@ protected:
 	u32 m_importer_flags;
 };
 
+struct ReferenceCounts {
+	u32 references_from_types = 0;
+	u32 references_not_from_types = 0;
+};
+
 const char* tag_to_string(u32 tag);
 
 }

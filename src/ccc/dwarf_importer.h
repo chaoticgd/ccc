@@ -28,8 +28,11 @@ public:
 protected:
 	Result<void> import_compile_units(std::optional<u32> overlay_id, SymbolGroup group);
 	Result<void> import_compile_unit(const DIE& die);
+	
 	Result<void> import_data_type(const DIE& die);
 	Result<void> import_subroutine(const DIE& die);
+	
+	Result<void> compute_reference_counts(const DIE& first_die, bool is_inside_type);
 	
 	SymbolDatabase& m_database;
 	const SectionReader& m_dwarf;
@@ -39,6 +42,8 @@ protected:
 	
 	SymbolGroup m_group;
 	SourceFile* m_source_file = nullptr;
+	
+	std::map<u32, ReferenceCounts> m_die_reference_counts;
 };
 
 struct OverlayInfo {

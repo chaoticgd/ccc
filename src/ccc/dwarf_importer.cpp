@@ -43,6 +43,9 @@ Result<void> SymbolTableImporter::import_compile_units(std::optional<u32> overla
 	m_group = group;
 	m_source_file = nullptr;
 	
+	Result<void> reference_counts_result = compute_reference_counts(*first_die, false);
+	CCC_RETURN_IF_ERROR(reference_counts_result);
+	
 	std::optional<DIE> die = *first_die;
 	while (die.has_value()) {
 		CCC_CHECK(!m_interrupt || !*m_interrupt, "Operation interrupted by user.");
@@ -148,15 +151,35 @@ Result<void> SymbolTableImporter::import_compile_unit(const DIE& die)
 	return Result<void>();
 }
 
+static const AttributeListFormat type_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_name, {FORM_STRING})
+});
+
 Result<void> SymbolTableImporter::import_data_type(const DIE& die)
 {
-	Result<DataType*> data_type = m_database.data_types.create_symbol("test", m_group.source, m_group.module_symbol);
-	CCC_RETURN_IF_ERROR(data_type);
+	Value name;
+	Result<void> attribute_result = die.scan_attributes(
+		type_attributes, {&name, &name});
+	CCC_RETURN_IF_ERROR(attribute_result);
 	
-	TypeImporter type_importer(m_database, m_dwarf, m_importer_flags);
+	ReferenceCounts& counts = m_die_reference_counts[die.offset()];
+	
+	// If the type doesn't have a name, and is referenced exactly once from
+	// another type we can conclude that it is probably a component of another
+	// type, and hence we don't have to emit it separately.
+	if (!name.valid() && counts.references_from_types == 1 && counts.references_not_from_types == 0) {
+		return Result<void>();
+	}
+	
+	TypeImporter type_importer(m_database, m_dwarf, m_group, m_importer_flags, m_die_reference_counts);
 	
 	Result<std::unique_ptr<ast::Node>> node = type_importer.die_to_ast(die);
 	CCC_RETURN_IF_ERROR(node);
+	
+	std::string symbol_name = name.valid() ? std::string(name.string()) : std::string("unnamed");
+	
+	Result<DataType*> data_type = m_database.data_types.create_symbol(symbol_name, m_group.source, m_group.module_symbol);
+	CCC_RETURN_IF_ERROR(data_type);
 	
 	(*data_type)->set_type(std::move(*node));
 	
@@ -188,6 +211,80 @@ Result<void> SymbolTableImporter::import_subroutine(const DIE& die)
 	
 	if (low_pc.valid() && high_pc.valid()) {
 		(*function)->set_size(high_pc.address() - low_pc.address());
+	}
+	
+	return Result<void>();
+}
+
+static const AttributeListFormat reference_attributes = DIE::attribute_list_format({
+	DIE::attribute_format(AT_fund_type, {FORM_DATA2}),
+	DIE::attribute_format(AT_mod_fund_type, {FORM_BLOCK2}),
+	DIE::attribute_format(AT_user_def_type, {FORM_REF}),
+	DIE::attribute_format(AT_mod_u_d_type, {FORM_BLOCK2}),
+	DIE::attribute_format(AT_subscr_data, {FORM_BLOCK2})
+});
+
+Result<void> SymbolTableImporter::compute_reference_counts(const DIE& first_die, bool is_inside_type)
+{
+	std::optional<DIE> die = first_die;
+	while (die.has_value()) {
+		bool is_type_or_inside_type = die_is_type(*die) || is_inside_type;
+		
+		Value fund_type;
+		Value mod_fund_type;
+		Value user_def_type;
+		Value mod_u_d_type;
+		Value subscr_data;
+		Result<void> attribute_result = die->scan_attributes(
+			reference_attributes, {&fund_type, &mod_fund_type, &user_def_type, &mod_u_d_type, &subscr_data});
+		CCC_RETURN_IF_ERROR(attribute_result);
+		
+		std::optional<Type> type = Type::from_attributes(fund_type, mod_fund_type, user_def_type, mod_u_d_type);
+		if (type.has_value() && (type->attribute() == AT_user_def_type || type->attribute() == AT_mod_u_d_type)) {
+			Result<u32> referenced_die = type->user_def_type();
+			CCC_ASSERT(referenced_die.success());
+			
+			if (is_type_or_inside_type) {
+				m_die_reference_counts[*referenced_die].references_from_types++;
+			} else {
+				m_die_reference_counts[*referenced_die].references_not_from_types++;
+			}
+		}
+		
+		if (subscr_data.valid()) {
+			ArraySubscriptData subscript_data = ArraySubscriptData::from_block(subscr_data.block());
+			
+			u32 offset = 0;
+			while (offset < subscript_data.size()) {
+				Result<ArraySubscriptItem> item = subscript_data.parse_item(offset, m_importer_flags);
+				CCC_RETURN_IF_ERROR(item);
+				
+				u32 et_attrib = item->element_type.attribute();
+				
+				if (item->specifier == FMT_ET && (et_attrib == AT_user_def_type || et_attrib == AT_mod_u_d_type)) {
+					Result<u32> referenced_die = item->element_type.user_def_type();
+					CCC_ASSERT(referenced_die.success());
+					
+					if (is_type_or_inside_type) {
+						m_die_reference_counts[*referenced_die].references_from_types++;
+					} else {
+						m_die_reference_counts[*referenced_die].references_not_from_types++;
+					}
+				}
+			}
+		}
+		
+		Result<std::optional<DIE>> first_child = die->first_child();
+		CCC_RETURN_IF_ERROR(first_child);
+		
+		if (first_child->has_value()) {
+			Result<void> child_result = compute_reference_counts(**first_child, is_type_or_inside_type);
+			CCC_RETURN_IF_ERROR(child_result);
+		}
+		
+		Result<std::optional<DIE>> next_die = die->sibling();
+		CCC_RETURN_IF_ERROR(next_die);
+		die = *next_die;
 	}
 	
 	return Result<void>();
