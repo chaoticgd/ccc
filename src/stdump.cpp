@@ -298,7 +298,7 @@ static void print_types(FILE* out, const Options& options)
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 	
-	if ((options.flags & DONT_DEDUPLICATE_TYPES) == 0) {
+	if ((options.importer_flags & DONT_DEDUPLICATE_TYPES) == 0) {
 		print_types_deduplicated(out, database, options);
 	} else {
 		print_types_per_file(out, database, options);
