@@ -7,7 +7,7 @@ namespace ccc {
 
 static CustomErrorCallback custom_error_callback = nullptr;
 
-Error format_error(const char* source_file, int source_line, const char* format, ...)
+Error format_error(const char* source_file, s32 source_line, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);

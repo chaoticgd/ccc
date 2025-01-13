@@ -7,7 +7,7 @@
 
 namespace ccc {
 
-extern const std::map<std::string, KnownElfSectionClass> KNOWN_ELF_SECTIONS = {
+const std::map<std::string, KnownElfSectionClass> KNOWN_ELF_SECTIONS = {
 	{".bss",    KnownElfSectionClass::DATA},
 	{".data",   KnownElfSectionClass::DATA},
 	{".lit",    KnownElfSectionClass::DATA},
@@ -35,7 +35,8 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 	CCC_CHECK(header, "ELF file header out of range.");
 	elf.file_header = *header;
 	
-	const ElfSectionHeader* shstr_section_header = get_unaligned<ElfSectionHeader>(elf.image, header->shoff + header->shstrndx * sizeof(ElfSectionHeader));
+	const ElfSectionHeader* shstr_section_header = get_unaligned<ElfSectionHeader>(
+		elf.image, header->shoff + header->shstrndx * sizeof(ElfSectionHeader));
 	CCC_CHECK(shstr_section_header, "ELF section name header out of range.");
 	
 	for (u32 i = 0; i < header->shnum; i++) {
@@ -44,7 +45,7 @@ Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 		CCC_CHECK(section_header, "ELF section header out of range.");
 		
 		std::optional<std::string_view> name = get_string(elf.image, shstr_section_header->offset + section_header->name);
-		CCC_CHECK(name, "ELF section name out of range.");
+		CCC_CHECK(name.has_value(), "ELF section name out of range.");
 		
 		ElfSection& section = elf.sections.emplace_back();
 		section.name = *name;

@@ -491,7 +491,7 @@ size_t SymbolList<SymbolType>::binary_search(SymbolHandle<SymbolType> handle) co
 template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
-	if constexpr ((SymbolType::FLAGS & WITH_ADDRESS_MAP)) {
+	if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) {
 		if (symbol.address().valid()) {
 			m_address_to_handle.emplace(symbol.address().value, symbol.handle());
 		}
