@@ -52,7 +52,7 @@ enum ErrorLevel {
 
 typedef void (*CustomErrorCallback)(const Error& error, ErrorLevel level);
 
-Error format_error(const char* source_file, int source_line, const char* format, ...);
+Error format_error(const char* source_file, s32 source_line, const char* format, ...);
 void report_error(const Error& error);
 void report_warning(const Error& warning);
 void set_custom_error_callback(CustomErrorCallback callback);
@@ -155,9 +155,9 @@ public:
 };
 
 template <>
-class [[nodiscard]] CCC_WARN_UNUSED Result<void> : public Result<int> {
+class [[nodiscard]] CCC_WARN_UNUSED Result<void> : public Result<s32> {
 public:
-	Result() : Result<int>(0) {}
+	Result() : Result<s32>(0) {}
 	
 	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
@@ -168,7 +168,7 @@ public:
 	}
 };
 
-#define CCC_FAILURE(...) ccc::Result<int>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
+#define CCC_FAILURE(...) ccc::Result<s32>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
 
 #define CCC_CHECK(condition, ...) \
 	if (!(condition)) { \
@@ -197,7 +197,7 @@ public:
 	}
 
 template <typename... Args>
-void warn_impl(const char* source_file, int source_line, const char* format, Args... args)
+void warn_impl(const char* source_file, s32 source_line, const char* format, Args... args)
 {
 	Error warning = format_error(source_file, source_line, format, args...);
 	report_warning(warning);
