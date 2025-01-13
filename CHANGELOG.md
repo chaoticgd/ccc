@@ -11,6 +11,7 @@
 - demangle: A newline is now printed at the end of the output.
 - stdump: The `functions` and `globals` subcommands now output a header comment like the `types` command.
 - stdump: Added `--compact` option to omit whitespace and newlines from JSON output.
+- stdump: Fixed the `--dont-deduplicate-types` option.
 - stdump: The output format of the `files` subcommand has been updated.
 - stdump: A crash in the command line parser has been fixed.
 
