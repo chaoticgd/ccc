@@ -95,13 +95,27 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 			
 			s32 reference_count = 0;
 			auto count_references = [&](const ast::Node& node) {
-				if (node.descriptor == ast::TYPE_NAME) {
-					const ast::TypeName& type_name = node.as<ast::TypeName>();
-					DataType* data_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
-					if (data_type && data_type->handle() == type.handle()) {
+				const s32 max_depth = 30;
+
+				auto search_type_handle = type.handle();
+
+				ast::Node const* type_node_iter = &node;
+				for (s32 i = 0; i < max_depth && type_node_iter->descriptor == ast::TYPE_NAME; i++) {
+					const DataType* data_type_iter = database.data_types.symbol_from_handle(
+						type_node_iter->as<ast::TypeName>().data_type_handle);
+
+					if (search_type_handle == data_type_iter->handle()) {
 						reference_count++;
+						break;
 					}
+
+					if (!data_type_iter || !data_type_iter->type()) {
+						break;
+					}
+
+					type_node_iter = data_type_iter->type();
 				}
+
 				return ast::EXPLORE_CHILDREN;
 			};
 			
