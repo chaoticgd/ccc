@@ -166,7 +166,7 @@ static FunctionsFile parse_functions_file(const fs::path& path)
 			CCC_EXIT_IF_FALSE(end != line.data() + 10, "Bad @function directive in FUNCTIONS.txt file.");
 			function = &result.functions[address];
 			*function = input.subspan(1);
-		} else if (function) {
+		} else if (function && !line.empty()) {
 			*function = std::span<char>(function->data(), line.data() + line.size());
 		}
 	}
