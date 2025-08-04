@@ -110,7 +110,8 @@ int main(int argc, char** argv)
 		fs::path header_path = options.output_path/relative_header_path;
 		
 		fs::create_directories(path.parent_path());
-		if (path.extension() == ".c" || path.extension() == ".cpp") {
+		const fs::path ext = path.extension();
+		if (ext == ".c" || ext == ".cpp" || ext == ".cc" || ext == ".iac" || ext == ".src") {
 			// Write .c/.cpp file.
 			if (should_overwrite_file(path)) {
 				write_c_cpp_file(path, relative_header_path, database, sources, functions_file, (*symbol_file)->elf());
