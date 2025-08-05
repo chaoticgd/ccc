@@ -110,7 +110,8 @@ int main(int argc, char** argv)
 		fs::path header_path = options.output_path/relative_header_path;
 		
 		fs::create_directories(path.parent_path());
-		if (path.extension() == ".c" || path.extension() == ".cpp") {
+		const fs::path ext = path.extension();
+		if (ext == ".c" || ext == ".cpp" || ext == ".cc" || ext == ".iac" || ext == ".src") {
 			// Write .c/.cpp file.
 			if (should_overwrite_file(path)) {
 				write_c_cpp_file(path, relative_header_path, database, sources, functions_file, (*symbol_file)->elf());
@@ -166,7 +167,7 @@ static FunctionsFile parse_functions_file(const fs::path& path)
 			CCC_EXIT_IF_FALSE(end != line.data() + 10, "Bad @function directive in FUNCTIONS.txt file.");
 			function = &result.functions[address];
 			*function = input.subspan(1);
-		} else if (function) {
+		} else if (function && !line.empty()) {
 			*function = std::span<char>(function->data(), line.data() + line.size());
 		}
 	}
