@@ -20,7 +20,7 @@ public:
 	Result<void> print_subscr_data(FILE* out, const ArraySubscriptData& subscript_data) const;
 	Result<void> print_enumeration_element_list(FILE* out, const EnumerationElementList& element_list) const;
 	
-protected:
+private:
 	SectionReader& m_reader;
 };
 

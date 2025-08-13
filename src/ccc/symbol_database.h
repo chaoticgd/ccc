@@ -186,7 +186,7 @@ public:
 	// worry about dangling handles.
 	void clear();
 	
-protected:
+private:
 	// Do a binary search for a handle, and return either its index, or the
 	// index where it could be inserted.
 	size_t binary_search(SymbolHandle<SymbolType> handle) const;
@@ -322,7 +322,7 @@ public:
 		return m_hash;
 	}
 	
-protected:
+private:
 	u32 m_hash = 0;
 };
 
@@ -392,7 +392,7 @@ public:
 	bool is_member_function_ish = false; // Filled in by fill_in_pointers_to_member_function_definitions.
 	bool is_no_return = false;
 	
-protected:
+private:
 	void on_destroy(SymbolDatabase* database);
 	
 	SourceFileHandle m_source_file;
@@ -422,7 +422,7 @@ public:
 	GlobalStorage storage;
 	StorageClass storage_class = STORAGE_CLASS_NONE;
 	
-protected:
+private:
 	SourceFileHandle m_source_file;
 	std::string m_mangled_name;
 };
@@ -456,7 +456,7 @@ public:
 	std::variant<GlobalStorage, RegisterStorage, StackStorage> storage;
 	AddressRange live_range;
 	
-protected:
+private:
 	FunctionHandle m_function;
 };
 
@@ -479,7 +479,7 @@ public:
 	s32 version_major = -1;
 	s32 version_minor = -1;
 	
-protected:
+private:
 	void on_create();
 };
 
@@ -496,7 +496,7 @@ public:
 	
 	std::variant<RegisterStorage, StackStorage> storage;
 	
-protected:
+private:
 	FunctionHandle m_function;
 };
 
@@ -544,7 +544,7 @@ public:
 	std::map<StabsTypeNumber, DataTypeHandle> stabs_type_number_to_handle;
 	std::set<std::string> toolchain_version_info;
 	
-protected:
+private:
 	void on_destroy(SymbolDatabase* database);
 	
 	std::vector<FunctionHandle> m_functions;
@@ -564,7 +564,7 @@ public:
 	
 	SymbolSourceHandle handle() const { return m_handle; }
 	
-protected:
+private:
 	void on_create();
 };
 
@@ -680,7 +680,7 @@ public:
 	
 	friend auto operator<=>(const MultiSymbolHandle& lhs, const MultiSymbolHandle& rhs) = default;
 	
-protected:
+private:
 	SymbolDescriptor m_descriptor = DATA_TYPE;
 	RawSymbolHandle m_handle = NULL_SYMBOL_HANDLE;
 };
@@ -711,7 +711,7 @@ public:
 	
 	friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs) = default;
 	
-protected:
+private:
 	MultiSymbolHandle m_symbol;
 	const ast::Node* m_node = nullptr;
 	u32 m_generation = 0;

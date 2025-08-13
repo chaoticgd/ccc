@@ -94,7 +94,7 @@ template <typename Value>
 class [[nodiscard]] CCC_WARN_UNUSED Result {
 	template <typename OtherValue>
 	friend class Result;
-protected:
+private:
 	Value m_value;
 	std::unique_ptr<Error> m_error;
 	

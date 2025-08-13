@@ -99,7 +99,7 @@ public:
 	std::span<const u8> block_or_null() const;
 	std::string_view string_or_null() const;
 	
-protected:
+private:
 	u8 m_form = 0;
 	union {
 		u32 address;
@@ -147,7 +147,7 @@ public:
 	
 	Result<void> print(FILE* out) const;
 	
-protected:
+private:
 	Result<LocationAtom> parse_atom(u32& offset) const;
 	
 	std::span<const u8> m_block;
@@ -207,7 +207,7 @@ public:
 	Result<u32> user_def_type() const;
 	Result<std::span<const TypeModifier>> modifiers() const;
 	
-protected:
+private:
 	u32 m_attribute = 0;
 	Value m_value;
 };
@@ -260,7 +260,7 @@ public:
 	
 	Result<void> print(FILE* out) const;
 	
-protected:
+private:
 	ArrayBoundType m_type = ArrayBoundType::NIL;
 	u32 m_constant = 0;
 	LocationDescription m_location_description;
@@ -282,7 +282,7 @@ public:
 	
 	Result<ArraySubscriptItem> parse_item(u32& offset, u32 importer_flags) const;
 	
-protected:
+private:
 	Result<u16> parse_fund_type(u32& offset) const;
 	Result<u32> parse_user_def_type(u32& offset) const;
 	Result<u32> parse_constant(u32& offset) const;
@@ -304,7 +304,7 @@ public:
 	
 	Result<EnumerationElement> parse_element(u32& offset) const;
 	
-protected:
+private:
 	std::span<const u8> m_block;
 };
 

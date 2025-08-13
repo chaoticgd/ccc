@@ -25,7 +25,7 @@ public:
 	// compilation units associated with the specified overlay.
 	Result<void> import_overlay(u32 overlay_id, SymbolGroup group);
 	
-protected:
+private:
 	Result<void> import_compile_units(std::optional<u32> overlay_id, SymbolGroup group);
 	Result<void> import_compile_unit(const DIE& die);
 	Result<void> import_data_type(const DIE& die);
