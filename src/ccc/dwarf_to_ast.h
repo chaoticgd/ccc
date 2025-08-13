@@ -17,7 +17,7 @@ public:
 	Result<std::unique_ptr<ast::Node>> fundamental_type_to_ast(FundamentalType fund_type);
 	Result<std::unique_ptr<ast::Node>> die_to_ast(const DIE& die);
 	
-protected:
+private:
 	Result<std::unique_ptr<ast::Node>> array_type_to_ast(const DIE& die);
 	
 	SymbolDatabase& m_database;

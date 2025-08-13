@@ -156,7 +156,7 @@ public:
 	void print_header(FILE* out) const;
 	Result<void> print_symbols(FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const;
 
-protected:
+private:
 	bool m_ready = false;
 	
 	std::span<const u8> m_elf;

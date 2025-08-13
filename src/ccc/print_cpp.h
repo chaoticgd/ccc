@@ -49,7 +49,7 @@ public:
 	void global_variable(
 		const GlobalVariable& symbol, const SymbolDatabase& database, const ElfFile* elf);
 	
-protected:
+private:
 	void ast_node(
 		const ast::Node& node,
 		VariableName& parent_name,

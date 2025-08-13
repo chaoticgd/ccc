@@ -98,7 +98,7 @@ public:
 	// Parse the attributes, and output them all in order.
 	Result<std::vector<AttributeTuple>> all_attributes() const;
 	
-protected:
+private:
 	std::span<const u8> m_debug;
 	u32 m_offset;
 	u32 m_length;
@@ -115,7 +115,7 @@ public:
 	
 	u32 importer_flags() const;
 	
-protected:
+private:
 	std::span<const u8> m_debug;
 	std::span<const u8> m_line;
 	u32 m_importer_flags;

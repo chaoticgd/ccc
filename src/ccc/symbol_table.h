@@ -96,7 +96,7 @@ public:
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
 	
-protected:
+private:
 	std::span<const u8> m_image;
 	s32 m_section_offset;
 };
@@ -117,7 +117,7 @@ public:
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
 	
-protected:
+private:
 	std::span<const u8> m_debug;
 	std::span<const u8> m_line;
 };
@@ -138,7 +138,7 @@ public:
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
 	
-protected:
+private:
 	std::span<const u8> m_symtab;
 	std::span<const u8> m_strtab;
 };
@@ -161,7 +161,7 @@ public:
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
 	
-protected:
+private:
 	std::shared_ptr<SNDLLFile> m_sndll;
 };
 
@@ -180,7 +180,7 @@ public:
 	
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
-protected:
+private:
 	const ElfFile& m_elf;
 };
 

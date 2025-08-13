@@ -43,7 +43,7 @@ public:
 	// Output the result.
 	std::vector<u8> finish();
 	
-protected:
+private:
 	template <typename T>
 	u32 push(T value)
 	{
