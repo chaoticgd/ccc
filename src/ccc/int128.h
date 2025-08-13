@@ -38,7 +38,7 @@ struct u128 {
 	friend bool operator!=(const u128& lhs, const u128& rhs) = default;
 	
 	std::string to_string();
-	static std::optional<u128> from_string(const std::string&& hex);
+	static std::optional<u128> from_string(const std::string& hex);
 };
 
 struct s128 {
@@ -69,7 +69,7 @@ struct s128 {
 	friend bool operator!=(const s128& lhs, const s128& rhs) = default;
 	
 	std::string to_string();
-	static std::optional<s128> from_string(const std::string&& hex);
+	static std::optional<s128> from_string(const std::string& hex);
 };
 
 }

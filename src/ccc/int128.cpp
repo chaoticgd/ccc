@@ -132,7 +132,7 @@ std::string u128::to_string()
 	return result;
 }
 
-std::optional<u128> u128::from_string(const std::string&& hex)
+std::optional<u128> u128::from_string(const std::string& hex)
 {
 	u128 result;
 	for (u32 i = 0; i < 16; i++) {
@@ -283,44 +283,16 @@ s128 s128::operator>>(u64 bits)
 
 std::string s128::to_string()
 {
-	std::string result(32, '\0');
-	for (u32 i = 0; i < 16; i++) {
-		result[i] = HEX_DIGITS[(high >> ((15 - i) * 4)) & 0xf];
-	}
-	for (u32 i = 0; i < 16; i++) {
-		result[16 + i] = HEX_DIGITS[(low >> ((15 - i) * 4)) & 0xf];
-	}
-	return result;
+	return u128(*this).to_string();
 }
 
-std::optional<s128> s128::from_string(const std::string&& hex)
+std::optional<s128> s128::from_string(const std::string& hex)
 {
-	s128 result;
-	for (u32 i = 0; i < 16; i++) {
-		char c = hex[i];
-		if (c >= '0' && c <= '9') {
-			result.high |= static_cast<u64>(c - '0') << ((15 - i) * 4);
-		} else if (c >= 'A' && c <= 'F') {
-			result.high |= static_cast<u64>(10 + c - 'A') << ((15 - i) * 4);
-		} else if (c >= 'a' && c <= 'f') {
-			result.high |= static_cast<u64>(10 + c - 'a') << ((15 - i) * 4);
-		} else {
-			return std::nullopt;
-		}
-	}
-	for (u32 i = 0; i < 16; i++) {
-		char c = hex[16 + i];
-		if (c >= '0' && c <= '9') {
-			result.low |= static_cast<u64>(c - '0') << ((15 - i) * 4);
-		} else if (c >= 'A' && c <= 'F') {
-			result.low |= static_cast<u64>(10 + c - 'A') << ((15 - i) * 4);
-		} else if (c >= 'a' && c <= 'f') {
-			result.low |= static_cast<u64>(10 + c - 'a') << ((15 - i) * 4);
-		} else {
-			return std::nullopt;
-		}
-	}
-	return result;
+	std::optional<u128> value = u128::from_string(hex);
+	if (!value.has_value())
+		return std::nullopt;
+	
+	return s128(*value);
 }
 
 }
