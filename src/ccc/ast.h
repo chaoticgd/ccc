@@ -115,10 +115,6 @@ struct BitField : Node {
 	static const constexpr NodeDescriptor DESCRIPTOR = BITFIELD;
 	
 	BuiltInClass storage_unit_type(const SymbolDatabase& database) const;
-	u128 unpack_unsigned(u128 storage_unit) const;
-	s128 unpack_signed(u128 storage_unit) const;
-	u128 pack_unsigned(u128 bitfield) const;
-	u128 pack_signed(s128 bitfield) const;
 };
 
 struct BuiltIn : Node {

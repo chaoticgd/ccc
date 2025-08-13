@@ -72,4 +72,9 @@ struct s128 {
 	static std::optional<s128> from_string(const std::string& hex);
 };
 
+u128 unpack_unsigned_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size);
+s128 unpack_signed_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size);
+u128 pack_unsigned_bitfield(u128 bitfield, s32 bit_offset, s32 bit_size);
+u128 pack_signed_bitfield(s128 bitfield, s32 bit_offset, s32 bit_size);
+
 }
