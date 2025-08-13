@@ -97,10 +97,18 @@ TEST(CCCInt128, UnsignedToString)
 
 TEST(CCCInt128, UnsignedFromString)
 {
-	std::optional<u128> a(u128(0x123456789abcdef0, 0xffeeddccbbaa9988));
-	std::optional<u128> b(std::nullopt);
-	EXPECT_EQ(a, u128::from_string("123456789abcdef0ffEEddCCbbAA9988"));
-	EXPECT_EQ(b, u128::from_string("hello"));
+	std::optional<u128> a(u128(0x0, 0x123));
+	std::optional<u128> b(u128(0x1, 0x123));
+	std::optional<u128> c(u128(0x123456789abcdef0, 0xffeeddccbbaa9988));
+	std::optional<u128> d(std::nullopt);
+	EXPECT_EQ(a, u128::from_string("123"));
+	EXPECT_EQ(a, u128::from_string("123hello"));
+	EXPECT_EQ(a, u128::from_string("00000000000000000000000000000123"));
+	EXPECT_EQ(b, u128::from_string("10000000000000123"));
+	EXPECT_EQ(b, u128::from_string("00000000000000010000000000000123"));
+	EXPECT_EQ(c, u128::from_string("123456789abcdef0ffEEddCCbbAA9988"));
+	EXPECT_EQ(c, u128::from_string("ffffffff123456789abcdef0ffEEddCCbbAA9988"));
+	EXPECT_EQ(d, u128::from_string("hello"));
 }
 
 TEST(CCCInt128, SignedAdd)
@@ -208,8 +216,16 @@ TEST(CCCInt128, SignedToString)
 
 TEST(CCCInt128, SignedFromString)
 {
-	std::optional<s128> a(s128(0x123456789abcdef0, 0xffeeddccbbaa9988));
-	std::optional<s128> b(std::nullopt);
-	EXPECT_EQ(a, s128::from_string("123456789abcdef0ffEEddCCbbAA9988"));
-	EXPECT_EQ(b, s128::from_string("hello"));
+	std::optional<u128> a(u128(0x0, 0x123));
+	std::optional<u128> b(u128(0x1, 0x123));
+	std::optional<u128> c(u128(0x123456789abcdef0, 0xffeeddccbbaa9988));
+	std::optional<u128> d(std::nullopt);
+	EXPECT_EQ(a, u128::from_string("123"));
+	EXPECT_EQ(a, u128::from_string("123hello"));
+	EXPECT_EQ(a, u128::from_string("00000000000000000000000000000123"));
+	EXPECT_EQ(b, u128::from_string("10000000000000123"));
+	EXPECT_EQ(b, u128::from_string("00000000000000010000000000000123"));
+	EXPECT_EQ(c, u128::from_string("123456789abcdef0ffEEddCCbbAA9988"));
+	EXPECT_EQ(c, u128::from_string("ffffffff123456789abcdef0ffEEddCCbbAA9988"));
+	EXPECT_EQ(d, u128::from_string("hello"));;
 }
