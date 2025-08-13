@@ -229,3 +229,12 @@ TEST(CCCInt128, SignedFromString)
 	EXPECT_EQ(c, u128::from_string("ffffffff123456789abcdef0ffEEddCCbbAA9988"));
 	EXPECT_EQ(d, u128::from_string("hello"));;
 }
+
+TEST(CCCInt128, ZeroBitfield)
+{
+	u128 a(0xffffffffffffffff, 0xffffffffffffffff);
+	u128 b(0xff00ffffffffffff, 0xffffffffffffffff);
+	u128 c(0xffffffffffffffff, 0xffffffffffff00ff);
+	EXPECT_EQ(b, zero_bitfield(a, 112, 8));
+	EXPECT_EQ(c, zero_bitfield(a, 8, 8));
+}

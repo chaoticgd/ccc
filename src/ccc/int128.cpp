@@ -177,6 +177,8 @@ std::optional<u128> u128::from_string(const std::string& hex)
 	return result;
 }
 
+// *****************************************************************************
+
 s128::s128()
 	: low(0)
 	, high(0) {}
@@ -308,6 +310,33 @@ std::optional<s128> s128::from_string(const std::string& hex)
 		return std::nullopt;
 	
 	return s128(*value);
+}
+
+// *****************************************************************************
+
+u128 unpack_unsigned_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size)
+{
+	return (storage_unit >> bit_offset) & ((u128(1) << bit_size) - 1);
+}
+
+s128 unpack_signed_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size)
+{
+	return s128(storage_unit << (128 - (bit_offset + bit_size))) >> (128 - bit_size);
+}
+
+u128 pack_unsigned_bitfield(u128 bitfield, s32 bit_offset, s32 bit_size)
+{
+	return (bitfield & ((u128(1) << bit_size) - 1)) << bit_offset;
+}
+
+u128 pack_signed_bitfield(s128 bitfield, s32 bit_offset, s32 bit_size)
+{
+	return u128((bitfield & ((u128(1) << bit_size) - 1)) << (128 - bit_size)) >> (128 - bit_offset - bit_size);
+}
+
+u128 zero_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size)
+{
+	return storage_unit & ~(((u128(1) << bit_size) - 1) << bit_offset);
 }
 
 }
