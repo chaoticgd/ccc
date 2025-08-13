@@ -134,31 +134,46 @@ std::string u128::to_string()
 
 std::optional<u128> u128::from_string(const std::string& hex)
 {
+	size_t end_of_number = hex.size();
+	for (size_t i = 0; i < hex.size(); i++) {
+		if ((hex[i] < '0' || hex[i] > '9') && (hex[i] < 'A' || hex[i] > 'F') && (hex[i] < 'a' || hex[i] > 'f')) {
+			end_of_number = i;
+			break;
+		}
+	}
+	
+	if (end_of_number == 0) {
+		return std::nullopt;
+	}
+	
 	u128 result;
-	for (u32 i = 0; i < 16; i++) {
-		char c = hex[i];
+	
+	for (size_t i = 0; i < std::min(end_of_number, static_cast<size_t>(16)); i++) {
+		char c = hex[end_of_number - i - 1];
 		if (c >= '0' && c <= '9') {
-			result.high |= static_cast<u64>(c - '0') << ((15 - i) * 4);
+			result.low |= static_cast<u64>(c - '0') << (i * 4);
 		} else if (c >= 'A' && c <= 'F') {
-			result.high |= static_cast<u64>(10 + c - 'A') << ((15 - i) * 4);
+			result.low |= static_cast<u64>(10 + c - 'A') << (i * 4);
 		} else if (c >= 'a' && c <= 'f') {
-			result.high |= static_cast<u64>(10 + c - 'a') << ((15 - i) * 4);
-		} else {
-			return std::nullopt;
-		}
+			result.low |= static_cast<u64>(10 + c - 'a') << (i * 4);
+		} 
 	}
-	for (u32 i = 0; i < 16; i++) {
-		char c = hex[16 + i];
+	
+	if (end_of_number <= 16) {
+		return result;
+	}
+	
+	for (size_t i = 0; i < std::min(end_of_number - 16, static_cast<size_t>(16)); i++) {
+		char c = hex[end_of_number - i - 17];
 		if (c >= '0' && c <= '9') {
-			result.low |= static_cast<u64>(c - '0') << ((15 - i) * 4);
+			result.high |= static_cast<u64>(c - '0') << (i * 4);
 		} else if (c >= 'A' && c <= 'F') {
-			result.low |= static_cast<u64>(10 + c - 'A') << ((15 - i) * 4);
+			result.high |= static_cast<u64>(10 + c - 'A') << (i * 4);
 		} else if (c >= 'a' && c <= 'f') {
-			result.low |= static_cast<u64>(10 + c - 'a') << ((15 - i) * 4);
-		} else {
-			return std::nullopt;
-		}
+			result.high |= static_cast<u64>(10 + c - 'a') << (i * 4);
+		} 
 	}
+	
 	return result;
 }
 
