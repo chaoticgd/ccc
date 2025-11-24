@@ -123,9 +123,17 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_addre
 	std::vector<SymbolHandle<SymbolType>> handles;
 	
 	typename AddressToHandleMap::const_iterator begin, end;
-	if (range.low.valid()) {
+	if (range.low.valid() && range.high.valid()) {
+		if (range.low.value < range.high.value) {
+			begin = m_address_to_handle.lower_bound(range.low.value);
+			end = m_address_to_handle.lower_bound(range.high.value);
+		} else {
+			begin = m_address_to_handle.end();
+			end = m_address_to_handle.end();
+		}
+	} else if (range.low.valid()) {
 		begin = m_address_to_handle.lower_bound(range.low.value);
-		end = m_address_to_handle.lower_bound(range.high.value);
+		end = m_address_to_handle.end();
 	} else if (range.high.valid()) {
 		begin = m_address_to_handle.begin();
 		end = m_address_to_handle.lower_bound(range.high.value);

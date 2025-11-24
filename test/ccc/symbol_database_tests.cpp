@@ -57,22 +57,33 @@ TEST(CCCSymbolDatabase, HandlesFromAddressRange)
 	EXPECT_EQ(empty_after_open.begin(), empty_after_open.end());
 	
 	auto last = database.functions.handles_from_address_range(AddressRange(19, 30));
+	EXPECT_NE(last.begin(), last.end());
 	EXPECT_EQ(*last.begin(), handles[19]);
 	
 	auto last_open = database.functions.handles_from_address_range(AddressRange(19, Address()));
+	EXPECT_NE(last_open.begin(), last_open.end());
 	EXPECT_EQ(*last_open.begin(), handles[19]);
 	
 	auto first_half = database.functions.handles_from_address_range(AddressRange(5, 15));
+	EXPECT_NE(first_half.begin(), first_half.end());
 	EXPECT_EQ(*first_half.begin(), handles[10]);
 	EXPECT_EQ(*(--first_half.end()), handles[14]);
 	
 	auto second_half = database.functions.handles_from_address_range(AddressRange(15, 25));
+	EXPECT_NE(second_half.begin(), second_half.end());
 	EXPECT_EQ(*second_half.begin(), handles[15]);
 	EXPECT_EQ(*(--second_half.end()), handles[19]);
 	
 	auto whole_range = database.functions.handles_from_address_range(AddressRange(10, 20));
+	EXPECT_NE(whole_range.begin(), whole_range.end());
 	EXPECT_EQ(*whole_range.begin(), handles[10]);
 	EXPECT_EQ(*(--whole_range.end()), handles[19]);
+	
+	auto null = database.functions.handles_from_address_range(AddressRange(0, 0));
+	EXPECT_EQ(null.begin(), null.end());
+	
+	auto overflow = database.functions.handles_from_address_range(AddressRange(20, 15));
+	EXPECT_EQ(overflow.begin(), overflow.end());
 }
 
 TEST(CCCSymbolDatabase, HandleFromStartingAddress)
