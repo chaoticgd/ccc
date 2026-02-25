@@ -146,9 +146,9 @@ Result<void> ElfFile::import_symbol_sections(
 Result<void> ElfFile::import_link_once_sections(
 	SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const
 {
-	// Parse .gnu.linkonce.* section names. These are be generated as part of
-	// vague linking e.g. for template instantiations, and can be left in the
-	// final binary if the linker script doesn't have proper support for them.
+	// Parse .gnu.linkonce.* section names. These are generated as part of vague
+	// linking e.g. for template instantiations, and can be left in the final
+	// binary if the linker script doesn't have proper support for them.
 	for (const ElfSection& section : sections) {
 		std::optional<ElfLinkOnceSection> link_once = parse_link_once_section_name(section.name);
 		if (!link_once.has_value()) {
