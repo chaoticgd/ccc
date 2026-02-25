@@ -205,6 +205,7 @@ Result<void> MdebugSymbolTable::print_symbols(FILE* out, u32 flags) const
 	
 	return Result<void>();
 }
+
 // *****************************************************************************
 
 DwarfSymbolTable::DwarfSymbolTable(std::span<const u8> debug, std::span<const u8> line)

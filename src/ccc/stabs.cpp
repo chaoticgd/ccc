@@ -355,7 +355,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			STABS_DEBUG_PRINTF("union {\n");
 			
 			std::optional<s64> union_size = parse_number_s64(input);
-			CCC_CHECK(union_size.has_value(), "Failed to parse struct size.");
+			CCC_CHECK(union_size.has_value(), "Failed to parse union size.");
 			union_type->size = *union_size;
 			
 			auto fields = parse_field_list(input);
