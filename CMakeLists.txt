@@ -152,7 +152,8 @@ if(WIN32)
 	target_sources(tests PUBLIC src/ccc.manifest)
 endif()
 
-add_subdirectory(thirdparty/demanglegnu EXCLUDE_FROM_ALL)
+add_subdirectory(thirdparty/getopt EXCLUDE_FROM_ALL)
+add_subdirectory(thirdparty/demanglegnu)
 
 set(gtest_force_shared_crt on)
 add_subdirectory(thirdparty/googletest EXCLUDE_FROM_ALL)
@@ -168,6 +169,7 @@ set(RELEASE_CONTENTS
 	"${CMAKE_SOURCE_DIR}/ghidra_scripts/CCCDecompileAllFunctions.java"
 	"${CMAKE_SOURCE_DIR}/README.md"
 	"${CMAKE_SOURCE_DIR}/License.txt"
+	"${CMAKE_SOURCE_DIR}/thirdparty/getopt/GetOptLicense.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseGPL.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/demanglegnu/DemanglerLicenseLGPL.txt"
 	"${CMAKE_SOURCE_DIR}/thirdparty/googletest/GoogleTestLicense.txt"
