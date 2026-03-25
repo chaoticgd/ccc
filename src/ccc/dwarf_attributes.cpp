@@ -12,14 +12,14 @@ Value::Value() = default;
 
 Value::Value(const Value& rhs)
 {
-	memcpy(this, &rhs, sizeof(Value));
+	copy_from(rhs);
 }
 
 Value::~Value() = default;
 
 Value& Value::operator=(const Value& rhs)
 {
-	memcpy(this, &rhs, sizeof(Value));
+	copy_from(rhs);
 	return *this;
 }
 
@@ -173,6 +173,39 @@ std::string_view Value::string_or_null() const
 	}
 	
 	return std::string_view(m_value.string.begin, m_value.string.end);
+}
+
+void Value::copy_from(const Value& rhs)
+{
+	m_form = rhs.m_form;
+	
+	switch (rhs.m_form) {
+		case FORM_ADDR: {
+			m_value.address = rhs.m_value.address;
+			break;
+		}
+		case FORM_REF: {
+			m_value.reference = rhs.m_value.reference;
+			break;
+		}
+		case FORM_BLOCK2:
+		case FORM_BLOCK4: {
+			m_value.block.begin = rhs.m_value.block.begin;
+			m_value.block.end = rhs.m_value.block.end;
+			break;
+		}
+		case FORM_DATA2:
+		case FORM_DATA4:
+		case FORM_DATA8: {
+			m_value.constant = rhs.m_value.constant;
+			break;
+		}
+		case FORM_STRING: {
+			m_value.string.begin = rhs.m_value.string.begin;
+			m_value.string.end = rhs.m_value.string.end;
+			break;
+		}
+	}
 }
 
 // *****************************************************************************

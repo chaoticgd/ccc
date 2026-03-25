@@ -100,6 +100,8 @@ public:
 	std::string_view string_or_null() const;
 	
 private:
+	void copy_from(const Value& rhs);
+	
 	u8 m_form = 0;
 	union {
 		u32 address;
