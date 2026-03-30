@@ -5,6 +5,7 @@
 
 namespace ccc::mips {
 
+// clang-format off
 enum OpCode {
 	OPCODE_SPECIAL  = 0b000000,
 	OPCODE_REGIMM   = 0b000001,
@@ -736,5 +737,6 @@ enum W {
 	W_UNDEF_63 = 0b111111,
 	MAX_W      = 64
 };
+// clang-format on
 
 }

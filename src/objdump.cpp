@@ -10,29 +10,29 @@ using namespace ccc;
 int main(int argc, char** argv)
 {
 	CCC_EXIT_IF_FALSE(argc == 2, "Incorrect number of arguments.");
-	
+
 	fs::path input_path(argv[1]);
 	Result<std::vector<u8>> image = platform::read_binary_file(input_path);
 	CCC_EXIT_IF_ERROR(image);
-	
+
 	Result<ElfFile> elf = ElfFile::parse(std::move(*image));
 	CCC_EXIT_IF_ERROR(elf);
-	
+
 	const ElfSection* text = elf->lookup_section(".text");
 	CCC_EXIT_IF_FALSE(text, "ELF contains no .text section!");
-	
+
 	std::optional<u32> text_address = elf->file_offset_to_virtual_address(text->header.offset);
 	CCC_EXIT_IF_FALSE(text_address.has_value(), "Failed to translate file offset to virtual address.");
-	
-	std::optional<std::span<const mips::Insn>> insns =
-		elf->get_array_virtual<mips::Insn>(*text_address, text->header.size / 4);
+
+	std::optional<std::span<const mips::Insn>> insns = elf->get_array_virtual<mips::Insn>(
+		*text_address, text->header.size / 4);
 	CCC_EXIT_IF_FALSE(insns.has_value(), "Failed to read .text section.");
-	
+
 	for (u32 i = 0; i < text->header.size / 4; i++) {
 		mips::Insn insn = (*insns)[i];
 		const mips::InsnInfo& info = insn.info();
 		u32 insn_address = *text_address + i;
-		
+
 		printf("%08x:\t\t%08x %s ", insn_address, insn.value, info.mnemonic);
 		for (s32 i = 0; i < 16 - (s32) strlen(info.mnemonic); i++) {
 			printf(" ");
