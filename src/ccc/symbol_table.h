@@ -12,14 +12,16 @@ namespace ccc {
 // Determine which symbol tables are present in a given file.
 
 // A lower number means the symbol table will be imported first.
-enum SymbolTableFormat {
+enum SymbolTableFormat
+{
 	MDEBUG = 0, // The infamous Third Eye symbol table.
 	DWARF = 1, // DWARF symbol table.
 	SYMTAB = 2, // Standard ELF symbol table.
-	SNDLL  = 3  // SNDLL dynamic linker symbol table.
+	SNDLL = 3 // SNDLL dynamic linker symbol table.
 };
 
-struct SymbolTableFormatInfo {
+struct SymbolTableFormatInfo
+{
 	SymbolTableFormat format;
 	const char* format_name;
 	const char* section_name;
@@ -32,29 +34,30 @@ const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat for
 const SymbolTableFormatInfo* symbol_table_format_from_name(const char* format_name);
 const SymbolTableFormatInfo* symbol_table_format_from_section(const char* section_name);
 
-enum SymbolPrintFlags {
+enum SymbolPrintFlags
+{
 	PRINT_LOCALS = 1 << 0,
 	PRINT_PROCEDURE_DESCRIPTORS = 1 << 1,
 	PRINT_EXTERNALS = 1 << 2
 };
 
-class SymbolTable {
+class SymbolTable
+{
 public:
 	virtual ~SymbolTable() {}
-	
+
 	virtual const char* name() const = 0;
-	
+
 	// Imports this symbol table into the passed database.
-	virtual Result<void> import(
-		SymbolDatabase& database,
+	virtual Result<void> import(SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const = 0;
-	
+
 	// Print out all the field in the header structure if one exists.
 	virtual Result<void> print_headers(FILE* out) const = 0;
-	
+
 	// Print out all the symbols in the symbol table. For .mdebug symbol tables
 	// the symbols are split between those that are local to a specific
 	// translation unit and those that are external, which is what the
@@ -71,8 +74,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 
 // Utility function to call import_symbol_table on all the passed symbol tables
 // and to generate a module handle.
-Result<ModuleHandle> import_symbol_tables(
-	SymbolDatabase& database,
+Result<ModuleHandle> import_symbol_tables(SymbolDatabase& database,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	std::string module_name,
 	Address base_address,
@@ -80,64 +82,64 @@ Result<ModuleHandle> import_symbol_tables(
 	const DemanglerFunctions& demangler,
 	const std::atomic_bool* interrupt);
 
-class MdebugSymbolTable : public SymbolTable {
+class MdebugSymbolTable : public SymbolTable
+{
 public:
 	MdebugSymbolTable(std::span<const u8> image, s32 section_offset);
-	
+
 	const char* name() const override;
-	
-	Result<void> import(
-		SymbolDatabase& database,
+
+	Result<void> import(SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
-	
+
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
-	
+
 private:
 	std::span<const u8> m_image;
 	s32 m_section_offset;
 };
 
-class DwarfSymbolTable : public SymbolTable {
+class DwarfSymbolTable : public SymbolTable
+{
 public:
 	DwarfSymbolTable(std::span<const u8> debug, std::span<const u8> line);
-	
+
 	const char* name() const override;
-	
-	Result<void> import(
-		SymbolDatabase& database,
+
+	Result<void> import(SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
-	
+
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
-	
+
 private:
 	std::span<const u8> m_debug;
 	std::span<const u8> m_line;
 };
 
-class SymtabSymbolTable : public SymbolTable {
+class SymtabSymbolTable : public SymbolTable
+{
 public:
 	SymtabSymbolTable(std::span<const u8> symtab, std::span<const u8> strtab);
-	
+
 	const char* name() const override;
-	
-	Result<void> import(
-		SymbolDatabase& database,
+
+	Result<void> import(SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
-	
+
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
-	
+
 private:
 	std::span<const u8> m_symtab;
 	std::span<const u8> m_strtab;
@@ -145,41 +147,42 @@ private:
 
 struct SNDLLFile;
 
-class SNDLLSymbolTable : public SymbolTable {
+class SNDLLSymbolTable : public SymbolTable
+{
 public:
 	SNDLLSymbolTable(std::shared_ptr<SNDLLFile> sndll);
-	
+
 	const char* name() const override;
-	
-	Result<void> import(
-		SymbolDatabase& database,
+
+	Result<void> import(SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
-	
+
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
-	
+
 private:
 	std::shared_ptr<SNDLLFile> m_sndll;
 };
 
-class ElfSectionHeadersSymbolTable : public SymbolTable {
+class ElfSectionHeadersSymbolTable : public SymbolTable
+{
 public:
 	ElfSectionHeadersSymbolTable(const ElfFile& elf);
-	
+
 	const char* name() const override;
-	
-	Result<void> import(
-		SymbolDatabase& database,
+
+	Result<void> import(SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt) const override;
-	
+
 	Result<void> print_headers(FILE* out) const override;
 	Result<void> print_symbols(FILE* out, u32 flags) const override;
+
 private:
 	const ElfFile& m_elf;
 };

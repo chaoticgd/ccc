@@ -57,7 +57,7 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, S
 	const std::optional<u32> magic = copy_unaligned<u32>(image, 0);
 	CCC_CHECK(magic.has_value(), "File too small.");
 	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.valid() ? "section" : "file");
-	
+
 	char version = *magic >> 24;
 	switch (version) {
 		case '1': {
@@ -71,7 +71,7 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, S
 			return parse_sndll_common(image, address, type, header->common, SNDLL_V2);
 		}
 	}
-	
+
 	return CCC_FAILURE("Unknown SNDLL version '%c'.", version);
 }
 
@@ -79,30 +79,30 @@ static Result<SNDLLFile> parse_sndll_common(
 	std::span<const u8> image, Address address, SNDLLType type, const SNDLLHeaderCommon& common, SNDLLVersion version)
 {
 	SNDLLFile sndll;
-	
+
 	sndll.address = address;
 	sndll.type = type;
 	sndll.version = version;
-	
+
 	if (common.elf_path) {
 		std::optional<std::string_view> elf_path = get_string(image, common.elf_path);
 		CCC_CHECK(elf_path.has_value(), "SNDLL header has invalid ELF path field.");
 		sndll.elf_path = *elf_path;
 	}
-	
+
 	CCC_CHECK(common.symbol_count < (32 * 1024 * 1024) / sizeof(SNDLLSymbol), "SNDLL symbol count is too high.");
 	sndll.symbols.reserve(common.symbol_count);
-	
+
 	for (u32 i = 0; i < common.symbol_count; i++) {
 		u32 symbol_offset = common.symbols - address.get_or_zero() + i * sizeof(SNDLLSymbolHeader);
 		const SNDLLSymbolHeader* symbol_header = get_unaligned<SNDLLSymbolHeader>(image, symbol_offset);
 		CCC_CHECK(symbol_header, "SNDLL symbol out of range.");
-		
+
 		std::optional<std::string_view> string;
 		if (symbol_header->string) {
 			string = get_string(image, symbol_header->string - address.get_or_zero());
 		}
-		
+
 		SNDLLSymbol& symbol = sndll.symbols.emplace_back();
 		symbol.type = symbol_header->type;
 		symbol.value = symbol_header->value;
@@ -110,12 +110,11 @@ static Result<SNDLLFile> parse_sndll_common(
 			symbol.string = *string;
 		}
 	}
-	
+
 	return sndll;
 }
 
-Result<void> import_sndll_symbols(
-	SymbolDatabase& database,
+Result<void> import_sndll_symbols(SymbolDatabase& database,
 	const SNDLLFile& sndll,
 	const SymbolGroup& group,
 	u32 importer_flags,
@@ -125,26 +124,26 @@ Result<void> import_sndll_symbols(
 		if (symbol.value == 0 || symbol.string.empty()) {
 			continue;
 		}
-		
+
 		u32 address = symbol.value;
 		if (symbol.type != SNDLL_ABSOLUTE && sndll.type == SNDLLType::DYNAMIC_LIBRARY) {
 			address += sndll.address.get_or_zero();
 		}
-		
+
 		if (!(importer_flags & DONT_DEDUPLICATE_SYMBOLS)) {
 			if (database.functions.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
-			
+
 			if (database.global_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
-			
+
 			if (database.local_variables.first_handle_from_starting_address(address).valid()) {
 				continue;
 			}
 		}
-		
+
 		const Section* section = database.sections.symbol_overlapping_address(address);
 		if (section) {
 			if (section->contains_code()) {
@@ -159,12 +158,12 @@ Result<void> import_sndll_symbols(
 				continue;
 			}
 		}
-		
+
 		Result<Label*> label = database.labels.create_symbol(
 			symbol.string, group.source, group.module_symbol, address, importer_flags, demangler);
 		CCC_RETURN_IF_ERROR(label);
 	}
-	
+
 	return Result<void>();
 }
 

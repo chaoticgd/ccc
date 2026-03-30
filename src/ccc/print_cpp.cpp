@@ -11,7 +11,8 @@
 
 namespace ccc {
 
-enum VariableNamePrintFlags {
+enum VariableNamePrintFlags
+{
 	NO_VAR_PRINT_FLAGS = 0,
 	INSERT_SPACE_TO_LEFT = (1 << 0),
 	BRACKETS_IF_POINTER = (1 << 2)
@@ -26,7 +27,7 @@ void CppPrinter::comment_block_beginning(const char* input_file, const char* too
 	if (m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
-	
+
 	fprintf(out, "// File written by %s%s%s", tool_name, (tool_name && tool_version) ? " " : "", tool_version);
 	time_t cftime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	tm* t = std::localtime(&cftime);
@@ -37,7 +38,7 @@ void CppPrinter::comment_block_beginning(const char* input_file, const char* too
 	fprintf(out, "// \n");
 	fprintf(out, "// Input file:\n");
 	fprintf(out, "//   %s\n", input_file);
-	
+
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
@@ -54,12 +55,12 @@ void CppPrinter::comment_block_toolchain_version_info(const SymbolDatabase& data
 			toolchain_version_info.emplace("unknown");
 		}
 	}
-	
+
 	fprintf(out, "// Toolchain version(s):\n");
 	for (const std::string& string : toolchain_version_info) {
 		fprintf(out, "//   %s\n", string.c_str());
 	}
-	
+
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
@@ -69,19 +70,20 @@ void CppPrinter::comment_block_builtin_types(const SymbolDatabase& database, Sou
 	std::set<std::pair<std::string, ast::BuiltInClass>> builtins;
 	for (const DataType& data_type : database.data_types) {
 		CCC_ASSERT(data_type.type());
-		if (data_type.type()->descriptor == ast::BUILTIN && (!file.valid() || (data_type.files.size() == 0 && data_type.files[0] == file))) {
+		if (data_type.type()->descriptor == ast::BUILTIN
+			&& (!file.valid() || (data_type.files.size() == 0 && data_type.files[0] == file))) {
 			builtins.emplace(data_type.type()->name, data_type.type()->as<ast::BuiltIn>().bclass);
 		}
 	}
-	
+
 	if (!builtins.empty()) {
 		fprintf(out, "// Built-in types:\n");
-		
+
 		for (const auto& [type, bclass] : builtins) {
 			fprintf(out, "//   %-25s%s\n", type.c_str(), ast::builtin_class_to_string(bclass));
 		}
 	}
-	
+
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
@@ -91,11 +93,11 @@ void CppPrinter::comment_block_file(const char* path)
 	if (m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
-	
+
 	fprintf(out, "// *****************************************************************************\n");
 	fprintf(out, "// FILE -- %s\n", path);
 	fprintf(out, "// *****************************************************************************\n");
-	
+
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
@@ -106,10 +108,10 @@ void CppPrinter::begin_include_guard(const char* macro)
 	if (m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
-	
+
 	fprintf(out, "#ifndef %s\n", macro);
 	fprintf(out, "#define %s\n", macro);
-	
+
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
@@ -119,9 +121,9 @@ void CppPrinter::end_include_guard(const char* macro)
 	if (m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
-	
+
 	fprintf(out, "#endif // %s\n", macro);
-	
+
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
@@ -131,9 +133,9 @@ void CppPrinter::include_directive(const char* path)
 	if (m_has_anything_been_printed) {
 		fprintf(out, "\n");
 	}
-	
+
 	fprintf(out, "#include \"%s\"\n", path);
-	
+
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
@@ -142,21 +144,22 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 {
 	CCC_ASSERT(symbol.type());
 	const ast::Node& node = *symbol.type();
-	
+
 	if (node.descriptor == ast::BUILTIN) {
 		return false;
 	}
-	
-	bool wants_spacing = !symbol.not_defined_in_any_translation_unit &&
-		(node.descriptor == ast::ENUM || node.descriptor == ast::STRUCT_OR_UNION);
+
+	bool wants_spacing = !symbol.not_defined_in_any_translation_unit
+		&& (node.descriptor == ast::ENUM || node.descriptor == ast::STRUCT_OR_UNION);
 	if (m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
-	
+
 	if (symbol.compare_fail_reason && (node.descriptor != ast::ENUM || !node.name.empty())) {
-		fprintf(out, "// warning: multiple differing types with the same name (%s not equal)\n", symbol.compare_fail_reason);
+		fprintf(out, "// warning: multiple differing types with the same name (%s not equal)\n",
+			symbol.compare_fail_reason);
 	}
-	
+
 	VariableName name;
 	name.identifier = &symbol.name();
 	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
@@ -164,10 +167,10 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 	}
 	ast_node(node, name, 0, 0, database, SymbolDescriptor::DATA_TYPE, !symbol.not_defined_in_any_translation_unit);
 	fprintf(out, ";\n");
-	
+
 	m_last_wants_spacing = wants_spacing;
 	m_has_anything_been_printed = true;
-	
+
 	return true;
 }
 
@@ -176,27 +179,28 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	if (m_config.skip_statics && symbol.storage_class == STORAGE_CLASS_STATIC) {
 		return;
 	}
-	
+
 	if (m_config.skip_member_functions_outside_types && symbol.is_member_function_ish) {
 		return;
 	}
-	
-	std::vector<const ParameterVariable*> parameter_variables = database.parameter_variables.optional_symbols_from_handles(symbol.parameter_variables());
-	std::vector<const LocalVariable*> local_variables = database.local_variables.optional_symbols_from_handles(symbol.local_variables());
-	
-	bool wants_spacing = m_config.print_function_bodies
-		&& (!local_variables.empty() || function_bodies);
+
+	std::vector<const ParameterVariable*>
+		parameter_variables = database.parameter_variables.optional_symbols_from_handles(symbol.parameter_variables());
+	std::vector<const LocalVariable*> local_variables = database.local_variables.optional_symbols_from_handles(
+		symbol.local_variables());
+
+	bool wants_spacing = m_config.print_function_bodies && (!local_variables.empty() || function_bodies);
 	if (m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
-	
+
 	VariableName name;
 	name.identifier = &symbol.name();
-	
+
 	if (m_config.print_storage_information) {
 		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size());
 	}
-	
+
 	// Print out the storage class, return type and function name.
 	print_cpp_storage_class(out, symbol.storage_class);
 	if (symbol.type()) {
@@ -205,7 +209,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		fprintf(out, " ");
 	}
 	print_cpp_variable_name(out, name, BRACKETS_IF_POINTER);
-	
+
 	// Print out the parameter list.
 	fprintf(out, "(");
 	if (symbol.parameter_variables().has_value()) {
@@ -214,7 +218,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		fprintf(out, "/* parameters unknown */");
 	}
 	fprintf(out, ")");
-	
+
 	// Print out the function body.
 	if (m_config.print_function_bodies) {
 		fprintf(out, " ");
@@ -230,19 +234,19 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 			if (!local_variables.empty()) {
 				for (const LocalVariable* variable : local_variables) {
 					indent(out, 1);
-					
+
 					if (const GlobalStorage* storage = std::get_if<GlobalStorage>(&variable->storage)) {
 						global_storage_comment(*storage, variable->address());
 					}
-					
+
 					if (const RegisterStorage* storage = std::get_if<RegisterStorage>(&variable->storage)) {
 						register_storage_comment(*storage);
 					}
-					
+
 					if (const StackStorage* storage = std::get_if<StackStorage>(&variable->storage)) {
 						stack_storage_comment(*storage, symbol.stack_frame_size);
 					}
-					
+
 					if (variable->type()) {
 						VariableName local_name;
 						local_name.identifier = &variable->name();
@@ -252,7 +256,6 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 							print_cpp_variable_name(out, local_name, NO_VAR_PRINT_FLAGS);
 						}
 					} else {
-						
 					}
 					if (elf) {
 						VariableToRefine to_refine;
@@ -287,20 +290,19 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	} else {
 		fprintf(out, ";");
 	}
-	
+
 	fprintf(out, "\n");
-	
+
 	m_last_wants_spacing = wants_spacing;
 	m_has_anything_been_printed = true;
 }
 
-void CppPrinter::global_variable(
-	const GlobalVariable& symbol, const SymbolDatabase& database, const ElfFile* elf)
+void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ElfFile* elf)
 {
 	if (m_config.skip_statics && symbol.storage_class == STORAGE_CLASS_STATIC) {
 		return;
 	}
-	
+
 	std::optional<RefinedData> data;
 	if (elf) {
 		VariableToRefine to_refine;
@@ -316,22 +318,21 @@ void CppPrinter::global_variable(
 			}
 		}
 	}
-	
-	bool wants_spacing = m_config.print_variable_data
-		&& data.has_value()
+
+	bool wants_spacing = m_config.print_variable_data && data.has_value()
 		&& std::get_if<std::vector<RefinedData>>(&data->value);
 	if (m_has_anything_been_printed && (m_last_wants_spacing || wants_spacing)) {
 		fprintf(out, "\n");
 	}
-	
+
 	global_storage_comment(symbol.storage, symbol.address());
-	
+
 	if (symbol.storage_class != STORAGE_CLASS_NONE) {
 		print_cpp_storage_class(out, symbol.storage_class);
 	} else if (m_config.make_globals_extern) {
 		print_cpp_storage_class(out, STORAGE_CLASS_EXTERN);
 	}
-	
+
 	VariableName name;
 	name.identifier = &symbol.name();
 	if (symbol.type()) {
@@ -344,12 +345,11 @@ void CppPrinter::global_variable(
 		refined_data(*data, 0);
 	}
 	fprintf(out, ";\n");
-	
+
 	m_last_wants_spacing = wants_spacing;
 }
 
-void CppPrinter::ast_node(
-	const ast::Node& node,
+void CppPrinter::ast_node(const ast::Node& node,
 	VariableName& parent_name,
 	s32 base_offset,
 	s32 indentation_level,
@@ -359,23 +359,23 @@ void CppPrinter::ast_node(
 {
 	VariableName this_name{&node.name};
 	VariableName& name = node.name.empty() ? parent_name : this_name;
-	
+
 	if (node.descriptor == ast::FUNCTION) {
 		const ast::Function& func_type = node.as<ast::Function>();
 		if (func_type.vtable_index > -1) {
 			fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
 		}
 	}
-	
+
 	print_cpp_storage_class(out, (StorageClass) node.storage_class);
-	
+
 	if (node.is_const) {
 		fprintf(out, "const ");
 	}
 	if (node.is_volatile) {
 		fprintf(out, "volatile ");
 	}
-	
+
 	switch (node.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
@@ -387,29 +387,20 @@ void CppPrinter::ast_node(
 		case ast::BITFIELD: {
 			const ast::BitField& bit_field = node.as<ast::BitField>();
 			CCC_ASSERT(bit_field.underlying_type.get());
-			ast_node(*bit_field.underlying_type.get(), name, base_offset, indentation_level, database, symbol_descriptor);
+			ast_node(
+				*bit_field.underlying_type.get(), name, base_offset, indentation_level, database, symbol_descriptor);
 			fprintf(out, " : %d", bit_field.size_bits);
 			break;
 		}
 		case ast::BUILTIN: {
 			const ast::BuiltIn& builtin = node.as<ast::BuiltIn>();
 			switch (builtin.bclass) {
-				case ast::BuiltInClass::VOID_TYPE:
-					fprintf(out, "void");
-					break;
-				case ast::BuiltInClass::UNSIGNED_128:
-					fprintf(out, "unsigned int __attribute__((mode (TI)))");
-					break;
-				case ast::BuiltInClass::SIGNED_128:
-					fprintf(out, "signed int __attribute__((mode (TI)))");
-					break;
+				case ast::BuiltInClass::VOID_TYPE: fprintf(out, "void"); break;
+				case ast::BuiltInClass::UNSIGNED_128: fprintf(out, "unsigned int __attribute__((mode (TI)))"); break;
+				case ast::BuiltInClass::SIGNED_128: fprintf(out, "signed int __attribute__((mode (TI)))"); break;
 				case ast::BuiltInClass::UNQUALIFIED_128:
-				case ast::BuiltInClass::FLOAT_128:
-					fprintf(out, "int __attribute__((mode (TI)))");
-					break;
-				default:
-					fprintf(out, "CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass));
-					break;
+				case ast::BuiltInClass::FLOAT_128: fprintf(out, "int __attribute__((mode (TI)))"); break;
+				default: fprintf(out, "CCC_BUILTIN(%s)", builtin_class_to_string(builtin.bclass)); break;
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
@@ -464,21 +455,24 @@ void CppPrinter::ast_node(
 			fprintf(out, "(");
 			if (function.parameters.has_value()) {
 				const std::vector<std::unique_ptr<ast::Node>>* parameters = &(*function.parameters);
-				
+
 				// The parameters provided in STABS member function declarations
 				// are wrong, so are swapped out for the correct ones here.
 				bool parameters_printed = false;
 				if (m_config.substitute_parameter_lists) {
-					const Function* function_definition = database.functions.symbol_from_handle(function.definition_handle);
+					const Function* function_definition = database.functions.symbol_from_handle(
+						function.definition_handle);
 					if (function_definition && function_definition->parameter_variables().has_value()) {
-						std::vector<ParameterVariableHandle> substitute_handles = *function_definition->parameter_variables();
-						std::vector<const ParameterVariable*> substitute_parameters =
-							database.parameter_variables.optional_symbols_from_handles(substitute_handles);
+						std::vector<ParameterVariableHandle> substitute_handles = *function_definition
+																					   ->parameter_variables();
+						std::vector<const ParameterVariable*>
+							substitute_parameters = database.parameter_variables.optional_symbols_from_handles(
+								substitute_handles);
 						function_parameters(substitute_parameters, database);
 						parameters_printed = true;
 					}
 				}
-				
+
 				if (!parameters_printed) {
 					size_t start;
 					if (m_config.omit_this_parameter && parameters->size() >= 1 && (*parameters)[0]->name == "this") {
@@ -508,7 +502,8 @@ void CppPrinter::ast_node(
 			} else {
 				name.pointer_chars.emplace_back('&');
 			}
-			ast_node(*pointer_or_reference.value_type.get(), name, base_offset, indentation_level, database, symbol_descriptor);
+			ast_node(*pointer_or_reference.value_type.get(), name, base_offset, indentation_level, database,
+				symbol_descriptor);
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			break;
 		}
@@ -532,14 +527,12 @@ void CppPrinter::ast_node(
 			} else {
 				fprintf(out, "union");
 			}
-			bool name_on_top =
-				indentation_level == 0 &&
-				struct_or_union.storage_class != STORAGE_CLASS_TYPEDEF &&
-				symbol_descriptor == SymbolDescriptor::DATA_TYPE;
+			bool name_on_top = indentation_level == 0 && struct_or_union.storage_class != STORAGE_CLASS_TYPEDEF
+				&& symbol_descriptor == SymbolDescriptor::DATA_TYPE;
 			if (name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}
-			
+
 			// Print base classes.
 			if (!struct_or_union.base_classes.empty()) {
 				fprintf(out, " : ");
@@ -548,7 +541,8 @@ void CppPrinter::ast_node(
 					CCC_ASSERT(base_class.descriptor == ast::TypeName::DESCRIPTOR);
 					offset(base_class, 0);
 					if (base_class.access_specifier != ast::AS_PUBLIC) {
-						fprintf(out, "%s ", ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
+						fprintf(out, "%s ",
+							ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
 					}
 					if (base_class.is_virtual_base_class) {
 						fprintf(out, "virtual ");
@@ -560,29 +554,31 @@ void CppPrinter::ast_node(
 					}
 				}
 			}
-			
+
 			if (print_body) {
 				fprintf(out, " {");
 				if (m_config.print_offsets_and_sizes) {
 					fprintf(out, " // 0x%x", struct_or_union.size_bits / 8);
 				}
 				fprintf(out, "\n");
-				
+
 				// Print fields.
 				for (const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
 					CCC_ASSERT(field.get());
 					if (access_specifier != field->access_specifier) {
 						indent(out, indentation_level);
-						fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) field->access_specifier));
+						fprintf(out, "%s:\n",
+							ast::access_specifier_to_string((ast::AccessSpecifier) field->access_specifier));
 						access_specifier = field->access_specifier;
 					}
 					indent(out, indentation_level + 1);
 					offset(*field.get(), base_offset);
 					VariableName dummy;
-					ast_node(*field.get(), dummy, base_offset + field->offset_bytes, indentation_level + 1, database, symbol_descriptor);
+					ast_node(*field.get(), dummy, base_offset + field->offset_bytes, indentation_level + 1, database,
+						symbol_descriptor);
 					fprintf(out, ";\n");
 				}
-				
+
 				// Print member functions.
 				if (!struct_or_union.member_functions.empty()) {
 					if (!struct_or_union.fields.empty()) {
@@ -594,7 +590,9 @@ void CppPrinter::ast_node(
 							ast::Function& member_func = member_function->as<ast::Function>();
 							if (access_specifier != member_func.access_specifier) {
 								indent(out, indentation_level);
-								fprintf(out, "%s:\n", ast::access_specifier_to_string((ast::AccessSpecifier) member_func.access_specifier));
+								fprintf(out, "%s:\n",
+									ast::access_specifier_to_string(
+										(ast::AccessSpecifier) member_func.access_specifier));
 								access_specifier = member_func.access_specifier;
 							}
 						}
@@ -604,15 +602,15 @@ void CppPrinter::ast_node(
 						fprintf(out, ";\n");
 					}
 				}
-				
+
 				indent(out, indentation_level);
 				fprintf(out, "}");
 			}
-			
+
 			if (!name_on_top) {
 				print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
 			}
-			
+
 			break;
 		}
 		case ast::TYPE_NAME: {
@@ -630,7 +628,8 @@ void CppPrinter::ast_node(
 						type_name.unresolved_stabs->stabs_type_number.file,
 						type_name.unresolved_stabs->stabs_type_number.type);
 				} else {
-					fprintf(out, "CCC_ERROR(\"Invalid %s type name.\")", ast::type_name_source_to_string(type_name.source));
+					fprintf(
+						out, "CCC_ERROR(\"Invalid %s type name.\")", ast::type_name_source_to_string(type_name.source));
 				}
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
@@ -639,20 +638,21 @@ void CppPrinter::ast_node(
 	}
 }
 
-void CppPrinter::function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database, s32 stack_frame_size)
+void CppPrinter::function_parameters(
+	std::span<const ParameterVariable*> parameters, const SymbolDatabase& database, s32 stack_frame_size)
 {
 	bool skip_this = m_config.omit_this_parameter && !parameters.empty() && parameters[0]->name() == "this";
 	for (size_t i = skip_this ? 1 : 0; i < parameters.size(); i++) {
 		const ParameterVariable& parameter_variable = *parameters[i];
-		
+
 		if (const RegisterStorage* storage = std::get_if<RegisterStorage>(&parameter_variable.storage)) {
 			register_storage_comment(*storage);
 		}
-		
+
 		if (const StackStorage* storage = std::get_if<StackStorage>(&parameter_variable.storage)) {
 			stack_storage_comment(*storage, stack_frame_size);
 		}
-		
+
 		VariableName variable_name;
 		variable_name.identifier = &parameter_variable.name();
 		if (parameter_variable.type()) {
@@ -671,11 +671,11 @@ void CppPrinter::refined_data(const RefinedData& data, s32 indentation_level)
 	if (!data.field_name.empty()) {
 		fprintf(out, "/* %s = */ ", data.field_name.c_str());
 	}
-	
+
 	if (const std::string* string = std::get_if<std::string>(&data.value)) {
 		fprintf(out, "%s", string->c_str());
 	}
-	
+
 	if (const std::vector<RefinedData>* list = std::get_if<std::vector<RefinedData>>(&data.value)) {
 		fprintf(out, "{\n");
 		for (size_t i = 0; i < list->size(); i++) {
@@ -747,8 +747,7 @@ void CppPrinter::register_storage_comment(const RegisterStorage& storage)
 {
 	if (m_config.print_storage_information) {
 		fprintf(out, "/* ");
-		auto [register_class, register_index_relative] =
-			mips::map_dbx_register_index(storage.dbx_register_number);
+		auto [register_class, register_index_relative] = mips::map_dbx_register_index(storage.dbx_register_number);
 		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
 		CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
 		const char* register_name = name_table[register_index_relative];

@@ -7,24 +7,29 @@
 
 namespace ccc {
 
-enum GraphType {
+enum GraphType
+{
 	UNDIRECTED,
 	DIRECTED
 };
 
-struct GraphPrinter {
+struct GraphPrinter
+{
 	FILE* out;
 	s32 indent_level = 0;
 	bool no_lines_printed = true;
-	
-	GraphPrinter(FILE* o) : out(o) {}
-	
+
+	GraphPrinter(FILE* o)
+		: out(o)
+	{
+	}
+
 	void begin_graph(const char* name, GraphType type);
 	void end_graph();
-	
+
 	void node(const char* name, const char* label);
 	void edge(const char* out_name, const char* in_name);
-	
+
 	void new_line();
 };
 
@@ -36,37 +41,38 @@ void map_types_to_files_based_on_this_pointers(SymbolDatabase& database)
 		if (!function.parameter_variables().has_value() || function.parameter_variables()->empty()) {
 			continue;
 		}
-		
+
 		ParameterVariableHandle parameter_handle = (*function.parameter_variables())[0];
 		const ParameterVariable* parameter_variable = database.parameter_variables.symbol_from_handle(parameter_handle);
 		if (!parameter_variable) {
 			continue;
 		}
-		
+
 		const ast::Node* parameter_type = parameter_variable->type();
 		if (!parameter_type) {
 			continue;
 		}
-		
+
 		// Check if the first argument is a this pointer.
 		bool is_pointer = parameter_type->descriptor == ast::POINTER_OR_REFERENCE
 			&& parameter_type->as<ast::PointerOrReference>().is_pointer;
 		if (parameter_variable->name() != "this" || !is_pointer) {
 			continue;
 		}
-		
+
 		const ast::Node& class_node = *parameter_type->as<ast::PointerOrReference>().value_type.get();
 		if (class_node.descriptor != ast::TYPE_NAME) {
 			continue;
 		}
-		
+
 		// Lookup the type pointed to by the this pointer.
 		const ast::TypeName& type_name = class_node.as<ast::TypeName>();
-		DataType* class_type = database.data_types.symbol_from_handle(type_name.data_type_handle_unless_forward_declared());
+		DataType* class_type = database.data_types.symbol_from_handle(
+			type_name.data_type_handle_unless_forward_declared());
 		if (!class_type) {
 			continue;
 		}
-		
+
 		// Assume the type belongs to the file the function is from.
 		class_type->files = {function.source_file()};
 	}
@@ -84,7 +90,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 		if (type.files.size() == 1) {
 			continue;
 		}
-		
+
 		SourceFileHandle most_referenced_file;
 		s32 most_references = 0;
 		for (SourceFileHandle file_handle : type.files) {
@@ -92,7 +98,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 			if (!file) {
 				continue;
 			}
-			
+
 			s32 reference_count = 0;
 			auto count_references = [&](const ast::Node& node) {
 				const s32 max_depth = 30;
@@ -118,7 +124,7 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 
 				return ast::EXPLORE_CHILDREN;
 			};
-			
+
 			if (do_types) {
 				for (const DataType& data_type : database.data_types) {
 					if (data_type.files.size() == 1 && data_type.files[0] == file_handle) {
@@ -132,14 +138,17 @@ static void map_types_to_files_based_on_reference_count_single_pass(SymbolDataba
 						if (function->type()) {
 							ast::for_each_node(*function->type(), ast::PREORDER_TRAVERSAL, count_references);
 						}
-						for (const ParameterVariable* parameter : database.parameter_variables.optional_symbols_from_handles(function->parameter_variables())) {
+						for (const ParameterVariable* parameter :
+							database.parameter_variables.optional_symbols_from_handles(
+								function->parameter_variables())) {
 							if (parameter->type()) {
 								ast::for_each_node(*parameter->type(), ast::PREORDER_TRAVERSAL, count_references);
 							}
 						}
 					}
 				}
-				for (const GlobalVariable* global_variable : database.global_variables.symbols_from_handles(file->global_variables())) {
+				for (const GlobalVariable* global_variable :
+					database.global_variables.symbols_from_handles(file->global_variables())) {
 					if (global_variable->storage_class != STORAGE_CLASS_STATIC) {
 						if (global_variable->type()) {
 							ast::for_each_node(*global_variable->type(), ast::PREORDER_TRAVERSAL, count_references);
@@ -196,13 +205,14 @@ void print_type_dependency_graph(FILE* out, const SymbolDatabase& database, cons
 		if (!out_node) {
 			continue;
 		}
-		
+
 		CCC_ASSERT(out_node->type());
 		if (!out_node->name().empty() && out_node->type()->descriptor != ast::BUILTIN && out_node->name() != "void") {
 			for (DataTypeHandle in : dependencies) {
 				const DataType* in_node = database.data_types.symbol_from_handle(in);
 				CCC_ASSERT(in_node->type());
-				if (!in_node->name().empty() && in_node->type()->descriptor != ast::BUILTIN && in_node->name() != "void") {
+				if (!in_node->name().empty() && in_node->type()->descriptor != ast::BUILTIN
+					&& in_node->name() != "void") {
 					printer.edge(out_node->name().c_str(), in_node->name().c_str());
 				}
 			}

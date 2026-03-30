@@ -12,12 +12,12 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 {
 	CCC_ASSERT(ptr);
 	const Node& node = *ptr;
-	
+
 	json.StartObject();
-	
+
 	json.Key("descriptor");
 	json.String(node_type_to_string(node));
-	
+
 	if (!node.name.empty()) {
 		json.Key("name");
 		json.String(node.name.c_str());
@@ -70,7 +70,7 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 		json.Key("is_operator_member_function");
 		json.Bool(node.is_operator_member_function);
 	}
-	
+
 	switch (node.descriptor) {
 		case ARRAY: {
 			const Array& array = node.as<Array>();
@@ -194,7 +194,7 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 			break;
 		}
 	}
-	
+
 	json.EndObject();
 }
 

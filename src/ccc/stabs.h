@@ -8,7 +8,8 @@
 
 namespace ccc {
 
-enum class StabsSymbolDescriptor : u8 {
+enum class StabsSymbolDescriptor : u8
+{
 	LOCAL_VARIABLE = '_',
 	REFERENCE_PARAMETER_A = 'a',
 	LOCAL_FUNCTION = 'f',
@@ -26,7 +27,8 @@ enum class StabsSymbolDescriptor : u8 {
 
 struct StabsType;
 
-struct StabsSymbol {
+struct StabsSymbol
+{
 	StabsSymbolDescriptor descriptor;
 	std::string name;
 	std::unique_ptr<StabsType> type;
@@ -34,7 +36,8 @@ struct StabsSymbol {
 
 Result<StabsSymbol> parse_stabs_symbol(const char*& input);
 
-enum class StabsTypeDescriptor : u8 {
+enum class StabsTypeDescriptor : u8
+{
 	TYPE_REFERENCE = 0xef, // '0'..'9','('
 	ARRAY = 'a',
 	ENUM = 'e',
@@ -61,33 +64,47 @@ struct StabsMemberFunctionSet;
 // e.g. for "123=*456" 123 would be the type_number, the type descriptor would
 // be of type POINTER and StabsPointerType::value_type would point to a type
 // with type_number = 456.
-struct StabsType {
+struct StabsType
+{
 	StabsTypeNumber type_number;
 	// The name field is only populated for root types and cross references.
 	std::optional<std::string> name;
 	bool is_typedef = false;
 	bool is_root = false;
 	std::optional<StabsTypeDescriptor> descriptor;
-	
-	StabsType(StabsTypeNumber n) : type_number(n) {}
-	StabsType(StabsTypeDescriptor d) : descriptor(d) {}
-	StabsType(StabsTypeNumber n, StabsTypeDescriptor d) : type_number(n), descriptor(d) {}
+
+	StabsType(StabsTypeNumber n)
+		: type_number(n)
+	{
+	}
+
+	StabsType(StabsTypeDescriptor d)
+		: descriptor(d)
+	{
+	}
+
+	StabsType(StabsTypeNumber n, StabsTypeDescriptor d)
+		: type_number(n)
+		, descriptor(d)
+	{
+	}
+
 	virtual ~StabsType() {}
-	
+
 	template <typename SubType>
 	SubType& as()
 	{
 		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
 		return *static_cast<SubType*>(this);
 	}
-	
+
 	template <typename SubType>
 	const SubType& as() const
 	{
 		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
 		return *static_cast<const SubType*>(this);
 	}
-	
+
 	virtual void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const
 	{
 		if (type_number.valid() && descriptor.has_value()) {
@@ -96,12 +113,17 @@ struct StabsType {
 	}
 };
 
-struct StabsTypeReferenceType : StabsType {
+struct StabsTypeReferenceType : StabsType
+{
 	std::unique_ptr<StabsType> type;
-	
-	StabsTypeReferenceType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsTypeReferenceType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::TYPE_REFERENCE;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -109,13 +131,18 @@ struct StabsTypeReferenceType : StabsType {
 	}
 };
 
-struct StabsArrayType : StabsType {
+struct StabsArrayType : StabsType
+{
 	std::unique_ptr<StabsType> index_type;
 	std::unique_ptr<StabsType> element_type;
-	
-	StabsArrayType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsArrayType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::ARRAY;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -124,19 +151,29 @@ struct StabsArrayType : StabsType {
 	}
 };
 
-struct StabsEnumType : StabsType {
+struct StabsEnumType : StabsType
+{
 	std::vector<std::pair<s32, std::string>> fields;
-	
-	StabsEnumType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsEnumType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::ENUM;
 };
 
-struct StabsFunctionType : StabsType {
+struct StabsFunctionType : StabsType
+{
 	std::unique_ptr<StabsType> return_type;
-	
-	StabsFunctionType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsFunctionType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::FUNCTION;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -144,12 +181,17 @@ struct StabsFunctionType : StabsType {
 	}
 };
 
-struct StabsVolatileQualifierType : StabsType {
+struct StabsVolatileQualifierType : StabsType
+{
 	std::unique_ptr<StabsType> type;
-	
-	StabsVolatileQualifierType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsVolatileQualifierType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::VOLATILE_QUALIFIER;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -157,12 +199,17 @@ struct StabsVolatileQualifierType : StabsType {
 	}
 };
 
-struct StabsConstQualifierType : StabsType {
+struct StabsConstQualifierType : StabsType
+{
 	std::unique_ptr<StabsType> type;
-	
-	StabsConstQualifierType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsConstQualifierType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::CONST_QUALIFIER;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -170,14 +217,19 @@ struct StabsConstQualifierType : StabsType {
 	}
 };
 
-struct StabsRangeType : StabsType {
+struct StabsRangeType : StabsType
+{
 	std::unique_ptr<StabsType> type;
 	std::string low;
 	std::string high; // Some compilers wrote out a wrapped around value here for zero (or variable?) length arrays.
-	
-	StabsRangeType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsRangeType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::RANGE;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -185,8 +237,10 @@ struct StabsRangeType : StabsType {
 	}
 };
 
-struct StabsStructOrUnionType : StabsType {
-	enum class Visibility : u8 {
+struct StabsStructOrUnionType : StabsType
+{
+	enum class Visibility : u8
+	{
 		NONE,
 		PRIVATE,
 		PROTECTED,
@@ -194,14 +248,16 @@ struct StabsStructOrUnionType : StabsType {
 		PUBLIC_OPTIMIZED_OUT
 	};
 
-	struct BaseClass {
+	struct BaseClass
+	{
 		bool is_virtual;
 		Visibility visibility;
 		s32 offset = -1;
 		std::unique_ptr<StabsType> type;
 	};
 
-	struct Field {
+	struct Field
+	{
 		std::string name;
 		Visibility visibility = Visibility::NONE;
 		std::unique_ptr<StabsType> type;
@@ -211,7 +267,8 @@ struct StabsStructOrUnionType : StabsType {
 		std::string type_name;
 	};
 
-	struct MemberFunction {
+	struct MemberFunction
+	{
 		std::unique_ptr<StabsType> type;
 		std::unique_ptr<StabsType> virtual_type;
 		Visibility visibility;
@@ -221,19 +278,23 @@ struct StabsStructOrUnionType : StabsType {
 		s32 vtable_index = -1;
 	};
 
-	struct MemberFunctionSet {
+	struct MemberFunctionSet
+	{
 		std::string name;
 		std::vector<MemberFunction> overloads;
 	};
-	
+
 	s64 size = -1;
 	std::vector<BaseClass> base_classes;
 	std::vector<Field> fields;
 	std::vector<MemberFunctionSet> member_functions;
 	std::unique_ptr<StabsType> first_base_class;
-	
-	StabsStructOrUnionType(StabsTypeNumber n, StabsTypeDescriptor d) : StabsType(n, d) {}
-	
+
+	StabsStructOrUnionType(StabsTypeNumber n, StabsTypeDescriptor d)
+		: StabsType(n, d)
+	{
+	}
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -257,41 +318,66 @@ struct StabsStructOrUnionType : StabsType {
 	}
 };
 
-struct StabsStructType : StabsStructOrUnionType {
-	StabsStructType(StabsTypeNumber n) : StabsStructOrUnionType(n, DESCRIPTOR) {}
+struct StabsStructType : StabsStructOrUnionType
+{
+	StabsStructType(StabsTypeNumber n)
+		: StabsStructOrUnionType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::STRUCT;
 };
 
-struct StabsUnionType : StabsStructOrUnionType {
-	StabsUnionType(StabsTypeNumber n) : StabsStructOrUnionType(n, DESCRIPTOR) {}
+struct StabsUnionType : StabsStructOrUnionType
+{
+	StabsUnionType(StabsTypeNumber n)
+		: StabsStructOrUnionType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::UNION;
 };
 
 
-struct StabsCrossReferenceType : StabsType {
+struct StabsCrossReferenceType : StabsType
+{
 	ast::ForwardDeclaredType type;
 	std::string identifier;
-	
-	StabsCrossReferenceType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsCrossReferenceType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::CROSS_REFERENCE;
 };
 
-struct StabsFloatingPointBuiltInType : StabsType {
+struct StabsFloatingPointBuiltInType : StabsType
+{
 	s32 fpclass = -1;
 	s32 bytes = -1;
-	
-	StabsFloatingPointBuiltInType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsFloatingPointBuiltInType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::FLOATING_POINT_BUILTIN;
 };
 
-struct StabsMethodType : StabsType {
+struct StabsMethodType : StabsType
+{
 	std::unique_ptr<StabsType> return_type;
 	std::optional<std::unique_ptr<StabsType>> class_type;
 	std::vector<std::unique_ptr<StabsType>> parameter_types;
-	
-	StabsMethodType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsMethodType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::METHOD;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -305,12 +391,17 @@ struct StabsMethodType : StabsType {
 	}
 };
 
-struct StabsReferenceType : StabsType {
+struct StabsReferenceType : StabsType
+{
 	std::unique_ptr<StabsType> value_type;
-	
-	StabsReferenceType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsReferenceType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::REFERENCE;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -318,12 +409,17 @@ struct StabsReferenceType : StabsType {
 	}
 };
 
-struct StabsPointerType : StabsType {
+struct StabsPointerType : StabsType
+{
 	std::unique_ptr<StabsType> value_type;
-	
-	StabsPointerType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsPointerType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::POINTER;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -331,13 +427,18 @@ struct StabsPointerType : StabsType {
 	}
 };
 
-struct StabsSizeTypeAttributeType : StabsType {
+struct StabsSizeTypeAttributeType : StabsType
+{
 	s64 size_bits = -1;
 	std::unique_ptr<StabsType> type;
-	
-	StabsSizeTypeAttributeType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsSizeTypeAttributeType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::TYPE_ATTRIBUTE;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -345,13 +446,18 @@ struct StabsSizeTypeAttributeType : StabsType {
 	}
 };
 
-struct StabsPointerToDataMemberType : StabsType {
+struct StabsPointerToDataMemberType : StabsType
+{
 	std::unique_ptr<StabsType> class_type;
 	std::unique_ptr<StabsType> member_type;
-	
-	StabsPointerToDataMemberType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsPointerToDataMemberType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::POINTER_TO_DATA_MEMBER;
-	
+
 	void enumerate_numbered_types(std::map<StabsTypeNumber, const StabsType*>& output) const override
 	{
 		StabsType::enumerate_numbered_types(output);
@@ -360,10 +466,15 @@ struct StabsPointerToDataMemberType : StabsType {
 	}
 };
 
-struct StabsBuiltInType : StabsType {
+struct StabsBuiltInType : StabsType
+{
 	s64 type_id = -1;
-	
-	StabsBuiltInType(StabsTypeNumber n) : StabsType(n, DESCRIPTOR) {}
+
+	StabsBuiltInType(StabsTypeNumber n)
+		: StabsType(n, DESCRIPTOR)
+	{
+	}
+
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::BUILTIN;
 };
 

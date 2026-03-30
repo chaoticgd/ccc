@@ -11,36 +11,37 @@ using namespace ccc::mdebug;
 // real compiler outputs from the old homebrew toolchain (GCC 3.2.3) except
 // where otherwise stated.
 
-static Result<SymbolDatabase> run_importer(const char* name, mdebug::File& input, ProcedureDescriptor procedure_descriptor)
+static Result<SymbolDatabase> run_importer(
+	const char* name, mdebug::File& input, ProcedureDescriptor procedure_descriptor)
 {
 	SymbolDatabase database;
-	
+
 	Result<SymbolSource*> symbol_source = database.symbol_sources.create_symbol(name, SymbolSourceHandle());
 	CCC_RETURN_IF_ERROR(symbol_source);
-	
+
 	AnalysisContext context;
 	context.group.source = (*symbol_source)->handle();
 	context.importer_flags = DONT_DEDUPLICATE_SYMBOLS | STRICT_PARSING;
-	
+
 	for (mdebug::Symbol& symbol : input.symbols) {
 		symbol.procedure_descriptor = &procedure_descriptor;
 	}
-	
+
 	Result<void> result = import_file(database, input, context);
 	CCC_RETURN_IF_ERROR(result);
-	
+
 	return database;
 }
 
-#define MDEBUG_IMPORTER_TEST(name, symbols, procedure_descriptor) \
-	static void mdebug_importer_test_##name(SymbolDatabase& database); \
-	TEST(CCCMdebugImporter, name) \
-	{ \
-		mdebug::File input = {std::vector<mdebug::Symbol>symbols}; \
+#define MDEBUG_IMPORTER_TEST(name, symbols, procedure_descriptor)                                               \
+	static void mdebug_importer_test_##name(SymbolDatabase& database);                                          \
+	TEST(CCCMdebugImporter, name)                                                                               \
+	{                                                                                                           \
+		mdebug::File input = {std::vector<mdebug::Symbol> symbols};                                             \
 		Result<SymbolDatabase> database = run_importer(#name, input, ProcedureDescriptor procedure_descriptor); \
-		CCC_GTEST_FAIL_IF_ERROR(database); \
-		mdebug_importer_test_##name(*database); \
-	} \
+		CCC_GTEST_FAIL_IF_ERROR(database);                                                                      \
+		mdebug_importer_test_##name(*database);                                                                 \
+	}                                                                                                           \
 	static void mdebug_importer_test_##name(SymbolDatabase& database)
 
 #define STABS_CODE(code) ((code) + 0x8f300)
@@ -178,17 +179,17 @@ MDEBUG_IMPORTER_TEST(PeculiarParameter,
 	ASSERT_TRUE(data_type && data_type->type());
 	ASSERT_TRUE(data_type->type()->descriptor == ast::STRUCT_OR_UNION);
 	ast::StructOrUnion& structure = data_type->type()->as<ast::StructOrUnion>();
-	
+
 	// Find the first member function.
 	ASSERT_TRUE(structure.member_functions.size() == 1);
 	ASSERT_TRUE(structure.member_functions[0]->descriptor == ast::FUNCTION);
 	ast::Function& function = structure.member_functions[0]->as<ast::Function>();
-	
+
 	// Find the first parameter from the first member function.
 	ASSERT_TRUE(function.parameters.has_value() && function.parameters->size() == 1);
 	ASSERT_TRUE((*function.parameters)[0]->descriptor == ast::POINTER_OR_REFERENCE);
 	ast::PointerOrReference& reference = (*function.parameters)[0]->as<ast::PointerOrReference>();
-	
+
 	// Make sure that the inner struct was replaced with a type name.
 	ASSERT_TRUE(reference.value_type->descriptor == ast::TYPE_NAME);
 }

@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // This file is meant to produce a .mdebug section that will be hard to parse
-// because it triggers various GCC bugs and other such edge cases. So join me,
-// as I try to write software to parse corrupted garbage!
+// because it triggers various GCC bugs and other such edge cases.
 
 // You can build this file with the following command:
 //   ee-g++ bugs.cpp -o bugs.elf -gstabs -nostdlib

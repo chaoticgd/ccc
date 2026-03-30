@@ -9,24 +9,24 @@ using namespace ccc;
 // Tests for the STABS parser. They are based on real compiler outputs from the
 // old homebrew toolchain (GCC 3.2.3).
 
-#define STABS_TEST(name, stab) \
-	static void stabs_test_##name(StabsSymbol& symbol); \
-	TEST(CCCStabs, name) \
-	{ \
-		const char* input = stab; \
+#define STABS_TEST(name, stab)                                  \
+	static void stabs_test_##name(StabsSymbol& symbol);         \
+	TEST(CCCStabs, name)                                        \
+	{                                                           \
+		const char* input = stab;                               \
 		Result<StabsSymbol> symbol = parse_stabs_symbol(input); \
-		CCC_GTEST_FAIL_IF_ERROR(symbol); \
-		stabs_test_##name(*symbol); \
-	} \
+		CCC_GTEST_FAIL_IF_ERROR(symbol);                        \
+		stabs_test_##name(*symbol);                             \
+	}                                                           \
 	static void stabs_test_##name(StabsSymbol& symbol)
 
-#define STABS_IDENTIFIER_TEST(name, identifier) \
-	TEST(CCCStabs, name) \
-	{ \
-		const char* input = identifier ":"; \
+#define STABS_IDENTIFIER_TEST(name, identifier)                                \
+	TEST(CCCStabs, name)                                                       \
+	{                                                                          \
+		const char* input = identifier ":";                                    \
 		Result<std::string> result = parse_dodgy_stabs_identifier(input, ':'); \
-		CCC_GTEST_FAIL_IF_ERROR(result); \
-		ASSERT_EQ(*result, identifier); \
+		CCC_GTEST_FAIL_IF_ERROR(result);                                       \
+		ASSERT_EQ(*result, identifier);                                        \
 	}
 
 // ee-g++ -gstabs
@@ -123,7 +123,7 @@ STABS_TEST(SimpleStruct, "SimpleStruct:T(1,1)=s4a:(0,1),0,32;;")
 	ASSERT_EQ(struct_type.base_classes.size(), 0);
 	ASSERT_EQ(struct_type.fields.size(), 1);
 	ASSERT_EQ(struct_type.member_functions.size(), 0);
-	
+
 	StabsStructOrUnionType::Field& field = struct_type.fields.at(0);
 	ASSERT_EQ(field.name, "a");
 	ASSERT_EQ(field.offset_bits, 0);
@@ -257,4 +257,6 @@ STABS_IDENTIFIER_TEST(SingleQuoteCharacterLiteralInTypeName, "SingleQuoteCharact
 // ee-g++ -gstabs
 // template <char c> struct NonPrintableCharacterLiteralInTypeName {};
 // template struct NonPrintableCharacterLiteralInTypeName<'\xff'>;
-STABS_IDENTIFIER_TEST(NonPrintableCharacterLiteralInTypeName, "NonPrintableCharacterLiteralInTypeName<'\xff" "77777777'>");
+STABS_IDENTIFIER_TEST(NonPrintableCharacterLiteralInTypeName,
+	"NonPrintableCharacterLiteralInTypeName<'\xff"
+	"77777777'>");

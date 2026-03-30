@@ -28,24 +28,26 @@ using s32 = int32_t;
 using s64 = int64_t;
 
 #ifdef _WIN32
-	#define CCC_ANSI_COLOUR_OFF ""
-	#define CCC_ANSI_COLOUR_RED ""
-	#define CCC_ANSI_COLOUR_MAGENTA ""
-	#define CCC_ANSI_COLOUR_GRAY ""
+#define CCC_ANSI_COLOUR_OFF ""
+#define CCC_ANSI_COLOUR_RED ""
+#define CCC_ANSI_COLOUR_MAGENTA ""
+#define CCC_ANSI_COLOUR_GRAY ""
 #else
-	#define CCC_ANSI_COLOUR_OFF "\033[0m"
-	#define CCC_ANSI_COLOUR_RED "\033[31m"
-	#define CCC_ANSI_COLOUR_MAGENTA "\033[35m"
-	#define CCC_ANSI_COLOUR_GRAY "\033[90m"
+#define CCC_ANSI_COLOUR_OFF "\033[0m"
+#define CCC_ANSI_COLOUR_RED "\033[31m"
+#define CCC_ANSI_COLOUR_MAGENTA "\033[35m"
+#define CCC_ANSI_COLOUR_GRAY "\033[90m"
 #endif
 
-struct Error {
+struct Error
+{
 	std::string message;
 	const char* source_file;
 	s32 source_line;
 };
 
-enum ErrorLevel {
+enum ErrorLevel
+{
 	ERROR_LEVEL_ERROR,
 	ERROR_LEVEL_WARNING
 };
@@ -57,96 +59,99 @@ void report_error(const Error& error);
 void report_warning(const Error& warning);
 void set_custom_error_callback(CustomErrorCallback callback);
 
-#define CCC_EXIT(...) \
-	{ \
+#define CCC_EXIT(...)                                                          \
+	{                                                                          \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_error(error); \
-		exit(1); \
+		ccc::report_error(error);                                              \
+		exit(1);                                                               \
 	}
 
-#define CCC_EXIT_IF_FALSE(condition, ...) \
-	if (!(condition)) { \
+#define CCC_EXIT_IF_FALSE(condition, ...)                                      \
+	if (!(condition)) {                                                        \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_error(error); \
-		exit(1); \
+		ccc::report_error(error);                                              \
+		exit(1);                                                               \
 	}
 
-#define CCC_ABORT_IF_FALSE(condition, ...) \
-	if (!(condition)) { \
+#define CCC_ABORT_IF_FALSE(condition, ...)                                     \
+	if (!(condition)) {                                                        \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_error(error); \
-		abort(); \
+		ccc::report_error(error);                                              \
+		abort();                                                               \
 	}
 
-#define CCC_ASSERT(condition) \
-	CCC_ABORT_IF_FALSE(condition, #condition)
+#define CCC_ASSERT(condition) CCC_ABORT_IF_FALSE(condition, #condition)
 
 #if defined(__GNUC__) || defined(__clang__)
-	#define CCC_WARN_UNUSED [[gnu::warn_unused]]
+#define CCC_WARN_UNUSED [[gnu::warn_unused]]
 #else
-	#define CCC_WARN_UNUSED
+#define CCC_WARN_UNUSED
 #endif
 
 // The main error handling construct in CCC. This class is used to bundle
 // together a return value and a pointer to error information, so that errors
 // can be propagated up the stack.
 template <typename Value>
-class [[nodiscard]] CCC_WARN_UNUSED Result {
+class [[nodiscard]] CCC_WARN_UNUSED Result
+{
 	template <typename OtherValue>
 	friend class Result;
+
 private:
 	Value m_value;
 	std::unique_ptr<Error> m_error;
-	
+
 	Result() {}
-	
+
 public:
-	Result(Value value) : m_value(std::move(value)), m_error(nullptr) {}
-	
+	Result(Value value)
+		: m_value(std::move(value))
+		, m_error(nullptr)
+	{
+	}
+
 	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
 	Result(Result<OtherValue>&& rhs)
 	{
-		CCC_ABORT_IF_FALSE(rhs.m_error != nullptr, "Tried to convert a Result object containing a value to another type.");
+		CCC_ABORT_IF_FALSE(
+			rhs.m_error != nullptr, "Tried to convert a Result object containing a value to another type.");
 		m_error = std::move(rhs.m_error);
 	}
-	
+
 	static Result<Value> failure(Error error)
 	{
 		Result<Value> result;
 		result.m_error = std::make_unique<Error>(std::move(error));
 		return result;
 	}
-	
-	bool success() const
-	{
-		return m_error == nullptr;
-	}
-	
+
+	bool success() const { return m_error == nullptr; }
+
 	const Error& error() const
 	{
 		CCC_ABORT_IF_FALSE(m_error != nullptr, "Called error() on a Result object that doesn't contain an error.");
 		return *m_error;
 	}
-	
+
 	Value& operator*()
 	{
 		CCC_ABORT_IF_FALSE(m_error == nullptr, "Dereferenced Result object that does not contain a value.");
 		return m_value;
 	}
-	
+
 	const Value& operator*() const
 	{
 		CCC_ABORT_IF_FALSE(m_error == nullptr, "Dereferenced Result object that does not contain a value.");
 		return m_value;
 	}
-	
+
 	Value* operator->()
 	{
 		CCC_ABORT_IF_FALSE(m_error == nullptr, "Used arrow operator on Result object that does not contain a value.");
 		return &m_value;
 	}
-	
+
 	const Value* operator->() const
 	{
 		CCC_ABORT_IF_FALSE(m_error == nullptr, "Used arrow operator on Result object that does not contain a value.");
@@ -155,10 +160,14 @@ public:
 };
 
 template <>
-class [[nodiscard]] CCC_WARN_UNUSED Result<void> : public Result<s32> {
+class [[nodiscard]] CCC_WARN_UNUSED Result<void> : public Result<s32>
+{
 public:
-	Result() : Result<s32>(0) {}
-	
+	Result()
+		: Result<s32>(0)
+	{
+	}
+
 	// Used to propagate errors up the call stack.
 	template <typename OtherValue>
 	Result(Result<OtherValue>&& rhs)
@@ -170,29 +179,27 @@ public:
 
 #define CCC_FAILURE(...) ccc::Result<s32>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
 
-#define CCC_CHECK(condition, ...) \
-	if (!(condition)) { \
+#define CCC_CHECK(condition, ...)        \
+	if (!(condition)) {                  \
 		return CCC_FAILURE(__VA_ARGS__); \
 	}
 
-#define CCC_EXPECT_CHAR(input, c, context) \
-	CCC_CHECK(*(input++) == c, \
-		"Expected '%c' in %s, got '%c' (%02hhx)", \
-		c, context, *(input - 1), *(input - 1))
+#define CCC_EXPECT_CHAR(input, c, context)                                                                       \
+	CCC_CHECK(*(input++) == c, "Expected '%c' in %s, got '%c' (%02hhx)", c, context, *(input - 1), *(input - 1))
 
 #define CCC_RETURN_IF_ERROR(result) \
-	if (!(result).success()) { \
-		return (result); \
+	if (!(result).success()) {      \
+		return (result);            \
 	}
 
-#define CCC_EXIT_IF_ERROR(result) \
-	if (!(result).success()) { \
+#define CCC_EXIT_IF_ERROR(result)            \
+	if (!(result).success()) {               \
 		ccc::report_error((result).error()); \
-		exit(1); \
+		exit(1);                             \
 	}
 
-#define CCC_GTEST_FAIL_IF_ERROR(result) \
-	if (!(result).success()) { \
+#define CCC_GTEST_FAIL_IF_ERROR(result)     \
+	if (!(result).success()) {              \
 		FAIL() << (result).error().message; \
 	}
 
@@ -202,15 +209,20 @@ void warn_impl(const char* source_file, s32 source_line, const char* format, Arg
 	Error warning = format_error(source_file, source_line, format, args...);
 	report_warning(warning);
 }
-#define CCC_WARN(...) \
-	ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
+#define CCC_WARN(...) ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
 
 #ifdef _MSC_VER
-	#define CCC_PACKED_STRUCT(name, ...) \
-		__pragma(pack(push, 1)) struct name { __VA_ARGS__ } __pragma(pack(pop));
+#define CCC_PACKED_STRUCT(name, ...)    \
+	__pragma(pack(push, 1)) struct name \
+	{                                   \
+		__VA_ARGS__                     \
+	} __pragma(pack(pop));
 #else
-	#define CCC_PACKED_STRUCT(name, ...) \
-		struct __attribute__((__packed__)) name { __VA_ARGS__ };
+#define CCC_PACKED_STRUCT(name, ...)        \
+	struct __attribute__((__packed__)) name \
+	{                                       \
+		__VA_ARGS__                         \
+	};
 #endif
 
 template <typename T>
@@ -219,7 +231,7 @@ const T* get_aligned(std::span<const u8> bytes, u64 offset)
 	if (offset > bytes.size() || bytes.size() - offset < sizeof(T) || offset % alignof(T) != 0) {
 		return nullptr;
 	}
-	
+
 	return reinterpret_cast<const T*>(&bytes[offset]);
 }
 
@@ -229,7 +241,7 @@ const T* get_unaligned(std::span<const u8> bytes, u64 offset)
 	if (offset > bytes.size() || bytes.size() - offset < sizeof(T)) {
 		return nullptr;
 	}
-	
+
 	return reinterpret_cast<const T*>(&bytes[offset]);
 }
 
@@ -239,7 +251,7 @@ std::optional<T> copy_unaligned(std::span<const u8> bytes, u64 offset)
 	if (offset > bytes.size() || bytes.size() - offset < sizeof(T)) {
 		return std::nullopt;
 	}
-	
+
 	T value;
 	memcpy(&value, &bytes[offset], sizeof(T));
 	return value;
@@ -251,7 +263,7 @@ std::optional<std::span<T>> get_subspan(std::span<T, extent> bytes, u64 offset, 
 	if (offset > bytes.size() || (count != std::dynamic_extent && bytes.size() - offset < count)) {
 		return std::nullopt;
 	}
-	
+
 	return bytes.subspan(offset, count);
 }
 
@@ -262,17 +274,18 @@ std::optional<std::string_view> get_string(std::span<const u8> bytes, u64 offset
 
 #define CCC_FOURCC(string) ((string)[0] | (string)[1] << 8 | (string)[2] << 16 | (string)[3] << 24)
 
-struct Address {
+struct Address
+{
 	u32 value = (u32) -1;
-	
+
 	Address() {}
-	Address(u32 v) : value(v) {}
-	
-	bool valid() const
+	Address(u32 v)
+		: value(v)
 	{
-		return value != (u32) -1;
 	}
-	
+
+	bool valid() const { return value != (u32) -1; }
+
 	u32 get_or_zero() const
 	{
 		if (valid()) {
@@ -281,7 +294,7 @@ struct Address {
 			return 0;
 		}
 	}
-	
+
 	Address add_base_address(Address base_address) const
 	{
 		if (valid()) {
@@ -290,7 +303,7 @@ struct Address {
 			return Address();
 		}
 	}
-	
+
 	static Address non_zero(u32 address)
 	{
 		Address result;
@@ -299,17 +312,22 @@ struct Address {
 		}
 		return result;
 	}
-	
+
 	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;
 };
 
-struct AddressRange {
+struct AddressRange
+{
 	Address low;
 	Address high;
-	
+
 	AddressRange() {}
-	AddressRange(Address l, Address h) : low(l), high(h) {}
-	
+	AddressRange(Address l, Address h)
+		: low(l)
+		, high(h)
+	{
+	}
+
 	friend auto operator<=>(const AddressRange& lhs, const AddressRange& rhs) = default;
 };
 
@@ -321,7 +339,9 @@ std::string normalise_path(const char* input, bool use_backslashes_as_path_separ
 bool guess_is_windows_path(const char* path);
 std::string extract_file_name(const std::string& path);
 
-namespace ast { struct Node; }
+namespace ast {
+struct Node;
+}
 
 // These are used to reference STABS types from other types within a single
 // translation unit. For most games these will just be a single number, the type
@@ -329,15 +349,17 @@ namespace ast { struct Node; }
 // pair of two numbers surrounded by round brackets e.g. (1,23) where the first
 // number is the index of the include file to use (includes are listed for each
 // translation unit separately), and the second number is the type number.
-struct StabsTypeNumber {
+struct StabsTypeNumber
+{
 	s32 file = -1;
 	s32 type = -1;
-	
+
 	friend auto operator<=>(const StabsTypeNumber& lhs, const StabsTypeNumber& rhs) = default;
 	bool valid() const { return type > -1; }
 };
 
-enum StorageClass {
+enum StorageClass
+{
 	STORAGE_CLASS_NONE = 0,
 	STORAGE_CLASS_TYPEDEF = 1,
 	STORAGE_CLASS_EXTERN = 2,
@@ -348,9 +370,10 @@ enum StorageClass {
 
 // Function pointers for the GNU demangler functions, so we can build CCC as a
 // library without linking against the demangler.
-struct DemanglerFunctions {
-	char* (*cplus_demangle)(const char *mangled, int options) = nullptr;
-	char* (*cplus_demangle_opname)(const char *opname, int options) = nullptr;
+struct DemanglerFunctions
+{
+	char* (*cplus_demangle)(const char* mangled, int options) = nullptr;
+	char* (*cplus_demangle_opname)(const char* opname, int options) = nullptr;
 };
 
 }

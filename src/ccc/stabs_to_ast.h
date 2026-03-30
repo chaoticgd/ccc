@@ -9,22 +9,24 @@
 
 namespace ccc {
 
-struct StabsToAstState {
+struct StabsToAstState
+{
 	SourceFileHandle file_handle;
 	std::map<StabsTypeNumber, const StabsType*>* stabs_types;
 	u32 importer_flags;
 	DemanglerFunctions demangler;
 };
 
-Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
-	const StabsType& type,
+Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type,
 	const StabsType* enclosing_struct,
 	const StabsToAstState& state,
 	s32 depth,
 	bool substitute_type_name,
 	bool force_substitute);
-void fix_recursively_emitted_structures(
-	ast::StructOrUnion& outer_struct, const std::string& name, StabsTypeNumber type_number, SourceFileHandle file_handle);
+void fix_recursively_emitted_structures(ast::StructOrUnion& outer_struct,
+	const std::string& name,
+	StabsTypeNumber type_number,
+	SourceFileHandle file_handle);
 ast::AccessSpecifier stabs_field_visibility_to_access_specifier(StabsStructOrUnionType::Visibility visibility);
 
 }

@@ -9,23 +9,33 @@ static const char* HEX_DIGITS = "0123456789abcdef";
 
 u128::u128()
 	: low(0)
-	, high(0) {}
+	, high(0)
+{
+}
 
 u128::u128(u64 value)
 	: low(value)
-	, high(0) {}
+	, high(0)
+{
+}
 
 u128::u128(u64 h, u64 l)
 	: low(l)
-	, high(h) {}
+	, high(h)
+{
+}
 
 u128::u128(const u128& rhs)
 	: low(rhs.low)
-	, high(rhs.high) {}
+	, high(rhs.high)
+{
+}
 
 u128::u128(const s128& rhs)
 	: low(static_cast<u64>(rhs.low))
-	, high(static_cast<u64>(rhs.high)) {}
+	, high(static_cast<u64>(rhs.high))
+{
+}
 
 u128& u128::operator=(const u128& rhs)
 {
@@ -141,13 +151,13 @@ std::optional<u128> u128::from_string(const std::string& hex)
 			break;
 		}
 	}
-	
+
 	if (end_of_number == 0) {
 		return std::nullopt;
 	}
-	
+
 	u128 result;
-	
+
 	for (size_t i = 0; i < std::min(end_of_number, static_cast<size_t>(16)); i++) {
 		char c = hex[end_of_number - i - 1];
 		if (c >= '0' && c <= '9') {
@@ -156,13 +166,13 @@ std::optional<u128> u128::from_string(const std::string& hex)
 			result.low |= static_cast<u64>(10 + c - 'A') << (i * 4);
 		} else if (c >= 'a' && c <= 'f') {
 			result.low |= static_cast<u64>(10 + c - 'a') << (i * 4);
-		} 
+		}
 	}
-	
+
 	if (end_of_number <= 16) {
 		return result;
 	}
-	
+
 	for (size_t i = 0; i < std::min(end_of_number - 16, static_cast<size_t>(16)); i++) {
 		char c = hex[end_of_number - i - 17];
 		if (c >= '0' && c <= '9') {
@@ -171,9 +181,9 @@ std::optional<u128> u128::from_string(const std::string& hex)
 			result.high |= static_cast<u64>(10 + c - 'A') << (i * 4);
 		} else if (c >= 'a' && c <= 'f') {
 			result.high |= static_cast<u64>(10 + c - 'a') << (i * 4);
-		} 
+		}
 	}
-	
+
 	return result;
 }
 
@@ -181,23 +191,33 @@ std::optional<u128> u128::from_string(const std::string& hex)
 
 s128::s128()
 	: low(0)
-	, high(0) {}
+	, high(0)
+{
+}
 
 s128::s128(s64 value)
 	: low(static_cast<u64>(value))
-	, high((value < 0) ? 0xffffffffffffffff : 0) {}
+	, high((value < 0) ? 0xffffffffffffffff : 0)
+{
+}
 
 s128::s128(u64 h, u64 l)
 	: low(l)
-	, high(h) {}
+	, high(h)
+{
+}
 
 s128::s128(const u128& rhs)
 	: low(static_cast<s64>(rhs.low))
-	, high(static_cast<s64>(rhs.high)) {}
+	, high(static_cast<s64>(rhs.high))
+{
+}
 
 s128::s128(const s128& rhs)
 	: low(rhs.low)
-	, high(rhs.high) {}
+	, high(rhs.high)
+{
+}
 
 s128& s128::operator=(const s128& rhs)
 {
@@ -280,8 +300,7 @@ s128 s128::operator>>(u64 bits)
 		result.low = low;
 		result.high = high;
 	} else if (bits < 64) {
-		result.low = (low >> bits)
-			| (high << (64 - bits));
+		result.low = (low >> bits) | (high << (64 - bits));
 		result.high = (high >> bits)
 			| ((high > 0x7fffffffffffffff) ? (((static_cast<u64>(1) << bits) - 1) << (64 - bits)) : 0);
 	} else if (bits == 64) {
@@ -308,7 +327,7 @@ std::optional<s128> s128::from_string(const std::string& hex)
 	std::optional<u128> value = u128::from_string(hex);
 	if (!value.has_value())
 		return std::nullopt;
-	
+
 	return s128(*value);
 }
 

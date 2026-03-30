@@ -8,9 +8,10 @@ where C++ exceptions are disabled.
 It is defined like so:
 
 ```
-class [[nodiscard]] CCC_WARN_UNUSED Result {
+class [[nodiscard]] CCC_WARN_UNUSED Result
+{
 	...
-protected:
+private:
 	Value m_value;
 	std::unique_ptr<Error> m_error;
 	...

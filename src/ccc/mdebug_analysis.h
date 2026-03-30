@@ -11,8 +11,9 @@
 #include "symbol_database.h"
 
 namespace ccc::mdebug {
-	
-struct AnalysisContext {
+
+struct AnalysisContext
+{
 	const mdebug::SymbolTableReader* reader = nullptr;
 	const std::map<u32, const mdebug::Symbol*>* external_functions = nullptr;
 	const std::map<std::string, const mdebug::Symbol*>* external_globals = nullptr;
@@ -21,14 +22,20 @@ struct AnalysisContext {
 	DemanglerFunctions demangler;
 };
 
-class LocalSymbolTableAnalyser {
+class LocalSymbolTableAnalyser
+{
 public:
-	LocalSymbolTableAnalyser(SymbolDatabase& database, const StabsToAstState& stabs_to_ast_state, const AnalysisContext& context, SourceFile& source_file)
+	LocalSymbolTableAnalyser(SymbolDatabase& database,
+		const StabsToAstState& stabs_to_ast_state,
+		const AnalysisContext& context,
+		SourceFile& source_file)
 		: m_database(database)
 		, m_context(context)
 		, m_stabs_to_ast_state(stabs_to_ast_state)
-		, m_source_file(source_file) {}
-	
+		, m_source_file(source_file)
+	{
+	}
+
 	// Functions for processing individual symbols.
 	//
 	// In most cases these symbols will appear in the following order:
@@ -51,8 +58,11 @@ public:
 	Result<void> stab_magic(const char* magic);
 	Result<void> source_file(const char* path, Address text_address);
 	Result<void> data_type(const ParsedSymbol& symbol);
-	Result<void> global_variable(
-		const char* mangled_name, Address address, const StabsType& type, bool is_static, GlobalStorageLocation location);
+	Result<void> global_variable(const char* mangled_name,
+		Address address,
+		const StabsType& type,
+		bool is_static,
+		GlobalStorageLocation location);
 	Result<void> sub_source_file(const char* name, Address text_address);
 	Result<void> procedure(
 		const char* mangled_name, Address address, const ProcedureDescriptor* procedure_descriptor, bool is_static);
@@ -60,28 +70,28 @@ public:
 	Result<void> text_end(const char* name, s32 function_size);
 	Result<void> function(const char* mangled_name, const StabsType& return_type, Address address);
 	Result<void> function_end();
-	Result<void> parameter(
-		const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference);
+	Result<void> parameter(const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference);
 	Result<void> local_variable(
 		const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass);
 	Result<void> lbrac(s32 begin_offset);
 	Result<void> rbrac(s32 end_offset);
-	
+
 	Result<void> finish();
-	
+
 	Result<void> create_function(const char* mangled_name, Address address);
-	
+
 protected:
-	enum AnalysisState {
+	enum AnalysisState
+	{
 		NOT_IN_FUNCTION,
 		IN_FUNCTION_BEGINNING,
 		IN_FUNCTION_END
 	};
-	
+
 	SymbolDatabase& m_database;
 	const AnalysisContext& m_context;
 	const StabsToAstState& m_stabs_to_ast_state;
-	
+
 	AnalysisState m_state = NOT_IN_FUNCTION;
 	SourceFile& m_source_file;
 	std::vector<FunctionHandle> m_functions;
