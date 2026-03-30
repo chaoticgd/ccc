@@ -20,7 +20,7 @@ const InsnInfo* INSN_TABLES[MAX_INSN_CLASS] = {
 	COP1_TABLE,
 	COP1_BC1_TABLE,
 	COP1_S_TABLE,
-	COP1_W_TABLE
+	COP1_W_TABLE,
 };
 
 using IT = InsnType;
@@ -29,6 +29,7 @@ using FT = FlowType;
 using IF = InsnField;
 using RC = RegisterClass;
 
+// clang-format off
 extern const InsnInfo MIPS_OPCODE_TABLE[MAX_OPCODE] = {
 	{"special" , IT::INVALD},
 	{"regimm"  , IT::INVALD},
@@ -745,5 +746,6 @@ extern const InsnInfo COP1_W_TABLE[MAX_W] = {
 	{"undef_62", IT::INVALD},
 	{"undef_63", IT::INVALD}
 };
+// clang-format on
 
 }
