@@ -377,7 +377,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 				case 'e': cross_reference->type = ast::ForwardDeclaredType::ENUM; break;
 				case 's': cross_reference->type = ast::ForwardDeclaredType::STRUCT; break;
 				case 'u': cross_reference->type = ast::ForwardDeclaredType::UNION; break;
-				default: return CCC_FAILURE("Invalid cross reference type '%c'.", cross_reference->type);
+				default: return CCC_FAILURE("Invalid cross reference type '%c'.", cross_reference_type);
 			}
 
 			Result<std::string> identifier = parse_dodgy_stabs_identifier(input, ':');
