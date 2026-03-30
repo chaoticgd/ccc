@@ -7,14 +7,16 @@
 #include "symbol_database.h"
 
 namespace ccc {
-	
-struct VariableName {
+
+struct VariableName
+{
 	const std::string* identifier = nullptr;
 	std::vector<s8> pointer_chars;
 	std::vector<s32> array_indices;
 };
 
-struct CppPrinterConfig {
+struct CppPrinterConfig
+{
 	bool make_globals_extern : 1 = false;
 	bool skip_statics : 1 = false;
 	bool print_offsets_and_sizes : 1 = true;
@@ -27,15 +29,18 @@ struct CppPrinterConfig {
 	bool caller_stack_offsets : 1 = false;
 };
 
-class CppPrinter {
+class CppPrinter
+{
 public:
 	FILE* out;
 	const std::map<u32, std::span<char>>* function_bodies = nullptr;
-	
+
 	CppPrinter(FILE* o, const CppPrinterConfig& config)
 		: out(o)
-		, m_config(config) {}
-	
+		, m_config(config)
+	{
+	}
+
 	void comment_block_beginning(const char* input_file, const char* tool_name, const char* tool_version);
 	void comment_block_toolchain_version_info(const SymbolDatabase& database);
 	void comment_block_builtin_types(const SymbolDatabase& database, SourceFileHandle file = SourceFileHandle());
@@ -43,22 +48,21 @@ public:
 	void begin_include_guard(const char* macro);
 	void end_include_guard(const char* macro);
 	void include_directive(const char* path);
-	
+
 	bool data_type(const DataType& symbol, const SymbolDatabase& database);
 	void function(const Function& symbol, const SymbolDatabase& database, const ElfFile* elf);
-	void global_variable(
-		const GlobalVariable& symbol, const SymbolDatabase& database, const ElfFile* elf);
-	
+	void global_variable(const GlobalVariable& symbol, const SymbolDatabase& database, const ElfFile* elf);
+
 private:
-	void ast_node(
-		const ast::Node& node,
+	void ast_node(const ast::Node& node,
 		VariableName& parent_name,
 		s32 base_offset,
 		s32 indentation_level,
 		const SymbolDatabase& database,
 		SymbolDescriptor symbol_descriptor,
 		bool print_body = true);
-	void function_parameters(std::span<const ParameterVariable*> parameters, const SymbolDatabase& database, s32 stack_frame_size = -1);
+	void function_parameters(
+		std::span<const ParameterVariable*> parameters, const SymbolDatabase& database, s32 stack_frame_size = -1);
 	void refined_data(const RefinedData& data, s32 indentation_level);
 	void global_storage_comment(const GlobalStorage& storage, Address address);
 	void register_storage_comment(const RegisterStorage& storage);

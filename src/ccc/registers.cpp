@@ -12,7 +12,7 @@ const char** REGISTER_STRING_TABLES[7] = {
 	SCP_STRINGS,
 	FPR_STRINGS,
 	SPECIAL_FPU_STRINGS,
-	VU0_STRINGS
+	VU0_STRINGS,
 };
 
 const u64 REGISTER_STRING_TABLE_SIZES[7] = {
@@ -22,7 +22,7 @@ const u64 REGISTER_STRING_TABLE_SIZES[7] = {
 	CCC_ARRAY_SIZE(SCP_STRINGS),
 	CCC_ARRAY_SIZE(FPR_STRINGS),
 	CCC_ARRAY_SIZE(SPECIAL_FPU_STRINGS),
-	CCC_ARRAY_SIZE(VU0_STRINGS)
+	CCC_ARRAY_SIZE(VU0_STRINGS),
 };
 
 const char* REGISTER_CLASSES[7] = {
@@ -32,7 +32,7 @@ const char* REGISTER_CLASSES[7] = {
 	"scp",
 	"fpu",
 	"specialfpu",
-	"vu0"
+	"vu0",
 };
 
 const char* INVALID_REGISTER_STRING = "BADREGISTER";
@@ -69,7 +69,7 @@ const char* GPR_STRINGS[32] = {
 	"gp",
 	"sp",
 	"fp",
-	"ra"
+	"ra",
 };
 
 const char* SPECIAL_GPR_STRINGS[6] = {
@@ -78,7 +78,7 @@ const char* SPECIAL_GPR_STRINGS[6] = {
 	"lo",
 	"hi1",
 	"lo1",
-	"sa"
+	"sa",
 };
 
 const char* SCP_STRINGS[32] = {
@@ -108,7 +108,7 @@ const char* SCP_STRINGS[32] = {
 	"TagLo",
 	"TagHi",
 	"ErrorEPC",
-	"(Reserved)"
+	"(Reserved)",
 };
 
 const char* FPR_STRINGS[32] = {
@@ -143,13 +143,13 @@ const char* FPR_STRINGS[32] = {
 	"f28",
 	"f29",
 	"f30",
-	"f31"
+	"f31",
 };
 
 const char* SPECIAL_FPU_STRINGS[3] = {
 	"fcr0",
 	"fcr31",
-	"acc"
+	"acc",
 };
 
 const char* VU0_STRINGS[32] = {
@@ -184,7 +184,7 @@ const char* VU0_STRINGS[32] = {
 	"vf28",
 	"vf29",
 	"vf30",
-	"vf31"
+	"vf31",
 };
 
 std::pair<RegisterClass, s32> map_dbx_register_index(s32 index)
@@ -194,7 +194,7 @@ std::pair<RegisterClass, s32> map_dbx_register_index(s32 index)
 	} else if (index >= 38 && index <= 69) {
 		return {RegisterClass::FPR, index - 38};
 	} else {
-		return{RegisterClass::INVALID, 0};
+		return {RegisterClass::INVALID, 0};
 	}
 }
 

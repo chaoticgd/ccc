@@ -8,40 +8,41 @@
 
 namespace ccc::dwarf {
 
-class SymbolTableImporter {
+class SymbolTableImporter
+{
 public:
-	SymbolTableImporter(
-		SymbolDatabase& database,
+	SymbolTableImporter(SymbolDatabase& database,
 		const SectionReader& dwarf,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
 		const std::atomic_bool* interrupt);
-	
+
 	// Import a DWARF symbol table into the symbol database, excluding
 	// compilation units associated with an overlay.
 	Result<void> import_symbol_table(SymbolGroup group);
-	
+
 	// Import a DWARF symbol table into the symbol database, but only including
 	// compilation units associated with the specified overlay.
 	Result<void> import_overlay(u32 overlay_id, SymbolGroup group);
-	
+
 private:
 	Result<void> import_compile_units(std::optional<u32> overlay_id, SymbolGroup group);
 	Result<void> import_compile_unit(const DIE& die);
 	Result<void> import_data_type(const DIE& die);
 	Result<void> import_subroutine(const DIE& die);
-	
+
 	SymbolDatabase& m_database;
 	const SectionReader& m_dwarf;
 	u32 m_importer_flags;
 	const DemanglerFunctions& m_demangler;
 	const std::atomic_bool* m_interrupt;
-	
+
 	SymbolGroup m_group;
 	SourceFile* m_source_file = nullptr;
 };
 
-struct OverlayInfo {
+struct OverlayInfo
+{
 	u32 id;
 	std::string name;
 };

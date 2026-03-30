@@ -102,20 +102,20 @@ Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset
 {
 	m_elf = elf;
 	m_section_offset = section_offset;
-	
+
 	m_hdrr = get_unaligned<SymbolicHeader>(m_elf, m_section_offset);
 	CCC_CHECK(m_hdrr != nullptr, "MIPS debug section header out of bounds.");
 	CCC_CHECK(m_hdrr->magic == 0x7009, "Invalid symbolic header.");
-	
+
 	Result<s32> fudge_offset = get_corruption_fixing_fudge_offset(m_section_offset, *m_hdrr);
 	CCC_RETURN_IF_ERROR(fudge_offset);
 	m_fudge_offset = *fudge_offset;
-	
+
 	m_ready = true;
-	
+
 	return Result<void>();
 }
-	
+
 s32 SymbolTableReader::file_count() const
 {
 	CCC_ASSERT(m_ready);
@@ -125,84 +125,88 @@ s32 SymbolTableReader::file_count() const
 Result<File> SymbolTableReader::parse_file(s32 index) const
 {
 	CCC_ASSERT(m_ready);
-	
+
 	File file;
-	
+
 	u64 fd_offset = m_hdrr->file_descriptors_offset + index * sizeof(FileDescriptor);
 	const FileDescriptor* fd_header = get_unaligned<FileDescriptor>(m_elf, fd_offset + m_fudge_offset);
 	CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
 	CCC_CHECK(fd_header->f_big_endian() == 0, "Not little endian or bad file descriptor table.");
-	
+
 	file.address = fd_header->address;
-	
+
 	s32 rel_raw_path_offset = fd_header->strings_offset + fd_header->file_path_string_offset;
 	s32 raw_path_offset = m_hdrr->local_strings_offset + rel_raw_path_offset + m_fudge_offset;
 	std::optional<std::string_view> command_line_path = get_string(m_elf, raw_path_offset);
 	if (command_line_path.has_value()) {
 		file.command_line_path = *command_line_path;
 	}
-	
+
 	// Parse local symbols.
 	for (s64 j = 0; j < fd_header->symbol_count; j++) {
 		u64 rel_symbol_offset = (fd_header->isym_base + j) * sizeof(SymbolHeader);
 		u64 symbol_offset = m_hdrr->local_symbols_offset + rel_symbol_offset + m_fudge_offset;
 		const SymbolHeader* symbol_header = get_unaligned<SymbolHeader>(m_elf, symbol_offset);
 		CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
-		
+
 		s32 strings_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + m_fudge_offset;
 		Result<Symbol> sym = get_symbol(*symbol_header, m_elf, strings_offset);
 		CCC_RETURN_IF_ERROR(sym);
-		
+
 		bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
-		if (file.working_dir.empty() && string_offset_equal && sym->is_stabs() && sym->code() == N_SO && file.symbols.size() > 2) {
+		if (file.working_dir.empty() && string_offset_equal && sym->is_stabs() && sym->code() == N_SO
+			&& file.symbols.size() > 2) {
 			const Symbol& working_dir = file.symbols.back();
 			if (working_dir.is_stabs() && working_dir.code() == N_SO) {
 				file.working_dir = working_dir.string;
 			}
 		}
-		
+
 		file.symbols.emplace_back(std::move(*sym));
 	}
-	
+
 	// Parse procedure descriptors.
 	for (s64 i = 0; i < fd_header->procedure_descriptor_count; i++) {
 		u64 rel_procedure_offset = (fd_header->ipd_first + i) * sizeof(ProcedureDescriptor);
 		u64 procedure_offset = m_hdrr->procedure_descriptors_offset + rel_procedure_offset + m_fudge_offset;
 		const ProcedureDescriptor* procedure_descriptor = get_unaligned<ProcedureDescriptor>(m_elf, procedure_offset);
 		CCC_CHECK(procedure_descriptor != nullptr, "Procedure descriptor out of bounds.");
-		
+
 		CCC_CHECK(procedure_descriptor->symbol_index < file.symbols.size(), "Symbol index out of bounds.");
 		file.symbols[procedure_descriptor->symbol_index].procedure_descriptor = procedure_descriptor;
 	}
 
-	
+
 	file.full_path = merge_paths(file.working_dir, file.command_line_path);
-	
+
 	return file;
 }
 
 Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const
 {
 	CCC_ASSERT(m_ready);
-	
+
 	std::vector<Symbol> external_symbols;
 	for (s64 i = 0; i < m_hdrr->external_symbols_count; i++) {
 		u64 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
-		const ExternalSymbolHeader* external_header = get_unaligned<ExternalSymbolHeader>(m_elf, sym_offset + m_fudge_offset);
+		const ExternalSymbolHeader* external_header = get_unaligned<ExternalSymbolHeader>(
+			m_elf, sym_offset + m_fudge_offset);
 		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
-		
-		Result<Symbol> sym = get_symbol(external_header->symbol, m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
+
+		Result<Symbol> sym = get_symbol(
+			external_header->symbol, m_elf, m_hdrr->external_strings_offset + m_fudge_offset);
 		CCC_RETURN_IF_ERROR(sym);
 		external_symbols.emplace_back(std::move(*sym));
 	}
-	
+
 	return external_symbols;
 }
 
 void SymbolTableReader::print_header(FILE* dest) const
 {
 	CCC_ASSERT(m_ready);
-	
+
+	// clang-format off
 	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n",
 		(u16) m_hdrr->magic,
 		(u16) m_hdrr->version_stamp);
@@ -250,16 +254,18 @@ void SymbolTableReader::print_header(FILE* dest) const
 		(u32) m_hdrr->external_symbols_offset,
 		(u32) m_hdrr->external_symbols_count * 16,
 		m_hdrr->external_symbols_count);
+	// clang-format on
 }
 
-Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const
+Result<void> SymbolTableReader::print_symbols(
+	FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const
 {
 	if (print_locals || print_procedure_descriptors) {
 		s32 count = file_count();
 		for (s32 i = 0; i < count; i++) {
 			Result<File> file = parse_file(i);
 			CCC_RETURN_IF_ERROR(file);
-			
+
 			fprintf(out, "FILE %s:\n", file->command_line_path.c_str());
 			for (const Symbol& symbol : file->symbols) {
 				if (print_locals || symbol.procedure_descriptor) {
@@ -271,7 +277,7 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 			}
 		}
 	}
-	
+
 	if (print_externals) {
 		fprintf(out, "EXTERNAL SYMBOLS:\n");
 		Result<std::vector<Symbol>> external_symbols = parse_external_symbols();
@@ -280,21 +286,21 @@ Result<void> SymbolTableReader::print_symbols(FILE* out, bool print_locals, bool
 			print_symbol(out, symbol);
 		}
 	}
-	
+
 	return Result<void>();
 }
 
 static void print_symbol(FILE* out, const Symbol& symbol)
 {
 	fprintf(out, "    %8x ", symbol.value);
-	
+
 	const char* symbol_type_str = symbol_type(symbol.symbol_type);
 	if (symbol_type_str) {
 		fprintf(out, "%-11s ", symbol_type_str);
 	} else {
 		fprintf(out, "ST(%7u) ", (u32) symbol.symbol_type);
 	}
-	
+
 	const char* symbol_class_str = symbol_class(symbol.symbol_class);
 	if (symbol_class_str) {
 		fprintf(out, "%-4s ", symbol_class_str);
@@ -303,18 +309,19 @@ static void print_symbol(FILE* out, const Symbol& symbol)
 	} else {
 		fprintf(out, "SC(%4u) ", (u32) symbol.symbol_class);
 	}
-	
+
 	if (symbol.is_stabs()) {
 		fprintf(out, "%-8s ", stabs_code_to_string(symbol.code()));
 	} else {
 		fprintf(out, "SI(%4u) ", symbol.index);
 	}
-	
+
 	fprintf(out, "%s\n", symbol.string);
 }
 
 static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& procedure_descriptor)
 {
+	// clang-format off
 	fprintf(out, "                    Address                       0x%08x\n", procedure_descriptor.address);
 	fprintf(out, "                    Symbol Index                  %d\n", procedure_descriptor.symbol_index);
 	fprintf(out, "                    Line Number Entry Index       %d\n", procedure_descriptor.line_number_entry_index);
@@ -329,6 +336,7 @@ static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& pro
 	fprintf(out, "                    Line Number Low               %d\n", procedure_descriptor.line_number_low);
 	fprintf(out, "                    Line Number High              %d\n", procedure_descriptor.line_number_high);
 	fprintf(out, "                    Line Number Offset            %d\n", procedure_descriptor.line_number_offset);
+	// clang-format on
 }
 
 static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)
@@ -337,46 +345,58 @@ static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const 
 	// header, so if the header says it's somewhere else we know the section has
 	// probably been moved without updating its contents.
 	s32 right_after_header = INT32_MAX;
-	if (hdrr.line_numbers_offset > 0) right_after_header = std::min(hdrr.line_numbers_offset, right_after_header);
-	if (hdrr.dense_numbers_offset > 0) right_after_header = std::min(hdrr.dense_numbers_offset, right_after_header);
-	if (hdrr.procedure_descriptors_offset > 0) right_after_header = std::min(hdrr.procedure_descriptors_offset, right_after_header);
-	if (hdrr.local_symbols_offset > 0) right_after_header = std::min(hdrr.local_symbols_offset, right_after_header);
-	if (hdrr.optimization_symbols_offset > 0) right_after_header = std::min(hdrr.optimization_symbols_offset, right_after_header);
-	if (hdrr.auxiliary_symbols_offset > 0) right_after_header = std::min(hdrr.auxiliary_symbols_offset, right_after_header);
-	if (hdrr.local_strings_offset > 0) right_after_header = std::min(hdrr.local_strings_offset, right_after_header);
-	if (hdrr.external_strings_offset > 0) right_after_header = std::min(hdrr.external_strings_offset, right_after_header);
-	if (hdrr.file_descriptors_offset > 0) right_after_header = std::min(hdrr.file_descriptors_offset, right_after_header);
-	if (hdrr.relative_file_descriptors_offset > 0) right_after_header = std::min(hdrr.relative_file_descriptors_offset, right_after_header);
-	if (hdrr.external_symbols_offset > 0) right_after_header = std::min(hdrr.external_symbols_offset, right_after_header);
-	
+	if (hdrr.line_numbers_offset > 0)
+		right_after_header = std::min(hdrr.line_numbers_offset, right_after_header);
+	if (hdrr.dense_numbers_offset > 0)
+		right_after_header = std::min(hdrr.dense_numbers_offset, right_after_header);
+	if (hdrr.procedure_descriptors_offset > 0)
+		right_after_header = std::min(hdrr.procedure_descriptors_offset, right_after_header);
+	if (hdrr.local_symbols_offset > 0)
+		right_after_header = std::min(hdrr.local_symbols_offset, right_after_header);
+	if (hdrr.optimization_symbols_offset > 0)
+		right_after_header = std::min(hdrr.optimization_symbols_offset, right_after_header);
+	if (hdrr.auxiliary_symbols_offset > 0)
+		right_after_header = std::min(hdrr.auxiliary_symbols_offset, right_after_header);
+	if (hdrr.local_strings_offset > 0)
+		right_after_header = std::min(hdrr.local_strings_offset, right_after_header);
+	if (hdrr.external_strings_offset > 0)
+		right_after_header = std::min(hdrr.external_strings_offset, right_after_header);
+	if (hdrr.file_descriptors_offset > 0)
+		right_after_header = std::min(hdrr.file_descriptors_offset, right_after_header);
+	if (hdrr.relative_file_descriptors_offset > 0)
+		right_after_header = std::min(hdrr.relative_file_descriptors_offset, right_after_header);
+	if (hdrr.external_symbols_offset > 0)
+		right_after_header = std::min(hdrr.external_symbols_offset, right_after_header);
+
 	CCC_CHECK(right_after_header >= 0 && right_after_header < INT32_MAX, "Invalid symbolic header.");
-	
+
 	// Figure out how much we need to adjust all the file offsets by.
 	s32 fudge_offset = section_offset - (right_after_header - sizeof(SymbolicHeader));
 	if (fudge_offset != 0) {
-		CCC_WARN("The .mdebug section was moved without updating its contents. Adjusting file offsets by %d bytes.", fudge_offset);
+		CCC_WARN("The .mdebug section was moved without updating its contents. Adjusting file offsets by %d bytes.",
+			fudge_offset);
 	}
-	
+
 	return fudge_offset;
 }
 
 static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset)
 {
 	Symbol symbol;
-	
+
 	std::optional<std::string_view> string = get_string(elf, strings_offset + header.iss);
 	CCC_CHECK(string.has_value(), "Symbol has invalid string.");
 	symbol.string = string->data();
-	
+
 	symbol.value = header.value;
 	symbol.symbol_type = static_cast<SymbolType>(header.symbol_type());
 	symbol.symbol_class = static_cast<SymbolClass>(header.symbol_class());
 	symbol.index = header.index();
-	
+
 	if (symbol.is_stabs()) {
 		CCC_CHECK(stabs_code_to_string(symbol.code()) != nullptr, "Bad stabs symbol code '%x'.", symbol.code());
 	}
-	
+
 	return symbol;
 }
 

@@ -13,8 +13,7 @@ namespace ccc::mdebug {
 
 // Perform all the main analysis passes on the mdebug symbol table and convert
 // it to a set of symbols and C++ ASTs.
-Result<void> import_symbol_table(
-	SymbolDatabase& database,
+Result<void> import_symbol_table(SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
 	const SymbolGroup& group,

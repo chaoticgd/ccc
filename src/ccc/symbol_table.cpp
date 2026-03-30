@@ -17,7 +17,7 @@ const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS = {
 	{MDEBUG, "mdebug", ".mdebug"},
 	{DWARF, "dwarf", ".debug"},
 	{SYMTAB, "symtab", ".symtab"},
-	{SNDLL, "sndll", ".sndata"}
+	{SNDLL, "sndll", ".sndata"},
 };
 
 const SymbolTableFormatInfo* symbol_table_format_from_enum(SymbolTableFormat format)
@@ -64,61 +64,61 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 		case DWARF: {
 			const ElfSection* debug_section = elf.lookup_section(".debug");
 			CCC_CHECK(debug_section, "No .debug section.");
-			
+
 			const ElfSection* line_section = elf.lookup_section(".line");
 			CCC_CHECK(line_section, "No .line section.");
-			
+
 			Result<std::span<const u8>> debug = elf.section_contents(*debug_section);
 			CCC_RETURN_IF_ERROR(debug);
-			
+
 			Result<std::span<const u8>> line = elf.section_contents(*line_section);
 			CCC_RETURN_IF_ERROR(line);
-			
+
 			symbol_table = std::make_unique<DwarfSymbolTable>(*debug, *line);
-			
+
 			break;
 		}
 		case SYMTAB: {
 			std::optional<std::span<const u8>> data = get_subspan(
 				std::span(elf.image), section.header.offset, section.header.size);
 			CCC_CHECK(data.has_value(), "Section '%s' out of range.", section.name.c_str());
-			
+
 			CCC_CHECK(section.header.link != 0, "Section '%s' has no linked string table.", section.name.c_str());
-			CCC_CHECK(section.header.link < elf.sections.size(),
-				"Section '%s' has out of range link field.", section.name.c_str());
+			CCC_CHECK(section.header.link < elf.sections.size(), "Section '%s' has out of range link field.",
+				section.name.c_str());
 			const ElfSection& linked_section = elf.sections[section.header.link];
-			
+
 			std::optional<std::span<const u8>> linked_data = get_subspan(
 				std::span(elf.image), linked_section.header.offset, linked_section.header.size);
 			CCC_CHECK(linked_data.has_value(), "Linked section '%s' out of range.", linked_section.name.c_str());
-			
+
 			symbol_table = std::make_unique<SymtabSymbolTable>(*data, *linked_data);
-			
+
 			break;
 		}
 		case SNDLL: {
 			std::optional<std::span<const u8>> data = get_subspan(
 				std::span(elf.image), section.header.offset, section.header.size);
 			CCC_CHECK(data.has_value(), "Section '%s' out of range.", section.name.c_str());
-			
+
 			if (data->size() >= 4 && (*data)[0] != '\0') {
-				Result<SNDLLFile> file = parse_sndll_file(*data, Address::non_zero(section.header.addr), SNDLLType::SNDATA_SECTION);
+				Result<SNDLLFile> file = parse_sndll_file(
+					*data, Address::non_zero(section.header.addr), SNDLLType::SNDATA_SECTION);
 				CCC_RETURN_IF_ERROR(file);
-				
+
 				symbol_table = std::make_unique<SNDLLSymbolTable>(std::make_shared<SNDLLFile>(std::move(*file)));
 			} else {
 				CCC_WARN("Invalid SNDLL section.");
 			}
-			
+
 			break;
 		}
 	}
-	
+
 	return symbol_table;
 }
 
-Result<ModuleHandle> import_symbol_tables(
-	SymbolDatabase& database,
+Result<ModuleHandle> import_symbol_tables(SymbolDatabase& database,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	std::string module_name,
 	Address base_address,
@@ -128,13 +128,13 @@ Result<ModuleHandle> import_symbol_tables(
 {
 	Result<SymbolSourceHandle> module_source = database.get_symbol_source("Symbol Table Importer");
 	CCC_RETURN_IF_ERROR(module_source);
-	
+
 	Result<Module*> module_symbol = database.modules.create_symbol(
 		std::move(module_name), base_address, *module_source, nullptr);
 	CCC_RETURN_IF_ERROR(module_symbol);
-	
+
 	ModuleHandle module_handle = (*module_symbol)->handle();
-	
+
 	for (const std::unique_ptr<SymbolTable>& symbol_table : symbol_tables) {
 		// Find a symbol source object with the right name, or create one if one
 		// doesn't already exist.
@@ -143,35 +143,36 @@ Result<ModuleHandle> import_symbol_tables(
 			database.destroy_symbols_from_module(module_handle, false);
 			return source;
 		}
-		
+
 		// Import the symbol table.
 		SymbolGroup group;
 		group.source = *source;
 		group.module_symbol = database.modules.symbol_from_handle(module_handle);
-		
-		Result<void> result = symbol_table->import(
-			database, group, importer_flags, demangler, interrupt);
+
+		Result<void> result = symbol_table->import(database, group, importer_flags, demangler, interrupt);
 		if (!result.success()) {
 			database.destroy_symbols_from_module(module_handle, false);
 			return result;
 		}
 	}
-	
+
 	return module_handle;
 }
 
 // *****************************************************************************
 
 MdebugSymbolTable::MdebugSymbolTable(std::span<const u8> image, s32 section_offset)
-	: m_image(image), m_section_offset(section_offset) {}
+	: m_image(image)
+	, m_section_offset(section_offset)
+{
+}
 
 const char* MdebugSymbolTable::name() const
 {
 	return "MIPS Debug Symbol Table";
 }
 
-Result<void> MdebugSymbolTable::import(
-	SymbolDatabase& database,
+Result<void> MdebugSymbolTable::import(SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -184,12 +185,12 @@ Result<void> MdebugSymbolTable::import(
 Result<void> MdebugSymbolTable::print_headers(FILE* out) const
 {
 	mdebug::SymbolTableReader reader;
-	
+
 	Result<void> reader_result = reader.init(m_image, m_section_offset);
 	CCC_RETURN_IF_ERROR(reader_result);
-	
+
 	reader.print_header(out);
-	
+
 	return Result<void>();
 }
 
@@ -198,26 +199,28 @@ Result<void> MdebugSymbolTable::print_symbols(FILE* out, u32 flags) const
 	mdebug::SymbolTableReader reader;
 	Result<void> reader_result = reader.init(m_image, m_section_offset);
 	CCC_RETURN_IF_ERROR(reader_result);
-	
+
 	Result<void> print_result = reader.print_symbols(
 		out, flags & PRINT_LOCALS, flags & PRINT_PROCEDURE_DESCRIPTORS, flags & PRINT_EXTERNALS);
 	CCC_RETURN_IF_ERROR(print_result);
-	
+
 	return Result<void>();
 }
 
 // *****************************************************************************
 
 DwarfSymbolTable::DwarfSymbolTable(std::span<const u8> debug, std::span<const u8> line)
-	: m_debug(debug), m_line(line) {}
+	: m_debug(debug)
+	, m_line(line)
+{
+}
 
 const char* DwarfSymbolTable::name() const
 {
 	return "DWARF Symbol Table";
 }
 
-Result<void> DwarfSymbolTable::import(
-	SymbolDatabase& database,
+Result<void> DwarfSymbolTable::import(SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -237,25 +240,27 @@ Result<void> DwarfSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	dwarf::SectionReader reader(m_debug, m_line, NO_IMPORTER_FLAGS);
 	dwarf::SymbolPrinter printer(reader);
-	
+
 	Result<dwarf::DIE> first_die = reader.first_die();
 	CCC_RETURN_IF_ERROR(first_die);
-	
+
 	return printer.print_dies(out, std::move(*first_die), 0);
 }
 
 // *****************************************************************************
 
 SymtabSymbolTable::SymtabSymbolTable(std::span<const u8> symtab, std::span<const u8> strtab)
-	: m_symtab(symtab), m_strtab(strtab) {}
+	: m_symtab(symtab)
+	, m_strtab(strtab)
+{
+}
 
 const char* SymtabSymbolTable::name() const
 {
 	return "ELF Symbol Table";
 }
 
-Result<void> SymtabSymbolTable::import(
-	SymbolDatabase& database,
+Result<void> SymtabSymbolTable::import(SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -273,22 +278,23 @@ Result<void> SymtabSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	Result<void> symbtab_result = elf::print_symbol_table(out, m_symtab, m_strtab);
 	CCC_RETURN_IF_ERROR(symbtab_result);
-	
+
 	return Result<void>();
 }
 
 // *****************************************************************************
 
 SNDLLSymbolTable::SNDLLSymbolTable(std::shared_ptr<SNDLLFile> sndll)
-	: m_sndll(std::move(sndll)) {}
+	: m_sndll(std::move(sndll))
+{
+}
 
 const char* SNDLLSymbolTable::name() const
 {
 	return "SNDLL Symbol Table";
 }
 
-Result<void> SNDLLSymbolTable::import(
-	SymbolDatabase& database,
+Result<void> SNDLLSymbolTable::import(SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -305,22 +311,23 @@ Result<void> SNDLLSymbolTable::print_headers(FILE* out) const
 Result<void> SNDLLSymbolTable::print_symbols(FILE* out, u32 flags) const
 {
 	print_sndll_symbols(out, *m_sndll);
-	
+
 	return Result<void>();
 }
 
 // *****************************************************************************
 
 ElfSectionHeadersSymbolTable::ElfSectionHeadersSymbolTable(const ElfFile& elf)
-	: m_elf(elf) {}
+	: m_elf(elf)
+{
+}
 
 const char* ElfSectionHeadersSymbolTable::name() const
 {
 	return "ELF Section Headers";
 }
 
-Result<void> ElfSectionHeadersSymbolTable::import(
-	SymbolDatabase& database,
+Result<void> ElfSectionHeadersSymbolTable::import(SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,

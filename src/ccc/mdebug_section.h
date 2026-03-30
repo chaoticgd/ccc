@@ -9,7 +9,8 @@ namespace ccc::mdebug {
 
 struct SymbolicHeader;
 
-enum class SymbolType : u32 {
+enum class SymbolType : u32
+{
 	NIL = 0,
 	GLOBAL = 1,
 	STATIC = 2,
@@ -26,7 +27,8 @@ enum class SymbolType : u32 {
 	CONSTANT = 15
 };
 
-enum class SymbolClass : u32 {
+enum class SymbolClass : u32
+{
 	NIL = 0,
 	TEXT = 1,
 	DATA = 2,
@@ -58,7 +60,8 @@ enum class SymbolClass : u32 {
 };
 
 // See stab.def from gcc for documentation on what all these are.
-enum StabsCode {
+enum StabsCode
+{
 	STAB = 0x00,
 	N_GSYM = 0x20,
 	N_FNAME = 0x22,
@@ -120,24 +123,28 @@ CCC_PACKED_STRUCT(ProcedureDescriptor,
 )
 static_assert(sizeof(ProcedureDescriptor) == 0x34);
 
-struct Symbol {
+struct Symbol
+{
 	u32 value;
 	SymbolType symbol_type;
 	SymbolClass symbol_class;
 	u32 index;
 	const char* string;
 	const ProcedureDescriptor* procedure_descriptor = nullptr;
-	
-	bool is_stabs() const {
+
+	bool is_stabs() const
+	{
 		return (index & 0xfff00) == 0x8f300;
 	}
-	
-	StabsCode code() const {
+
+	StabsCode code() const
+	{
 		return (StabsCode) (index - 0x8f300);
 	}
 };
 
-struct File {
+struct File
+{
 	std::vector<Symbol> symbols;
 	u32 address = 0;
 	std::string working_dir; // The working directory of gcc.
@@ -145,27 +152,29 @@ struct File {
 	std::string full_path; // The full combined path.
 };
 
-class SymbolTableReader {
+class SymbolTableReader
+{
 public:
 	Result<void> init(std::span<const u8> elf, s32 section_offset);
-	
+
 	s32 file_count() const;
 	Result<File> parse_file(s32 index) const;
 	Result<std::vector<Symbol>> parse_external_symbols() const;
-	
+
 	void print_header(FILE* out) const;
-	Result<void> print_symbols(FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const;
+	Result<void> print_symbols(
+		FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const;
 
 private:
 	bool m_ready = false;
-	
+
 	std::span<const u8> m_elf;
 	s32 m_section_offset;
-	
+
 	// If the .mdebug section was moved without updating its contents all the
 	// absolute file offsets stored within will be incorrect by a fixed amount.
 	s32 m_fudge_offset;
-	
+
 	const SymbolicHeader* m_hdrr;
 };
 

@@ -7,7 +7,8 @@
 
 namespace ccc::mips {
 
-enum class RegisterClass {
+enum class RegisterClass
+{
 	INVALID = 0,
 	GPR = 1,
 	SPECIAL_GPR = 2,
@@ -17,7 +18,8 @@ enum class RegisterClass {
 	VU0 = 6
 };
 
-enum class GPR {
+enum class GPR
+{
 	INVALID = -1,
 	ZERO = 0,
 	AT = 1,
@@ -53,7 +55,8 @@ enum class GPR {
 	RA = 31
 };
 
-enum class SpecialGPR {
+enum class SpecialGPR
+{
 	PC = 0,
 	HI = 1,
 	LO = 2,
@@ -62,7 +65,8 @@ enum class SpecialGPR {
 	SA = 5
 };
 
-enum class ScpRegister {
+enum class ScpRegister
+{
 	INDEX = 0,
 	RANDOM = 1,
 	ENTRYLO0 = 2,
@@ -92,7 +96,8 @@ enum class ScpRegister {
 	RESERVED31 = 31
 };
 
-enum class FPR {
+enum class FPR
+{
 	R0 = 0,
 	R1 = 1,
 	R2 = 2,
@@ -127,13 +132,15 @@ enum class FPR {
 	R31 = 31
 };
 
-enum SpecialFpuRegister {
+enum SpecialFpuRegister
+{
 	FCR0 = 0,
 	FCR31 = 1,
 	ACC = 2
 };
 
-enum class Vu0Register {
+enum class Vu0Register
+{
 	VF0 = 0,
 	VF1 = 1,
 	VF2 = 2,

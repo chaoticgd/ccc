@@ -37,18 +37,20 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 							} else {
 								string = symbol.string;
 							}
-							
+
 							const char* input = string;
 							Result<StabsSymbol> parse_result = parse_stabs_symbol(input);
 							if (parse_result.success()) {
 								if (*input != '\0') {
 									if (importer_flags & STRICT_PARSING) {
-										return CCC_FAILURE("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
+										return CCC_FAILURE("Unknown data '%s' at the end of the '%s' stab.", input,
+											parse_result->name.c_str());
 									} else {
-										CCC_WARN("Unknown data '%s' at the end of the '%s' stab.", input, parse_result->name.c_str());
+										CCC_WARN("Unknown data '%s' at the end of the '%s' stab.", input,
+											parse_result->name.c_str());
 									}
 								}
-								
+
 								ParsedSymbol& parsed = output.emplace_back();
 								parsed.type = ParsedSymbolType::NAME_COLON_TYPE;
 								parsed.raw = &symbol;
@@ -60,8 +62,8 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 								CCC_WARN("%s Symbol string: %s", STAB_TRUNCATED_ERROR_MESSAGE, string);
 								importer_flags &= ~STRICT_PARSING;
 							} else {
-								return CCC_FAILURE("%s Symbol string: %s",
-									parse_result.error().message.c_str(), string);
+								return CCC_FAILURE(
+									"%s Symbol string: %s", parse_result.error().message.c_str(), string);
 							}
 						}
 					} else {
@@ -140,9 +142,9 @@ Result<std::vector<ParsedSymbol>> parse_symbols(const std::vector<mdebug::Symbol
 			non_stabs_symbol.raw = &symbol;
 		}
 	}
-	
+
 	mark_duplicate_symbols(output);
-	
+
 	return output;
 }
 
@@ -158,29 +160,27 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 			}
 		}
 	}
-	
+
 	for (ParsedSymbol& symbol : symbols) {
-		symbol.is_typedef =
-			symbol.type == ParsedSymbolType::NAME_COLON_TYPE &&
-			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME &&
-			symbol.name_colon_type.type->descriptor != StabsTypeDescriptor::ENUM;
+		symbol.is_typedef = symbol.type == ParsedSymbolType::NAME_COLON_TYPE
+			&& symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME
+			&& symbol.name_colon_type.type->descriptor != StabsTypeDescriptor::ENUM;
 	}
-	
+
 	for (size_t i = 0; i < symbols.size(); i++) {
 		ParsedSymbol& symbol = symbols[i];
 		if (symbol.type != ParsedSymbolType::NAME_COLON_TYPE) {
 			continue;
 		}
-		
-		bool is_type =
-			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME ||
-			symbol.name_colon_type.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG;
+
+		bool is_type = symbol.name_colon_type.descriptor == StabsSymbolDescriptor::TYPE_NAME
+			|| symbol.name_colon_type.descriptor == StabsSymbolDescriptor::ENUM_STRUCT_OR_TYPE_TAG;
 		if (!is_type) {
 			continue;
 		}
-		
+
 		StabsType& type = *symbol.name_colon_type.type;
-		
+
 		if (!type.descriptor.has_value()) {
 			auto referenced_index = stabs_type_number_to_symbol.find(type.type_number);
 			if (referenced_index != stabs_type_number_to_symbol.end()) {
@@ -192,12 +192,13 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 				}
 			}
 		}
-		
+
 		if (type.descriptor.has_value() && type.descriptor == StabsTypeDescriptor::TYPE_REFERENCE) {
-			auto referenced_index = stabs_type_number_to_symbol.find(type.as<StabsTypeReferenceType>().type->type_number);
+			auto referenced_index = stabs_type_number_to_symbol.find(
+				type.as<StabsTypeReferenceType>().type->type_number);
 			if (referenced_index != stabs_type_number_to_symbol.end() && referenced_index->second != i) {
 				ParsedSymbol& referenced = symbols[referenced_index->second];
-				
+
 				if (referenced.name_colon_type.name == " ") {
 					// referenced: " :T(1,1)=e;"
 					// symbol:     "ErraticEnum:t(1,2)=(1,1)"
@@ -205,7 +206,7 @@ static void mark_duplicate_symbols(std::vector<ParsedSymbol>& symbols)
 					referenced.is_typedef = true;
 					symbol.duplicate = true;
 				}
-				
+
 				if (referenced.name_colon_type.name == symbol.name_colon_type.name) {
 					// referenced: "NamedTypedefedStruct:T(1,1)=s1;"
 					// symbol:     "NamedTypedefedStruct:t(1,2)=(1,1)"

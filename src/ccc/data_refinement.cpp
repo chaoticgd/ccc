@@ -25,11 +25,16 @@ static std::string stringf(const char* format, ...);
 
 bool can_refine_variable(const VariableToRefine& variable)
 {
-	if (!variable.storage) return false;
-	if (variable.storage->location == GlobalStorageLocation::BSS) return false;
-	if (variable.storage->location == GlobalStorageLocation::SBSS) return false;
-	if (!variable.address.valid()) return false;
-	if (!variable.type) return false;
+	if (!variable.storage)
+		return false;
+	if (variable.storage->location == GlobalStorageLocation::BSS)
+		return false;
+	if (variable.storage->location == GlobalStorageLocation::SBSS)
+		return false;
+	if (!variable.address.valid())
+		return false;
+	if (!variable.type)
+		return false;
 	return true;
 }
 
@@ -45,23 +50,25 @@ static Result<RefinedData> refine_node(
 {
 	if (depth > 200) {
 		const char* error_message = "Call depth greater than 200 in refine_node, probably infinite recursion.";
-		
+
 		CCC_WARN(error_message);
-		
+
 		RefinedData data;
 		data.value = error_message;
 		return data;
 	}
-	
+
 	switch (type.descriptor) {
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
-			CCC_CHECK(array.element_type->size_bytes > -1, "Cannot compute element size for '%s' array.", array.name.c_str());
+			CCC_CHECK(
+				array.element_type->size_bytes > -1, "Cannot compute element size for '%s' array.", array.name.c_str());
 			RefinedData list;
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
 			for (s32 i = 0; i < array.element_count; i++) {
 				s32 offset = i * array.element_type->size_bytes;
-				Result<RefinedData> element = refine_node(virtual_address + offset, *array.element_type.get(), database, elf, depth + 1);
+				Result<RefinedData> element = refine_node(
+					virtual_address + offset, *array.element_type.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(element);
 				element->field_name = "[" + std::to_string(i) + "]";
 				elements.emplace_back(std::move(*element));
@@ -78,11 +85,11 @@ static Result<RefinedData> refine_node(
 		}
 		case ast::ENUM: {
 			const ast::Enum& enumeration = type.as<ast::Enum>();
-			
+
 			s32 value = 0;
 			bool read_result = elf.copy_virtual((u8*) &value, virtual_address, 4);
 			CCC_CHECK(read_result, "Failed to read enum at 0x%x.", virtual_address);
-			
+
 			RefinedData data;
 			for (const auto& [number, name] : enumeration.constants) {
 				if (number == value) {
@@ -91,7 +98,7 @@ static Result<RefinedData> refine_node(
 				}
 			}
 			data.value = std::to_string(value);
-			
+
 			return data;
 		}
 		case ast::ERROR_NODE: {
@@ -110,25 +117,27 @@ static Result<RefinedData> refine_node(
 			const ast::StructOrUnion& struct_or_union = type.as<ast::StructOrUnion>();
 			RefinedData list;
 			std::vector<RefinedData>& children = list.value.emplace<std::vector<RefinedData>>();
-			
+
 			for (s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
-				Result<RefinedData> child = refine_node(virtual_address + base_class->offset_bytes, *base_class.get(), database, elf, depth + 1);
+				Result<RefinedData> child = refine_node(
+					virtual_address + base_class->offset_bytes, *base_class.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "base class " + std::to_string(i);
 				children.emplace_back(std::move(*child));
 			}
-			
+
 			for (const std::unique_ptr<ast::Node>& field : struct_or_union.fields) {
 				if (field->storage_class == STORAGE_CLASS_STATIC) {
 					continue;
 				}
-				Result<RefinedData> child = refine_node(virtual_address + field->offset_bytes, *field.get(), database, elf, depth + 1);
+				Result<RefinedData> child = refine_node(
+					virtual_address + field->offset_bytes, *field.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "." + field->name;
 				children.emplace_back(std::move(*child));
 			}
-			
+
 			return list;
 		}
 		case ast::TYPE_NAME: {
@@ -137,7 +146,7 @@ static Result<RefinedData> refine_node(
 			return refine_node(virtual_address, *resolved_type->type(), database, elf, depth + 1);
 		}
 	}
-	
+
 	return CCC_FAILURE("Failed to refine variable (%s).", ast::node_type_to_string(type));
 }
 
@@ -145,7 +154,7 @@ static Result<RefinedData> refine_bitfield(
 	u32 virtual_address, const ast::BitField& bit_field, const SymbolDatabase& database, const ElfFile& elf)
 {
 	ast::BuiltInClass storage_unit_type = bit_field.storage_unit_type(database);
-	
+
 	u128 value;
 	switch (storage_unit_type) {
 		case ast::BuiltInClass::UNSIGNED_8:
@@ -208,27 +217,26 @@ static Result<RefinedData> refine_bitfield(
 		case ast::BuiltInClass::UNQUALIFIED_128:
 		case ast::BuiltInClass::FLOAT_128: {
 			std::optional<u64> low = elf.get_object_virtual<u64>(virtual_address);
-			CCC_CHECK(low.has_value(),
-				"Failed to read lower half of 128-bit bitfield storage unit at 0x%x.", virtual_address);
-			
+			CCC_CHECK(low.has_value(), "Failed to read lower half of 128-bit bitfield storage unit at 0x%x.",
+				virtual_address);
+
 			std::optional<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
-			CCC_CHECK(high.has_value(),
-				"Failed to read upper half of 128-bit bitfield storage unit at 0x%x.", virtual_address);
-			
+			CCC_CHECK(high.has_value(), "Failed to read upper half of 128-bit bitfield storage unit at 0x%x.",
+				virtual_address);
+
 			u128 storage_unit;
 			storage_unit.low = *low;
 			storage_unit.high = *high;
-			
+
 			value = unpack_unsigned_bitfield(storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
 			break;
 		}
-		default:
-			break;
+		default: break;
 	}
-	
+
 	RefinedData data;
 	data.value = builtin_to_string(value, storage_unit_type);
-	
+
 	return data;
 }
 
@@ -263,20 +271,20 @@ static Result<RefinedData> refine_builtin(
 		case ast::BuiltInClass::FLOAT_128: {
 			std::optional<u64> low = elf.get_object_virtual<u64>(virtual_address);
 			CCC_CHECK(low, "Failed to read lower half of 128-bit built-in at 0x%x.", virtual_address);
-			
+
 			std::optional<u64> high = elf.get_object_virtual<u64>(virtual_address + 8);
 			CCC_CHECK(high, "Failed to read upper half of 128-bit built-in at 0x%x.", virtual_address + 8);
-			
+
 			value.low = *low;
 			value.high = *high;
-			
+
 			break;
 		}
 	}
-	
+
 	RefinedData data;
 	data.value = builtin_to_string(value, bclass);
-	
+
 	return data;
 }
 
@@ -287,15 +295,17 @@ static Result<RefinedData> refine_pointer_or_reference(
 	u32 pointer = 0;
 	bool read_result = elf.copy_virtual((u8*) &pointer, virtual_address, 4);
 	CCC_CHECK(read_result, "Failed to read pointer at 0x%x.", virtual_address);
-	
+
 	std::string string;
 	if (pointer != 0) {
 		FunctionHandle function_handle = database.functions.first_handle_from_starting_address(pointer);
 		const Function* function_symbol = database.functions.symbol_from_handle(function_handle);
-		
-		GlobalVariableHandle global_variable_handle = database.global_variables.first_handle_from_starting_address(pointer);
-		const GlobalVariable* global_variable_symbol = database.global_variables.symbol_from_handle(global_variable_handle);
-		
+
+		GlobalVariableHandle global_variable_handle = database.global_variables.first_handle_from_starting_address(
+			pointer);
+		const GlobalVariable* global_variable_symbol = database.global_variables.symbol_from_handle(
+			global_variable_handle);
+
 		if (function_symbol) {
 			bool is_pointer = type.descriptor == ast::POINTER_OR_REFERENCE
 				&& type.as<ast::PointerOrReference>().is_pointer;
@@ -319,14 +329,14 @@ static Result<RefinedData> refine_pointer_or_reference(
 		string = "NULL";
 	}
 	data.value = std::move(string);
-	
+
 	return data;
 }
 
 static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 {
 	std::string result;
-	
+
 	switch (bclass) {
 		case ast::BuiltInClass::VOID_TYPE: {
 			break;
@@ -361,14 +371,14 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		}
 		case ast::BuiltInClass::FLOAT_64: {
 			static_assert(sizeof(double) == 8);
-			
+
 			std::string string = stringf("%g", value.low);
 			if (strtof(string.c_str(), nullptr) != value.low) {
 				string = stringf("%.17g", value.low);
 			}
-			
+
 			result = std::move(string);
-			
+
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_128:
@@ -379,7 +389,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 			break;
 		}
 	}
-	
+
 	return result;
 }
 

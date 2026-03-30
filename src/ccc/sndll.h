@@ -7,17 +7,20 @@
 
 namespace ccc {
 
-enum class SNDLLType {
+enum class SNDLLType
+{
 	SNDATA_SECTION,
 	DYNAMIC_LIBRARY
 };
 
-enum SNDLLVersion {
+enum SNDLLVersion
+{
 	SNDLL_V1,
 	SNDLL_V2
 };
 
-enum SNDLLSymbolType : u8 {
+enum SNDLLSymbolType : u8
+{
 	SNDLL_NIL = 0, // I think this is just so that the first real symbol has an index of 1.
 	SNDLL_EXTERNAL = 1, // Symbol with an empty value, to be filled in from another module.
 	SNDLL_RELATIVE = 2, // Global symbol, value is relative to the start of the SNDLL file.
@@ -25,13 +28,15 @@ enum SNDLLSymbolType : u8 {
 	SNDLL_ABSOLUTE = 4 // Global symbol, value is an absolute address.
 };
 
-struct SNDLLSymbol {
+struct SNDLLSymbol
+{
 	SNDLLSymbolType type = SNDLL_NIL;
 	u32 value = 0;
 	std::string string;
 };
 
-struct SNDLLFile {
+struct SNDLLFile
+{
 	Address address;
 	SNDLLType type;
 	SNDLLVersion version;
@@ -43,8 +48,7 @@ struct SNDLLFile {
 // addresses, otherwise they will be treated as file offsets.
 Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, SNDLLType type);
 
-Result<void> import_sndll_symbols(
-	SymbolDatabase& database,
+Result<void> import_sndll_symbols(SymbolDatabase& database,
 	const SNDLLFile& sndll,
 	const SymbolGroup& group,
 	u32 importer_flags,

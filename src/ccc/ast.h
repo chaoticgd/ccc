@@ -8,7 +8,8 @@
 
 namespace ccc::ast {
 
-enum NodeDescriptor : u8 {
+enum NodeDescriptor : u8
+{
 	ARRAY,
 	BITFIELD,
 	BUILTIN,
@@ -21,7 +22,8 @@ enum NodeDescriptor : u8 {
 	TYPE_NAME
 };
 
-enum AccessSpecifier {
+enum AccessSpecifier
+{
 	AS_PUBLIC = 0,
 	AS_PROTECTED = 1,
 	AS_PRIVATE = 2
@@ -37,7 +39,8 @@ enum AccessSpecifier {
 //  7. Add support for it in CppPrinter::ast_node.
 //  8. Add support for it in write_json.
 //  9. Add support for it in refine_node.
-struct Node {
+struct Node
+{
 	const NodeDescriptor descriptor;
 	u8 is_const : 1 = false;
 	u8 is_volatile : 1 = false;
@@ -49,96 +52,142 @@ struct Node {
 	u8 cannot_compute_size : 1 = false;
 	u8 storage_class : 4 = STORAGE_CLASS_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
-	
+
 	s32 size_bytes = -1;
-	
+
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
 	// should pass the name down.
 	std::string name;
-	
+
 	s32 offset_bytes = -1; // Offset relative to start of last inline struct/union.
 	s32 size_bits = -1; // Size stored in the .mdebug symbol table, may not be set.
-	
-	Node(NodeDescriptor d) : descriptor(d) {}
+
+	Node(NodeDescriptor d)
+		: descriptor(d)
+	{
+	}
+
 	Node(const Node& rhs) = default;
 	virtual ~Node() {}
-	
+
 	template <typename SubType>
-	SubType& as() {
+	SubType& as()
+	{
 		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
 		return *static_cast<SubType*>(this);
 	}
-	
+
 	template <typename SubType>
-	const SubType& as() const {
+	const SubType& as() const
+	{
 		CCC_ASSERT(descriptor == SubType::DESCRIPTOR);
 		return *static_cast<const SubType*>(this);
 	}
-	
+
 	template <typename SubType>
-	static std::pair<const SubType&, const SubType&> as(const Node& lhs, const Node& rhs) {
+	static std::pair<const SubType&, const SubType&> as(const Node& lhs, const Node& rhs)
+	{
 		CCC_ASSERT(lhs.descriptor == SubType::DESCRIPTOR && rhs.descriptor == SubType::DESCRIPTOR);
-		return std::pair<const SubType&, const SubType&>(static_cast<const SubType&>(lhs), static_cast<const SubType&>(rhs));
+		return std::pair<const SubType&, const SubType&>(
+			static_cast<const SubType&>(lhs), static_cast<const SubType&>(rhs));
 	}
-	
+
 	void set_access_specifier(AccessSpecifier specifier, u32 importer_flags);
-	
+
 	// If this node is a type name, repeatedly resolve it to the type it's
 	// referencing, otherwise return (this, nullptr).
 	std::pair<Node*, DataType*> physical_type(SymbolDatabase& database, s32 max_depth = 100);
 	std::pair<const Node*, const DataType*> physical_type(const SymbolDatabase& database, s32 max_depth = 100) const;
 };
 
-struct Array : Node {
+struct Array : Node
+{
 	std::unique_ptr<Node> element_type;
 	s32 element_count = -1;
-	
-	Array() : Node(DESCRIPTOR) {}
+
+	Array()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = ARRAY;
 };
 
-enum class BuiltInClass {
+enum class BuiltInClass
+{
 	VOID_TYPE,
-	UNSIGNED_8, SIGNED_8, UNQUALIFIED_8, BOOL_8,
-	UNSIGNED_16, SIGNED_16,
-	UNSIGNED_32, SIGNED_32, FLOAT_32,
-	UNSIGNED_64, SIGNED_64, FLOAT_64,
-	UNSIGNED_128, SIGNED_128, UNQUALIFIED_128, FLOAT_128
+	UNSIGNED_8,
+	SIGNED_8,
+	UNQUALIFIED_8,
+	BOOL_8,
+	UNSIGNED_16,
+	SIGNED_16,
+	UNSIGNED_32,
+	SIGNED_32,
+	FLOAT_32,
+	UNSIGNED_64,
+	SIGNED_64,
+	FLOAT_64,
+	UNSIGNED_128,
+	SIGNED_128,
+	UNQUALIFIED_128,
+	FLOAT_128
 };
 
-struct BitField : Node {
+struct BitField : Node
+{
 	s32 bitfield_offset_bits = -1;
 	std::unique_ptr<Node> underlying_type;
-	
-	BitField() : Node(DESCRIPTOR) {}
+
+	BitField()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = BITFIELD;
-	
+
 	BuiltInClass storage_unit_type(const SymbolDatabase& database) const;
 };
 
-struct BuiltIn : Node {
+struct BuiltIn : Node
+{
 	BuiltInClass bclass = BuiltInClass::VOID_TYPE;
-	
-	BuiltIn() : Node(DESCRIPTOR) {}
+
+	BuiltIn()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = BUILTIN;
 };
 
-struct Enum : Node {
+struct Enum : Node
+{
 	std::vector<std::pair<s32, std::string>> constants;
-	
-	Enum() : Node(DESCRIPTOR) {}
+
+	Enum()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = ENUM;
 };
 
-struct Error : Node {
+struct Error : Node
+{
 	std::string message;
-	
-	Error() : Node(ERROR_NODE) {}
+
+	Error()
+		: Node(ERROR_NODE)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = ERROR_NODE;
 };
 
-enum class MemberFunctionModifier {
+enum class MemberFunctionModifier
+{
 	NONE,
 	STATIC,
 	VIRTUAL
@@ -146,43 +195,64 @@ enum class MemberFunctionModifier {
 
 const char* member_function_modifier_to_string(MemberFunctionModifier modifier);
 
-struct Function : Node {
+struct Function : Node
+{
 	std::optional<std::unique_ptr<Node>> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
 	s32 vtable_index = -1;
 	FunctionHandle definition_handle; // Filled in by fill_in_pointers_to_member_function_definitions.
-	
-	Function() : Node(DESCRIPTOR) {}
+
+	Function()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = FUNCTION;
 };
 
-struct PointerOrReference : Node {
+struct PointerOrReference : Node
+{
 	bool is_pointer = true;
 	std::unique_ptr<Node> value_type;
-	
-	PointerOrReference() : Node(DESCRIPTOR) {}
+
+	PointerOrReference()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_OR_REFERENCE;
 };
 
-struct PointerToDataMember : Node {
+struct PointerToDataMember : Node
+{
 	std::unique_ptr<Node> class_type;
 	std::unique_ptr<Node> member_type;
-	
-	PointerToDataMember() : Node(DESCRIPTOR) {}
+
+	PointerToDataMember()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = POINTER_TO_DATA_MEMBER;
 };
 
-struct StructOrUnion : Node {
+struct StructOrUnion : Node
+{
 	bool is_struct = true;
 	std::vector<std::unique_ptr<Node>> base_classes;
 	std::vector<std::unique_ptr<Node>> fields;
 	std::vector<std::unique_ptr<Node>> member_functions;
-	
-	StructOrUnion() : Node(DESCRIPTOR) {}
+
+	StructOrUnion()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = STRUCT_OR_UNION;
-	
-	struct FlatField {
+
+	struct FlatField
+	{
 		// The field itself.
 		const Node* node;
 		// The symbol that owns the node.
@@ -190,12 +260,11 @@ struct StructOrUnion : Node {
 		// Offset of the innermost enclosing base class in the object.
 		s32 base_offset = 0;
 	};
-	
+
 	// Generate a flat list of all the fields in this class as well as all the
 	// base classes recursively, but only until the max_fields or max_depth
 	// limits are reached. Return true if all the fields were enumerated.
-	bool flatten_fields(
-		std::vector<FlatField>& output,
+	bool flatten_fields(std::vector<FlatField>& output,
 		const DataType* symbol,
 		const SymbolDatabase& database,
 		bool skip_statics,
@@ -204,7 +273,8 @@ struct StructOrUnion : Node {
 		s32 max_depth = 100) const;
 };
 
-enum class TypeNameSource : u8 {
+enum class TypeNameSource : u8
+{
 	REFERENCE, // A STABS type reference.
 	CROSS_REFERENCE, // A STABS cross reference.
 	UNNAMED_THIS // A this parameter (or return type) referencing an unnamed type.
@@ -212,7 +282,8 @@ enum class TypeNameSource : u8 {
 
 const char* type_name_source_to_string(TypeNameSource source);
 
-enum class ForwardDeclaredType {
+enum class ForwardDeclaredType
+{
 	STRUCT,
 	UNION,
 	ENUM // Should be illegal but STABS supports cross references to enums so it's here.
@@ -220,35 +291,43 @@ enum class ForwardDeclaredType {
 
 const char* forward_declared_type_to_string(ForwardDeclaredType type);
 
-struct TypeName : Node {
+struct TypeName : Node
+{
 	DataTypeHandle data_type_handle;
 	TypeNameSource source = TypeNameSource::REFERENCE;
 	bool is_forward_declared = false;
-	
+
 	DataTypeHandle data_type_handle_unless_forward_declared() const;
-	
-	struct UnresolvedStabs {
+
+	struct UnresolvedStabs
+	{
 		std::string type_name;
 		SourceFileHandle referenced_file_handle;
 		StabsTypeNumber stabs_type_number;
 		std::optional<ForwardDeclaredType> type;
 	};
-	
+
 	std::unique_ptr<UnresolvedStabs> unresolved_stabs;
-	
-	TypeName() : Node(DESCRIPTOR) {}
+
+	TypeName()
+		: Node(DESCRIPTOR)
+	{
+	}
+
 	static const constexpr NodeDescriptor DESCRIPTOR = TYPE_NAME;
 };
 
-enum class CompareResultType {
-	MATCHES_NO_SWAP,    // Both lhs and rhs are identical.
-	MATCHES_CONFUSED,   // Both lhs and rhs are almost identical, and we don't which is better.
+enum class CompareResultType
+{
+	MATCHES_NO_SWAP, // Both lhs and rhs are identical.
+	MATCHES_CONFUSED, // Both lhs and rhs are almost identical, and we don't which is better.
 	MATCHES_FAVOUR_LHS, // Both lhs and rhs are almost identical, but lhs is better.
 	MATCHES_FAVOUR_RHS, // Both lhs and rhs are almost identical, but rhs is better.
-	DIFFERS,            // The two nodes differ substantially.
+	DIFFERS, // The two nodes differ substantially.
 };
 
-enum class CompareFailReason {
+enum class CompareFailReason
+{
 	NONE,
 	DESCRIPTOR,
 	STORAGE_CLASS,
@@ -276,9 +355,20 @@ enum class CompareFailReason {
 	VARIABLE_BLOCK
 };
 
-struct CompareResult {
-	CompareResult(CompareResultType type) : type(type), fail_reason(CompareFailReason::NONE) {}
-	CompareResult(CompareFailReason reason) : type(CompareResultType::DIFFERS), fail_reason(reason) {}
+struct CompareResult
+{
+	CompareResult(CompareResultType type)
+		: type(type)
+		, fail_reason(CompareFailReason::NONE)
+	{
+	}
+
+	CompareResult(CompareFailReason reason)
+		: type(CompareResultType::DIFFERS)
+		, fail_reason(reason)
+	{
+	}
+
 	CompareResultType type;
 	CompareFailReason fail_reason;
 };
@@ -286,7 +376,8 @@ struct CompareResult {
 // Compare two AST nodes and their children recursively. This will only check
 // fields that will be equal for two versions of the same type from different
 // translation units.
-CompareResult compare_nodes(const Node& lhs, const Node& rhs, const SymbolDatabase* database, bool check_intrusive_fields);
+CompareResult compare_nodes(
+	const Node& lhs, const Node& rhs, const SymbolDatabase* database, bool check_intrusive_fields);
 
 const char* compare_fail_reason_to_string(CompareFailReason reason);
 const char* node_type_to_string(const Node& node);
@@ -296,12 +387,14 @@ const char* builtin_class_to_string(BuiltInClass bclass);
 
 s32 builtin_class_size(BuiltInClass bclass);
 
-enum TraversalOrder {
+enum TraversalOrder
+{
 	PREORDER_TRAVERSAL,
 	POSTORDER_TRAVERSAL
 };
 
-enum ExplorationMode {
+enum ExplorationMode
+{
 	EXPLORE_CHILDREN,
 	DONT_EXPLORE_CHILDREN
 };

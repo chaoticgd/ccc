@@ -7,7 +7,8 @@
 
 namespace ccc {
 
-enum ImporterFlags {
+enum ImporterFlags
+{
 	NO_IMPORTER_FLAGS = 0,
 	DEMANGLE_PARAMETERS = (1 << 0),
 	DEMANGLE_RETURN_TYPE = (1 << 1),
@@ -27,7 +28,8 @@ enum ImporterFlags {
 	UNIQUE_FUNCTIONS = (1 << 15)
 };
 
-struct ImporterFlagInfo {
+struct ImporterFlagInfo
+{
 	ImporterFlags flag;
 	const char* argument;
 	std::vector<const char*> help_text;

@@ -135,7 +135,7 @@ Address Value::address_or_null() const
 	if (!valid() || m_form != FORM_ADDR) {
 		return Address();
 	}
-	
+
 	return m_value.address;
 }
 
@@ -144,7 +144,7 @@ std::optional<u32> Value::reference_or_null() const
 	if (!valid() || m_form != FORM_REF) {
 		return std::nullopt;
 	}
-	
+
 	return m_value.reference;
 }
 
@@ -153,7 +153,7 @@ std::optional<u64> Value::constant_or_null() const
 	if (!valid() || (m_form != FORM_DATA2 && m_form != FORM_DATA4 && m_form != FORM_DATA8)) {
 		return std::nullopt;
 	}
-	
+
 	return m_value.constant;
 }
 
@@ -162,7 +162,7 @@ std::span<const u8> Value::block_or_null() const
 	if (!valid() || (m_form != FORM_BLOCK2 && m_form != FORM_BLOCK4)) {
 		return std::span<const u8>();
 	}
-	
+
 	return std::span<const u8>(m_value.block.begin, m_value.block.end);
 }
 
@@ -171,14 +171,14 @@ std::string_view Value::string_or_null() const
 	if (!valid() || m_form != FORM_STRING) {
 		return std::string_view();
 	}
-	
+
 	return std::string_view(m_value.string.begin, m_value.string.end);
 }
 
 void Value::copy_from(const Value& rhs)
 {
 	m_form = rhs.m_form;
-	
+
 	switch (rhs.m_form) {
 		case FORM_ADDR: {
 			m_value.address = rhs.m_value.address;
@@ -213,25 +213,24 @@ void Value::copy_from(const Value& rhs)
 Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u32 importer_flags)
 {
 	AttributeTuple result;
-	
+
 	result.offset = offset;
-	
+
 	const std::optional<u16> name = copy_unaligned<u16>(bytes, offset);
 	CCC_CHECK(name.has_value(), "Cannot read attribute name at 0x%x.", offset);
 	offset += sizeof(u16);
-	
+
 	u8 form = *name & 0xf;
-	CCC_CHECK(form_to_string(form) != nullptr,
-		"Unknown attribute form 0x%hhx at 0x%x.", form, offset);
-	
+	CCC_CHECK(form_to_string(form) != nullptr, "Unknown attribute form 0x%hhx at 0x%x.", form, offset);
+
 	u16 attribute = *name >> 4;
 	bool known_attribute = attribute_to_string(attribute);
 	if (!known_attribute && (importer_flags & STRICT_PARSING)) {
 		CCC_WARN("Unknown attribute name 0x%03hx at 0x%x.", *name, offset);
 	}
-	
+
 	result.attribute = static_cast<Attribute>(attribute);
-	
+
 	switch (form) {
 		case FORM_ADDR: {
 			std::optional<u32> address = copy_unaligned<u32>(bytes, offset);
@@ -251,24 +250,24 @@ Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u
 			std::optional<u16> size = copy_unaligned<u16>(bytes, offset);
 			CCC_CHECK(size.has_value(), "Cannot read block attribute size at 0x%x.", offset);
 			offset += sizeof(u16);
-			
+
 			std::optional<std::span<const u8>> block = get_subspan(bytes, offset, *size);
 			CCC_CHECK(block.has_value(), "Cannot read block attribute data at 0x%x.", offset);
 			result.value = Value::from_block_2(*block);
 			offset += *size;
-			
+
 			break;
 		}
 		case FORM_BLOCK4: {
 			std::optional<u32> size = copy_unaligned<u32>(bytes, offset);
 			CCC_CHECK(size.has_value(), "Cannot read block attribute size at 0x%x.", offset);
 			offset += sizeof(u32);
-			
+
 			std::optional<std::span<const u8>> block = get_subspan(bytes, offset, *size);
 			CCC_CHECK(block.has_value(), "Cannot read block attribute data at 0x%x.", offset);
 			result.value = Value::from_block_4(*block);
 			offset += *size;
-			
+
 			break;
 		}
 		case FORM_DATA2: {
@@ -300,7 +299,7 @@ Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u
 			break;
 		}
 	}
-	
+
 	return result;
 }
 
@@ -316,21 +315,21 @@ LocationDescription LocationDescription::from_block(std::span<const u8> block)
 Result<void> LocationDescription::print(FILE* out) const
 {
 	fprintf(out, "{");
-	
+
 	u32 offset = 0;
 	while (offset < m_block.size()) {
 		if (offset != 0) {
 			fprintf(out, ",");
 		}
-		
+
 		Result<LocationAtom> atom = parse_atom(offset);
 		CCC_RETURN_IF_ERROR(atom);
-		
+
 		const char* op_name = location_op_to_string(atom->op);
 		CCC_ASSERT(op_name);
-		
+
 		fprintf(out, "%s", op_name);
-		
+
 		if (atom->value.has_value()) {
 			if ((atom->op == OP_REG || atom->op == OP_BASEREG) && *atom->value < 32) {
 				fprintf(out, "(%s)", mips::GPR_STRINGS[*atom->value]);
@@ -339,33 +338,33 @@ Result<void> LocationDescription::print(FILE* out) const
 			}
 		}
 	}
-	
+
 	fprintf(out, "}");
-	
+
 	return Result<void>();
 }
 
 Result<LocationAtom> LocationDescription::parse_atom(u32& offset) const
 {
 	LocationAtom atom;
-	
+
 	const u8* op = get_unaligned<u8>(m_block, offset);
 	CCC_CHECK(op, "Invalid location description (cannot read op).");
 	offset += sizeof(u8);
-	
+
 	const char* op_name = location_op_to_string(*op);
 	CCC_CHECK(op_name, "Invalid location description (unknown op 0x%hhx).", *op);
-	
+
 	atom.op = static_cast<LocationOp>(*op);
-	
+
 	if (*op == OP_REG || *op == OP_BASEREG || *op == OP_ADDR || *op == OP_CONST || *op == OP_80) {
 		const u32* value = get_unaligned<u32>(m_block, offset);
 		CCC_CHECK(value, "Invalid location descripton (cannot read value).");
 		offset += sizeof(u32);
-		
+
 		atom.value = *value;
 	}
-	
+
 	return atom;
 }
 
@@ -383,25 +382,20 @@ std::optional<Type> Type::from_attributes(
 	} else if (mod_u_d_type.valid()) {
 		return from_mod_u_d_type(mod_u_d_type);
 	}
-	
+
 	return std::nullopt;
 }
 
 std::optional<Type> Type::from_attribute_tuple(const AttributeTuple& tuple)
 {
 	switch (tuple.attribute) {
-		case AT_fund_type:
-			return Type::from_fund_type(tuple.value);
-		case AT_mod_fund_type:
-			return Type::from_mod_fund_type(tuple.value);
-		case AT_user_def_type:
-			return Type::from_user_def_type(tuple.value);
-		case AT_mod_u_d_type:
-			return Type::from_mod_u_d_type(tuple.value);
-		default:
-			break;
+		case AT_fund_type: return Type::from_fund_type(tuple.value);
+		case AT_mod_fund_type: return Type::from_mod_fund_type(tuple.value);
+		case AT_user_def_type: return Type::from_user_def_type(tuple.value);
+		case AT_mod_u_d_type: return Type::from_mod_u_d_type(tuple.value);
+		default: break;
 	}
-	
+
 	return std::nullopt;
 }
 
@@ -455,11 +449,11 @@ Result<FundamentalType> Type::fund_type() const
 			std::optional<u16> fund_type = copy_unaligned<u16>(block, block.size() - sizeof(u16));
 			CCC_CHECK(fund_type.has_value(), "Modified fundamental type attribute too small.");
 			CCC_CHECK(fundamental_type_to_string(*fund_type), "Invalid modified fundamental type 0x%hx.", *fund_type);
-			
+
 			return static_cast<FundamentalType>(*fund_type);
 		}
 	}
-	
+
 	return CCC_FAILURE("Type::fund_type called on user-defined or null type.");
 }
 
@@ -473,11 +467,11 @@ Result<u32> Type::user_def_type() const
 			std::span<const u8> block = m_value.block();
 			std::optional<u32> die_offset = copy_unaligned<u32>(block, block.size() - sizeof(u32));
 			CCC_CHECK(die_offset.has_value(), "Modified user-defined type attribute too small.");
-			
+
 			return *die_offset;
 		}
 	}
-	
+
 	return CCC_FAILURE("Type::user_def_type called on fundamental or null type.");
 }
 
@@ -486,17 +480,16 @@ Result<std::span<const TypeModifier>> Type::modifiers() const
 	if (m_attribute != AT_mod_fund_type && m_attribute != AT_mod_u_d_type) {
 		return std::span<const TypeModifier>();
 	}
-	
+
 	u32 head_size = m_attribute == AT_mod_fund_type ? 2 : 4;
 	std::span<const u8> block = m_value.block();
 	std::optional<std::span<const u8>> modifiers = get_subspan(block, 0, block.size() - head_size);
 	CCC_CHECK(modifiers.has_value(), "Invalid %s block.", attribute_to_string(m_attribute));
-	
+
 	for (u8 modifier : *modifiers)
 		CCC_CHECK(type_modifier_to_string(modifier), "Invalid type modifier 0x%hhx.", modifier);
-	
-	return std::span<const TypeModifier>(
-		reinterpret_cast<const TypeModifier*>(modifiers->data()),
+
+	return std::span<const TypeModifier>(reinterpret_cast<const TypeModifier*>(modifiers->data()),
 		reinterpret_cast<const TypeModifier*>(modifiers->data() + modifiers->size()));
 }
 
@@ -551,7 +544,7 @@ Result<void> ArrayBound::print(FILE* out) const
 			return CCC_FAILURE("ArrayBound::print called on null array bound.");
 		}
 	}
-	
+
 	return Result<void>();
 }
 
@@ -572,14 +565,14 @@ u32 ArraySubscriptData::size() const
 Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 importer_flags) const
 {
 	ArraySubscriptItem item;
-	
+
 	std::optional<u8> specifier = copy_unaligned<u8>(m_block, offset);
 	CCC_CHECK(specifier.has_value(), "Failed to read array subscript format specifier.");
 	CCC_CHECK(array_subscript_format_specifier_to_string(*specifier),
 		"Invalid array subscript format specifier 0x%hhx.\n", *specifier);
 	item.specifier = static_cast<ArraySubscriptFormatSpecifier>(*specifier);
 	offset += sizeof(u8);
-	
+
 	// Parse the subscript index type, which is either a fundamental type or a
 	// user-defined type.
 	switch (item.specifier) {
@@ -589,9 +582,8 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 		case FMT_FT_X_X: {
 			Result<u16> fund_type = parse_fund_type(offset);
 			CCC_RETURN_IF_ERROR(fund_type);
-			
-			item.subscript_index_type = Type::from_fund_type(
-				Value::from_constant_2(*fund_type));
+
+			item.subscript_index_type = Type::from_fund_type(Value::from_constant_2(*fund_type));
 			break;
 		}
 		case FMT_UT_C_C:
@@ -600,16 +592,15 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 		case FMT_UT_X_X: {
 			Result<u32> user_def_type = parse_user_def_type(offset);
 			CCC_RETURN_IF_ERROR(user_def_type);
-			
-			item.subscript_index_type = Type::from_user_def_type(
-				Value::from_reference(*user_def_type));
+
+			item.subscript_index_type = Type::from_user_def_type(Value::from_reference(*user_def_type));
 			break;
 		}
 		default: {
 			break;
 		}
 	}
-	
+
 	// Parse the lower bound, which is either a constant (C) or a location
 	// description (X).
 	switch (item.specifier) {
@@ -619,7 +610,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 		case FMT_UT_C_X: {
 			Result<u32> constant = parse_constant(offset);
 			CCC_RETURN_IF_ERROR(constant);
-			
+
 			item.lower_bound = ArrayBound::from_constant(*constant);
 			break;
 		}
@@ -629,7 +620,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 		case FMT_UT_X_X: {
 			Result<LocationDescription> location_description = parse_location_description(offset);
 			CCC_RETURN_IF_ERROR(location_description);
-			
+
 			item.lower_bound = ArrayBound::from_location_description(*location_description);
 			break;
 		}
@@ -637,7 +628,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 			break;
 		}
 	}
-	
+
 	// Parse the upper bound, which is either a constant (C) or a location
 	// description (X).
 	switch (item.specifier) {
@@ -647,7 +638,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 		case FMT_UT_X_C: {
 			Result<u32> constant = parse_constant(offset);
 			CCC_RETURN_IF_ERROR(constant);
-			
+
 			item.upper_bound = ArrayBound::from_constant(*constant);
 			break;
 		}
@@ -657,7 +648,7 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 		case FMT_UT_X_X: {
 			Result<LocationDescription> location_description = parse_location_description(offset);
 			CCC_RETURN_IF_ERROR(location_description);
-			
+
 			item.upper_bound = ArrayBound::from_location_description(*location_description);
 			break;
 		}
@@ -665,17 +656,17 @@ Result<ArraySubscriptItem> ArraySubscriptData::parse_item(u32& offset, u32 impor
 			break;
 		}
 	}
-	
+
 	// Parse the element type.
 	if (item.specifier == FMT_ET) {
 		Result<AttributeTuple> attribute = parse_attribute(m_block, offset, importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
-		
+
 		std::optional<Type> element_type = Type::from_attribute_tuple(*attribute);
 		CCC_CHECK(element_type.has_value(), "Element type is not a type attribute.");
 		item.element_type = std::move(*element_type);
 	}
-	
+
 	return item;
 }
 
@@ -683,8 +674,7 @@ Result<u16> ArraySubscriptData::parse_fund_type(u32& offset) const
 {
 	std::optional<u16> fund_type = copy_unaligned<u16>(m_block, offset);
 	CCC_CHECK(fund_type.has_value(), "Failed to read fundamental type in array subscript.");
-	CCC_CHECK(fundamental_type_to_string(*fund_type),
-		"Invalid fundamental type 0x%hx in array subscript.", *fund_type);
+	CCC_CHECK(fundamental_type_to_string(*fund_type), "Invalid fundamental type 0x%hx in array subscript.", *fund_type);
 	offset += sizeof(u16);
 	return *fund_type;
 }
@@ -710,11 +700,11 @@ Result<LocationDescription> ArraySubscriptData::parse_location_description(u32& 
 	std::optional<u16> size = copy_unaligned<u16>(m_block, offset);
 	CCC_CHECK(size.has_value(), "Failed to read location description size in array subscript.");
 	offset += sizeof(u16);
-	
+
 	std::optional<std::span<const u8>> location_description = get_subspan(m_block, offset, *size);
 	CCC_CHECK(location_description.has_value(), "Failed to read location description in array subscript.");
 	offset += *size;
-	
+
 	return LocationDescription::from_block(*location_description);
 }
 
@@ -735,17 +725,17 @@ u32 EnumerationElementList::size() const
 Result<EnumerationElement> EnumerationElementList::parse_element(u32& offset) const
 {
 	EnumerationElement element;
-	
+
 	std::optional<u32> value = copy_unaligned<u32>(m_block, offset);
 	CCC_CHECK(value.has_value(), "Failed to read value of enumeration element.");
 	element.value = *value;
 	offset += sizeof(u32);
-	
+
 	std::optional<std::string_view> name = get_string(m_block, offset);
 	CCC_CHECK(name.has_value(), "Failed to read name of enumeration element.");
 	element.name = *name;
 	offset += static_cast<u32>(element.name.size()) + 1;
-	
+
 	return element;
 }
 
@@ -763,7 +753,7 @@ const char* form_to_string(u32 value)
 		case FORM_DATA8: return "data8";
 		case FORM_STRING: return "string";
 	}
-	
+
 	return nullptr;
 }
 
@@ -817,7 +807,7 @@ const char* attribute_to_string(u32 value)
 		case AT_overlay_id: return "overlay_id";
 		case AT_overlay_name: return "overlay_name";
 	}
-	
+
 	return nullptr;
 }
 
@@ -833,7 +823,7 @@ const char* location_op_to_string(u32 value)
 		case OP_ADD: return "add";
 		case OP_80: return "op80";
 	}
-	
+
 	return nullptr;
 }
 
@@ -867,7 +857,7 @@ const char* fundamental_type_to_string(u32 value)
 		case FT_unsigned_long_long: return "unsigned_long_long";
 		case FT_int128: return "int128";
 	}
-	
+
 	return nullptr;
 }
 
@@ -879,7 +869,7 @@ const char* type_modifier_to_string(u32 value)
 		case MOD_const: return "const";
 		case MOD_volatile: return "volatile";
 	}
-	
+
 	return nullptr;
 }
 
@@ -898,7 +888,7 @@ const char* language_to_string(u32 value)
 		case LANG_MODULA2: return "MODULA2";
 		case LANG_ASSEMBLY: return "ASSEMBLY";
 	}
-	
+
 	return nullptr;
 }
 
@@ -908,7 +898,7 @@ const char* array_ordering_to_string(u32 value)
 		case ORD_col_major: return "col_major";
 		case ORD_row_major: return "row_major";
 	}
-	
+
 	return nullptr;
 }
 
@@ -925,7 +915,7 @@ const char* array_subscript_format_specifier_to_string(u32 value)
 		case FMT_UT_X_X: return "UT_X_X";
 		case FMT_ET: return "ET";
 	}
-	
+
 	return nullptr;
 }
 

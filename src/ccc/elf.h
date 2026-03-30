@@ -7,7 +7,8 @@
 
 namespace ccc {
 
-enum class ElfIdentClass : u8 {
+enum class ElfIdentClass : u8
+{
 	B32 = 0x1,
 	B64 = 0x2
 };
@@ -22,7 +23,9 @@ CCC_PACKED_STRUCT(ElfIdentHeader,
 	/* 0x9 */ u8 pad[7];
 )
 
-enum class ElfFileType : u16 {
+// clang-format off
+enum class ElfFileType : u16
+{
 	NONE   = 0x00,
 	REL    = 0x01,
 	EXEC   = 0x02,
@@ -33,8 +36,10 @@ enum class ElfFileType : u16 {
 	LOPROC = 0xff00,
 	HIPROC = 0xffff
 };
+// clang-format on
 
-enum class ElfMachine : u16 {
+enum class ElfMachine : u16
+{
 	MIPS = 0x08
 };
 
@@ -54,7 +59,8 @@ CCC_PACKED_STRUCT(ElfFileHeader,
 	/* 0x32 */ u16 shstrndx;
 )
 
-enum class ElfSectionType : u32 {
+enum class ElfSectionType : u32
+{
 	NULL_SECTION = 0x0,
 	PROGBITS = 0x1,
 	SYMTAB = 0x2,
@@ -90,7 +96,8 @@ CCC_PACKED_STRUCT(ElfSectionHeader,
 	/* 0x24 */ u32 entsize;
 )
 
-struct ElfSection {
+struct ElfSection
+{
 	std::string name;
 	ElfSectionHeader header;
 };
@@ -106,50 +113,60 @@ CCC_PACKED_STRUCT(ElfProgramHeader,
 	/* 0x1c */ u32 align;
 )
 
-struct ElfLinkOnceSection {
+struct ElfLinkOnceSection
+{
 	bool is_text = false;
 	GlobalStorageLocation location = GlobalStorageLocation::NIL;
 	std::string symbol_name;
 };
 
-enum class KnownElfSectionClass {
+enum class KnownElfSectionClass
+{
 	CODE,
 	DATA
 };
 
 extern const std::map<std::string, KnownElfSectionClass> KNOWN_ELF_SECTIONS;
 
-struct ElfFile {
+struct ElfFile
+{
 	ElfFileHeader file_header;
 	std::vector<u8> image;
 	std::vector<ElfSection> sections;
 	std::vector<ElfProgramHeader> segments;
-	
+
 	// Parse the ELF file header, section headers and program headers.
 	static Result<ElfFile> parse(std::vector<u8> image);
-	
-	Result<void> import_section_headers(
-		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const;
-	Result<void> import_symbol_sections(
-		SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const;
-	Result<void> import_link_once_sections(SymbolDatabase& database, const SymbolGroup& group, u32 importer_flags, const DemanglerFunctions& demangler) const;
+
+	Result<void> import_section_headers(SymbolDatabase& database,
+		const SymbolGroup& group,
+		u32 importer_flags,
+		const DemanglerFunctions& demangler) const;
+	Result<void> import_symbol_sections(SymbolDatabase& database,
+		const SymbolGroup& group,
+		u32 importer_flags,
+		const DemanglerFunctions& demangler) const;
+	Result<void> import_link_once_sections(SymbolDatabase& database,
+		const SymbolGroup& group,
+		u32 importer_flags,
+		const DemanglerFunctions& demangler) const;
 	static std::optional<ElfLinkOnceSection> parse_link_once_section_name(const std::string& section_name);
-	
+
 	const ElfSection* lookup_section(const char* name) const;
 	Result<std::span<const u8>> section_contents(const ElfSection& section) const;
-	
+
 	std::optional<u32> file_offset_to_virtual_address(u32 file_offset) const;
-	
+
 	// Find the program header for the segment that contains the entry point.
 	const ElfProgramHeader* entry_point_segment() const;
-	
+
 	// Retrieve a block of data in an ELF file given its address and size.
 	std::optional<std::span<const u8>> get_virtual(u32 address, u32 size) const;
-	
+
 	// Copy a block of data in an ELF file to the destination buffer given its
 	// address and size.
 	bool copy_virtual(u8* dest, u32 address, u32 size) const;
-	
+
 	// Retrieve an object of type T from an ELF file given its address.
 	template <typename T>
 	std::optional<T> get_object_virtual(u32 address) const
@@ -158,10 +175,10 @@ struct ElfFile {
 		if (!result.has_value()) {
 			return std::nullopt;
 		}
-		
+
 		return *(T*) result->data();
 	}
-	
+
 	// Retrieve an array of objects of type T from an ELF file given its
 	// address and element count.
 	template <typename T>
@@ -171,7 +188,7 @@ struct ElfFile {
 		if (!result.has_value()) {
 			return std::nullopt;
 		}
-		
+
 		return std::span<const T>((T*) result->data(), (T*) (result->data() + result->size()));
 	}
 };

@@ -7,7 +7,9 @@
 
 namespace ccc::dwarf {
 
-enum Form {
+// clang-format off
+enum Form
+{
 	FORM_ADDR   = 0x1,
 	FORM_REF    = 0x2,
 	FORM_BLOCK2 = 0x3,
@@ -18,7 +20,8 @@ enum Form {
 	FORM_STRING = 0x8,
 };
 
-enum Attribute {
+enum Attribute
+{
 	AT_sibling            = 0x001,
 	AT_location           = 0x002,
 	AT_name               = 0x003,
@@ -66,18 +69,20 @@ enum Attribute {
 	AT_overlay_id         = 0x229,
 	AT_overlay_name       = 0x22a
 };
+// clang-format on
 
 // The value of an attribute.
-class Value {
+class Value
+{
 public:
 	Value();
 	Value(const Value& rhs);
 	~Value();
 	Value& operator=(const Value& rhs);
-	
+
 	Form form() const;
 	bool valid() const;
-	
+
 	static Value from_address(u32 address);
 	static Value from_reference(u32 reference);
 	static Value from_constant_2(u16 constant);
@@ -86,39 +91,43 @@ public:
 	static Value from_block_2(std::span<const u8> block);
 	static Value from_block_4(std::span<const u8> block);
 	static Value from_string(std::string_view string); // Must be null terminated.
-	
+
 	u32 address() const;
 	u32 reference() const;
 	u64 constant() const;
 	std::span<const u8> block() const;
 	std::string_view string() const;
-	
+
 	Address address_or_null() const;
 	std::optional<u32> reference_or_null() const;
 	std::optional<u64> constant_or_null() const;
 	std::span<const u8> block_or_null() const;
 	std::string_view string_or_null() const;
-	
+
 private:
 	void copy_from(const Value& rhs);
-	
+
 	u8 m_form = 0;
-	union {
+	union
+	{
 		u32 address;
 		u32 reference;
 		u64 constant;
-		struct {
+		struct
+		{
 			const u8* begin;
 			const u8* end;
 		} block;
-		struct {
+		struct
+		{
 			const char* begin;
 			const char* end;
 		} string;
 	} m_value;
 };
 
-struct AttributeTuple {
+struct AttributeTuple
+{
 	u32 offset;
 	Attribute attribute;
 	Value value;
@@ -127,7 +136,9 @@ struct AttributeTuple {
 // Parse a single attribute and advance the offset.
 Result<AttributeTuple> parse_attribute(std::span<const u8> bytes, u32& offset, u32 importer_flags);
 
-enum LocationOp : u8 {
+// clang-format off
+enum LocationOp : u8
+{
 	OP_REG     = 0x01,
 	OP_BASEREG = 0x02,
 	OP_ADDR    = 0x03,
@@ -137,25 +148,30 @@ enum LocationOp : u8 {
 	OP_ADD     = 0x07,
 	OP_80      = 0x80
 };
+// clang-format on
 
-struct LocationAtom {
+struct LocationAtom
+{
 	LocationOp op;
 	std::optional<u32> value;
 };
 
-class LocationDescription {
+class LocationDescription
+{
 public:
 	static LocationDescription from_block(std::span<const u8> block);
-	
+
 	Result<void> print(FILE* out) const;
-	
+
 private:
 	Result<LocationAtom> parse_atom(u32& offset) const;
-	
+
 	std::span<const u8> m_block;
 };
 
-enum FundamentalType : u16 {
+// clang-format off
+enum FundamentalType : u16
+{
 	FT_char               = 0x0001,
 	FT_signed_char        = 0x0002,
 	FT_unsigned_char      = 0x0003,
@@ -184,37 +200,42 @@ enum FundamentalType : u16 {
 	FT_int128             = 0xa510
 };
 
-enum TypeModifier : u8 {
+enum TypeModifier : u8
+{
 	MOD_pointer_to   = 0x01,
 	MOD_reference_to = 0x02,
 	MOD_const        = 0x03,
 	MOD_volatile     = 0x04
 };
+// clang-format on
 
 // Parses all the different DWARF type attributes and provides a single API for
 // consuming them.
-class Type {
+class Type
+{
 public:
 	static std::optional<Type> from_attributes(
 		const Value& fund_type, const Value& mod_fund_type, const Value& user_def_type, const Value& mod_u_d_type);
 	static std::optional<Type> from_attribute_tuple(const AttributeTuple& tuple);
-	
+
 	static Type from_fund_type(const Value& fund_type);
 	static Type from_mod_fund_type(const Value& mod_fund_type);
 	static Type from_user_def_type(const Value& user_def_type);
 	static Type from_mod_u_d_type(const Value& mod_u_d_type);
-	
+
 	u32 attribute() const;
 	Result<FundamentalType> fund_type() const;
 	Result<u32> user_def_type() const;
 	Result<std::span<const TypeModifier>> modifiers() const;
-	
+
 private:
 	u32 m_attribute = 0;
 	Value m_value;
 };
 
-enum Language : u32 {
+// clang-format off
+enum Language : u32
+{
 	LANG_C89         = 0x00000001,
 	LANG_C           = 0x00000002,
 	LANG_ADA83       = 0x00000003,
@@ -228,12 +249,14 @@ enum Language : u32 {
 	LANG_ASSEMBLY    = 0x00008000
 };
 
-enum ArrayOrdering : u8 {
+enum ArrayOrdering : u8
+{
 	ORD_col_major = 0,
 	ORD_row_major = 1
 };
 
-enum ArraySubscriptFormatSpecifier : u8 {
+enum ArraySubscriptFormatSpecifier : u8
+{
 	FMT_FT_C_C = 0x0,
 	FMT_FT_C_X = 0x1,
 	FMT_FT_X_C = 0x2,
@@ -244,31 +267,35 @@ enum ArraySubscriptFormatSpecifier : u8 {
 	FMT_UT_X_X = 0x7,
 	FMT_ET     = 0x8
 };
+// clang-format on
 
-enum class ArrayBoundType {
+enum class ArrayBoundType
+{
 	NIL,
 	CONSTANT,
 	LOCATION_DESCRIPTION
 };
 
-class ArrayBound {
+class ArrayBound
+{
 public:
 	static ArrayBound from_constant(u32 constant);
 	static ArrayBound from_location_description(LocationDescription location_description);
-	
+
 	ArrayBoundType type() const;
 	u32 constant() const;
 	const LocationDescription& location_description() const;
-	
+
 	Result<void> print(FILE* out) const;
-	
+
 private:
 	ArrayBoundType m_type = ArrayBoundType::NIL;
 	u32 m_constant = 0;
 	LocationDescription m_location_description;
 };
 
-struct ArraySubscriptItem {
+struct ArraySubscriptItem
+{
 	ArraySubscriptFormatSpecifier specifier;
 	Type subscript_index_type;
 	ArrayBound lower_bound;
@@ -276,36 +303,39 @@ struct ArraySubscriptItem {
 	Type element_type;
 };
 
-class ArraySubscriptData {
+class ArraySubscriptData
+{
 public:
 	static ArraySubscriptData from_block(std::span<const u8> block);
-	
+
 	u32 size() const;
-	
+
 	Result<ArraySubscriptItem> parse_item(u32& offset, u32 importer_flags) const;
-	
+
 private:
 	Result<u16> parse_fund_type(u32& offset) const;
 	Result<u32> parse_user_def_type(u32& offset) const;
 	Result<u32> parse_constant(u32& offset) const;
 	Result<LocationDescription> parse_location_description(u32& offset) const;
-	
+
 	std::span<const u8> m_block;
 };
 
-struct EnumerationElement {
+struct EnumerationElement
+{
 	u32 value;
 	std::string name;
 };
 
-class EnumerationElementList {
+class EnumerationElementList
+{
 public:
 	static EnumerationElementList from_block(std::span<const u8> block);
-	
+
 	u32 size() const;
-	
+
 	Result<EnumerationElement> parse_element(u32& offset) const;
-	
+
 private:
 	std::span<const u8> m_block;
 };

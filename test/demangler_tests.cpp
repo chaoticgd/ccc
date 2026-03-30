@@ -5,17 +5,17 @@
 #define HAVE_DECL_BASENAME 1
 #include "demangle.h"
 
-#define DEMANGLER_OPNAME_TEST(name, mangled, expected_demangled) \
-	TEST(GNUDemangler, name) \
-	{ \
-		char* demangled = cplus_demangle_opname(mangled, 0); \
-		const char* expected = expected_demangled; \
-		if (demangled) { \
+#define DEMANGLER_OPNAME_TEST(name, mangled, expected_demangled)       \
+	TEST(GNUDemangler, name)                                           \
+	{                                                                  \
+		char* demangled = cplus_demangle_opname(mangled, 0);           \
+		const char* expected = expected_demangled;                     \
+		if (demangled) {                                               \
 			ASSERT_TRUE(expected && strcmp(demangled, expected) == 0); \
-			free((void*) demangled); \
-		} else { \
-			ASSERT_EQ(expected_demangled, nullptr); \
-		} \
+			free((void*) demangled);                                   \
+		} else {                                                       \
+			ASSERT_EQ(expected_demangled, nullptr);                    \
+		}                                                              \
 	}
 
 DEMANGLER_OPNAME_TEST(NonMangledName, "NonMangled", nullptr);

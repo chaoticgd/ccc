@@ -10,41 +10,41 @@ namespace ccc::dwarf {
 Result<std::optional<DIE>> DIE::parse(std::span<const u8> debug, u32 offset, u32 importer_flags)
 {
 	DIE die;
-	
+
 	die.m_debug = debug;
 	die.m_offset = offset;
-	
+
 	std::optional<u32> length = copy_unaligned<u32>(debug, offset);
 	if (!length.has_value()) {
 		return std::optional<DIE>(std::nullopt);
 	}
 	die.m_length = *length;
 	offset += sizeof(u32);
-	
+
 	if (die.m_length < 8) {
 		return std::optional<DIE>(std::nullopt);
 	}
-	
+
 	std::optional<u16> tag = copy_unaligned<u16>(debug, offset);
 	CCC_CHECK(tag.has_value(), "Cannot read tag for die at 0x%x.", offset);
 	CCC_CHECK(tag_to_string(*tag), "Unknown tag 0x%hx for die at 0x%x.", *tag, offset);
 	die.m_tag = static_cast<Tag>(*tag);
 	offset += sizeof(u16);
-	
+
 	die.m_importer_flags = importer_flags;
-	
+
 	return std::optional<DIE>(die);
 }
 
 AttributeListFormat DIE::attribute_list_format(std::vector<AttributeFormat> input)
 {
 	AttributeListFormat output;
-	
+
 	for (u32 i = 0; i < static_cast<u32>(input.size()); i++) {
 		AttributeFormat& attribute = output.emplace(input[i].attribute, input[i]).first->second;
 		attribute.index = i;
 	}
-	
+
 	return output;
 }
 
@@ -67,16 +67,16 @@ Result<std::optional<DIE>> DIE::first_child() const
 	while (offset < m_offset + m_length) {
 		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
-		
+
 		if (attribute->attribute == AT_sibling && attribute->value.form() == FORM_REF) {
 			sibling_offset = attribute->value.reference();
 		}
 	}
-	
+
 	if (m_offset + m_length == sibling_offset) {
 		return std::optional<DIE>(std::nullopt);
 	}
-	
+
 	return DIE::parse(m_debug, m_offset + m_length, m_importer_flags);
 }
 
@@ -86,15 +86,15 @@ Result<std::optional<DIE>> DIE::sibling() const
 	while (offset < m_offset + m_length) {
 		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
-		
+
 		if (attribute->attribute == AT_sibling && attribute->value.form() == FORM_REF) {
 			// Prevent infinite recursion if the file contains a cycle.
-			CCC_CHECK(attribute->value.reference() > m_offset,
-				"Sibling attribute of DIE at 0x%x points backwards.", m_offset);
+			CCC_CHECK(attribute->value.reference() > m_offset, "Sibling attribute of DIE at 0x%x points backwards.",
+				m_offset);
 			return DIE::parse(m_debug, attribute->value.reference(), m_importer_flags);
 		}
 	}
-	
+
 	return std::optional<DIE>(std::nullopt);
 }
 
@@ -115,52 +115,56 @@ Result<void> DIE::scan_attributes(const AttributeListFormat& format, std::initia
 		u32 attribute_offset = offset;
 		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
-		
+
 		auto iterator = format.find(attribute->attribute);
 		if (iterator == format.end()) {
 			continue;
 		}
-		
+
 		CCC_CHECK(iterator->second.valid_forms & 1 << (attribute->value.form()),
-			"Attribute %x at 0x%x has an unexpected form %s.",
-			attribute->attribute, attribute_offset, form_to_string(attribute->value.form()));
-		
+			"Attribute %x at 0x%x has an unexpected form %s.", attribute->attribute, attribute_offset,
+			form_to_string(attribute->value.form()));
+
 		CCC_ASSERT(iterator->second.index < output.size());
 		**(output.begin() + iterator->second.index) = std::move(attribute->value);
 	}
-	
+
 	// Check that we have all the required attributes.
 	for (auto& [attribute, attribute_format] : format) {
 		if (attribute_format.flags & AFF_REQUIRED) {
 			CCC_ASSERT(attribute_format.index < output.size());
-			CCC_CHECK((*(output.begin() + attribute_format.index))->valid(),
-				"Missing %s attribute for DIE at 0x%x\n", attribute_to_string(attribute), m_offset);
+			CCC_CHECK((*(output.begin() + attribute_format.index))->valid(), "Missing %s attribute for DIE at 0x%x\n",
+				attribute_to_string(attribute), m_offset);
 		}
 	}
-	
+
 	return Result<void>();
 }
 
 Result<std::vector<AttributeTuple>> DIE::all_attributes() const
 {
 	std::vector<AttributeTuple> result;
-	
+
 	u32 offset = m_offset + 6;
 	while (offset < m_offset + m_length) {
 		Result<AttributeTuple> attribute = parse_attribute(m_debug, offset, m_importer_flags);
 		CCC_RETURN_IF_ERROR(attribute);
-		
+
 		result.emplace_back(std::move(*attribute));
 	}
-	
+
 	return result;
 }
 
 // *****************************************************************************
 
 SectionReader::SectionReader(std::span<const u8> debug, std::span<const u8> line, u32 importer_flags)
-	: m_debug(debug), m_line(line), m_importer_flags(importer_flags) {}
-	
+	: m_debug(debug)
+	, m_line(line)
+	, m_importer_flags(importer_flags)
+{
+}
+
 Result<DIE> SectionReader::first_die() const
 {
 	Result<std::optional<DIE>> die = DIE::parse(m_debug, 0, m_importer_flags);
@@ -222,7 +226,7 @@ const char* tag_to_string(u32 tag)
 		case TAG_function_template: return "function_template";
 		case TAG_class_template: return "class_template";
 	}
-	
+
 	return nullptr;
 }
 

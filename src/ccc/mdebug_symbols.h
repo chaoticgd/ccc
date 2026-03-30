@@ -9,7 +9,8 @@
 
 namespace ccc::mdebug {
 
-enum class ParsedSymbolType {
+enum class ParsedSymbolType
+{
 	NAME_COLON_TYPE,
 	SOURCE_FILE,
 	SUB_SOURCE_FILE,
@@ -19,7 +20,8 @@ enum class ParsedSymbolType {
 	NON_STABS
 };
 
-struct ParsedSymbol {
+struct ParsedSymbol
+{
 	ParsedSymbolType type;
 	const mdebug::Symbol* raw;
 	StabsSymbol name_colon_type;
