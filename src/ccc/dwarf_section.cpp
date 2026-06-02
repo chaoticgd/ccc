@@ -3,8 +3,6 @@
 
 #include "dwarf_section.h"
 
-#include "importer_flags.h"
-
 namespace ccc::dwarf {
 
 Result<std::optional<DIE>> DIE::parse(std::span<const u8> debug, u32 offset, u32 importer_flags)

@@ -3,11 +3,12 @@
 
 #include "print_cpp.h"
 
-#include <cmath>
-#include <chrono>
-
 #include "ast.h"
 #include "registers.h"
+
+#include <cmath>
+#include <chrono>
+#include <set>
 
 namespace ccc {
 
@@ -101,7 +102,6 @@ void CppPrinter::comment_block_file(const char* path)
 	m_last_wants_spacing = true;
 	m_has_anything_been_printed = true;
 }
-
 
 void CppPrinter::begin_include_guard(const char* macro)
 {

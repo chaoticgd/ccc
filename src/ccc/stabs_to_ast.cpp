@@ -82,8 +82,8 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type,
 
 	// This prevents infinite recursion when an automatically generated member
 	// function references an unnamed type.
-	bool can_compare_type_numbers = type.type_number.valid() && enclosing_struct
-		&& enclosing_struct->type_number.valid();
+	bool can_compare_type_numbers = type.type_number.valid()
+		&& enclosing_struct && enclosing_struct->type_number.valid();
 	if (force_substitute && can_compare_type_numbers && type.type_number == enclosing_struct->type_number) {
 		// It's probably a this parameter (or return type) for an unnamed type.
 		auto type_name = std::make_unique<ast::TypeName>();

@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include <map>
+#include "util.h"
+
 #include <atomic>
 #include <limits>
+#include <map>
 #include <variant>
-
-#include "util.h"
 
 namespace ccc {
 

@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "util.h"
-#include "stabs.h"
 #include "mdebug_section.h"
+#include "stabs.h"
+#include "util.h"
 
 namespace ccc::mdebug {
 

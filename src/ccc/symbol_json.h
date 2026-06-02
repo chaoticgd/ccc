@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "symbol_database.h"
+
 #define RAPIDJSON_HAS_STDSTRING 1
 #include <rapidjson/document.h>
 #include <rapidjson/prettywriter.h>
-
-#include "symbol_database.h"
 
 namespace ccc {
 
