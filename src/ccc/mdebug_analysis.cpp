@@ -106,7 +106,7 @@ Result<void> LocalSymbolTableAnalyser::sub_source_file(const char* path, Address
 Result<void> LocalSymbolTableAnalyser::procedure(
 	const char* mangled_name, Address address, const ProcedureDescriptor* procedure_descriptor, bool is_static)
 {
-	if (!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str()) != 0) {
+	if (!m_current_function || strcmp(mangled_name, m_current_function->raw_name().c_str()) != 0) {
 		Result<void> result = create_function(mangled_name, address);
 		CCC_RETURN_IF_ERROR(result);
 	}
@@ -146,7 +146,7 @@ Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_s
 
 Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const StabsType& return_type, Address address)
 {
-	if (!m_current_function || strcmp(mangled_name, m_current_function->mangled_name().c_str()) != 0) {
+	if (!m_current_function || strcmp(mangled_name, m_current_function->raw_name().c_str()) != 0) {
 		Result<void> result = create_function(mangled_name, address);
 		CCC_RETURN_IF_ERROR(result);
 	} else {
