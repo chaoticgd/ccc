@@ -153,46 +153,22 @@ template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_address(Address address) const
 {
 	auto iterator = m_address_to_handle.find(address.value);
-	if (iterator != m_address_to_handle.end()) {
-		return iterator->second;
-	} else {
+	if (iterator == m_address_to_handle.end()) {
 		return SymbolHandle<SymbolType>();
 	}
-}
 
-template <typename SymbolType>
-std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_name(const std::string& name) const
-{
-	std::vector<SymbolHandle<SymbolType>> handles;
-
-	auto [begin, end] = m_name_to_handle.equal_range(name);
-	for (auto iterator = begin; iterator != end; iterator++) {
-		handles.emplace_back(iterator->second);
-	}
-
-	return handles;
+	return iterator->second;
 }
 
 template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_after_address(Address address) const
 {
 	auto iterator = m_address_to_handle.upper_bound(address.value);
-	if (iterator != m_address_to_handle.end()) {
-		return iterator->second;
-	} else {
+	if (iterator == m_address_to_handle.end()) {
 		return SymbolHandle<SymbolType>();
 	}
-}
 
-template <typename SymbolType>
-SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
-{
-	auto iterator = m_name_to_handle.find(name);
-	if (iterator != m_name_to_handle.end()) {
-		return iterator->second;
-	} else {
-		return SymbolHandle<SymbolType>();
-	}
+	return iterator->second;
 }
 
 template <typename SymbolType>
@@ -213,6 +189,55 @@ template <typename SymbolType>
 const SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address address) const
 {
 	return const_cast<SymbolList<SymbolType>*>(this)->symbol_overlapping_address(address);
+}
+
+template <typename SymbolType>
+std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_name(const std::string& name) const
+{
+	std::vector<SymbolHandle<SymbolType>> handles;
+
+	auto [begin, end] = m_name_to_handle.equal_range(name);
+	for (auto iterator = begin; iterator != end; iterator++) {
+		handles.emplace_back(iterator->second);
+	}
+
+	return handles;
+}
+
+template <typename SymbolType>
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_name(const std::string& name) const
+{
+	auto iterator = m_name_to_handle.find(name);
+	if (iterator == m_name_to_handle.end()) {
+		return SymbolHandle<SymbolType>();
+	}
+
+	return iterator->second;
+}
+
+template <typename SymbolType>
+std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_mangled_name(
+	const std::string& mangled_name) const
+{
+	std::vector<SymbolHandle<SymbolType>> handles;
+
+	auto [begin, end] = m_mangled_name_to_handle.equal_range(mangled_name);
+	for (auto iterator = begin; iterator != end; iterator++) {
+		handles.emplace_back(iterator->second);
+	}
+
+	return handles;
+}
+
+template <typename SymbolType>
+SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_mangled_name(const std::string& mangled_name) const
+{
+	auto iterator = m_mangled_name_to_handle.find(mangled_name);
+	if (iterator == m_mangled_name_to_handle.end()) {
+		return SymbolHandle<SymbolType>();
+	}
+
+	return iterator->second;
 }
 
 template <typename SymbolType>
@@ -247,7 +272,6 @@ bool SymbolList<SymbolType>::empty() const
 {
 	return m_symbols.size() == 0;
 }
-
 
 template <typename SymbolType>
 s32 SymbolList<SymbolType>::size() const
@@ -307,7 +331,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name,
 	static const int DMGL_RET_POSTFIX = 1 << 5;
 
 	std::string demangled_name;
-	if constexpr (SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+	if constexpr (SymbolType::FLAGS & MANGLED_NAMES) {
 		if ((importer_flags & DONT_DEMANGLE_NAMES) == 0 && demangler.cplus_demangle) {
 			int demangler_flags = 0;
 			if (importer_flags & DEMANGLE_PARAMETERS)
@@ -327,10 +351,11 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(std::string name,
 	Result<SymbolType*> symbol = create_symbol(non_mangled_name, address, source, module_symbol);
 	CCC_RETURN_IF_ERROR(symbol);
 
-	if constexpr (SymbolType::FLAGS & NAME_NEEDS_DEMANGLING) {
+	if constexpr (SymbolType::FLAGS & MANGLED_NAMES) {
 		if (!demangled_name.empty()) {
-			(*symbol)->set_mangled_name(name);
+			(*symbol)->m_mangled_name = std::move(name);
 		}
+		link_mangled_name_map(**symbol);
 	}
 
 	return symbol;
@@ -371,18 +396,39 @@ bool SymbolList<SymbolType>::rename_symbol(SymbolHandle<SymbolType> handle, std:
 }
 
 template <typename SymbolType>
+bool SymbolList<SymbolType>::remangle_symbol(SymbolHandle<SymbolType> handle, std::string new_mangled_name)
+{
+	if constexpr (SymbolType::FLAGS & MANGLED_NAMES) {
+		SymbolType* symbol = symbol_from_handle(handle);
+		if (!symbol) {
+			return false;
+		}
+
+		if (symbol->mangled_name() != new_mangled_name) {
+			unlink_name_map(*symbol);
+			symbol->m_mangled_name = std::move(new_mangled_name);
+			link_name_map(*symbol);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+template <typename SymbolType>
 void SymbolList<SymbolType>::merge_from(
 	SymbolList<SymbolType>& list, SymbolDatabase& src_database, SymbolDatabase& dest_database)
 {
-	m_address_to_handle.clear();
-	m_name_to_handle.clear();
-
 	std::vector<SymbolType> lhs = std::move(m_symbols);
 	std::vector<SymbolType> rhs = std::move(list.m_symbols);
 
-	m_symbols = std::vector<SymbolType>();
+	clear();
+	list.clear();
+
 	m_symbols.reserve(lhs.size() + rhs.size());
 
+	// Merge the lists such that the symbols are still sorted by their handles.
 	size_t lhs_pos = 0;
 	size_t rhs_pos = 0;
 	for (;;) {
@@ -406,13 +452,10 @@ void SymbolList<SymbolType>::merge_from(
 
 		link_address_map(*symbol);
 		link_name_map(*symbol);
+		link_mangled_name_map(*symbol);
 	}
 
 	CCC_ASSERT(m_symbols.size() == lhs.size() + rhs.size());
-
-	list.m_symbols.clear();
-	list.m_address_to_handle.clear();
-	list.m_name_to_handle.clear();
 }
 
 template <typename SymbolType>
@@ -468,6 +511,7 @@ void SymbolList<SymbolType>::destroy_marked_symbols()
 		if (symbol.m_marked_for_destruction) {
 			unlink_address_map(symbol);
 			unlink_name_map(symbol);
+			unlink_mangled_name_map(symbol);
 		} else {
 			remaining_symbols.emplace_back(std::move(symbol));
 		}
@@ -479,9 +523,10 @@ void SymbolList<SymbolType>::destroy_marked_symbols()
 template <typename SymbolType>
 void SymbolList<SymbolType>::clear()
 {
-	m_symbols.clear();
-	m_address_to_handle.clear();
-	m_name_to_handle.clear();
+	m_symbols = std::vector<SymbolType>();
+	m_address_to_handle = AddressToHandleMap();
+	m_name_to_handle = NameToHandleMap();
+	m_mangled_name_to_handle = NameToHandleMap();
 }
 
 template <typename SymbolType>
@@ -534,7 +579,9 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_name_map(SymbolType& symbol)
 {
 	if constexpr (SymbolType::FLAGS & WITH_NAME_MAP) {
-		m_name_to_handle.emplace(symbol.name(), symbol.handle());
+		if (!symbol.name().empty()) {
+			m_name_to_handle.emplace(symbol.name(), symbol.handle());
+		}
 	}
 }
 
@@ -542,11 +589,39 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_name_map(SymbolType& symbol)
 {
 	if constexpr (SymbolType::FLAGS & WITH_NAME_MAP) {
-		auto iterators = m_name_to_handle.equal_range(symbol.name());
-		for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
-			if (iterator->second == symbol.handle()) {
-				m_name_to_handle.erase(iterator);
-				break;
+		if (!symbol.name().empty()) {
+			auto iterators = m_name_to_handle.equal_range(symbol.name());
+			for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
+				if (iterator->second == symbol.handle()) {
+					m_name_to_handle.erase(iterator);
+					break;
+				}
+			}
+		}
+	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::link_mangled_name_map(SymbolType& symbol)
+{
+	if constexpr (SymbolType::FLAGS & MANGLED_NAMES) {
+		if (!symbol.mangled_name().empty()) {
+			m_mangled_name_to_handle.emplace(symbol.mangled_name(), symbol.handle());
+		}
+	}
+}
+
+template <typename SymbolType>
+void SymbolList<SymbolType>::unlink_mangled_name_map(SymbolType& symbol)
+{
+	if constexpr (SymbolType::FLAGS & MANGLED_NAMES) {
+		if (!symbol.mangled_name().empty()) {
+			auto iterators = m_mangled_name_to_handle.equal_range(symbol.mangled_name());
+			for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
+				if (iterator->second == symbol.handle()) {
+					m_mangled_name_to_handle.erase(iterator);
+					break;
+				}
 			}
 		}
 	}
@@ -655,16 +730,16 @@ void Function::set_local_variables(
 
 const std::string& Function::mangled_name() const
 {
+	return m_mangled_name;
+}
+
+const std::string& Function::raw_name() const
+{
 	if (!m_mangled_name.empty()) {
 		return m_mangled_name;
 	} else {
 		return name();
 	}
-}
-
-void Function::set_mangled_name(std::string mangled)
-{
-	m_mangled_name = std::move(mangled);
 }
 
 u32 Function::original_hash() const
@@ -710,16 +785,16 @@ void Function::on_destroy(SymbolDatabase* database)
 
 const std::string& GlobalVariable::mangled_name() const
 {
+	return m_mangled_name;
+}
+
+const std::string& GlobalVariable::raw_name() const
+{
 	if (!m_mangled_name.empty()) {
 		return m_mangled_name;
 	} else {
 		return name();
 	}
-}
-
-void GlobalVariable::set_mangled_name(std::string mangled)
-{
-	m_mangled_name = std::move(mangled);
 }
 
 // *****************************************************************************

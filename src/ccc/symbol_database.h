@@ -89,7 +89,7 @@ enum SymbolFlag
 	NO_SYMBOL_FLAGS = 0,
 	WITH_ADDRESS_MAP = 1 << 0,
 	WITH_NAME_MAP = 1 << 1,
-	NAME_NEEDS_DEMANGLING = 1 << 2
+	MANGLED_NAMES = 1 << 2
 };
 
 // A container class for symbols of a given type that maintains maps of their
@@ -125,14 +125,18 @@ public:
 	SymbolHandle<SymbolType> first_handle_from_starting_address(Address address) const;
 	SymbolHandle<SymbolType> first_handle_after_address(Address address) const;
 
-	// Lookup symbols by their name.
-	std::vector<SymbolHandle<SymbolType>> handles_from_name(const std::string& name) const;
-	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
-
 	// Find a symbol with an address range that contains the provided address.
 	// For example, to find which function an instruction belongs to.
 	SymbolType* symbol_overlapping_address(Address address);
 	const SymbolType* symbol_overlapping_address(Address address) const;
+
+	// Lookup symbols by their name.
+	std::vector<SymbolHandle<SymbolType>> handles_from_name(const std::string& name) const;
+	SymbolHandle<SymbolType> first_handle_from_name(const std::string& name) const;
+
+	// Lookup functions and global variables by their mangled name.
+	std::vector<SymbolHandle<SymbolType>> handles_from_mangled_name(const std::string& mangled_name) const;
+	SymbolHandle<SymbolType> first_handle_from_mangled_name(const std::string& mangled_name) const;
 
 	// Convert handles to underlying array indices.
 	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
@@ -170,6 +174,10 @@ public:
 
 	// Update the name of a symbol without changing its handle.
 	bool rename_symbol(SymbolHandle<SymbolType> handle, std::string new_name);
+
+	// Update the mangled name of a function or global variable without changing
+	// its handle.
+	bool remangle_symbol(SymbolHandle<SymbolType> handle, std::string new_mangled_name);
 
 	// Move all the symbols from the passed src_list into this list.
 	void merge_from(SymbolList<SymbolType>& src_list, SymbolDatabase& src_database, SymbolDatabase& dest_database);
@@ -210,12 +218,17 @@ private:
 	void link_name_map(SymbolType& symbol);
 	void unlink_name_map(SymbolType& symbol);
 
+	// Keep the mangled name map in sync with the symbol list.
+	void link_mangled_name_map(SymbolType& symbol);
+	void unlink_mangled_name_map(SymbolType& symbol);
+
 	using AddressToHandleMap = std::multimap<u32, SymbolHandle<SymbolType>>;
 	using NameToHandleMap = std::multimap<std::string, SymbolHandle<SymbolType>>;
 
 	std::vector<SymbolType> m_symbols;
 	AddressToHandleMap m_address_to_handle;
 	NameToHandleMap m_name_to_handle;
+	NameToHandleMap m_mangled_name_to_handle;
 
 	// We share this between symbol lists of the same type so that we can merge
 	// them without having to rewrite all the handles.
@@ -371,7 +384,7 @@ class Function : public Symbol
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = FUNCTION;
 	static constexpr const char* NAME = "Function";
-	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
+	static constexpr const u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | MANGLED_NAMES;
 
 	FunctionHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
@@ -383,8 +396,11 @@ public:
 	const std::optional<std::vector<LocalVariableHandle>>& local_variables() const;
 	void set_local_variables(std::optional<std::vector<LocalVariableHandle>> local_variables, SymbolDatabase& database);
 
+	// The mangled name of the symbol, or an empty string for unmangled symbols.
 	const std::string& mangled_name() const;
-	void set_mangled_name(std::string mangled);
+
+	// The raw name of the symbol, mangled or otherwise.
+	const std::string& raw_name() const;
 
 	// A hash of all the opcodes in the function, read from file.
 	u32 original_hash() const;
@@ -431,17 +447,21 @@ private:
 class GlobalVariable : public Symbol
 {
 	friend SourceFile;
+	friend SymbolList<GlobalVariable>;
 
 public:
 	static constexpr const SymbolDescriptor DESCRIPTOR = GLOBAL_VARIABLE;
 	static constexpr const char* NAME = "Global Variable";
-	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | NAME_NEEDS_DEMANGLING;
+	static constexpr u32 FLAGS = WITH_ADDRESS_MAP | WITH_NAME_MAP | MANGLED_NAMES;
 
 	GlobalVariableHandle handle() const { return m_handle; }
 	SourceFileHandle source_file() const { return m_source_file; }
 
+	// The mangled name of the symbol, or an empty string for unmangled symbols.
 	const std::string& mangled_name() const;
-	void set_mangled_name(std::string mangled);
+
+	// The raw name of the symbol, mangled or otherwise.
+	const std::string& raw_name() const;
 
 	GlobalStorage storage;
 	StorageClass storage_class = STORAGE_CLASS_NONE;

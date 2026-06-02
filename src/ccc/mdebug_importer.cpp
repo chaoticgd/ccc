@@ -543,7 +543,7 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 		for (FunctionHandle handle : functions_with_same_address) {
 			ccc::Function* function = database.functions.symbol_from_handle(handle);
 			if (!function || !group.is_in_group(*function)
-				|| function->mangled_name() != test_function.mangled_name()) {
+				|| function->raw_name() != test_function.raw_name()) {
 				continue;
 			}
 
@@ -588,12 +588,12 @@ static void detect_fake_functions(
 
 		auto external_function = external_functions.find(function.address().value);
 		if (external_function == external_functions.end()
-			|| strcmp(function.mangled_name().c_str(), external_function->second->string) != 0) {
+			|| strcmp(function.raw_name().c_str(), external_function->second->string) != 0) {
 			database.functions.move_symbol(function.handle(), Address());
 
 			if (fake_function_count < 10) {
 				CCC_WARN("Discarding address of function symbol '%s' as it is probably incorrect.",
-					function.mangled_name().c_str());
+					function.raw_name().c_str());
 			} else if (fake_function_count == 10) {
 				CCC_WARN("Discarding more addresses of function symbols.");
 			}

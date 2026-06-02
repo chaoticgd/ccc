@@ -6,6 +6,9 @@
 #include "ccc/importer_flags.h"
 #include "ccc/symbol_database.h"
 
+#define HAVE_DECL_BASENAME 1
+#include "demangle.h"
+
 using namespace ccc;
 
 TEST(CCCSymbolDatabase, SymbolFromHandle)
@@ -142,17 +145,122 @@ TEST(CCCSymbolDatabase, HandlesFromName)
 
 	// Make sure we can look up A, B, and C by their names.
 	auto as = database.data_types.handles_from_name("A");
-	EXPECT_EQ(++as.begin(), as.end());
+	EXPECT_EQ(as.size(), 1);
 
 	auto bs = database.data_types.handles_from_name("B");
-	EXPECT_EQ(++(++bs.begin()), bs.end());
+	EXPECT_EQ(bs.size(), 2);
 
 	auto cs = database.data_types.handles_from_name("C");
-	EXPECT_EQ(++(++(++(cs.begin()))), cs.end());
+	EXPECT_EQ(cs.size(), 3);
 
 	// Make sure we can't look up D anymore.
 	auto ds = database.data_types.handles_from_name("D");
-	EXPECT_EQ(ds.begin(), ds.end());
+	EXPECT_EQ(ds.size(), 0);
+}
+
+TEST(CCCSymbolDatabase, HandlesFromMangledName)
+{
+	DemanglerFunctions demangler;
+	demangler.cplus_demangle = cplus_demangle;
+	demangler.cplus_demangle_opname = cplus_demangle_opname;
+
+	u32 flags = NO_IMPORTER_FLAGS;
+
+	SymbolDatabase database;
+
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+
+	// Create the symbols.
+	Result<Function*> a = database.functions.create_symbol(
+		"A__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(a);
+
+	Result<Function*> b_1 = database.functions.create_symbol(
+		"B__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(b_1);
+
+	Result<Function*> b_2 = database.functions.create_symbol(
+		"B__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(b_2);
+
+	Result<Function*> c_1 = database.functions.create_symbol(
+		"C__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(c_1);
+
+	Result<Function*> c_2 = database.functions.create_symbol(
+		"C__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(c_2);
+
+	Result<Function*> c_3 = database.functions.create_symbol(
+		"C__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(c_3);
+
+	Result<Function*> d = database.functions.create_symbol(
+		"D__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(d);
+
+	// Destroy D.
+	database.functions.mark_symbol_for_destruction((*d)->handle(), &database);
+	database.destroy_marked_symbols();
+
+	// Make sure we can look up A, B, and C by their mangled names.
+	auto as = database.functions.handles_from_mangled_name("A__Fi");
+	EXPECT_EQ(as.size(), 1);
+
+	auto bs = database.functions.handles_from_mangled_name("B__Fi");
+	EXPECT_EQ(bs.size(), 2);
+
+	auto cs = database.functions.handles_from_mangled_name("C__Fi");
+	EXPECT_EQ(cs.size(), 3);
+
+	// Make sure we can't look up D anymore.
+	auto ds = database.functions.handles_from_mangled_name("D__Fi");
+	EXPECT_EQ(ds.size(), 0);
+}
+
+TEST(CCCSymbolDatabase, UnmangledSymbolsNotInMangledNameMap)
+{
+	DemanglerFunctions demangler;
+	demangler.cplus_demangle = cplus_demangle;
+	demangler.cplus_demangle_opname = cplus_demangle_opname;
+
+	u32 flags = NO_IMPORTER_FLAGS;
+
+	SymbolDatabase database;
+
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+
+	Result<Function*> a = database.functions.create_symbol("A", (*source)->handle());
+	CCC_GTEST_FAIL_IF_ERROR(a);
+
+	Result<Function*> b = database.functions.create_symbol(
+		"B", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(b);
+
+	SymbolDatabase other_database;
+
+	Result<SymbolSource*> other_source = other_database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(other_source);
+
+	Result<Function*> c = other_database.functions.create_symbol(
+		"C", (*other_source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(c);
+
+	database.merge_from(other_database);
+
+	auto as = database.functions.handles_from_mangled_name("A");
+	EXPECT_EQ(as.size(), 0);
+
+	auto bs = database.functions.handles_from_mangled_name("B");
+	EXPECT_EQ(bs.size(), 0);
+
+	auto cs = database.functions.handles_from_mangled_name("C");
+	EXPECT_EQ(cs.size(), 0);
+
+	auto empty = database.functions.handles_from_mangled_name("");
+	EXPECT_EQ(empty.size(), 0);
 }
 
 static Result<FunctionHandle> create_function(
