@@ -241,6 +241,95 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_mangled_name(
 }
 
 template <typename SymbolType>
+std::vector<SymbolType*> SymbolList<SymbolType>::symbols_from_raw_name(const std::string& raw_name)
+{
+	std::vector<SymbolType*> symbols;
+	std::set<SymbolHandle<SymbolType>> handles;
+
+	// All mangled names are raw names.
+	std::vector<SymbolHandle<SymbolType>> mangled_name_handles = handles_from_mangled_name(raw_name);
+	for (SymbolHandle<SymbolType> handle : mangled_name_handles) {
+		SymbolType* symbol = symbol_from_handle(handle);
+		CCC_ASSERT(symbol);
+
+		symbols.emplace_back(symbol);
+		handles.emplace(handle);
+	}
+
+	// Regular names are raw names if the symbol has no mangled name.
+	std::vector<SymbolHandle<SymbolType>> name_handles = handles_from_name(raw_name);
+	for (SymbolHandle<SymbolType> handle : name_handles) {
+		if (handles.contains(handle)) {
+			continue;
+		}
+
+		SymbolType* symbol = symbol_from_handle(handle);
+		CCC_ASSERT(symbol);
+
+		if constexpr (SymbolType::FLAGS & MANGLED_NAMES) {
+			if (!symbol->mangled_name().empty()) {
+				continue;
+			}
+		}
+
+		symbols.emplace_back(symbol);
+	}
+
+	return symbols;
+}
+
+template <typename SymbolType>
+std::vector<const SymbolType*> SymbolList<SymbolType>::symbols_from_raw_name(const std::string& raw_name) const
+{
+	std::vector<SymbolType*> symbols = const_cast<SymbolList<SymbolType>*>(this)->symbols_from_raw_name(raw_name);
+
+	// Make a copy of the vector to add the const. Bit silly.
+	std::vector<const SymbolType*> copy;
+	copy.reserve(symbols.size());
+	for (const SymbolType* symbol : symbols) {
+		copy.emplace_back(symbol);
+	}
+
+	return copy;
+}
+
+template <typename SymbolType>
+SymbolType* SymbolList<SymbolType>::first_symbol_from_raw_name(const std::string& raw_name)
+{
+	// All mangled names are raw names.
+	SymbolHandle<SymbolType> mangled_handle = first_handle_from_mangled_name(raw_name);
+	if (mangled_handle.valid()) {
+		SymbolType* symbol = symbol_from_handle(mangled_handle);
+		CCC_ASSERT(symbol);
+
+		return symbol;
+	}
+
+	// Regular names are raw names if the symbol has no mangled name.
+	std::vector<SymbolHandle<SymbolType>> name_handles = handles_from_name(raw_name);
+	for (SymbolHandle<SymbolType> handle : name_handles) {
+		SymbolType* symbol = symbol_from_handle(handle);
+		CCC_ASSERT(symbol);
+
+		if constexpr (SymbolType::FLAGS & MANGLED_NAMES) {
+			if (!symbol->mangled_name().empty()) {
+				continue;
+			}
+		}
+
+		return symbol;
+	}
+
+	return nullptr;
+}
+
+template <typename SymbolType>
+const SymbolType* SymbolList<SymbolType>::first_symbol_from_raw_name(const std::string& raw_name) const
+{
+	return const_cast<SymbolList<SymbolType>*>(this)->first_symbol_from_raw_name(raw_name);
+}
+
+template <typename SymbolType>
 s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
 {
 	if (!handle.valid()) {
@@ -1004,7 +1093,7 @@ const Symbol* SymbolDatabase::symbol_overlapping_address(
 	return nullptr;
 }
 
-const Symbol* SymbolDatabase::symbol_with_name(
+const Symbol* SymbolDatabase::symbol_from_name(
 	const std::string& name, u32 descriptors, SymbolDescriptor* descriptor_out) const
 {
 #define CCC_X(SymbolType, symbol_list)                                                        \
@@ -1019,6 +1108,26 @@ const Symbol* SymbolDatabase::symbol_with_name(
 				return symbol;                                                                \
 			}                                                                                 \
 		}                                                                                     \
+	}
+	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
+#undef CCC_X
+	return nullptr;
+}
+
+const Symbol* SymbolDatabase::symbol_from_raw_name(
+	const std::string& name, u32 descriptors, SymbolDescriptor* descriptor_out) const
+{
+#define CCC_X(SymbolType, symbol_list)                                               \
+	if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) {                            \
+		if (descriptors & SymbolType::DESCRIPTOR) {                                  \
+			const SymbolType* symbol = symbol_list.first_symbol_from_raw_name(name); \
+			if (symbol) {                                                            \
+				if (descriptor_out) {                                                \
+					*descriptor_out = SymbolType::DESCRIPTOR;                        \
+				}                                                                    \
+				return symbol;                                                       \
+			}                                                                        \
+		}                                                                            \
 	}
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X

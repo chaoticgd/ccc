@@ -263,6 +263,46 @@ TEST(CCCSymbolDatabase, UnmangledSymbolsNotInMangledNameMap)
 	EXPECT_EQ(empty.size(), 0);
 }
 
+TEST(CCCSymbolDatabase, SymbolsFromRawName)
+{
+	DemanglerFunctions demangler;
+	demangler.cplus_demangle = cplus_demangle;
+	demangler.cplus_demangle_opname = cplus_demangle_opname;
+
+	u32 flags = NO_IMPORTER_FLAGS;
+
+	SymbolDatabase database;
+
+	Result<SymbolSource*> source = database.symbol_sources.create_symbol("Source", SymbolSourceHandle());
+	CCC_GTEST_FAIL_IF_ERROR(source);
+
+	Result<Function*> a = database.functions.create_symbol(
+		"A", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(a);
+
+	Result<Function*> b_1 = database.functions.create_symbol(
+		"B__Fi", (*source)->handle(), nullptr, Address(), flags, demangler);
+	CCC_GTEST_FAIL_IF_ERROR(b_1);
+
+	auto functions_1 = database.functions.symbols_from_raw_name("A");
+	EXPECT_EQ(functions_1.size(), 1);
+
+	auto functions_2 = database.functions.symbols_from_raw_name("B__Fi");
+	EXPECT_EQ(functions_2.size(), 1);
+
+	auto functions_3 = database.functions.symbols_from_raw_name("B(int)");
+	EXPECT_EQ(functions_3.size(), 0);
+
+	const Function* function_1 = database.functions.first_symbol_from_raw_name("A");
+	EXPECT_TRUE(function_1);
+
+	const Function* function_2 = database.functions.first_symbol_from_raw_name("B__Fi");
+	EXPECT_TRUE(function_2);
+
+	const Function* function_3 = database.functions.first_symbol_from_raw_name("B(int)");
+	EXPECT_FALSE(function_3);
+}
+
 static Result<FunctionHandle> create_function(
 	SymbolDatabase& database, SymbolSourceHandle source, const char* name, Address address, u32 size)
 {
