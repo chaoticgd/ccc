@@ -138,6 +138,12 @@ public:
 	std::vector<SymbolHandle<SymbolType>> handles_from_mangled_name(const std::string& mangled_name) const;
 	SymbolHandle<SymbolType> first_handle_from_mangled_name(const std::string& mangled_name) const;
 
+	// Lookup symbols by their raw name, mangled or not.
+	std::vector<SymbolType*> symbols_from_raw_name(const std::string& raw_name);
+	std::vector<const SymbolType*> symbols_from_raw_name(const std::string& raw_name) const;
+	SymbolType* first_symbol_from_raw_name(const std::string& raw_name);
+	const SymbolType* first_symbol_from_raw_name(const std::string& raw_name) const;
+
 	// Convert handles to underlying array indices.
 	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
 
@@ -667,7 +673,13 @@ public:
 	// Find a symbol of any of the specified types given its name. Symbols of
 	// the types specified higher up in the CCC_FOR_EACH_SYMBOL_TYPE_DO_X macro
 	// are checked for first.
-	const Symbol* symbol_with_name(
+	const Symbol* symbol_from_name(
+		const std::string& name, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
+
+	// Find a symbol of any of the specified types given its raw name.
+	// Symbols of the types specified higher up in the
+	// CCC_FOR_EACH_SYMBOL_TYPE_DO_X macro are checked for first.
+	const Symbol* symbol_from_raw_name(
 		const std::string& name, u32 descriptors = ALL_SYMBOL_TYPES, SymbolDescriptor* descriptor_out = nullptr) const;
 
 	// Finds a symbol source object with the given name or creates one if it
