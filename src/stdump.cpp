@@ -61,30 +61,103 @@ struct StdumpCommand
 };
 
 static const StdumpCommand commands[] = {
-	{identify_symbol_tables, "identify",
-		{"Identify the symbol table(s) present in the input file(s). If the input path",
-			"is a directory, it will be walked recursively."}},
-	{print_functions, "functions", {"Print all the functions defined in the input symbol table(s) as C++."}},
-	{print_globals, "globals", {"Print all the global variables defined in the input symbol table(s) as C++."}},
-	{print_types, "types", {"Print all the types defined in the input symbol table(s) as C++."}},
-	{print_type_graph, "type_graph", {"Print a dependency graph of all the types as a graphviz DOT file."}},
-	{print_labels, "labels",
-		{"Print all the labels defined in the input symbol table(s). Note that this",
-			"may include other symbols where their type is not recoverable."}},
-	{print_json, "json",
-		{"Print all of the above as JSON.", "",
-			"--compact                     Omit whitespace and newlines from the output."}},
-	{print_symbols, "symbols",
-		{"Print the raw symbols in the input symbol table(s). If no additional options",
+	{
+		identify_symbol_tables,
+		"identify",
+		{
+			"Identify the symbol table(s) present in the input file(s). If the input path",
+			"is a directory, it will be walked recursively.",
+		},
+	},
+	{
+		print_functions,
+		"functions",
+		{
+			"Print all the functions defined in the input symbol table(s) as C++.",
+		},
+	},
+	{
+		print_globals,
+		"globals",
+		{
+			"Print all the global variables defined in the input symbol table(s) as C++.",
+		},
+	},
+	{
+		print_types,
+		"types",
+		{
+			"Print all the types defined in the input symbol table(s) as C++.",
+		},
+	},
+	{
+		print_type_graph,
+		"type_graph",
+		{
+			"Print a dependency graph of all the types as a graphviz DOT file.",
+		},
+	},
+	{
+		print_labels,
+		"labels",
+		{
+			"Print all the labels defined in the input symbol table(s). Note that this",
+			"may include other symbols where their type is not recoverable.",
+		},
+	},
+	{
+		print_json,
+		"json",
+		{
+			"Print all of the above as JSON.",
+			"",
+			"--compact                     Omit whitespace and newlines from the output.",
+		},
+	},
+	{
+		print_symbols,
+		"symbols",
+		{
+			"Print the raw symbols in the input symbol table(s). If no additional options",
 			"are passed, the default behaviour is to print the local and external .mdebug",
-			"symbols, but not the procedure descriptors.", "",
-			"--locals                      Print local .mdebug symbols.", "",
-			"--procedures                  Print .mdebug procedure descriptors.", "",
-			"--externals                   Print external .mdebug symbols."}},
-	{print_headers, "headers", {"Print the contents of the .mdebug header."}},
-	{print_files, "files", {"Print a list of all the source files."}},
-	{print_includes, "includes", {"Print a list of the include paths stored with .mdebug inlining information."}},
-	{print_sections, "sections", {"List the names of the source files associated with each ELF section."}}};
+			"symbols, but not the procedure descriptors.",
+			"",
+			"--locals                      Print local .mdebug symbols.",
+			"",
+			"--procedures                  Print .mdebug procedure descriptors.",
+			"",
+			"--externals                   Print external .mdebug symbols.",
+		},
+	},
+	{
+		print_headers,
+		"headers",
+		{
+			"Print the contents of the .mdebug header.",
+		},
+	},
+	{
+		print_files,
+		"files",
+		{
+			"Print a list of all the source files.",
+		},
+	},
+	{
+		print_includes,
+		"includes",
+		{
+			"Print a list of the include paths stored with .mdebug inlining information.",
+		},
+	},
+	{
+		print_sections,
+		"sections",
+		{
+			"List the names of the source files associated with each ELF section.",
+		},
+	},
+};
 
 int main(int argc, char** argv)
 {

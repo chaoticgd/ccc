@@ -3,17 +3,17 @@
 
 #pragma once
 
-#include <set>
-#include <span>
-#include <cstdio>
-#include <vector>
-#include <memory>
-#include <string>
-#include <cstdint>
 #include <cstdarg>
+#include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <optional>
+#include <set>
+#include <span>
+#include <string>
+#include <vector>
 
 namespace ccc {
 

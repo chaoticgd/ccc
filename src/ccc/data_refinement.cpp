@@ -3,9 +3,10 @@
 
 #include "data_refinement.h"
 
-#include <cinttypes>
-
 #include "ast.h"
+#include "int128.h"
+
+#include <cinttypes>
 
 namespace ccc {
 

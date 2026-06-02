@@ -35,9 +35,9 @@ Result<void> LocalSymbolTableAnalyser::data_type(const ParsedSymbol& symbol)
 	}
 
 	bool is_struct = (*node)->descriptor == ast::STRUCT_OR_UNION && (*node)->as<ast::StructOrUnion>().is_struct;
-	bool force_typedef = ((m_context.importer_flags & TYPEDEF_ALL_ENUMS) && (*node)->descriptor == ast::ENUM)
-		|| ((m_context.importer_flags & TYPEDEF_ALL_STRUCTS) && (*node)->descriptor == ast::STRUCT_OR_UNION
-			&& is_struct)
+	bool force_typedef =
+		((m_context.importer_flags & TYPEDEF_ALL_ENUMS) && (*node)->descriptor == ast::ENUM)
+		|| ((m_context.importer_flags & TYPEDEF_ALL_STRUCTS) && (*node)->descriptor == ast::STRUCT_OR_UNION && is_struct)
 		|| ((m_context.importer_flags & TYPEDEF_ALL_UNIONS) && (*node)->descriptor == ast::STRUCT_OR_UNION
 			&& !is_struct);
 

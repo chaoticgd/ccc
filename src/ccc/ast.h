@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "int128.h"
 #include "symbol_database.h"
 
 namespace ccc::ast {

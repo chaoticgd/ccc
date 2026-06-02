@@ -102,7 +102,8 @@ Result<void> import_symbols(SymbolDatabase& database,
 				// and aren't extremely useful, so we want to mark them to
 				// prevent them from possibly being used as function names.
 				(*label)->is_junk = (*label)->name() == "__gnu_compiled_c"
-					|| (*label)->name() == "__gnu_compiled_cplusplus" || (*label)->name() == "gcc2_compiled.";
+					|| (*label)->name() == "__gnu_compiled_cplusplus"
+					|| (*label)->name() == "gcc2_compiled.";
 
 				break;
 			}

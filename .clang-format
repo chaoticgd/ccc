@@ -35,7 +35,7 @@ BreakBeforeBraces: Custom
 BreakBeforeTernaryOperators: false
 BreakConstructorInitializers: BeforeComma
 BreakTemplateDeclarations: Yes
-ColumnLimit: 120
+ColumnLimit: 0
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth: 4
 ContinuationIndentWidth: 4
@@ -48,13 +48,8 @@ IndentCaseLabels: true
 IndentWidth: 4
 IndentWrappedFunctionNames: false
 KeepEmptyLinesAtTheStartOfBlocks: true
-MacroBlockBegin: ""
-MacroBlockEnd: ""
-MaxEmptyLinesToKeep: 3
+MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
-ObjCBlockIndentWidth: 2
-ObjCSpaceAfterProperty: false
-ObjCSpaceBeforeProtocolList: true
 PenaltyBreakAssignment: 500
 PointerAlignment: Left
 ReflowComments: false

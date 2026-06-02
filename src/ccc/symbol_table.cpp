@@ -3,10 +3,10 @@
 
 #include "symbol_table.h"
 
-#include "elf.h"
-#include "elf_symtab.h"
 #include "dwarf_importer.h"
 #include "dwarf_printer.h"
+#include "elf.h"
+#include "elf_symtab.h"
 #include "mdebug_importer.h"
 #include "mdebug_section.h"
 #include "sndll.h"

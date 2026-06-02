@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <atomic>
-
 #include "symbol_database.h"
+
+#include <atomic>
 
 namespace ccc {
 
