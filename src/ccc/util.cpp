@@ -112,14 +112,15 @@ std::string normalise_path(const char* input, bool use_backslashes_as_path_separ
 	}
 
 	// Remove "." and ".." parts.
-	for (s32 i = 0; i < (s32) parts.size(); i++) {
+	for (size_t i = 0; i < parts.size();) {
 		if (parts[i] == ".") {
 			parts.erase(parts.begin() + i);
-			i--;
 		} else if (parts[i] == ".." && i > 0 && parts[i - 1] != "..") {
 			parts.erase(parts.begin() + i);
 			parts.erase(parts.begin() + i - 1);
-			i -= 2;
+			i--;
+		} else {
+			i++;
 		}
 	}
 

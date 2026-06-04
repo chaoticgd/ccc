@@ -313,7 +313,6 @@ Result<void> LocalSymbolTableAnalyser::create_function(const char* mangled_name,
 	Result<Function*> function = m_database.functions.create_symbol(mangled_name, m_context.group.source,
 		m_context.group.module_symbol, address, m_context.importer_flags, m_context.demangler);
 	CCC_RETURN_IF_ERROR(function);
-	CCC_ASSERT(*function);
 	m_current_function = *function;
 
 	m_functions.emplace_back(m_current_function->handle());
