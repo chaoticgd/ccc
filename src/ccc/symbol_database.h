@@ -326,7 +326,7 @@ struct GlobalStorage
 struct RegisterStorage
 {
 	s32 dbx_register_number = -1;
-	bool is_by_reference;
+	bool is_by_reference = false;
 
 	RegisterStorage() {}
 	friend auto operator<=>(const RegisterStorage& lhs, const RegisterStorage& rhs) = default;
