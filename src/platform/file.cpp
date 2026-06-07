@@ -14,13 +14,16 @@ Result<std::vector<ccc::u8>> read_binary_file(const fs::path& path)
 {
 	std::ifstream file(path, std::ios::binary);
 	CCC_CHECK(file, "Failed to open file '%s' (%s).", path.string().c_str(), strerror(errno));
-	CCC_CHECK(fs::is_regular_file(path), "Failed to open '%s' (not a regular file).", path.string().c_str());
+
 	file.seekg(0, std::ios::end);
 	s64 size = file.tellg();
-	file.seekg(0, std::ios::beg);
+	CCC_CHECK(size >= 0, "Failed to determine size of file '%s'.", path.string().c_str());
+
 	std::vector<u8> output(size);
+	file.seekg(0, std::ios::beg);
 	file.read((char*) output.data(), size);
-	CCC_CHECK(file, "Failed to read from file '%s' (%s).", path.string().c_str(), strerror(errno));
+	CCC_CHECK(file.good(), "Failed to read from file '%s' (%s).", path.string().c_str(), strerror(errno));
+
 	return output;
 }
 
