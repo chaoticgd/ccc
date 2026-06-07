@@ -247,16 +247,14 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 						stack_storage_comment(*storage, symbol.stack_frame_size);
 					}
 
+					VariableName local_name;
+					local_name.identifier = &variable->name();
 					if (variable->type()) {
-						VariableName local_name;
-						local_name.identifier = &variable->name();
-						if (variable->type()) {
-							ast_node(*variable->type(), local_name, 0, 1, database, SymbolDescriptor::LOCAL_VARIABLE);
-						} else {
-							print_cpp_variable_name(out, local_name, NO_VAR_PRINT_FLAGS);
-						}
+						ast_node(*variable->type(), local_name, 0, 1, database, SymbolDescriptor::LOCAL_VARIABLE);
 					} else {
+						print_cpp_variable_name(out, local_name, NO_VAR_PRINT_FLAGS);
 					}
+
 					if (elf) {
 						VariableToRefine to_refine;
 						to_refine.address = variable->address();
