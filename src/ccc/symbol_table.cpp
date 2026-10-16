@@ -3,8 +3,6 @@
 
 #include "symbol_table.h"
 
-#include "dwarf_importer.h"
-#include "dwarf_printer.h"
 #include "elf.h"
 #include "elf_symtab.h"
 #include "mdebug_importer.h"
@@ -15,7 +13,6 @@ namespace ccc {
 
 const std::vector<SymbolTableFormatInfo> SYMBOL_TABLE_FORMATS = {
 	{MDEBUG, "mdebug", ".mdebug"},
-	{DWARF, "dwarf", ".debug"},
 	{SYMTAB, "symtab", ".symtab"},
 	{SNDLL, "sndll", ".sndata"},
 };
@@ -59,23 +56,6 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	switch (format) {
 		case MDEBUG: {
 			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.header.offset);
-			break;
-		}
-		case DWARF: {
-			const ElfSection* debug_section = elf.lookup_section(".debug");
-			CCC_CHECK(debug_section, "No .debug section.");
-
-			const ElfSection* line_section = elf.lookup_section(".line");
-			CCC_CHECK(line_section, "No .line section.");
-
-			Result<std::span<const u8>> debug = elf.section_contents(*debug_section);
-			CCC_RETURN_IF_ERROR(debug);
-
-			Result<std::span<const u8>> line = elf.section_contents(*line_section);
-			CCC_RETURN_IF_ERROR(line);
-
-			symbol_table = std::make_unique<DwarfSymbolTable>(*debug, *line);
-
 			break;
 		}
 		case SYMTAB: {
@@ -205,46 +185,6 @@ Result<void> MdebugSymbolTable::print_symbols(FILE* out, u32 flags) const
 	CCC_RETURN_IF_ERROR(print_result);
 
 	return Result<void>();
-}
-
-// *****************************************************************************
-
-DwarfSymbolTable::DwarfSymbolTable(std::span<const u8> debug, std::span<const u8> line)
-	: m_debug(debug)
-	, m_line(line)
-{
-}
-
-const char* DwarfSymbolTable::name() const
-{
-	return "DWARF Symbol Table";
-}
-
-Result<void> DwarfSymbolTable::import(SymbolDatabase& database,
-	const SymbolGroup& group,
-	u32 importer_flags,
-	const DemanglerFunctions& demangler,
-	const std::atomic_bool* interrupt) const
-{
-	dwarf::SectionReader reader(m_debug, m_line, importer_flags);
-	dwarf::SymbolTableImporter importer(database, reader, importer_flags, demangler, interrupt);
-	return importer.import_symbol_table(group);
-}
-
-Result<void> DwarfSymbolTable::print_headers(FILE* out) const
-{
-	return Result<void>();
-}
-
-Result<void> DwarfSymbolTable::print_symbols(FILE* out, u32 flags) const
-{
-	dwarf::SectionReader reader(m_debug, m_line, NO_IMPORTER_FLAGS);
-	dwarf::SymbolPrinter printer(reader);
-
-	Result<dwarf::DIE> first_die = reader.first_die();
-	CCC_RETURN_IF_ERROR(first_die);
-
-	return printer.print_dies(out, std::move(*first_die), 0);
 }
 
 // *****************************************************************************
