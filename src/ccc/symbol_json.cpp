@@ -11,7 +11,8 @@ namespace ccc {
 const u32 JSON_FORMAT_VERSION = 15;
 
 template <typename Writer, typename SymbolType>
-static void write_symbol_list(Writer& json,
+static void write_symbol_list(
+	Writer& json,
 	const SymbolList<SymbolType>& list,
 	const SymbolDatabase& database,
 	const std::set<SymbolSourceHandle>* sources);
@@ -44,7 +45,8 @@ template <typename Writer>
 static void write_json(Writer& json, const SymbolSource& symbol, const SymbolDatabase& database);
 
 template <typename Writer>
-void write_json(Writer& json,
+void write_json(
+	Writer& json,
 	const SymbolDatabase& database,
 	const char* application_name,
 	const std::set<SymbolSourceHandle>* sources)
@@ -83,7 +85,8 @@ template void write_json<rapidjson::PrettyWriter<rapidjson::StringBuffer>>(
 	const std::set<SymbolSourceHandle>* sources);
 
 template <typename Writer, typename SymbolType>
-static void write_symbol_list(Writer& json,
+static void write_symbol_list(
+	Writer& json,
 	const SymbolList<SymbolType>& list,
 	const SymbolDatabase& database,
 	const std::set<SymbolSourceHandle>* sources)

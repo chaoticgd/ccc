@@ -20,19 +20,22 @@ struct MemberFunctionInfo
 
 static bool is_void_like(const StabsType& type);
 static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type);
-static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field,
+static Result<std::unique_ptr<ast::Node>> field_to_ast(
+	const StabsStructOrUnionType::Field& field,
 	const StabsType& enclosing_struct,
 	const StabsToAstState& state,
 	s32 depth);
 static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, const StabsToAstState& state);
 static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	const StabsStructOrUnionType& type, const StabsToAstState& state, s32 depth);
-static MemberFunctionInfo check_member_function(const std::string& mangled_name,
+static MemberFunctionInfo check_member_function(
+	const std::string& mangled_name,
 	std::string_view type_name_no_template_args,
 	const DemanglerFunctions& demangler,
 	u32 importer_flags);
 
-Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type,
+Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
+	const StabsType& type,
 	const StabsType* enclosing_struct,
 	const StabsToAstState& state,
 	s32 depth,
@@ -464,7 +467,8 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
 	return CCC_FAILURE("Failed to classify range.");
 }
 
-static Result<std::unique_ptr<ast::Node>> field_to_ast(const StabsStructOrUnionType::Field& field,
+static Result<std::unique_ptr<ast::Node>> field_to_ast(
+	const StabsStructOrUnionType::Field& field,
 	const StabsType& enclosing_struct,
 	const StabsToAstState& state,
 	s32 depth)
@@ -637,7 +641,8 @@ static Result<std::vector<std::unique_ptr<ast::Node>>> member_functions_to_ast(
 	return member_functions;
 }
 
-static MemberFunctionInfo check_member_function(const std::string& mangled_name,
+static MemberFunctionInfo check_member_function(
+	const std::string& mangled_name,
 	std::string_view type_name_no_template_args,
 	const DemanglerFunctions& demangler,
 	u32 importer_flags)
@@ -657,20 +662,18 @@ static MemberFunctionInfo check_member_function(const std::string& mangled_name,
 		info.name = mangled_name;
 	}
 
-	bool is_constructor = info.name == "__ct"
-		|| // Takes a parameter to decide whether or not to construct virtual base classes.
-		info.name == "__comp_ctor" || // Constructs virtual base classes.
-		info.name == "__base_ctor"; // Does not construct virtual base classes.
+	bool is_constructor = info.name == "__ct" // Takes a parameter to decide whether or not to construct virtual base classes.
+		|| info.name == "__comp_ctor" // Constructs virtual base classes.
+		|| info.name == "__base_ctor"; // Does not construct virtual base classes.
 
 	if (!is_constructor && !type_name_no_template_args.empty()) {
 		is_constructor |= info.name == type_name_no_template_args; // Named constructor.
 	}
 
-	bool is_destructor = info.name == "__dt"
-		|| // Takes parameters to decide whether or not to construct virtual base classes and/or delete the object.
-		info.name == "__comp_dtor" || // Destructs virtual base classes.
-		info.name == "__base_dtor" || // Does not construct virtual base classes.
-		info.name == "__deleting_dtor"; // Destructs virtual base clases then deletes the entire object.
+	bool is_destructor = info.name == "__dt" // Takes parameters to decide whether or not to construct virtual base classes and/or delete the object.
+		|| info.name == "__comp_dtor" // Destructs virtual base classes.
+		|| info.name == "__base_dtor" // Does not construct virtual base classes.
+		|| info.name == "__deleting_dtor"; // Destructs virtual base clases then deletes the entire object.
 
 	if (!is_destructor && !info.name.empty()) {
 		is_destructor |= info.name[0] == '~'

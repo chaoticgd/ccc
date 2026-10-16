@@ -58,6 +58,9 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.header.offset);
 			break;
 		}
+		case DWARF: {
+			return CCC_FAILURE("DWARF not currently supported.");
+		}
 		case SYMTAB: {
 			std::optional<std::span<const u8>> data = get_subspan(
 				std::span(elf.image), section.header.offset, section.header.size);

@@ -54,7 +54,8 @@ static const char* symbol_bind_to_string(SymbolBind bind);
 static const char* symbol_type_to_string(SymbolType type);
 static const char* symbol_visibility_to_string(SymbolVisibility visibility);
 
-Result<void> import_symbols(SymbolDatabase& database,
+Result<void> import_symbols(
+	SymbolDatabase& database,
 	const SymbolGroup& group,
 	std::span<const u8> symtab,
 	std::span<const u8> strtab,

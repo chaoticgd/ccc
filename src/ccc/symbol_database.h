@@ -168,7 +168,8 @@ public:
 
 	// Create a new symbol. Similar to above, but unless DONT_DEMANGLE_NAMES is
 	// set, the name of the symbol will be demangled.
-	Result<SymbolType*> create_symbol(std::string name,
+	Result<SymbolType*> create_symbol(
+		std::string name,
 		SymbolSourceHandle source,
 		const Module* module_symbol,
 		Address address,

@@ -263,7 +263,8 @@ struct StructOrUnion : Node
 	// Generate a flat list of all the fields in this class as well as all the
 	// base classes recursively, but only until the max_fields or max_depth
 	// limits are reached. Return true if all the fields were enumerated.
-	bool flatten_fields(std::vector<FlatField>& output,
+	bool flatten_fields(
+		std::vector<FlatField>& output,
 		const DataType* symbol,
 		const SymbolDatabase& database,
 		bool skip_statics,

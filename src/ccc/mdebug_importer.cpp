@@ -14,7 +14,8 @@ static void detect_fake_functions(
 	SymbolDatabase& database, const std::map<u32, const mdebug::Symbol*>& external_functions, const SymbolGroup& group);
 static void destroy_optimized_out_functions(SymbolDatabase& database, const SymbolGroup& group);
 
-Result<void> import_symbol_table(SymbolDatabase& database,
+Result<void> import_symbol_table(
+	SymbolDatabase& database,
 	std::span<const u8> elf,
 	s32 section_offset,
 	const SymbolGroup& group,
