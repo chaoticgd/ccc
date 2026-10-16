@@ -7,7 +7,8 @@
 
 namespace ccc::elf {
 
-Result<void> import_symbols(SymbolDatabase& database,
+Result<void> import_symbols(
+	SymbolDatabase& database,
 	const SymbolGroup& group,
 	std::span<const u8> symtab,
 	std::span<const u8> strtab,

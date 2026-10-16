@@ -67,7 +67,8 @@ const char* member_function_modifier_to_string(MemberFunctionModifier modifier)
 	return "";
 }
 
-bool StructOrUnion::flatten_fields(std::vector<FlatField>& output,
+bool StructOrUnion::flatten_fields(
+	std::vector<FlatField>& output,
 	const DataType* symbol,
 	const SymbolDatabase& database,
 	bool skip_statics,
