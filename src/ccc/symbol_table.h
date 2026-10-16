@@ -103,27 +103,6 @@ private:
 	s32 m_section_offset;
 };
 
-class DwarfSymbolTable : public SymbolTable
-{
-public:
-	DwarfSymbolTable(std::span<const u8> debug, std::span<const u8> line);
-
-	const char* name() const override;
-
-	Result<void> import(SymbolDatabase& database,
-		const SymbolGroup& group,
-		u32 importer_flags,
-		const DemanglerFunctions& demangler,
-		const std::atomic_bool* interrupt) const override;
-
-	Result<void> print_headers(FILE* out) const override;
-	Result<void> print_symbols(FILE* out, u32 flags) const override;
-
-private:
-	std::span<const u8> m_debug;
-	std::span<const u8> m_line;
-};
-
 class SymtabSymbolTable : public SymbolTable
 {
 public:
