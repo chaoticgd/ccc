@@ -91,14 +91,6 @@ add_library(ccc STATIC
 )
 target_link_libraries(ccc rapidjson)
 
-add_library(ccc_mips STATIC
-	src/mips/insn.cpp
-	src/mips/insn.h
-	src/mips/opcodes.h
-	src/mips/tables.cpp
-	src/mips/tables.h
-)
-
 add_library(ccc_platform STATIC
 	src/platform/file.cpp
 	src/platform/file.h
@@ -118,9 +110,6 @@ set(TEST_SOURCES
 
 add_executable(demangle src/demangle.cpp)
 target_link_libraries(demangle ccc demanglegnu ccc_versioninfo)
-
-add_executable(objdump src/objdump.cpp)
-target_link_libraries(objdump ccc ccc_mips ccc_platform ccc_versioninfo)
 
 add_executable(stdump src/stdump.cpp)
 target_link_libraries(stdump ccc ccc_platform ccc_versioninfo demanglegnu)
@@ -146,7 +135,6 @@ endif()
 
 if(WIN32)
 	target_sources(demangle PUBLIC src/ccc.manifest)
-	target_sources(objdump PUBLIC src/ccc.manifest)
 	target_sources(stdump PUBLIC src/ccc.manifest)
 	target_sources(uncc PUBLIC src/ccc.manifest)
 	target_sources(tests PUBLIC src/ccc.manifest)
@@ -163,7 +151,6 @@ add_subdirectory(thirdparty/rapidjson EXCLUDE_FROM_ALL)
 # All the files to be included in a release.
 set(RELEASE_CONTENTS
 	$<TARGET_FILE:demangle>
-	$<TARGET_FILE:objdump>
 	$<TARGET_FILE:stdump>
 	$<TARGET_FILE:uncc>
 	"${CMAKE_SOURCE_DIR}/ghidra_scripts/CCCDecompileAllFunctions.java"

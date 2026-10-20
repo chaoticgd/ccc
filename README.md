@@ -11,10 +11,6 @@ A library and set of command line tools for parsing debugging symbols from PS2 g
 
 C++ symbol demangler with support for both the new Itanium C++ ABI (GCC 3+) mangling scheme and the old GCC 2 scheme.
 
-### objdump
-
-Half-working EE core MIPS disassembler. Probably not too interesting.
-
 ### stdump
 
 Symbol table parser and dumper. It can extract the following information:

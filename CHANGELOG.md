@@ -2,12 +2,12 @@
 
 ## v2.2
 
-- **Added support for DWARF 1 symbol tables.**
 - Improved support for bitfields.
 - Improved support for 128-bit types.
 - Added support for parsing `.gnu.linkonce.*` section names.
 - Added support for parsing `-fdata-sections` and `-ffunction-sections` section names.
 - Mac builds compiled for x64 processors are now provided in addition to the arm64 builds.
+- Removed "objdump" tool (which wasn't very useful).
 - demangle: A newline is now printed at the end of the output.
 - stdump: The `functions` and `globals` subcommands now output a header comment like the `types` command.
 - stdump: Added `--compact` option to omit whitespace and newlines from JSON output.
