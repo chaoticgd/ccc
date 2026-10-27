@@ -163,6 +163,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			CCC_RETURN_IF_ERROR(element_node);
 			array->element_type = std::move(*element_node);
 
+			CCC_CHECK(stabs_array.index_type->descriptor == StabsRangeType::DESCRIPTOR, "Array has invalid range.");
 			const StabsRangeType& index = stabs_array.index_type->as<StabsRangeType>();
 
 			char* end = nullptr;
