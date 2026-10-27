@@ -10,7 +10,8 @@ namespace ccc::dwarf {
 static Result<std::map<u32, u32>> parse_overlays(SymbolDatabase& database, const DIE& first_die);
 static std::string get_name(const Value& name, const Value& mangled_name);
 
-SymbolTableImporter::SymbolTableImporter(SymbolDatabase& database,
+SymbolTableImporter::SymbolTableImporter(
+	SymbolDatabase& database,
 	const SectionReader& dwarf,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
