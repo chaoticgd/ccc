@@ -27,13 +27,15 @@ static std::span<char> eat_line(std::span<char>& input);
 static std::string eat_identifier(std::string_view& input);
 static void skip_whitespace(std::string_view& input);
 static bool should_overwrite_file(const fs::path& path);
-static void write_c_cpp_file(const fs::path& path,
+static void write_c_cpp_file(
+	const fs::path& path,
 	const fs::path& header_path,
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files,
 	const FunctionsFile& functions_file,
 	const ElfFile& elf);
-static void write_h_file(const fs::path& path,
+static void write_h_file(
+	const fs::path& path,
 	std::string relative_path,
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files);
@@ -230,7 +232,8 @@ static bool should_overwrite_file(const fs::path& path)
 	return !file || file->empty() || file->starts_with("// STATUS: NOT STARTED");
 }
 
-static void write_c_cpp_file(const fs::path& path,
+static void write_c_cpp_file(
+	const fs::path& path,
 	const fs::path& header_path,
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files,
@@ -289,7 +292,8 @@ static void write_c_cpp_file(const fs::path& path,
 	fclose(out);
 }
 
-static void write_h_file(const fs::path& path,
+static void write_h_file(
+	const fs::path& path,
 	std::string relative_path,
 	const SymbolDatabase& database,
 	const std::vector<SourceFileHandle>& files)

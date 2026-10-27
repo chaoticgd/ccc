@@ -49,7 +49,8 @@ public:
 	virtual const char* name() const = 0;
 
 	// Imports this symbol table into the passed database.
-	virtual Result<void> import(SymbolDatabase& database,
+	virtual Result<void> import(
+		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
@@ -74,7 +75,8 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 
 // Utility function to call import_symbol_table on all the passed symbol tables
 // and to generate a module handle.
-Result<ModuleHandle> import_symbol_tables(SymbolDatabase& database,
+Result<ModuleHandle> import_symbol_tables(
+	SymbolDatabase& database,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	std::string module_name,
 	Address base_address,
@@ -89,7 +91,8 @@ public:
 
 	const char* name() const override;
 
-	Result<void> import(SymbolDatabase& database,
+	Result<void> import(
+		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
@@ -110,7 +113,8 @@ public:
 
 	const char* name() const override;
 
-	Result<void> import(SymbolDatabase& database,
+	Result<void> import(
+		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
@@ -133,7 +137,8 @@ public:
 
 	const char* name() const override;
 
-	Result<void> import(SymbolDatabase& database,
+	Result<void> import(
+		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,
@@ -153,7 +158,8 @@ public:
 
 	const char* name() const override;
 
-	Result<void> import(SymbolDatabase& database,
+	Result<void> import(
+		SymbolDatabase& database,
 		const SymbolGroup& group,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,

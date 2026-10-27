@@ -686,7 +686,8 @@ static MemberFunctionInfo check_member_function(
 	return info;
 }
 
-void fix_recursively_emitted_structures(ast::StructOrUnion& outer_struct,
+void fix_recursively_emitted_structures(
+	ast::StructOrUnion& outer_struct,
 	const std::string& name,
 	StabsTypeNumber type_number,
 	SourceFileHandle file_handle)

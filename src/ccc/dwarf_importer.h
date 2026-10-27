@@ -11,7 +11,8 @@ namespace ccc::dwarf {
 class SymbolTableImporter
 {
 public:
-	SymbolTableImporter(SymbolDatabase& database,
+	SymbolTableImporter(
+		SymbolDatabase& database,
 		const SectionReader& dwarf,
 		u32 importer_flags,
 		const DemanglerFunctions& demangler,

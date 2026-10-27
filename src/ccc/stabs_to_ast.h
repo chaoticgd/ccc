@@ -17,13 +17,15 @@ struct StabsToAstState
 	DemanglerFunctions demangler;
 };
 
-Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(const StabsType& type,
+Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
+	const StabsType& type,
 	const StabsType* enclosing_struct,
 	const StabsToAstState& state,
 	s32 depth,
 	bool substitute_type_name,
 	bool force_substitute);
-void fix_recursively_emitted_structures(ast::StructOrUnion& outer_struct,
+void fix_recursively_emitted_structures(
+	ast::StructOrUnion& outer_struct,
 	const std::string& name,
 	StabsTypeNumber type_number,
 	SourceFileHandle file_handle);

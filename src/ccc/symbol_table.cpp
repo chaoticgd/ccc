@@ -101,7 +101,8 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	return symbol_table;
 }
 
-Result<ModuleHandle> import_symbol_tables(SymbolDatabase& database,
+Result<ModuleHandle> import_symbol_tables(
+	SymbolDatabase& database,
 	const std::vector<std::unique_ptr<SymbolTable>>& symbol_tables,
 	std::string module_name,
 	Address base_address,
@@ -155,7 +156,8 @@ const char* MdebugSymbolTable::name() const
 	return "MIPS Debug Symbol Table";
 }
 
-Result<void> MdebugSymbolTable::import(SymbolDatabase& database,
+Result<void> MdebugSymbolTable::import(
+	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -203,7 +205,8 @@ const char* SymtabSymbolTable::name() const
 	return "ELF Symbol Table";
 }
 
-Result<void> SymtabSymbolTable::import(SymbolDatabase& database,
+Result<void> SymtabSymbolTable::import(
+	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -237,7 +240,8 @@ const char* SNDLLSymbolTable::name() const
 	return "SNDLL Symbol Table";
 }
 
-Result<void> SNDLLSymbolTable::import(SymbolDatabase& database,
+Result<void> SNDLLSymbolTable::import(
+	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -270,7 +274,8 @@ const char* ElfSectionHeadersSymbolTable::name() const
 	return "ELF Section Headers";
 }
 
-Result<void> ElfSectionHeadersSymbolTable::import(SymbolDatabase& database,
+Result<void> ElfSectionHeadersSymbolTable::import(
+	SymbolDatabase& database,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
