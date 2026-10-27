@@ -17,11 +17,17 @@ struct StabsToAstState
 	DemanglerFunctions demangler;
 };
 
+struct StabsToAstCallStatistics
+{
+	s32 call_depth;
+	s32* call_count;
+};
+
 Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	const StabsType& type,
 	const StabsType* enclosing_struct,
 	const StabsToAstState& state,
-	s32 depth,
+	StabsToAstCallStatistics stats,
 	bool substitute_type_name,
 	bool force_substitute);
 void fix_recursively_emitted_structures(
