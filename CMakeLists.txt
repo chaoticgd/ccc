@@ -144,6 +144,7 @@ add_subdirectory(thirdparty/getopt EXCLUDE_FROM_ALL)
 add_subdirectory(thirdparty/demanglegnu)
 
 set(gtest_force_shared_crt on)
+set(GOOGLETEST_VERSION 1.18.0)
 add_subdirectory(thirdparty/googletest EXCLUDE_FROM_ALL)
 
 add_subdirectory(thirdparty/rapidjson EXCLUDE_FROM_ALL)
