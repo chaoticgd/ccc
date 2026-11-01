@@ -14,6 +14,21 @@ incorrect by a constant amount.
 In CCC this is handled by the `get_corruption_fixing_fudge_offset` function in
 `mdebug_section.cpp`.
 
+## Ambiguous Built-in Types
+
+Sometimes built-in types will be ambiguously defined. For example:
+
+```
+unsigned int:t4=r4;0;-1;
+long unsigned int:t5=r5;0;-1;
+```
+
+In these cases, the upper bound appears to have been written out incorrectly.
+I'm unaware of an elegant way to fix this.
+
+An affected game:
+- Resident Evil - Code: Veronica X (TSNDDRV.IRX)
+
 ## Array Bounds Wrapping
 
 The upper bound stored in the STABS type for arrays is one less than the number

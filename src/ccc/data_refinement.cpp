@@ -246,6 +246,7 @@ static Result<RefinedData> refine_builtin(
 {
 	u128 value;
 	switch (bclass) {
+		case ast::BuiltInClass::INVALID:
 		case ast::BuiltInClass::VOID_TYPE: {
 			break;
 		}
@@ -339,7 +340,12 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 	std::string result;
 
 	switch (bclass) {
+		case ast::BuiltInClass::INVALID: {
+			result = "CCC_ERROR(\"Invalid built-in type.\")";
+			break;
+		}
 		case ast::BuiltInClass::VOID_TYPE: {
+			result = "CCC_ERROR(\"Unexpected void type.\")";
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_8:
