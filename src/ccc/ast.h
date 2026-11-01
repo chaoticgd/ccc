@@ -115,6 +115,7 @@ struct Array : Node
 
 enum class BuiltInClass
 {
+	INVALID,
 	VOID_TYPE,
 	UNSIGNED_8,
 	SIGNED_8,

@@ -443,7 +443,6 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
 			ast::BuiltInClass::SIGNED_128},
 		{"000000000000000000000000", "0377777777777777777777777777777777", ast::BuiltInClass::UNQUALIFIED_128},
 		{"16", "0", ast::BuiltInClass::FLOAT_128},
-		{"0", "-1", ast::BuiltInClass::UNQUALIFIED_128} // Old homebrew toolchain
 	};
 
 	for (const auto& range : strings) {
@@ -478,6 +477,11 @@ static Result<ast::BuiltInClass> classify_range(const StabsRangeType& type)
 		if ((range.low == low_value || range.low == -low_value) && range.high == high_value) {
 			return range.classification;
 		}
+	}
+
+	if (strcmp(low, "0") == 0 && strcmp(high, "-1") == 0) {
+		// Ambiguous built-in type, probably an IOP module or homebrew.
+		return ast::BuiltInClass::INVALID;
 	}
 
 	return CCC_FAILURE("Failed to classify range.");

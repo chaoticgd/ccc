@@ -541,6 +541,7 @@ const char* access_specifier_to_string(AccessSpecifier specifier)
 const char* builtin_class_to_string(BuiltInClass bclass)
 {
 	switch (bclass) {
+		case BuiltInClass::INVALID: return "invalid";
 		case BuiltInClass::VOID_TYPE: return "void";
 		case BuiltInClass::UNSIGNED_8: return "8-bit unsigned integer";
 		case BuiltInClass::SIGNED_8: return "8-bit signed integer";
@@ -565,6 +566,7 @@ const char* builtin_class_to_string(BuiltInClass bclass)
 s32 builtin_class_size(BuiltInClass bclass)
 {
 	switch (bclass) {
+		case BuiltInClass::INVALID: return 0;
 		case BuiltInClass::VOID_TYPE: return 0;
 		case BuiltInClass::UNSIGNED_8: return 1;
 		case BuiltInClass::SIGNED_8: return 1;
