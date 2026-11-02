@@ -4,9 +4,6 @@ on:
   push:
     branches: [ "main" ]
 
-env:
-  BUILD_TYPE: Release
-
 jobs:
   build:
     runs-on: ${{ matrix.sys.os }} 
@@ -33,12 +30,14 @@ jobs:
       with:
         arch: x86_64
         packages: >
-          make
+          binutils
+          clang22
           cmake
-          libstdc++
           g++
-          musl-dev
           git
+          libstdc++
+          musl-dev
+          ninja-is-really-ninja
 
     - name: Git Safe Directory
       if: ${{ matrix.sys.os == 'ubuntu-latest' }}
@@ -47,10 +46,10 @@ jobs:
     - name: Configure CMake
       env:
         USE_MUSL_LIBC: ${{ matrix.sys.name == 'linux-musl' }}
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES=${{matrix.sys.osx_architectures}} -DUSE_MUSL_LIBC=${{env.USE_MUSL_LIBC}} -DZIP_RELEASE=1
+      run: cmake -B ${{github.workspace}}/build --preset release -DCMAKE_OSX_ARCHITECTURES=${{matrix.sys.osx_architectures}} -DUSE_MUSL_LIBC=${{env.USE_MUSL_LIBC}} -DZIP_RELEASE=1
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build
 
     - name: Release
       uses: ncipollo/release-action@1b9acf6ded5a3b65414f069bb0c2c847ac83a145
