@@ -13,6 +13,7 @@
 			"cacheVariables": {
 				"CMAKE_C_COMPILER": "clang",
 				"CMAKE_CXX_COMPILER": "clang++",
+				"CMAKE_EXE_LINKER_FLAGS": "-Wl,-S",
 				"CMAKE_EXPORT_COMPILE_COMMANDS": true
 			},
 			"environment": {
@@ -24,6 +25,9 @@
 		{
 			"name": "enable-debugging",
 			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_EXE_LINKER_FLAGS": ""
+			},
 			"environment": {
 				"CCC_DEBUGGING_FLAGS": "-O0 -ggdb"
 			}
