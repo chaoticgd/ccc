@@ -40,8 +40,8 @@ Use of a code formatter such as `clang-format` or `astyle` on the output is reco
 
 ## Building
 
-	cmake -B bin/
-	cmake --build bin/
+	cmake -B bin/ --preset release
+	cmake --build bin/ --parallel
 
 ## Documentation
 
