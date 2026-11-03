@@ -52,7 +52,7 @@ struct Node
 	u8 storage_class : 4 = STORAGE_CLASS_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
 
-	s32 size_bytes = -1;
+	NullableInt<u32> size_bytes;
 
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
@@ -386,7 +386,7 @@ const char* storage_class_to_string(StorageClass storage_class);
 const char* access_specifier_to_string(AccessSpecifier specifier);
 const char* builtin_class_to_string(BuiltInClass bclass);
 
-s32 builtin_class_size(BuiltInClass bclass);
+NullableInt<u32> builtin_class_size(BuiltInClass bclass);
 
 enum TraversalOrder
 {

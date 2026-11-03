@@ -578,7 +578,7 @@ static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, c
 		case ccc::StabsTypeDescriptor::RANGE: {
 			Result<ast::BuiltInClass> bclass = classify_range(type->as<StabsRangeType>());
 			CCC_RETURN_IF_ERROR(bclass);
-			storage_unit_size_bits = builtin_class_size(*bclass) * 8;
+			storage_unit_size_bits = builtin_class_size(*bclass).value() * 8;
 			break;
 		}
 		case ccc::StabsTypeDescriptor::CROSS_REFERENCE: {

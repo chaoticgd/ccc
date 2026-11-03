@@ -19,7 +19,7 @@ static Result<RefinedData> refine_builtin(
 static Result<RefinedData> refine_pointer_or_reference(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf);
 static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass);
-static const char* generate_format_string(s32 size, bool is_signed);
+static const char* generate_format_string(u32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
 static std::string stringf(const char* format, ...);
@@ -63,11 +63,12 @@ static Result<RefinedData> refine_node(
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
 			CCC_CHECK(
-				array.element_type->size_bytes > -1, "Cannot compute element size for '%s' array.", array.name.c_str());
+				array.element_type->size_bytes.has_value(),
+				"Cannot compute element size for '%s' array.", array.name.c_str());
 			RefinedData list;
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
 			for (s32 i = 0; i < array.element_count; i++) {
-				s32 offset = i * array.element_type->size_bytes;
+				s32 offset = i * array.element_type->size_bytes.value();
 				Result<RefinedData> element = refine_node(
 					virtual_address + offset, *array.element_type.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(element);
@@ -262,7 +263,7 @@ static Result<RefinedData> refine_builtin(
 		case ast::BuiltInClass::UNSIGNED_64:
 		case ast::BuiltInClass::SIGNED_64:
 		case ast::BuiltInClass::FLOAT_64: {
-			s32 size = builtin_class_size(bclass);
+			u32 size = builtin_class_size(bclass).value();
 			bool read_result = elf.copy_virtual((u8*) &value.low, virtual_address, size);
 			CCC_CHECK(read_result, "Failed to read built-in at 0x%x.", virtual_address);
 			break;
@@ -353,7 +354,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		case ast::BuiltInClass::UNSIGNED_16:
 		case ast::BuiltInClass::UNSIGNED_32:
 		case ast::BuiltInClass::UNSIGNED_64: {
-			s32 size = builtin_class_size(bclass);
+			u32 size = builtin_class_size(bclass).value();
 			const char* format = generate_format_string(size, false);
 			result = stringf(format, value.low);
 			break;
@@ -362,7 +363,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		case ast::BuiltInClass::SIGNED_16:
 		case ast::BuiltInClass::SIGNED_32:
 		case ast::BuiltInClass::SIGNED_64: {
-			s32 size = builtin_class_size(bclass);
+			u32 size = builtin_class_size(bclass).value();
 			const char* format = generate_format_string(size, true);
 			result = stringf(format, value.low);
 			break;
@@ -400,7 +401,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 	return result;
 }
 
-static const char* generate_format_string(s32 size, bool is_signed)
+static const char* generate_format_string(u32 size, bool is_signed)
 {
 	switch (size) {
 		case 1: return is_signed ? "%hhd" : "%hhu";

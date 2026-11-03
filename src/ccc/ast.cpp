@@ -563,11 +563,11 @@ const char* builtin_class_to_string(BuiltInClass bclass)
 	return "";
 }
 
-s32 builtin_class_size(BuiltInClass bclass)
+NullableInt<u32> builtin_class_size(BuiltInClass bclass)
 {
 	switch (bclass) {
-		case BuiltInClass::INVALID: return 0;
-		case BuiltInClass::VOID_TYPE: return 0;
+		case BuiltInClass::INVALID: return NullableInt<u32>();
+		case BuiltInClass::VOID_TYPE: return NullableInt<u32>();
 		case BuiltInClass::UNSIGNED_8: return 1;
 		case BuiltInClass::SIGNED_8: return 1;
 		case BuiltInClass::UNQUALIFIED_8: return 1;
@@ -585,7 +585,7 @@ s32 builtin_class_size(BuiltInClass bclass)
 		case BuiltInClass::UNQUALIFIED_128: return 16;
 		case BuiltInClass::FLOAT_128: return 16;
 	}
-	return 0;
+	return NullableInt<u32>();
 }
 
 }
