@@ -120,10 +120,11 @@ static Result<RefinedData> refine_node(
 			RefinedData list;
 			std::vector<RefinedData>& children = list.value.emplace<std::vector<RefinedData>>();
 
-			for (s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
+			for (size_t i = 0; i < struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
+				CCC_CHECK(base_class->offset_bytes.has_value(), "Base class without offset.");
 				Result<RefinedData> child = refine_node(
-					virtual_address + base_class->offset_bytes, *base_class.get(), database, elf, depth + 1);
+					virtual_address + base_class->offset_bytes.value(), *base_class.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "base class " + std::to_string(i);
 				children.emplace_back(std::move(*child));
@@ -133,8 +134,9 @@ static Result<RefinedData> refine_node(
 				if (field->storage_class == STORAGE_CLASS_STATIC) {
 					continue;
 				}
+				CCC_CHECK(field->offset_bytes.has_value(), "Field without offset.");
 				Result<RefinedData> child = refine_node(
-					virtual_address + field->offset_bytes, *field.get(), database, elf, depth + 1);
+					virtual_address + field->offset_bytes.value(), *field.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "." + field->name;
 				children.emplace_back(std::move(*child));

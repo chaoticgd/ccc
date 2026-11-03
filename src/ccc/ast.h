@@ -59,7 +59,7 @@ struct Node
 	// should pass the name down.
 	std::string name;
 
-	s32 offset_bytes = -1; // Offset relative to start of last inline struct/union.
+	NullableInt<u32> offset_bytes; // Offset relative to start of last inline struct/union.
 	s32 size_bits = -1; // Size stored in the .mdebug symbol table, may not be set.
 
 	Node(NodeDescriptor d)
@@ -258,7 +258,7 @@ struct StructOrUnion : Node
 		// The symbol that owns the node.
 		const DataType* symbol;
 		// Offset of the innermost enclosing base class in the object.
-		s32 base_offset = 0;
+		u32 base_offset = 0;
 	};
 
 	// Generate a flat list of all the fields in this class as well as all the
@@ -269,7 +269,7 @@ struct StructOrUnion : Node
 		const DataType* symbol,
 		const SymbolDatabase& database,
 		bool skip_statics,
-		s32 base_offset = 0,
+		u32 base_offset = 0,
 		s32 max_fields = 100000,
 		s32 max_depth = 100) const;
 };

@@ -22,9 +22,9 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 		json.Key("name");
 		json.String(node.name.c_str());
 	}
-	if (node.offset_bytes != -1) {
+	if (node.offset_bytes.has_value()) {
 		json.Key("offset_bytes");
-		json.Int(node.offset_bytes);
+		json.Uint(node.offset_bytes.value());
 	}
 	if (node.size_bytes.has_value()) {
 		json.Key("size_bytes");

@@ -349,7 +349,7 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatab
 
 void CppPrinter::ast_node(const ast::Node& node,
 	VariableName& parent_name,
-	s32 base_offset,
+	u32 base_offset,
 	s32 indentation_level,
 	const SymbolDatabase& database,
 	SymbolDescriptor symbol_descriptor,
@@ -572,7 +572,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 					indent(out, indentation_level + 1);
 					offset(*field.get(), base_offset);
 					VariableName dummy;
-					ast_node(*field.get(), dummy, base_offset + field->offset_bytes, indentation_level + 1, database,
+					CCC_ASSERT(field->offset_bytes.has_value());
+					ast_node(*field.get(), dummy, base_offset + field->offset_bytes.value(), indentation_level + 1, database,
 						symbol_descriptor);
 					fprintf(out, ";\n");
 				}
@@ -774,11 +775,12 @@ void CppPrinter::stack_storage_comment(const StackStorage& storage, s32 stack_fr
 	}
 }
 
-void CppPrinter::offset(const ast::Node& node, s32 base_offset)
+void CppPrinter::offset(const ast::Node& node, u32 base_offset)
 {
-	if (m_config.print_offsets_and_sizes && node.storage_class != STORAGE_CLASS_STATIC && node.offset_bytes > -1) {
+	const bool non_static = node.storage_class != STORAGE_CLASS_STATIC;
+	if (m_config.print_offsets_and_sizes && non_static && node.offset_bytes.has_value()) {
 		CCC_ASSERT(m_digits_for_offset > -1 && m_digits_for_offset < 100);
-		fprintf(out, "/* 0x%0*x", m_digits_for_offset, base_offset + node.offset_bytes);
+		fprintf(out, "/* 0x%0*x", m_digits_for_offset, base_offset + node.offset_bytes.value());
 		if (node.descriptor == ast::BITFIELD) {
 			fprintf(out, ":%02d", node.as<ast::BitField>().bitfield_offset_bits);
 		}

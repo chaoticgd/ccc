@@ -72,7 +72,7 @@ bool StructOrUnion::flatten_fields(
 	const DataType* symbol,
 	const SymbolDatabase& database,
 	bool skip_statics,
-	s32 base_offset,
+	u32 base_offset,
 	s32 max_fields,
 	s32 max_depth) const
 {
@@ -85,7 +85,10 @@ bool StructOrUnion::flatten_fields(
 			continue;
 		}
 
-		s32 new_base_offset = base_offset + type_name->offset_bytes;
+		if (type_name->offset_bytes.has_value()) {
+			return false;
+		}
+		u32 new_base_offset = base_offset + type_name->offset_bytes.value();
 
 		DataTypeHandle handle = type_name->as<TypeName>().data_type_handle;
 		const DataType* base_class_symbol = database.data_types.symbol_from_handle(handle);
