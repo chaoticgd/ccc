@@ -447,7 +447,7 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 			case ast::ARRAY: {
 				ast::Array& array = node.as<ast::Array>();
 				if (array.element_type->size_bytes.has_value()) {
-					array.size_bytes = array.element_type->size_bytes.value() * array.element_count;
+					array.size_bytes = array.element_type->size_bytes.value() * array.element_count.value();
 				}
 				break;
 			}

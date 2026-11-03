@@ -103,7 +103,7 @@ struct Node
 struct Array : Node
 {
 	std::unique_ptr<Node> element_type;
-	s32 element_count = -1;
+	NullableInt<u32> element_count;
 
 	Array()
 		: Node(DESCRIPTOR)

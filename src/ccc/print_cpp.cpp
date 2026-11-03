@@ -378,7 +378,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
 			CCC_ASSERT(array.element_type.get());
-			name.array_indices.emplace_back(array.element_count);
+			name.array_indices.emplace_back(array.element_count.value());
 			ast_node(*array.element_type.get(), name, base_offset, indentation_level, database, symbol_descriptor);
 			break;
 		}
@@ -721,8 +721,8 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags)
 		fprintf(out, "%s", name.identifier->c_str());
 		name.identifier = nullptr;
 	}
-	for (s32 index : name.array_indices) {
-		fprintf(out, "[%d]", index);
+	for (u32 index : name.array_indices) {
+		fprintf(out, "[%u]", index);
 	}
 	name.array_indices.clear();
 	if (has_brackets) {

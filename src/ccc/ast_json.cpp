@@ -76,8 +76,10 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 			const Array& array = node.as<Array>();
 			json.Key("element_type");
 			write_json(json, array.element_type.get(), database);
-			json.Key("element_count");
-			json.Int(array.element_count);
+			if (array.element_count.has_value()) {
+				json.Key("element_count");
+				json.Uint(array.element_count.value());
+			}
 			break;
 		}
 		case BITFIELD: {

@@ -181,7 +181,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 				// Some compilers wrote out a wrapped around value here.
 				array->element_count = 0;
 			} else {
-				array->element_count = (s32) high_value + 1;
+				array->element_count = static_cast<u32>(high_value) + 1;
 			}
 
 			result = std::move(array);

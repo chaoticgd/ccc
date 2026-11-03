@@ -67,8 +67,8 @@ static Result<RefinedData> refine_node(
 				"Cannot compute element size for '%s' array.", array.name.c_str());
 			RefinedData list;
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
-			for (s32 i = 0; i < array.element_count; i++) {
-				s32 offset = i * array.element_type->size_bytes.value();
+			for (u32 i = 0; i < array.element_count.get_or_zero(); i++) {
+				u32 offset = i * array.element_type->size_bytes.value();
 				Result<RefinedData> element = refine_node(
 					virtual_address + offset, *array.element_type.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(element);
