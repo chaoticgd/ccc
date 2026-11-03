@@ -375,7 +375,7 @@ struct StabsTypeNumber
 	bool valid() const { return type > -1; }
 };
 
-enum StorageClass
+enum StorageClass : u8
 {
 	STORAGE_CLASS_NONE = 0,
 	STORAGE_CLASS_TYPEDEF = 1,

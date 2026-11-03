@@ -21,7 +21,7 @@
 				"CCC_FIRST_PARTY_FLAGS": "-Wconversion -Wimplicit-fallthrough -Wold-style-cast",
 				"CCC_FORTIFY_FLAGS": "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3",
 				"CCC_HARDENING_FLAGS": "",
-				"CCC_MISCELLANEOUS_FLAGS": "-Wall -fdiagnostics-color=always",
+				"CCC_MISCELLANEOUS_FLAGS": "-Wall -fdiagnostics-color=always -D_CRT_SECURE_NO_WARNINGS",
 				"CCC_SANITIZER_FLAGS": ""
 			}
 		},
