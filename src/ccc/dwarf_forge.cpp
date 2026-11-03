@@ -18,7 +18,7 @@ void Forge::begin_die(std::string id, Tag tag)
 	// Link the sibling attribute of the previous DIE to this one.
 	if (m_prev_siblings.back().has_value()) {
 		u32 prev_die = *m_prev_siblings.back();
-		CCC_ASSERT(prev_die + 12 <= m_debug.size())
+		CCC_ASSERT(prev_die + 12 <= m_debug.size());
 		memcpy(&m_debug[prev_die + 8], &offset, sizeof(u32));
 	}
 
@@ -122,7 +122,7 @@ void Forge::end_children()
 		push<u16>(0);
 
 		u32 prev_die = *m_prev_siblings.back();
-		CCC_ASSERT(prev_die + 12 <= m_debug.size())
+		CCC_ASSERT(prev_die + 12 <= m_debug.size());
 		memcpy(&m_debug[prev_die + 8], &offset, sizeof(u32));
 	}
 

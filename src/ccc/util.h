@@ -70,25 +70,29 @@ void report_warning(const Error& warning);
 void set_custom_error_callback(CustomErrorCallback callback);
 
 #define CCC_EXIT(...)                                                          \
-	{                                                                          \
+	do {                                                                       \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
 		ccc::report_error(error);                                              \
 		exit(1);                                                               \
-	}
+	} while (0)
 
-#define CCC_EXIT_IF_FALSE(condition, ...)                                      \
-	if (!(condition)) {                                                        \
-		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_error(error);                                              \
-		exit(1);                                                               \
-	}
+#define CCC_EXIT_IF_FALSE(condition, ...)                                          \
+	do {                                                                           \
+		if (!(condition)) {                                                        \
+			ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+			ccc::report_error(error);                                              \
+			exit(1);                                                               \
+		}                                                                          \
+	} while (0)
 
-#define CCC_ABORT_IF_FALSE(condition, ...)                                     \
-	if (!(condition)) {                                                        \
-		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_error(error);                                              \
-		abort();                                                               \
-	}
+#define CCC_ABORT_IF_FALSE(condition, ...)                                         \
+	do {                                                                           \
+		if (!(condition)) {                                                        \
+			ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+			ccc::report_error(error);                                              \
+			abort();                                                               \
+		}                                                                          \
+	} while (0)
 
 #define CCC_ASSERT(condition) CCC_ABORT_IF_FALSE(condition, #condition)
 
@@ -183,37 +187,42 @@ public:
 
 #define CCC_FAILURE(...) ccc::Result<s32>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
 
-#define CCC_CHECK(condition, ...)        \
-	if (!(condition)) {                  \
-		return CCC_FAILURE(__VA_ARGS__); \
-	}
+#define CCC_CHECK(condition, ...)            \
+	do {                                     \
+		if (!(condition)) {                  \
+			return CCC_FAILURE(__VA_ARGS__); \
+		}                                    \
+	} while (0)
 
 #define CCC_EXPECT_CHAR(input, c, context)                                                                       \
 	CCC_CHECK(*(input++) == c, "Expected '%c' in %s, got '%c' (%02hhx)", c, context, *(input - 1), *(input - 1))
 
 #define CCC_RETURN_IF_ERROR(result) \
-	if (!(result).success()) {      \
-		return (result);            \
-	}
+	do {                            \
+		if (!(result).success()) {  \
+			return (result);        \
+		}                           \
+	} while (0)
 
-#define CCC_EXIT_IF_ERROR(result)            \
-	if (!(result).success()) {               \
-		ccc::report_error((result).error()); \
-		exit(1);                             \
-	}
+#define CCC_EXIT_IF_ERROR(result)                \
+	do {                                         \
+		if (!(result).success()) {               \
+			ccc::report_error((result).error()); \
+			exit(1);                             \
+		}                                        \
+	} while (0)
 
-#define CCC_GTEST_FAIL_IF_ERROR(result)     \
-	if (!(result).success()) {              \
-		FAIL() << (result).error().message; \
-	}
+#define CCC_GTEST_FAIL_IF_ERROR(result)         \
+	do {                                        \
+		if (!(result).success()) {              \
+			FAIL() << (result).error().message; \
+		}                                       \
+	} while (0)
 
-template <typename... Args>
-void warn_impl(const char* source_file, s32 source_line, const char* format, Args... args)
-{
-	Error warning = format_error(source_file, source_line, format, args...);
-	report_warning(warning);
-}
-#define CCC_WARN(...) ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
+#define CCC_WARN(format, ...)                                                    \
+	do {                                                                         \
+		report_warning(format_error(__FILE__, __LINE__, format, ##__VA_ARGS__)); \
+	} while (0)
 
 #ifdef _MSC_VER
 #define CCC_PACKED_STRUCT(name, ...)    \

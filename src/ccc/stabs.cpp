@@ -495,7 +495,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 				input++;
 
 				std::optional<s64> size_bits = parse_number_s64(input);
-				CCC_CHECK(size_bits.has_value(), "Failed to parse type attribute.")
+				CCC_CHECK(size_bits.has_value(), "Failed to parse type attribute.");
 				type_attribute->size_bits = *size_bits;
 				CCC_EXPECT_CHAR(input, ';', "type attribute");
 

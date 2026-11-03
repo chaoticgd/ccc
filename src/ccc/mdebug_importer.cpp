@@ -240,7 +240,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 							// in the local symbol table.
 							address = (u32) symbol.raw->value;
 						}
-						CCC_CHECK(location.has_value(), "Invalid global variable location.")
+						CCC_CHECK(location.has_value(), "Invalid global variable location.");
 						const StabsType& type = *symbol.name_colon_type.type.get();
 						bool is_static = symbol.name_colon_type.descriptor
 							== StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE;
