@@ -60,7 +60,7 @@ struct Node
 	std::string name;
 
 	NullableInt<u32> offset_bytes; // Offset relative to start of last inline struct/union.
-	s32 size_bits = -1; // Size stored in the .mdebug symbol table, may not be set.
+	NullableInt<u32> size_bits; // Size stored in the .mdebug symbol table, may not be set.
 
 	Node(NodeDescriptor d)
 		: descriptor(d)

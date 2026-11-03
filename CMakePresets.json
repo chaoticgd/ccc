@@ -29,7 +29,7 @@
 				"CMAKE_EXE_LINKER_FLAGS": ""
 			},
 			"environment": {
-				"CCC_DEBUGGING_FLAGS": "-O0 -ggdb"
+				"CCC_DEBUGGING_FLAGS": "-O0 -ggdb -fdiagnostics-color=always"
 			}
 		},
 		{

@@ -470,7 +470,9 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 				break;
 			}
 			case ast::STRUCT_OR_UNION: {
-				node.size_bytes = node.size_bits / 8;
+				if (node.size_bits.has_value()) {
+					node.size_bytes = node.size_bits.value() / 8;
+				}
 				break;
 			}
 			case ast::POINTER_OR_REFERENCE: {

@@ -30,9 +30,9 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 		json.Key("size_bytes");
 		json.Uint(node.size_bytes.value());
 	}
-	if (node.size_bits != -1) {
+	if (node.size_bits.has_value()) {
 		json.Key("size_bits");
-		json.Int(node.size_bits);
+		json.Uint(node.size_bits.value());
 	}
 	if (node.storage_class != STORAGE_CLASS_NONE) {
 		json.Key("storage_class");

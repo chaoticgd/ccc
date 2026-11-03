@@ -162,8 +162,8 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 
 	VariableName name;
 	name.identifier = &symbol.name();
-	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
-		m_digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
+	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits.has_value()) {
+		m_digits_for_offset = (s32) ceilf(log2(node.size_bits.value() / 8.f) / 4.f);
 	}
 	ast_node(node, name, 0, 0, database, SymbolDescriptor::DATA_TYPE, !symbol.not_defined_in_any_translation_unit);
 	fprintf(out, ";\n");
@@ -387,7 +387,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 			CCC_ASSERT(bit_field.underlying_type.get());
 			ast_node(
 				*bit_field.underlying_type.get(), name, base_offset, indentation_level, database, symbol_descriptor);
-			fprintf(out, " : %d", bit_field.size_bits);
+			fprintf(out, " : %u", bit_field.size_bits.value());
 			break;
 		}
 		case ast::BUILTIN: {
@@ -412,8 +412,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 			}
 			if (print_body) {
 				fprintf(out, " {");
-				if (enumeration.size_bits > -1) {
-					fprintf(out, " // 0x%x", enumeration.size_bits / 8);
+				if (enumeration.size_bits.has_value()) {
+					fprintf(out, " // 0x%x", enumeration.size_bits.value() / 8);
 				}
 				fprintf(out, "\n");
 				for (size_t i = 0; i < enumeration.constants.size(); i++) {
@@ -556,7 +556,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 			if (print_body) {
 				fprintf(out, " {");
 				if (m_config.print_offsets_and_sizes) {
-					fprintf(out, " // 0x%x", struct_or_union.size_bits / 8);
+					fprintf(out, " // 0x%x", struct_or_union.size_bits.value() / 8);
 				}
 				fprintf(out, "\n");
 
