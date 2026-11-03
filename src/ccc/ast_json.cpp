@@ -22,17 +22,17 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 		json.Key("name");
 		json.String(node.name.c_str());
 	}
-	if (node.offset_bytes != -1) {
+	if (node.offset_bytes.has_value()) {
 		json.Key("offset_bytes");
-		json.Int(node.offset_bytes);
+		json.Uint(node.offset_bytes.value());
 	}
-	if (node.size_bytes != -1) {
+	if (node.size_bytes.has_value()) {
 		json.Key("size_bytes");
-		json.Int(node.size_bytes);
+		json.Uint(node.size_bytes.value());
 	}
-	if (node.size_bits != -1) {
+	if (node.size_bits.has_value()) {
 		json.Key("size_bits");
-		json.Int(node.size_bits);
+		json.Uint(node.size_bits.value());
 	}
 	if (node.storage_class != STORAGE_CLASS_NONE) {
 		json.Key("storage_class");
@@ -76,14 +76,18 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 			const Array& array = node.as<Array>();
 			json.Key("element_type");
 			write_json(json, array.element_type.get(), database);
-			json.Key("element_count");
-			json.Int(array.element_count);
+			if (array.element_count.has_value()) {
+				json.Key("element_count");
+				json.Uint(array.element_count.value());
+			}
 			break;
 		}
 		case BITFIELD: {
 			const BitField& bitfield = node.as<BitField>();
 			json.Key("bitfield_offset_bits");
-			json.Int(node.as<BitField>().bitfield_offset_bits);
+			if (bitfield.bitfield_offset_bits.has_value()) {
+				json.Uint(bitfield.bitfield_offset_bits.value());
+			}
 			json.Key("underlying_type");
 			write_json(json, bitfield.underlying_type.get(), database);
 			break;
@@ -133,9 +137,9 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 				json.Key("modifier");
 				json.String(member_function_modifier_to_string(function.modifier));
 			}
-			if (function.vtable_index > -1) {
+			if (function.vtable_index.has_value()) {
 				json.Key("vtable_index");
-				json.Int(function.vtable_index);
+				json.Uint(function.vtable_index.value());
 			}
 			break;
 		}
@@ -185,8 +189,11 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 			const TypeName& type_name = node.as<TypeName>();
 			json.Key("source");
 			json.String(type_name_source_to_string(type_name.source));
-			json.Key("data_type");
-			json.Int(database.data_types.index_from_handle(type_name.data_type_handle));
+			std::optional<size_t> data_type_index = database.data_types.index_from_handle(type_name.data_type_handle);
+			if (data_type_index.has_value()) {
+				json.Key("data_type");
+				json.Uint64(static_cast<u64>(*data_type_index));
+			}
 			if (const TypeName::UnresolvedStabs* unresolved = type_name.unresolved_stabs.get()) {
 				json.Key("type_name");
 				json.String(unresolved->type_name);

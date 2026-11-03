@@ -109,7 +109,7 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_start
 {
 	std::vector<SymbolHandle<SymbolType>> handles;
 
-	auto [begin, end] = m_address_to_handle.equal_range(address.value);
+	auto [begin, end] = m_address_to_handle.equal_range(address.value());
 	for (auto iterator = begin; iterator != end; iterator++) {
 		handles.emplace_back(iterator->second);
 	}
@@ -123,20 +123,20 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_addre
 	std::vector<SymbolHandle<SymbolType>> handles;
 
 	typename AddressToHandleMap::const_iterator begin, end;
-	if (range.low.valid() && range.high.valid()) {
-		if (range.low.value < range.high.value) {
-			begin = m_address_to_handle.lower_bound(range.low.value);
-			end = m_address_to_handle.lower_bound(range.high.value);
+	if (range.low.has_value() && range.high.has_value()) {
+		if (range.low.value() < range.high.value()) {
+			begin = m_address_to_handle.lower_bound(range.low.value());
+			end = m_address_to_handle.lower_bound(range.high.value());
 		} else {
 			begin = m_address_to_handle.end();
 			end = m_address_to_handle.end();
 		}
-	} else if (range.low.valid()) {
-		begin = m_address_to_handle.lower_bound(range.low.value);
+	} else if (range.low.has_value()) {
+		begin = m_address_to_handle.lower_bound(range.low.value());
 		end = m_address_to_handle.end();
-	} else if (range.high.valid()) {
+	} else if (range.high.has_value()) {
 		begin = m_address_to_handle.begin();
-		end = m_address_to_handle.lower_bound(range.high.value);
+		end = m_address_to_handle.lower_bound(range.high.value());
 	} else {
 		begin = m_address_to_handle.end();
 		end = m_address_to_handle.end();
@@ -152,7 +152,7 @@ std::vector<SymbolHandle<SymbolType>> SymbolList<SymbolType>::handles_from_addre
 template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_address(Address address) const
 {
-	auto iterator = m_address_to_handle.find(address.value);
+	auto iterator = m_address_to_handle.find(address.value());
 	if (iterator == m_address_to_handle.end()) {
 		return SymbolHandle<SymbolType>();
 	}
@@ -163,7 +163,7 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_from_starting_addr
 template <typename SymbolType>
 SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_after_address(Address address) const
 {
-	auto iterator = m_address_to_handle.upper_bound(address.value);
+	auto iterator = m_address_to_handle.upper_bound(address.value());
 	if (iterator == m_address_to_handle.end()) {
 		return SymbolHandle<SymbolType>();
 	}
@@ -174,11 +174,11 @@ SymbolHandle<SymbolType> SymbolList<SymbolType>::first_handle_after_address(Addr
 template <typename SymbolType>
 SymbolType* SymbolList<SymbolType>::symbol_overlapping_address(Address address)
 {
-	auto iterator = m_address_to_handle.upper_bound(address.value);
+	auto iterator = m_address_to_handle.upper_bound(address.value());
 	if (iterator != m_address_to_handle.begin()) {
 		iterator--; // Find the greatest element that is less than or equal to the address.
 		SymbolType* symbol = symbol_from_handle(iterator->second);
-		if (symbol && address.value < symbol->address().value + symbol->size()) {
+		if (symbol && address.value() < symbol->address().value() + symbol->size()) {
 			return symbol;
 		}
 	}
@@ -330,28 +330,28 @@ const SymbolType* SymbolList<SymbolType>::first_symbol_from_raw_name(const std::
 }
 
 template <typename SymbolType>
-s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
+std::optional<size_t> SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
 {
 	if (!handle.valid()) {
-		return -1;
+		return std::nullopt;
 	}
 
 	size_t index = binary_search(handle);
 	if (index >= m_symbols.size() || m_symbols[index].handle() != handle) {
-		return -1;
+		return std::nullopt;
 	}
 
-	return (s32) index;
+	return index;
 }
 
 template <typename SymbolType>
-SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index)
+SymbolType& SymbolList<SymbolType>::symbol_from_index(size_t index)
 {
 	return m_symbols.at(index);
 }
 
 template <typename SymbolType>
-const SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index) const
+const SymbolType& SymbolList<SymbolType>::symbol_from_index(size_t index) const
 {
 	return m_symbols.at(index);
 }
@@ -363,9 +363,9 @@ bool SymbolList<SymbolType>::empty() const
 }
 
 template <typename SymbolType>
-s32 SymbolList<SymbolType>::size() const
+size_t SymbolList<SymbolType>::size() const
 {
-	return (s32) m_symbols.size();
+	return m_symbols.size();
 }
 
 template <typename SymbolType>
@@ -385,7 +385,7 @@ Result<SymbolType*> SymbolList<SymbolType>::create_symbol(
 	symbol.m_source = source;
 
 	if (module_symbol) {
-		symbol.m_address = address.add_base_address(module_symbol->address());
+		symbol.m_address = address.add_base(module_symbol->address());
 		symbol.m_module = module_symbol->handle();
 	} else {
 		symbol.m_address = address;
@@ -642,8 +642,8 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::link_address_map(SymbolType& symbol)
 {
 	if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		if (symbol.address().valid()) {
-			m_address_to_handle.emplace(symbol.address().value, symbol.handle());
+		if (symbol.address().has_value()) {
+			m_address_to_handle.emplace(symbol.address().value(), symbol.handle());
 		}
 	}
 }
@@ -652,8 +652,8 @@ template <typename SymbolType>
 void SymbolList<SymbolType>::unlink_address_map(SymbolType& symbol)
 {
 	if constexpr (SymbolType::FLAGS & WITH_ADDRESS_MAP) {
-		if (symbol.address().valid()) {
-			auto iterators = m_address_to_handle.equal_range(symbol.address().value);
+		if (symbol.address().has_value()) {
+			auto iterators = m_address_to_handle.equal_range(symbol.address().value());
 			for (auto iterator = iterators.first; iterator != iterators.second; iterator++) {
 				if (iterator->second == symbol.handle()) {
 					m_address_to_handle.erase(iterator);
@@ -1021,9 +1021,9 @@ bool SymbolGroup::is_in_group(const Symbol& symbol) const
 
 // *****************************************************************************
 
-s32 SymbolDatabase::symbol_count() const
+size_t SymbolDatabase::symbol_count() const
 {
-	s32 sum = 0;
+	size_t sum = 0;
 #define CCC_X(SymbolType, symbol_list) sum += symbol_list.size();
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X

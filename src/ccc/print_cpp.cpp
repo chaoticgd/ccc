@@ -162,8 +162,8 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 
 	VariableName name;
 	name.identifier = &symbol.name();
-	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits > 0) {
-		m_digits_for_offset = (s32) ceilf(log2(node.size_bits / 8.f) / 4.f);
+	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits.has_value() && node.size_bits.value() > 0) {
+		m_digits_for_offset = (s32) ceilf(log2f(static_cast<float>(node.size_bits.value()) / 8.f) / 4.f);
 	}
 	ast_node(node, name, 0, 0, database, SymbolDescriptor::DATA_TYPE, !symbol.not_defined_in_any_translation_unit);
 	fprintf(out, ";\n");
@@ -198,7 +198,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	name.identifier = &symbol.name();
 
 	if (m_config.print_storage_information) {
-		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size());
+		fprintf(out, "/* %08x %08x */ ", symbol.address().value(), symbol.size());
 	}
 
 	// Print out the storage class, return type and function name.
@@ -224,7 +224,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		fprintf(out, " ");
 		const std::span<char>* body = nullptr;
 		if (function_bodies) {
-			auto body_iter = function_bodies->find(symbol.address().value);
+			auto body_iter = function_bodies->find(symbol.address().value());
 			if (body_iter != function_bodies->end()) {
 				body = &body_iter->second;
 			}
@@ -349,7 +349,7 @@ void CppPrinter::global_variable(const GlobalVariable& symbol, const SymbolDatab
 
 void CppPrinter::ast_node(const ast::Node& node,
 	VariableName& parent_name,
-	s32 base_offset,
+	u32 base_offset,
 	s32 indentation_level,
 	const SymbolDatabase& database,
 	SymbolDescriptor symbol_descriptor,
@@ -360,8 +360,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 
 	if (node.descriptor == ast::FUNCTION) {
 		const ast::Function& func_type = node.as<ast::Function>();
-		if (func_type.vtable_index > -1) {
-			fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
+		if (func_type.vtable_index.has_value()) {
+			fprintf(out, "/* vtable[%u] */ ", func_type.vtable_index.value());
 		}
 	}
 
@@ -378,7 +378,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 		case ast::ARRAY: {
 			const ast::Array& array = node.as<ast::Array>();
 			CCC_ASSERT(array.element_type.get());
-			name.array_indices.emplace_back(array.element_count);
+			name.array_indices.emplace_back(array.element_count.value());
 			ast_node(*array.element_type.get(), name, base_offset, indentation_level, database, symbol_descriptor);
 			break;
 		}
@@ -387,7 +387,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 			CCC_ASSERT(bit_field.underlying_type.get());
 			ast_node(
 				*bit_field.underlying_type.get(), name, base_offset, indentation_level, database, symbol_descriptor);
-			fprintf(out, " : %d", bit_field.size_bits);
+			fprintf(out, " : %u", bit_field.size_bits.value());
 			break;
 		}
 		case ast::BUILTIN: {
@@ -412,8 +412,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 			}
 			if (print_body) {
 				fprintf(out, " {");
-				if (enumeration.size_bits > -1) {
-					fprintf(out, " // 0x%x", enumeration.size_bits / 8);
+				if (enumeration.size_bits.has_value()) {
+					fprintf(out, " // 0x%x", enumeration.size_bits.value() / 8);
 				}
 				fprintf(out, "\n");
 				for (size_t i = 0; i < enumeration.constants.size(); i++) {
@@ -556,7 +556,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 			if (print_body) {
 				fprintf(out, " {");
 				if (m_config.print_offsets_and_sizes) {
-					fprintf(out, " // 0x%x", struct_or_union.size_bits / 8);
+					fprintf(out, " // 0x%x", struct_or_union.size_bits.value() / 8);
 				}
 				fprintf(out, "\n");
 
@@ -572,8 +572,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 					indent(out, indentation_level + 1);
 					offset(*field.get(), base_offset);
 					VariableName dummy;
-					ast_node(*field.get(), dummy, base_offset + field->offset_bytes, indentation_level + 1, database,
-						symbol_descriptor);
+					u32 field_offset = base_offset + field->offset_bytes.value();
+					ast_node(*field.get(), dummy, field_offset, indentation_level + 1, database, symbol_descriptor);
 					fprintf(out, ";\n");
 				}
 
@@ -712,16 +712,16 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags)
 	if (has_brackets) {
 		fprintf(out, "(");
 	}
-	for (s32 i = (s32) name.pointer_chars.size() - 1; i >= 0; i--) {
-		fprintf(out, "%c", name.pointer_chars[i]);
+	for (size_t i = name.pointer_chars.size(); i > 0; i--) {
+		fprintf(out, "%c", name.pointer_chars[i - 1]);
 	}
 	name.pointer_chars.clear();
 	if (has_name) {
 		fprintf(out, "%s", name.identifier->c_str());
 		name.identifier = nullptr;
 	}
-	for (s32 index : name.array_indices) {
-		fprintf(out, "[%d]", index);
+	for (u32 index : name.array_indices) {
+		fprintf(out, "[%u]", index);
 	}
 	name.array_indices.clear();
 	if (has_brackets) {
@@ -734,8 +734,8 @@ void CppPrinter::global_storage_comment(const GlobalStorage& storage, Address ad
 	if (m_config.print_storage_information) {
 		fprintf(out, "/* ");
 		fprintf(out, "%s", global_storage_location_to_string(storage.location));
-		if (address.valid()) {
-			fprintf(out, " %x", address.value);
+		if (address.has_value()) {
+			fprintf(out, " %x", address.value());
 		}
 		fprintf(out, " */ ");
 	}
@@ -774,13 +774,14 @@ void CppPrinter::stack_storage_comment(const StackStorage& storage, s32 stack_fr
 	}
 }
 
-void CppPrinter::offset(const ast::Node& node, s32 base_offset)
+void CppPrinter::offset(const ast::Node& node, u32 base_offset)
 {
-	if (m_config.print_offsets_and_sizes && node.storage_class != STORAGE_CLASS_STATIC && node.offset_bytes > -1) {
+	const bool non_static = node.storage_class != STORAGE_CLASS_STATIC;
+	if (m_config.print_offsets_and_sizes && non_static && node.offset_bytes.has_value()) {
 		CCC_ASSERT(m_digits_for_offset > -1 && m_digits_for_offset < 100);
-		fprintf(out, "/* 0x%0*x", m_digits_for_offset, base_offset + node.offset_bytes);
+		fprintf(out, "/* 0x%0*x", m_digits_for_offset, base_offset + node.offset_bytes.value());
 		if (node.descriptor == ast::BITFIELD) {
-			fprintf(out, ":%02d", node.as<ast::BitField>().bitfield_offset_bits);
+			fprintf(out, ":%02u", node.as<ast::BitField>().bitfield_offset_bits.value());
 		}
 		fprintf(out, " */ ");
 	}

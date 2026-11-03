@@ -16,7 +16,7 @@ namespace ccc::mdebug {
 Result<void> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
-	s32 section_offset,
+	u32 section_offset,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,

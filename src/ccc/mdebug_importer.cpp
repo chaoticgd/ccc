@@ -17,7 +17,7 @@ static void destroy_optimized_out_functions(SymbolDatabase& database, const Symb
 Result<void> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
-	s32 section_offset,
+	u32 section_offset,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -65,10 +65,10 @@ Result<void> import_symbol_table(
 
 Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context, const std::atomic_bool* interrupt)
 {
-	Result<s32> file_count = context.reader->file_count();
+	Result<u32> file_count = context.reader->file_count();
 	CCC_RETURN_IF_ERROR(file_count);
 
-	for (s32 i = 0; i < *file_count; i++) {
+	for (u32 i = 0; i < *file_count; i++) {
 		CCC_CHECK(!interrupt || !*interrupt, "Operation interrupted by user.");
 
 		Result<mdebug::File> file = context.reader->parse_file(i);
@@ -99,16 +99,16 @@ Result<void> import_files(SymbolDatabase& database, const AnalysisContext& conte
 
 	// Propagate the size information to the global variable symbols.
 	for (GlobalVariable& global_variable : database.global_variables) {
-		if (global_variable.type() && global_variable.type()->size_bytes > -1) {
-			global_variable.set_size((u32) global_variable.type()->size_bytes);
+		if (global_variable.type() && global_variable.type()->size_bytes.has_value()) {
+			global_variable.set_size(global_variable.type()->size_bytes.value());
 		}
 	}
 
 	// Propagate the size information to the static local variable symbols.
 	for (LocalVariable& local_variable : database.local_variables) {
 		bool is_static_local = std::holds_alternative<GlobalStorage>(local_variable.storage);
-		if (is_static_local && local_variable.type() && local_variable.type()->size_bytes > -1) {
-			local_variable.set_size((u32) local_variable.type()->size_bytes);
+		if (is_static_local && local_variable.type() && local_variable.type()->size_bytes.has_value()) {
+			local_variable.set_size(local_variable.type()->size_bytes.value());
 		}
 	}
 
@@ -219,7 +219,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 					case StabsSymbolDescriptor::GLOBAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
-						u32 address = -1;
+						Address address;
 						std::optional<GlobalStorageLocation> location = symbol_class_to_global_variable_location(
 							symbol.raw->symbol_class);
 						if (symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
@@ -230,7 +230,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 							if (context.external_globals) {
 								auto global_symbol = context.external_globals->find(symbol.name_colon_type.name);
 								if (global_symbol != context.external_globals->end()) {
-									address = (u32) global_symbol->second->value;
+									address = global_symbol->second->value;
 									location = symbol_class_to_global_variable_location(
 										global_symbol->second->symbol_class);
 								}
@@ -238,9 +238,9 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 						} else {
 							// And for static global variables it's just stored
 							// in the local symbol table.
-							address = (u32) symbol.raw->value;
+							address = symbol.raw->value;
 						}
-						CCC_CHECK(location.has_value(), "Invalid global variable location.")
+						CCC_CHECK(location.has_value(), "Invalid global variable location.");
 						const StabsType& type = *symbol.name_colon_type.type.get();
 						bool is_static = symbol.name_colon_type.descriptor
 							== StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE;
@@ -418,13 +418,14 @@ static Result<void> resolve_type_name(
 		return Result<void>();
 	}
 
-	const char* error_message = "Unresolved %s type name '%s' with STABS type number (%d,%d).";
 	if (importer_flags & STRICT_PARSING) {
-		return CCC_FAILURE(error_message, ast::type_name_source_to_string(type_name.source),
+		return CCC_FAILURE("Unresolved %s type name '%s' with STABS type number (%d,%d).",
+			ast::type_name_source_to_string(type_name.source),
 			type_name.unresolved_stabs->type_name.c_str(), type_name.unresolved_stabs->stabs_type_number.file,
 			type_name.unresolved_stabs->stabs_type_number.type);
 	} else {
-		CCC_WARN(error_message, ast::type_name_source_to_string(type_name.source),
+		CCC_WARN("Unresolved %s type name '%s' with STABS type number (%d,%d).",
+			ast::type_name_source_to_string(type_name.source),
 			type_name.unresolved_stabs->type_name.c_str(), type_name.unresolved_stabs->stabs_type_number.file,
 			type_name.unresolved_stabs->stabs_type_number.type);
 	}
@@ -436,7 +437,7 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 {
 	for_each_node(node, ast::POSTORDER_TRAVERSAL, [&](ast::Node& node) {
 		// Skip nodes that have already been processed.
-		if (node.size_bytes > -1 || node.cannot_compute_size) {
+		if (node.size_bytes.has_value() || node.cannot_compute_size) {
 			return ast::EXPLORE_CHILDREN;
 		}
 
@@ -446,8 +447,8 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 		switch (node.descriptor) {
 			case ast::ARRAY: {
 				ast::Array& array = node.as<ast::Array>();
-				if (array.element_type->size_bytes > -1) {
-					array.size_bytes = array.element_type->size_bytes * array.element_count;
+				if (array.element_type->size_bytes.has_value()) {
+					array.size_bytes = array.element_type->size_bytes.value() * array.element_count.value();
 				}
 				break;
 			}
@@ -470,7 +471,9 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 				break;
 			}
 			case ast::STRUCT_OR_UNION: {
-				node.size_bytes = node.size_bits / 8;
+				if (node.size_bits.has_value()) {
+					node.size_bytes = node.size_bits.value() / 8;
+				}
 				break;
 			}
 			case ast::POINTER_OR_REFERENCE: {
@@ -487,7 +490,7 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 				if (resolved_type) {
 					ast::Node* resolved_node = resolved_type->type();
 					CCC_ASSERT(resolved_node);
-					if (resolved_node->size_bytes < 0 && !resolved_node->cannot_compute_size) {
+					if (!resolved_node->size_bytes.has_value() && !resolved_node->cannot_compute_size) {
 						compute_size_bytes(*resolved_node, database);
 					}
 					type_name.size_bytes = resolved_node->size_bytes;
@@ -496,7 +499,7 @@ static void compute_size_bytes(ast::Node& node, SymbolDatabase& database)
 			}
 		}
 
-		if (node.size_bytes > -1) {
+		if (node.size_bytes.has_value()) {
 			node.cannot_compute_size = false;
 		}
 
@@ -509,7 +512,7 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 	std::vector<FunctionHandle> duplicate_functions;
 
 	for (Function& test_function : database.functions) {
-		if (!test_function.address().valid() && !group.is_in_group(test_function)) {
+		if (!test_function.address().has_value() && !group.is_in_group(test_function)) {
 			continue;
 		}
 
@@ -529,7 +532,7 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 		u32 source_file_address = UINT32_MAX;
 		for (SourceFile& source_file : database.source_files) {
 			if (source_file.address() < test_function.address()) {
-				source_file_address = std::min(source_file.address().value, source_file_address);
+				source_file_address = std::min(source_file.address().value(), source_file_address);
 			}
 		}
 
@@ -548,12 +551,12 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 				continue;
 			}
 
-			if (test_function.address().value - source_file_address < best_offset) {
+			if (test_function.address().value() - source_file_address < best_offset) {
 				if (best_handle.valid()) {
 					duplicate_functions.emplace_back(best_handle);
 				}
 				best_handle = function->handle();
-				best_offset = test_function.address().value - source_file_address;
+				best_offset = test_function.address().value() - source_file_address;
 			} else {
 				duplicate_functions.emplace_back(function->handle());
 			}
@@ -574,7 +577,7 @@ static void detect_fake_functions(
 	// find which one is the real one.
 	s32 fake_function_count = 0;
 	for (Function& function : database.functions) {
-		if (!function.address().valid() || !group.is_in_group(function)) {
+		if (!function.address().has_value() || !group.is_in_group(function)) {
 			continue;
 		}
 
@@ -587,7 +590,7 @@ static void detect_fake_functions(
 			continue;
 		}
 
-		auto external_function = external_functions.find(function.address().value);
+		auto external_function = external_functions.find(function.address().value());
 		if (external_function == external_functions.end()
 			|| strcmp(function.raw_name().c_str(), external_function->second->string) != 0) {
 			database.functions.move_symbol(function.handle(), Address());
@@ -609,7 +612,7 @@ static void destroy_optimized_out_functions(SymbolDatabase& database, const Symb
 	bool marked = false;
 
 	for (Function& function : database.functions) {
-		if (group.is_in_group(function) && !function.address().valid()) {
+		if (group.is_in_group(function) && !function.address().has_value()) {
 			function.mark_for_destruction();
 			marked = true;
 		}

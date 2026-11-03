@@ -72,7 +72,7 @@ bool StructOrUnion::flatten_fields(
 	const DataType* symbol,
 	const SymbolDatabase& database,
 	bool skip_statics,
-	s32 base_offset,
+	u32 base_offset,
 	s32 max_fields,
 	s32 max_depth) const
 {
@@ -85,7 +85,10 @@ bool StructOrUnion::flatten_fields(
 			continue;
 		}
 
-		s32 new_base_offset = base_offset + type_name->offset_bytes;
+		if (type_name->offset_bytes.has_value()) {
+			return false;
+		}
+		u32 new_base_offset = base_offset + type_name->offset_bytes.value();
 
 		DataTypeHandle handle = type_name->as<TypeName>().data_type_handle;
 		const DataType* base_class_symbol = database.data_types.symbol_from_handle(handle);
@@ -563,11 +566,11 @@ const char* builtin_class_to_string(BuiltInClass bclass)
 	return "";
 }
 
-s32 builtin_class_size(BuiltInClass bclass)
+NullableInt<u32> builtin_class_size(BuiltInClass bclass)
 {
 	switch (bclass) {
-		case BuiltInClass::INVALID: return 0;
-		case BuiltInClass::VOID_TYPE: return 0;
+		case BuiltInClass::INVALID: return NullableInt<u32>();
+		case BuiltInClass::VOID_TYPE: return NullableInt<u32>();
 		case BuiltInClass::UNSIGNED_8: return 1;
 		case BuiltInClass::SIGNED_8: return 1;
 		case BuiltInClass::UNQUALIFIED_8: return 1;
@@ -585,7 +588,7 @@ s32 builtin_class_size(BuiltInClass bclass)
 		case BuiltInClass::UNQUALIFIED_128: return 16;
 		case BuiltInClass::FLOAT_128: return 16;
 	}
-	return 0;
+	return NullableInt<u32>();
 }
 
 }

@@ -12,7 +12,7 @@ struct VariableName
 {
 	const std::string* identifier = nullptr;
 	std::vector<s8> pointer_chars;
-	std::vector<s32> array_indices;
+	std::vector<u32> array_indices;
 };
 
 struct CppPrinterConfig
@@ -56,7 +56,7 @@ public:
 private:
 	void ast_node(const ast::Node& node,
 		VariableName& parent_name,
-		s32 base_offset,
+		u32 base_offset,
 		s32 indentation_level,
 		const SymbolDatabase& database,
 		SymbolDescriptor symbol_descriptor,
@@ -67,7 +67,7 @@ private:
 	void global_storage_comment(const GlobalStorage& storage, Address address);
 	void register_storage_comment(const RegisterStorage& storage);
 	void stack_storage_comment(const StackStorage& storage, s32 stack_frame_size = -1);
-	void offset(const ast::Node& node, s32 base_offset);
+	void offset(const ast::Node& node, u32 base_offset);
 
 	CppPrinterConfig m_config;
 	s32 m_digits_for_offset = 3;

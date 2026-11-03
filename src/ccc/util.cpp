@@ -114,10 +114,10 @@ std::string normalise_path(const char* input, bool use_backslashes_as_path_separ
 	// Remove "." and ".." parts.
 	for (size_t i = 0; i < parts.size();) {
 		if (parts[i] == ".") {
-			parts.erase(parts.begin() + i);
+			parts.erase(parts.begin() + static_cast<std::vector<std::string>::difference_type>(i));
 		} else if (parts[i] == ".." && i > 0 && parts[i - 1] != "..") {
-			parts.erase(parts.begin() + i);
-			parts.erase(parts.begin() + i - 1);
+			parts.erase(parts.begin() + static_cast<std::vector<std::string>::difference_type>(i));
+			parts.erase(parts.begin() + static_cast<std::vector<std::string>::difference_type>(i) - 1);
 			i--;
 		} else {
 			i++;

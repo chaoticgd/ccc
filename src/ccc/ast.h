@@ -52,15 +52,15 @@ struct Node
 	u8 storage_class : 4 = STORAGE_CLASS_NONE;
 	u8 access_specifier : 2 = AS_PUBLIC;
 
-	s32 size_bytes = -1;
+	NullableInt<u32> size_bytes;
 
 	// If the name isn't populated for a given node, the name from the last
 	// ancestor to have one should be used i.e. when processing the tree you
 	// should pass the name down.
 	std::string name;
 
-	s32 offset_bytes = -1; // Offset relative to start of last inline struct/union.
-	s32 size_bits = -1; // Size stored in the .mdebug symbol table, may not be set.
+	NullableInt<u32> offset_bytes; // Offset relative to start of last inline struct/union.
+	NullableInt<u32> size_bits; // Size stored in the .mdebug symbol table, may not be set.
 
 	Node(NodeDescriptor d)
 		: descriptor(d)
@@ -103,7 +103,7 @@ struct Node
 struct Array : Node
 {
 	std::unique_ptr<Node> element_type;
-	s32 element_count = -1;
+	NullableInt<u32> element_count;
 
 	Array()
 		: Node(DESCRIPTOR)
@@ -137,7 +137,7 @@ enum class BuiltInClass
 
 struct BitField : Node
 {
-	s32 bitfield_offset_bits = -1;
+	NullableInt<u32> bitfield_offset_bits;
 	std::unique_ptr<Node> underlying_type;
 
 	BitField()
@@ -200,7 +200,7 @@ struct Function : Node
 	std::optional<std::unique_ptr<Node>> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
-	s32 vtable_index = -1;
+	NullableInt<u32> vtable_index;
 	FunctionHandle definition_handle; // Filled in by fill_in_pointers_to_member_function_definitions.
 
 	Function()
@@ -258,7 +258,7 @@ struct StructOrUnion : Node
 		// The symbol that owns the node.
 		const DataType* symbol;
 		// Offset of the innermost enclosing base class in the object.
-		s32 base_offset = 0;
+		u32 base_offset = 0;
 	};
 
 	// Generate a flat list of all the fields in this class as well as all the
@@ -269,7 +269,7 @@ struct StructOrUnion : Node
 		const DataType* symbol,
 		const SymbolDatabase& database,
 		bool skip_statics,
-		s32 base_offset = 0,
+		u32 base_offset = 0,
 		s32 max_fields = 100000,
 		s32 max_depth = 100) const;
 };
@@ -386,7 +386,7 @@ const char* storage_class_to_string(StorageClass storage_class);
 const char* access_specifier_to_string(AccessSpecifier specifier);
 const char* builtin_class_to_string(BuiltInClass bclass);
 
-s32 builtin_class_size(BuiltInClass bclass);
+NullableInt<u32> builtin_class_size(BuiltInClass bclass);
 
 enum TraversalOrder
 {

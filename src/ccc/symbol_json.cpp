@@ -104,9 +104,9 @@ static void write_symbol_list(
 			json.String(symbol.name());
 		}
 
-		if (symbol.address().valid()) {
+		if (symbol.address().has_value()) {
 			json.Key("address");
-			json.Uint(symbol.address().value);
+			json.Uint(symbol.address().value());
 		}
 
 		if (symbol.size() != 0) {
@@ -114,9 +114,10 @@ static void write_symbol_list(
 			json.Uint(symbol.size());
 		}
 
-		if (symbol.module_handle().valid()) {
+		std::optional<size_t> module_index = database.modules.index_from_handle(symbol.module_handle());
+		if (module_index.has_value()) {
 			json.Key("module");
-			json.Uint(database.modules.index_from_handle(symbol.module_handle()));
+			json.Uint64(static_cast<u64>(*module_index));
 		}
 
 		write_json(json, symbol, database);
@@ -156,9 +157,9 @@ static void write_json(Writer& json, const RegisterStorage& storage, const Symbo
 	json.Key("register_class");
 	json.String(mips::REGISTER_CLASSES[(s32) register_class]);
 	json.Key("dbx_register_number");
-	json.Int(storage.dbx_register_number);
+	json.Uint(storage.dbx_register_number);
 	json.Key("register_index");
-	json.Int(register_index_relative);
+	json.Uint(register_index_relative);
 	json.Key("is_by_reference");
 	json.Bool(storage.is_by_reference);
 	json.EndObject();
@@ -212,8 +213,8 @@ static void write_json(Writer& json, const Function& symbol, const SymbolDatabas
 		json.StartArray();
 		for (const Function::LineNumberPair& pair : symbol.line_numbers) {
 			json.StartArray();
-			json.Uint(pair.address.value);
-			json.Int(pair.line_number);
+			json.Uint(pair.address.value());
+			json.Uint(pair.line_number);
 			json.EndArray();
 		}
 		json.EndArray();
@@ -224,7 +225,7 @@ static void write_json(Writer& json, const Function& symbol, const SymbolDatabas
 		json.StartArray();
 		for (const Function::SubSourceFile& sub : symbol.sub_source_files) {
 			json.StartArray();
-			json.Uint(sub.address.value);
+			json.Uint(sub.address.value());
 			json.String(sub.relative_path);
 			json.EndArray();
 		}
@@ -240,9 +241,9 @@ static void write_json(Writer& json, const Function& symbol, const SymbolDatabas
 		json.Key("parameter_variables");
 		json.StartArray();
 		for (ParameterVariableHandle handle : *symbol.parameter_variables()) {
-			s32 index = database.parameter_variables.index_from_handle(handle);
-			if (index != -1) {
-				json.Int(index);
+			std::optional<size_t> index = database.parameter_variables.index_from_handle(handle);
+			if (index.has_value()) {
+				json.Uint64(static_cast<u64>(*index));
 			}
 		}
 		json.EndArray();
@@ -252,9 +253,9 @@ static void write_json(Writer& json, const Function& symbol, const SymbolDatabas
 		json.Key("local_variables");
 		json.StartArray();
 		for (LocalVariableHandle handle : *symbol.local_variables()) {
-			s32 index = database.local_variables.index_from_handle(handle);
-			if (index != -1) {
-				json.Int(index);
+			std::optional<size_t> index = database.local_variables.index_from_handle(handle);
+			if (index.has_value()) {
+				json.Uint64(static_cast<u64>(*index));
 			}
 		}
 		json.EndArray();
@@ -297,11 +298,11 @@ static void write_json(Writer& json, const LocalVariable& symbol, const SymbolDa
 		write_json(json, *storage, database);
 	}
 
-	if (symbol.live_range.low.valid() && symbol.live_range.high.valid()) {
+	if (symbol.live_range.low.has_value() && symbol.live_range.high.has_value()) {
 		json.Key("live_range");
 		json.StartArray();
-		json.Uint(symbol.live_range.low.value);
-		json.Uint(symbol.live_range.high.value);
+		json.Uint(symbol.live_range.low.value());
+		json.Uint(symbol.live_range.high.value());
 		json.EndArray();
 	}
 }
@@ -354,9 +355,9 @@ static void write_json(Writer& json, const SourceFile& symbol, const SymbolDatab
 		json.Key("functions");
 		json.StartArray();
 		for (FunctionHandle handle : symbol.functions()) {
-			s32 index = database.functions.index_from_handle(handle);
-			if (index != -1) {
-				json.Int(index);
+			std::optional<size_t> index = database.functions.index_from_handle(handle);
+			if (index.has_value()) {
+				json.Uint64(static_cast<u64>(*index));
 			}
 		}
 		json.EndArray();
@@ -366,9 +367,9 @@ static void write_json(Writer& json, const SourceFile& symbol, const SymbolDatab
 		json.Key("global_variables");
 		json.StartArray();
 		for (GlobalVariableHandle handle : symbol.global_variables()) {
-			s32 index = database.global_variables.index_from_handle(handle);
-			if (index != -1) {
-				json.Int(index);
+			std::optional<size_t> index = database.global_variables.index_from_handle(handle);
+			if (index.has_value()) {
+				json.Uint64(static_cast<u64>(*index));
 			}
 		}
 		json.EndArray();

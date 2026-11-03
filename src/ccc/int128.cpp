@@ -32,8 +32,8 @@ u128::u128(const u128& rhs)
 }
 
 u128::u128(const s128& rhs)
-	: low(static_cast<u64>(rhs.low))
-	, high(static_cast<u64>(rhs.high))
+	: low(rhs.low)
+	, high(rhs.high)
 {
 }
 
@@ -208,8 +208,8 @@ s128::s128(u64 h, u64 l)
 }
 
 s128::s128(const u128& rhs)
-	: low(static_cast<s64>(rhs.low))
-	, high(static_cast<s64>(rhs.high))
+	: low(rhs.low)
+	, high(rhs.high)
 {
 }
 
@@ -333,27 +333,27 @@ std::optional<s128> s128::from_string(const std::string& hex)
 
 // *****************************************************************************
 
-u128 unpack_unsigned_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size)
+u128 unpack_unsigned_bitfield(u128 storage_unit, u32 bit_offset, u32 bit_size)
 {
 	return (storage_unit >> bit_offset) & ((u128(1) << bit_size) - 1);
 }
 
-s128 unpack_signed_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size)
+s128 unpack_signed_bitfield(u128 storage_unit, u32 bit_offset, u32 bit_size)
 {
 	return s128(storage_unit << (128 - (bit_offset + bit_size))) >> (128 - bit_size);
 }
 
-u128 pack_unsigned_bitfield(u128 bitfield, s32 bit_offset, s32 bit_size)
+u128 pack_unsigned_bitfield(u128 bitfield, u32 bit_offset, u32 bit_size)
 {
 	return (bitfield & ((u128(1) << bit_size) - 1)) << bit_offset;
 }
 
-u128 pack_signed_bitfield(s128 bitfield, s32 bit_offset, s32 bit_size)
+u128 pack_signed_bitfield(s128 bitfield, u32 bit_offset, u32 bit_size)
 {
 	return u128((bitfield & ((u128(1) << bit_size) - 1)) << (128 - bit_size)) >> (128 - bit_offset - bit_size);
 }
 
-u128 zero_bitfield(u128 storage_unit, s32 bit_offset, s32 bit_size)
+u128 zero_bitfield(u128 storage_unit, u32 bit_offset, u32 bit_size)
 {
 	return storage_unit & ~(((u128(1) << bit_size) - 1) << bit_offset);
 }

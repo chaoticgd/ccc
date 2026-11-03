@@ -6,7 +6,7 @@
 #include "ast.h"
 #include "int128.h"
 
-#include <cinttypes>
+#include <bit>
 
 namespace ccc {
 
@@ -19,10 +19,11 @@ static Result<RefinedData> refine_builtin(
 static Result<RefinedData> refine_pointer_or_reference(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf);
 static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass);
-static const char* generate_format_string(s32 size, bool is_signed);
+static s64 sign_extend_from_size(u64 value, u32 size);
 static std::string single_precision_float_to_string(float value);
-static std::string string_format(const char* format, va_list args);
-static std::string stringf(const char* format, ...);
+
+CCC_FORMAT_ATTRIBUTE(printf, 1, 2)
+static std::string string_format(const char* format, ...);
 
 bool can_refine_variable(const VariableToRefine& variable)
 {
@@ -32,7 +33,7 @@ bool can_refine_variable(const VariableToRefine& variable)
 		return false;
 	if (variable.storage->location == GlobalStorageLocation::SBSS)
 		return false;
-	if (!variable.address.valid())
+	if (!variable.address.has_value())
 		return false;
 	if (!variable.type)
 		return false;
@@ -43,19 +44,17 @@ Result<RefinedData> refine_variable(
 	const VariableToRefine& variable, const SymbolDatabase& database, const ElfFile& elf)
 {
 	CCC_ASSERT(variable.type);
-	return refine_node(variable.address.value, *variable.type, database, elf, 0);
+	return refine_node(variable.address.value(), *variable.type, database, elf, 0);
 }
 
 static Result<RefinedData> refine_node(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf, s32 depth)
 {
 	if (depth > 200) {
-		const char* error_message = "Call depth greater than 200 in refine_node, probably infinite recursion.";
-
-		CCC_WARN(error_message);
+		CCC_WARN("Call depth greater than 200 in refine_node, probably infinite recursion.");
 
 		RefinedData data;
-		data.value = error_message;
+		data.value = "Call depth greater than 200 in refine_node, probably infinite recursion.";
 		return data;
 	}
 
@@ -63,11 +62,12 @@ static Result<RefinedData> refine_node(
 		case ast::ARRAY: {
 			const ast::Array& array = type.as<ast::Array>();
 			CCC_CHECK(
-				array.element_type->size_bytes > -1, "Cannot compute element size for '%s' array.", array.name.c_str());
+				array.element_type->size_bytes.has_value(),
+				"Cannot compute element size for '%s' array.", array.name.c_str());
 			RefinedData list;
 			std::vector<RefinedData>& elements = list.value.emplace<std::vector<RefinedData>>();
-			for (s32 i = 0; i < array.element_count; i++) {
-				s32 offset = i * array.element_type->size_bytes;
+			for (u32 i = 0; i < array.element_count.get_or_zero(); i++) {
+				u32 offset = i * array.element_type->size_bytes.value();
 				Result<RefinedData> element = refine_node(
 					virtual_address + offset, *array.element_type.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(element);
@@ -119,10 +119,12 @@ static Result<RefinedData> refine_node(
 			RefinedData list;
 			std::vector<RefinedData>& children = list.value.emplace<std::vector<RefinedData>>();
 
-			for (s32 i = 0; i < (s32) struct_or_union.base_classes.size(); i++) {
+			for (size_t i = 0; i < struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
+				CCC_CHECK(base_class->offset_bytes.has_value(), "Base class without offset.");
+				u32 base_class_address = virtual_address + base_class->offset_bytes.value();
 				Result<RefinedData> child = refine_node(
-					virtual_address + base_class->offset_bytes, *base_class.get(), database, elf, depth + 1);
+					base_class_address, *base_class.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "base class " + std::to_string(i);
 				children.emplace_back(std::move(*child));
@@ -132,8 +134,9 @@ static Result<RefinedData> refine_node(
 				if (field->storage_class == STORAGE_CLASS_STATIC) {
 					continue;
 				}
-				Result<RefinedData> child = refine_node(
-					virtual_address + field->offset_bytes, *field.get(), database, elf, depth + 1);
+				CCC_CHECK(field->offset_bytes.has_value(), "Field without offset.");
+				u32 field_address = virtual_address + field->offset_bytes.value();
+				Result<RefinedData> child = refine_node(field_address, *field.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "." + field->name;
 				children.emplace_back(std::move(*child));
@@ -156,61 +159,73 @@ static Result<RefinedData> refine_bitfield(
 {
 	ast::BuiltInClass storage_unit_type = bit_field.storage_unit_type(database);
 
+	CCC_CHECK(bit_field.bitfield_offset_bits.has_value(), "Bit-field without bit offset.");
+	CCC_CHECK(bit_field.size_bits.has_value(), "Bit-field without bit size.");
+
 	u128 value;
 	switch (storage_unit_type) {
 		case ast::BuiltInClass::UNSIGNED_8:
 		case ast::BuiltInClass::UNQUALIFIED_8: {
 			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_unsigned_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_unsigned_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::BOOL_8: {
 			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_unsigned_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_unsigned_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_8: {
 			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_signed_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_signed_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_16: {
 			std::optional<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 16-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_unsigned_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_unsigned_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_16: {
 			std::optional<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 16-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_signed_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_signed_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_32: {
 			std::optional<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 32-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_unsigned_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_unsigned_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_32: {
 			std::optional<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 32-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_signed_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_signed_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_64: {
 			std::optional<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 64-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_unsigned_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_unsigned_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_64: {
 			std::optional<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 64-bit bitfield storage unit at 0x%x.", virtual_address);
-			value = unpack_signed_bitfield(*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_signed_bitfield(
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_128:
@@ -229,7 +244,8 @@ static Result<RefinedData> refine_bitfield(
 			storage_unit.low = *low;
 			storage_unit.high = *high;
 
-			value = unpack_unsigned_bitfield(storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits);
+			value = unpack_unsigned_bitfield(
+				storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		default: break;
@@ -262,7 +278,7 @@ static Result<RefinedData> refine_builtin(
 		case ast::BuiltInClass::UNSIGNED_64:
 		case ast::BuiltInClass::SIGNED_64:
 		case ast::BuiltInClass::FLOAT_64: {
-			s32 size = builtin_class_size(bclass);
+			u32 size = builtin_class_size(bclass).value();
 			bool read_result = elf.copy_virtual((u8*) &value.low, virtual_address, size);
 			CCC_CHECK(read_result, "Failed to read built-in at 0x%x.", virtual_address);
 			break;
@@ -325,7 +341,7 @@ static Result<RefinedData> refine_pointer_or_reference(
 			}
 			string += global_variable_symbol->name();
 		} else {
-			string = stringf("0x%x", pointer);
+			string = string_format("0x%x", pointer);
 		}
 	} else {
 		string = "NULL";
@@ -353,18 +369,16 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		case ast::BuiltInClass::UNSIGNED_16:
 		case ast::BuiltInClass::UNSIGNED_32:
 		case ast::BuiltInClass::UNSIGNED_64: {
-			s32 size = builtin_class_size(bclass);
-			const char* format = generate_format_string(size, false);
-			result = stringf(format, value.low);
+			result = std::to_string(value.low);
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_8:
 		case ast::BuiltInClass::SIGNED_16:
 		case ast::BuiltInClass::SIGNED_32:
 		case ast::BuiltInClass::SIGNED_64: {
-			s32 size = builtin_class_size(bclass);
-			const char* format = generate_format_string(size, true);
-			result = stringf(format, value.low);
+			u32 size = builtin_class_size(bclass).value();
+			s64 extended_value = sign_extend_from_size(value.low, size);
+			result = std::to_string(extended_value);
 			break;
 		}
 		case ast::BuiltInClass::BOOL_8: {
@@ -373,15 +387,16 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		}
 		case ast::BuiltInClass::FLOAT_32: {
 			static_assert(sizeof(float) == 4);
-			result = single_precision_float_to_string(value.low);
+			result = single_precision_float_to_string(std::bit_cast<float>(static_cast<u32>(value.low)));
 			break;
 		}
 		case ast::BuiltInClass::FLOAT_64: {
 			static_assert(sizeof(double) == 8);
 
-			std::string string = stringf("%g", value.low);
-			if (strtof(string.c_str(), nullptr) != value.low) {
-				string = stringf("%.17g", value.low);
+			double float_value = std::bit_cast<double>(value.low);
+			std::string string = string_format("%g", float_value);
+			if (strtof(string.c_str(), nullptr) != float_value) {
+				string = string_format("%.17g", float_value);
 			}
 
 			result = std::move(string);
@@ -400,21 +415,21 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 	return result;
 }
 
-static const char* generate_format_string(s32 size, bool is_signed)
+static s64 sign_extend_from_size(u64 value, u32 size)
 {
 	switch (size) {
-		case 1: return is_signed ? "%hhd" : "%hhu";
-		case 2: return is_signed ? "%hd" : "%hu";
-		case 4: return is_signed ? "%d" : "%hu";
+		case 1: return static_cast<s64>(static_cast<u8>(value));
+		case 2: return static_cast<s64>(static_cast<u16>(value));
+		case 4: return static_cast<s64>(static_cast<u32>(value));
 	}
-	return is_signed ? ("%" PRId64) : ("%" PRIu64);
+	return static_cast<s64>(value);
 }
 
 static std::string single_precision_float_to_string(float value)
 {
-	std::string result = stringf("%g", value);
+	std::string result = string_format("%g", value);
 	if (strtof(result.c_str(), nullptr) != value) {
-		result = stringf("%.9g", value);
+		result = string_format("%.9g", value);
 	}
 	if (result.find(".") == std::string::npos) {
 		result += ".";
@@ -423,20 +438,16 @@ static std::string single_precision_float_to_string(float value)
 	return result;
 }
 
-static std::string string_format(const char* format, va_list args)
-{
-	char buffer[256];
-	vsnprintf(buffer, sizeof(buffer), format, args);
-	return std::string(buffer);
-}
-
-static std::string stringf(const char* format, ...)
+static std::string string_format(const char* format, ...)
 {
 	va_list args;
+	char buffer[256];
+
 	va_start(args, format);
-	std::string string = string_format(format, args);
+	vsnprintf(buffer, sizeof(buffer), format, args);
 	va_end(args);
-	return string;
+
+	return std::string(buffer);
 }
 
 }

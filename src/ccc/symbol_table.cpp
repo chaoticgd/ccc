@@ -55,7 +55,7 @@ Result<std::unique_ptr<SymbolTable>> create_elf_symbol_table(
 	std::unique_ptr<SymbolTable> symbol_table;
 	switch (format) {
 		case MDEBUG: {
-			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, (s32) section.header.offset);
+			symbol_table = std::make_unique<MdebugSymbolTable>(elf.image, section.header.offset);
 			break;
 		}
 		case DWARF: {
@@ -145,7 +145,7 @@ Result<ModuleHandle> import_symbol_tables(
 
 // *****************************************************************************
 
-MdebugSymbolTable::MdebugSymbolTable(std::span<const u8> image, s32 section_offset)
+MdebugSymbolTable::MdebugSymbolTable(std::span<const u8> image, u32 section_offset)
 	: m_image(image)
 	, m_section_offset(section_offset)
 {

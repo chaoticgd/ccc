@@ -200,13 +200,13 @@ Result<void> SymbolPrinter::print_constant(FILE* out, Attribute attribute, const
 			break;
 		}
 		case AT_ordering: {
-			const char* ordering = array_ordering_to_string(value.constant());
+			const char* ordering = array_ordering_to_string(static_cast<u32>(value.constant()));
 			CCC_CHECK(ordering, "Unknown array ordering 0x%x.\n", static_cast<u32>(value.constant()));
 			fprintf(out, "%s", ordering);
 			break;
 		}
 		case AT_language: {
-			const char* language = language_to_string(value.constant());
+			const char* language = language_to_string(static_cast<u32>(value.constant()));
 			CCC_CHECK(language, "Unknown language 0x%x.", static_cast<u32>(value.constant()));
 			fprintf(out, "%s", language);
 			break;

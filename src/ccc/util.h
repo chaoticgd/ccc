@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <set>
@@ -39,6 +40,14 @@ using s64 = int64_t;
 #define CCC_ANSI_COLOUR_GRAY "\033[90m"
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define CCC_FORMAT_ATTRIBUTE(style, format_index, first_index) [[gnu::format(style, format_index, first_index)]]
+#define CCC_WARN_UNUSED [[gnu::warn_unused]]
+#else
+#define CCC_FORMAT_ATTRIBUTE(style, format_index, first_index)
+#define CCC_WARN_UNUSED
+#endif
+
 struct Error
 {
 	std::string message;
@@ -54,39 +63,39 @@ enum ErrorLevel
 
 typedef void (*CustomErrorCallback)(const Error& error, ErrorLevel level);
 
+CCC_FORMAT_ATTRIBUTE(printf, 3, 4)
 Error format_error(const char* source_file, s32 source_line, const char* format, ...);
+
 void report_error(const Error& error);
 void report_warning(const Error& warning);
 void set_custom_error_callback(CustomErrorCallback callback);
 
 #define CCC_EXIT(...)                                                          \
-	{                                                                          \
+	do {                                                                       \
 		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
 		ccc::report_error(error);                                              \
 		exit(1);                                                               \
-	}
+	} while (0)
 
-#define CCC_EXIT_IF_FALSE(condition, ...)                                      \
-	if (!(condition)) {                                                        \
-		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_error(error);                                              \
-		exit(1);                                                               \
-	}
+#define CCC_EXIT_IF_FALSE(condition, ...)                                          \
+	do {                                                                           \
+		if (!(condition)) {                                                        \
+			ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+			ccc::report_error(error);                                              \
+			exit(1);                                                               \
+		}                                                                          \
+	} while (0)
 
-#define CCC_ABORT_IF_FALSE(condition, ...)                                     \
-	if (!(condition)) {                                                        \
-		ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
-		ccc::report_error(error);                                              \
-		abort();                                                               \
-	}
+#define CCC_ABORT_IF_FALSE(condition, ...)                                         \
+	do {                                                                           \
+		if (!(condition)) {                                                        \
+			ccc::Error error = ccc::format_error(__FILE__, __LINE__, __VA_ARGS__); \
+			ccc::report_error(error);                                              \
+			abort();                                                               \
+		}                                                                          \
+	} while (0)
 
 #define CCC_ASSERT(condition) CCC_ABORT_IF_FALSE(condition, #condition)
-
-#if defined(__GNUC__) || defined(__clang__)
-#define CCC_WARN_UNUSED [[gnu::warn_unused]]
-#else
-#define CCC_WARN_UNUSED
-#endif
 
 // The main error handling construct in CCC. This class is used to bundle
 // together a return value and a pointer to error information, so that errors
@@ -179,37 +188,42 @@ public:
 
 #define CCC_FAILURE(...) ccc::Result<s32>::failure(ccc::format_error(__FILE__, __LINE__, __VA_ARGS__))
 
-#define CCC_CHECK(condition, ...)        \
-	if (!(condition)) {                  \
-		return CCC_FAILURE(__VA_ARGS__); \
-	}
+#define CCC_CHECK(condition, ...)            \
+	do {                                     \
+		if (!(condition)) {                  \
+			return CCC_FAILURE(__VA_ARGS__); \
+		}                                    \
+	} while (0)
 
 #define CCC_EXPECT_CHAR(input, c, context)                                                                       \
 	CCC_CHECK(*(input++) == c, "Expected '%c' in %s, got '%c' (%02hhx)", c, context, *(input - 1), *(input - 1))
 
 #define CCC_RETURN_IF_ERROR(result) \
-	if (!(result).success()) {      \
-		return (result);            \
-	}
+	do {                            \
+		if (!(result).success()) {  \
+			return (result);        \
+		}                           \
+	} while (0)
 
-#define CCC_EXIT_IF_ERROR(result)            \
-	if (!(result).success()) {               \
-		ccc::report_error((result).error()); \
-		exit(1);                             \
-	}
+#define CCC_EXIT_IF_ERROR(result)                \
+	do {                                         \
+		if (!(result).success()) {               \
+			ccc::report_error((result).error()); \
+			exit(1);                             \
+		}                                        \
+	} while (0)
 
-#define CCC_GTEST_FAIL_IF_ERROR(result)     \
-	if (!(result).success()) {              \
-		FAIL() << (result).error().message; \
-	}
+#define CCC_GTEST_FAIL_IF_ERROR(result)         \
+	do {                                        \
+		if (!(result).success()) {              \
+			FAIL() << (result).error().message; \
+		}                                       \
+	} while (0)
 
-template <typename... Args>
-void warn_impl(const char* source_file, s32 source_line, const char* format, Args... args)
-{
-	Error warning = format_error(source_file, source_line, format, args...);
-	report_warning(warning);
-}
-#define CCC_WARN(...) ccc::warn_impl(__FILE__, __LINE__, __VA_ARGS__)
+#define CCC_WARN(format, ...)                                                    \
+	do {                                                                         \
+		report_warning(format_error(__FILE__, __LINE__, format, ##__VA_ARGS__)); \
+	} while (0)
 
 #ifdef _MSC_VER
 #define CCC_PACKED_STRUCT(name, ...)    \
@@ -274,47 +288,62 @@ std::optional<std::string_view> get_string(std::span<const u8> bytes, u64 offset
 
 #define CCC_FOURCC(string) ((string)[0] | (string)[1] << 8 | (string)[2] << 16 | (string)[3] << 24)
 
-struct Address
+template <typename Value>
+class NullableInt
 {
-	u32 value = (u32) -1;
-
-	Address() {}
-	Address(u32 v)
-		: value(v)
+public:
+	constexpr NullableInt()
+		: m_value(std::numeric_limits<Value>::max())
 	{
 	}
 
-	bool valid() const { return value != (u32) -1; }
-
-	u32 get_or_zero() const
+	constexpr NullableInt(Value value)
+		: m_value(value)
 	{
-		if (valid()) {
-			return value;
-		} else {
+	}
+
+	bool has_value() const
+	{
+		return m_value != std::numeric_limits<Value>::max();
+	}
+
+	Value value() const
+	{
+		return m_value;
+	}
+
+	Value get_or_zero() const
+	{
+		if (!has_value()) {
 			return 0;
 		}
+		return m_value;
 	}
 
-	Address add_base_address(Address base_address) const
+	NullableInt<Value> add_base(NullableInt<Value> base)
 	{
-		if (valid()) {
-			return base_address.get_or_zero() + value;
-		} else {
-			return Address();
+		if (!has_value()) {
+			return NullableInt<Value>();
 		}
+		return m_value + base.get_or_zero();
 	}
 
-	static Address non_zero(u32 address)
+	static NullableInt<Value> non_zero(Value value)
 	{
-		Address result;
-		if (address != 0) {
-			result = address;
+		NullableInt<Value> result;
+		if (value != 0) {
+			result = value;
 		}
 		return result;
 	}
 
-	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;
+	friend auto operator<=>(const NullableInt<Value>& lhs, const NullableInt<Value>& rhs) = default;
+
+private:
+	Value m_value;
 };
+
+using Address = NullableInt<u32>;
 
 struct AddressRange
 {

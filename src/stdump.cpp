@@ -418,7 +418,7 @@ static void print_labels(FILE* out, const Options& options)
 	}
 
 	for (const Label* label : labels) {
-		fprintf(out, "%08x %s\n", label->address().value, label->name().c_str());
+		fprintf(out, "%08x %s\n", label->address().value(), label->name().c_str());
 	}
 }
 
@@ -490,7 +490,7 @@ static void print_files(FILE* out, const Options& options)
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 
 	for (const SourceFile& source_file : database.source_files) {
-		fprintf(out, "%08x %s\n", source_file.address().value, source_file.name().c_str());
+		fprintf(out, "%08x %s\n", source_file.address().value(), source_file.name().c_str());
 	}
 }
 
@@ -524,17 +524,17 @@ static void print_sections(FILE* out, const Options& options)
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 
 	for (const Section& section : database.sections) {
-		if (!section.address().valid()) {
+		if (!section.address().has_value()) {
 			continue;
 		}
 
-		u32 section_start = section.address().value;
-		u32 section_end = section.address().value + section.size();
+		u32 section_start = section.address().value();
+		u32 section_end = section.address().value() + section.size();
 
 		fprintf(out, "%s:\n", section.name().c_str());
 
 		for (const SourceFile& source_file : database.source_files) {
-			if (source_file.address().valid() && source_file.address() >= section_start
+			if (source_file.address().has_value() && source_file.address() >= section_start
 				&& source_file.address() < section_end) {
 				fprintf(out, "\t%s\n", source_file.full_path().c_str());
 			}
@@ -691,7 +691,7 @@ static void print_help(FILE* out)
 	fprintf(out, "                                %s", common_section_names_are);
 
 	// Print out a line wrapped list of common section names.
-	s32 column = 32 + (s32) strlen(common_section_names_are);
+	u32 column = 32 + static_cast<u32>(strlen(common_section_names_are));
 	for (size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if (column + strlen(format.section_name) + 2 > 80) {
@@ -704,14 +704,14 @@ static void print_help(FILE* out)
 		} else {
 			fprintf(out, ", ");
 		}
-		column += (s32) strlen(format.section_name) + 2;
+		column += static_cast<u32>(strlen(format.section_name)) + 2;
 	}
 
 	// Print out a line wrapped list of supported symbol table formats.
 	const char* supported_formats_are = "Supported formats are: ";
 	fprintf(out, "\n");
 	fprintf(out, "                                %s", supported_formats_are);
-	column = 32 + (s32) strlen(supported_formats_are);
+	column = 32 + static_cast<u32>(strlen(supported_formats_are));
 	for (u32 i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if (column + strlen(format.format_name) + 2 > 80) {
@@ -724,7 +724,7 @@ static void print_help(FILE* out)
 		} else {
 			fprintf(out, ", ");
 		}
-		column += (s32) strlen(format.format_name) + 2;
+		column += static_cast<u32>(strlen(format.format_name)) + 2;
 	}
 
 	fprintf(out, "\n");

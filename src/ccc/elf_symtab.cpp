@@ -71,7 +71,7 @@ Result<void> import_symbols(
 			address = symbol->value;
 		}
 
-		if (!address.valid() || symbol->visibility() != SymbolVisibility::DEFAULT) {
+		if (!address.has_value() || symbol->visibility() != SymbolVisibility::DEFAULT) {
 			continue;
 		}
 

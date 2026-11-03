@@ -66,15 +66,15 @@ public:
 	Result<void> sub_source_file(const char* name, Address text_address);
 	Result<void> procedure(
 		const char* mangled_name, Address address, const ProcedureDescriptor* procedure_descriptor, bool is_static);
-	Result<void> label(const char* label, Address address, s32 line_number);
-	Result<void> text_end(const char* name, s32 function_size);
+	Result<void> label(const char* label, Address address, u32 line_number);
+	Result<void> text_end(const char* name, u32 function_size);
 	Result<void> function(const char* mangled_name, const StabsType& return_type, Address address);
 	Result<void> function_end();
-	Result<void> parameter(const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference);
+	Result<void> parameter(const char* name, const StabsType& type, bool is_stack, u32 value, bool is_by_reference);
 	Result<void> local_variable(
 		const char* name, const StabsType& type, u32 value, StabsSymbolDescriptor desc, SymbolClass sclass);
-	Result<void> lbrac(s32 begin_offset);
-	Result<void> rbrac(s32 end_offset);
+	Result<void> lbrac(u32 begin_offset);
+	Result<void> rbrac(u32 end_offset);
 
 	Result<void> finish();
 

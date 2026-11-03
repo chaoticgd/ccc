@@ -7,7 +7,7 @@
 
 namespace ccc {
 
-enum ImporterFlags
+enum ImporterFlags : u32
 {
 	NO_IMPORTER_FLAGS = 0,
 	DEMANGLE_PARAMETERS = (1 << 0),

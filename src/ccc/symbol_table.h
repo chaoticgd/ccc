@@ -87,7 +87,7 @@ Result<ModuleHandle> import_symbol_tables(
 class MdebugSymbolTable : public SymbolTable
 {
 public:
-	MdebugSymbolTable(std::span<const u8> image, s32 section_offset);
+	MdebugSymbolTable(std::span<const u8> image, u32 section_offset);
 
 	const char* name() const override;
 
@@ -103,7 +103,7 @@ public:
 
 private:
 	std::span<const u8> m_image;
-	s32 m_section_offset;
+	u32 m_section_offset;
 };
 
 class SymtabSymbolTable : public SymbolTable

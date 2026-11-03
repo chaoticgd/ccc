@@ -145,17 +145,17 @@ public:
 	const SymbolType* first_symbol_from_raw_name(const std::string& raw_name) const;
 
 	// Convert handles to underlying array indices.
-	s32 index_from_handle(SymbolHandle<SymbolType> handle) const;
+	std::optional<size_t> index_from_handle(SymbolHandle<SymbolType> handle) const;
 
 	// Index into the underlying array.
-	SymbolType& symbol_from_index(s32 index);
-	const SymbolType& symbol_from_index(s32 index) const;
+	SymbolType& symbol_from_index(size_t index);
+	const SymbolType& symbol_from_index(size_t index) const;
 
 	// Determine if any symbols are being stored.
 	bool empty() const;
 
 	// Retrieve the number of symbols stored.
-	s32 size() const;
+	size_t size() const;
 
 	// Create a new symbol. If it's a SymbolSource symbol, source can be left
 	// empty, otherwise it has to be valid.
@@ -326,7 +326,7 @@ struct GlobalStorage
 
 struct RegisterStorage
 {
-	s32 dbx_register_number = -1;
+	u32 dbx_register_number = UINT32_MAX;
 	bool is_by_reference = false;
 
 	RegisterStorage() {}
@@ -335,7 +335,7 @@ struct RegisterStorage
 
 struct StackStorage
 {
-	s32 stack_pointer_offset = -1;
+	s32 stack_pointer_offset = INT32_MAX;
 
 	StackStorage() {}
 	friend auto operator<=>(const StackStorage& lhs, const StackStorage& rhs) = default;
@@ -420,7 +420,7 @@ public:
 	struct LineNumberPair
 	{
 		Address address;
-		s32 line_number;
+		u32 line_number;
 	};
 
 	struct SubSourceFile
@@ -659,7 +659,7 @@ public:
 	SymbolList<SymbolSource> symbol_sources;
 
 	// Sum up the symbol counts for each symbol list.
-	s32 symbol_count() const;
+	size_t symbol_count() const;
 
 	// Find a symbol of any of the specified types given an address. Symbols of
 	// the types specified higher up in the CCC_FOR_EACH_SYMBOL_TYPE_DO_X macro
@@ -716,9 +716,9 @@ public:
 	void for_each_symbol(Callback callback)
 	{
 // Use indices here to avoid iterator invalidation.
-#define CCC_X(SymbolType, symbol_list)              \
-	for (s32 i = 0; i < symbol_list.size(); i++) {  \
-		callback(symbol_list.symbol_from_index(i)); \
+#define CCC_X(SymbolType, symbol_list)                \
+	for (size_t i = 0; i < symbol_list.size(); i++) { \
+		callback(symbol_list.symbol_from_index(i));   \
 	}
 		CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X

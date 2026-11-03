@@ -250,9 +250,9 @@ struct StabsStructOrUnionType : StabsType
 
 	struct BaseClass
 	{
-		bool is_virtual;
-		Visibility visibility;
-		s32 offset = -1;
+		bool is_virtual = false;
+		Visibility visibility = Visibility::NONE;
+		s32 offset = INT32_MAX; // Can sometimes be negative.
 		std::unique_ptr<StabsType> type;
 	};
 
@@ -262,8 +262,8 @@ struct StabsStructOrUnionType : StabsType
 		Visibility visibility = Visibility::NONE;
 		std::unique_ptr<StabsType> type;
 		bool is_static = false;
-		s32 offset_bits = 0;
-		s32 size_bits = 0;
+		NullableInt<u32> offset_bits;
+		NullableInt<u32> size_bits;
 		std::string type_name;
 	};
 
@@ -271,11 +271,11 @@ struct StabsStructOrUnionType : StabsType
 	{
 		std::unique_ptr<StabsType> type;
 		std::unique_ptr<StabsType> virtual_type;
-		Visibility visibility;
+		Visibility visibility = Visibility::NONE;
 		bool is_const = false;
 		bool is_volatile = false;
 		ast::MemberFunctionModifier modifier = ast::MemberFunctionModifier::NONE;
-		s32 vtable_index = -1;
+		NullableInt<u32> vtable_index;
 	};
 
 	struct MemberFunctionSet
@@ -284,7 +284,7 @@ struct StabsStructOrUnionType : StabsType
 		std::vector<MemberFunction> overloads;
 	};
 
-	s64 size = -1;
+	NullableInt<u32> size;
 	std::vector<BaseClass> base_classes;
 	std::vector<Field> fields;
 	std::vector<MemberFunctionSet> member_functions;
@@ -337,7 +337,6 @@ struct StabsUnionType : StabsStructOrUnionType
 
 	static const constexpr StabsTypeDescriptor DESCRIPTOR = StabsTypeDescriptor::UNION;
 };
-
 
 struct StabsCrossReferenceType : StabsType
 {
@@ -429,7 +428,7 @@ struct StabsPointerType : StabsType
 
 struct StabsSizeTypeAttributeType : StabsType
 {
-	s64 size_bits = -1;
+	u32 size_bits = UINT32_MAX;
 	std::unique_ptr<StabsType> type;
 
 	StabsSizeTypeAttributeType(StabsTypeNumber n)
@@ -468,7 +467,7 @@ struct StabsPointerToDataMemberType : StabsType
 
 struct StabsBuiltInType : StabsType
 {
-	s64 type_id = -1;
+	u32 type_id = UINT32_MAX;
 
 	StabsBuiltInType(StabsTypeNumber n)
 		: StabsType(n, DESCRIPTOR)
@@ -481,8 +480,6 @@ struct StabsBuiltInType : StabsType
 extern const char* STAB_TRUNCATED_ERROR_MESSAGE;
 
 Result<std::unique_ptr<StabsType>> parse_top_level_stabs_type(const char*& input);
-std::optional<s32> parse_number_s32(const char*& input);
-std::optional<s64> parse_number_s64(const char*& input);
 std::optional<std::string> parse_stabs_identifier(const char*& input, char terminator);
 Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char terminator);
 const char* stabs_field_visibility_to_string(StabsStructOrUnionType::Visibility visibility);
