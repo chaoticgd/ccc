@@ -12,7 +12,7 @@
 		const char* expected = expected_demangled;                     \
 		if (demangled) {                                               \
 			ASSERT_TRUE(expected && strcmp(demangled, expected) == 0); \
-			free((void*) demangled);                                   \
+			free(demangled);                                           \
 		} else {                                                       \
 			ASSERT_EQ(expected_demangled, nullptr);                    \
 		}                                                              \

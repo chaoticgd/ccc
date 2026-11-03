@@ -40,10 +40,11 @@ Result<StabsSymbol> parse_stabs_symbol(const char*& input)
 	} else {
 		char symbol_descriptor = *(input++);
 		CCC_CHECK(symbol_descriptor != '\0', "Failed to parse symbol descriptor.");
-		symbol.descriptor = (StabsSymbolDescriptor) symbol_descriptor;
+		symbol.descriptor = static_cast<StabsSymbolDescriptor>(symbol_descriptor);
 	}
-	CCC_CHECK(
-		validate_symbol_descriptor(symbol.descriptor), "Invalid symbol descriptor '%c'.", (char) symbol.descriptor);
+	CCC_CHECK(validate_symbol_descriptor(symbol.descriptor),
+		"Invalid symbol descriptor '%c'.",
+		static_cast<char>(symbol.descriptor));
 	CCC_CHECK(*input != '\0', "Unexpected end of input.");
 	if (*input == 't') {
 		input++;
@@ -187,7 +188,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 	} else {
 		char descriptor_char = *(input++);
 		CCC_CHECK(descriptor_char != '\0', "Failed to parse type descriptor.");
-		descriptor = (StabsTypeDescriptor) descriptor_char;
+		descriptor = static_cast<StabsTypeDescriptor>(descriptor_char);
 	}
 
 	std::unique_ptr<StabsType> out_type;
@@ -523,7 +524,8 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			break;
 		}
 		default: {
-			return CCC_FAILURE("Invalid type descriptor '%c' (%02x).", (u32) descriptor, (u32) descriptor);
+			return CCC_FAILURE("Invalid type descriptor '%c' (%02x).",
+				static_cast<char>(descriptor), static_cast<u32>(descriptor));
 		}
 	}
 

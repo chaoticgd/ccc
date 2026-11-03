@@ -139,7 +139,7 @@ struct Symbol
 
 	StabsCode code() const
 	{
-		return (StabsCode) (index - 0x8f300);
+		return static_cast<StabsCode>(index - 0x8f300);
 	}
 };
 

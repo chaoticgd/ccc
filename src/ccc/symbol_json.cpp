@@ -153,9 +153,9 @@ static void write_json(Writer& json, const RegisterStorage& storage, const Symbo
 	json.Key("type");
 	json.String("register");
 	json.Key("register");
-	json.String(mips::REGISTER_STRING_TABLES[(s32) register_class][register_index_relative]);
+	json.String(mips::REGISTER_STRING_TABLES[static_cast<u32>(register_class)][register_index_relative]);
 	json.Key("register_class");
-	json.String(mips::REGISTER_CLASSES[(s32) register_class]);
+	json.String(mips::REGISTER_CLASSES[static_cast<u32>(register_class)]);
 	json.Key("dbx_register_number");
 	json.Uint(storage.dbx_register_number);
 	json.Key("register_index");

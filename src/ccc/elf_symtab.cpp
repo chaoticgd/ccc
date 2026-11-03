@@ -45,9 +45,9 @@ CCC_PACKED_STRUCT(Symbol,
 	/* 0xd */ u8 other;
 	/* 0xe */ u16 shndx;
 	
-	SymbolType type() const { return (SymbolType) (info & 0xf); }
-	SymbolBind bind() const { return (SymbolBind) (info >> 4); }
-	SymbolVisibility visibility() const { return (SymbolVisibility) (other & 0x3); }
+	SymbolType type() const { return static_cast<SymbolType>(info & 0xf); }
+	SymbolBind bind() const { return static_cast<SymbolBind>(info >> 4); }
+	SymbolVisibility visibility() const { return static_cast<SymbolVisibility>(other & 0x3); }
 )
 
 static const char* symbol_bind_to_string(SymbolBind bind);

@@ -21,7 +21,7 @@ Result<std::vector<ccc::u8>> read_binary_file(const fs::path& path)
 
 	std::vector<u8> output(static_cast<size_t>(size));
 	file.seekg(0, std::ios::beg);
-	file.read((char*) output.data(), size);
+	file.read(reinterpret_cast<char*>(output.data()), size);
 	CCC_CHECK(file.good(), "Failed to read from file '%s' (%s).", path.string().c_str(), strerror(errno));
 
 	return output;

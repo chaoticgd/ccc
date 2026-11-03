@@ -153,7 +153,7 @@ Result<File> SymbolTableReader::parse_file(u32 index) const
 		Result<Symbol> sym = get_symbol(*symbol_header, m_elf, strings_offset);
 		CCC_RETURN_IF_ERROR(sym);
 
-		bool string_offset_equal = (s32) symbol_header->iss == fd_header->file_path_string_offset;
+		bool string_offset_equal = symbol_header->iss == fd_header->file_path_string_offset;
 		if (file.working_dir.empty() && string_offset_equal && sym->is_stabs() && sym->code() == N_SO
 			&& file.symbols.size() > 2) {
 			const Symbol& working_dir = file.symbols.back();
@@ -222,11 +222,11 @@ void SymbolTableReader::print_header(FILE* dest) const
 		m_hdrr->dense_numbers_count);
 	fprintf(dest, "  Procedure Descriptors       0x%-8x          "  "0x%-8x          "  "%-8u\n",
 		m_hdrr->procedure_descriptors_offset,
-		m_hdrr->procedure_descriptor_count * (u32) sizeof(ProcedureDescriptor),
+		m_hdrr->procedure_descriptor_count * static_cast<u32>(sizeof(ProcedureDescriptor)),
 		m_hdrr->procedure_descriptor_count);
 	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8u\n",
 		m_hdrr->local_symbols_offset,
-		m_hdrr->local_symbol_count * (u32) sizeof(SymbolHeader),
+		m_hdrr->local_symbol_count * static_cast<u32>(sizeof(SymbolHeader)),
 		m_hdrr->local_symbol_count);
 	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   " "%-8u\n",
 		m_hdrr->optimization_symbols_offset,
@@ -243,7 +243,7 @@ void SymbolTableReader::print_header(FILE* dest) const
 		m_hdrr->external_strings_size_bytes);
 	fprintf(dest, "  File Descriptors            0x%-8x          "  "0x%-8x          "  "%-8u\n",
 		m_hdrr->file_descriptors_offset,
-		m_hdrr->file_descriptor_count * (u32) sizeof(FileDescriptor),
+		m_hdrr->file_descriptor_count * static_cast<u32>(sizeof(FileDescriptor)),
 		m_hdrr->file_descriptor_count);
 	fprintf(dest, "  Relative File Descriptors   0x%-8x          "  "0x%-8x          "  "%-8u\n",
 		m_hdrr->relative_file_descriptors_offset,
@@ -296,16 +296,16 @@ static void print_symbol(FILE* out, const Symbol& symbol)
 	if (symbol_type_str) {
 		fprintf(out, "%-11s ", symbol_type_str);
 	} else {
-		fprintf(out, "ST(%7u) ", (u32) symbol.symbol_type);
+		fprintf(out, "ST(%7u) ", static_cast<u32>(symbol.symbol_type));
 	}
 
 	const char* symbol_class_str = symbol_class(symbol.symbol_class);
 	if (symbol_class_str) {
 		fprintf(out, "%-4s ", symbol_class_str);
-	} else if ((u32) symbol.symbol_class == 0) {
+	} else if (symbol.symbol_class == SymbolClass::NIL) {
 		fprintf(out, "         ");
 	} else {
-		fprintf(out, "SC(%4u) ", (u32) symbol.symbol_class);
+		fprintf(out, "SC(%4u) ", static_cast<u32>(symbol.symbol_class));
 	}
 
 	if (symbol.is_stabs()) {

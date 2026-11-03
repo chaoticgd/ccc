@@ -88,7 +88,7 @@ static Result<RefinedData> refine_node(
 			const ast::Enum& enumeration = type.as<ast::Enum>();
 
 			s32 value = 0;
-			bool read_result = elf.copy_virtual((u8*) &value, virtual_address, 4);
+			bool read_result = elf.copy_virtual(&value, virtual_address, 4);
 			CCC_CHECK(read_result, "Failed to read enum at 0x%x.", virtual_address);
 
 			RefinedData data;
@@ -279,7 +279,7 @@ static Result<RefinedData> refine_builtin(
 		case ast::BuiltInClass::SIGNED_64:
 		case ast::BuiltInClass::FLOAT_64: {
 			u32 size = builtin_class_size(bclass).value();
-			bool read_result = elf.copy_virtual((u8*) &value.low, virtual_address, size);
+			bool read_result = elf.copy_virtual(&value.low, virtual_address, size);
 			CCC_CHECK(read_result, "Failed to read built-in at 0x%x.", virtual_address);
 			break;
 		}
@@ -311,7 +311,7 @@ static Result<RefinedData> refine_pointer_or_reference(
 {
 	RefinedData data;
 	u32 pointer = 0;
-	bool read_result = elf.copy_virtual((u8*) &pointer, virtual_address, 4);
+	bool read_result = elf.copy_virtual(&pointer, virtual_address, sizeof(pointer));
 	CCC_CHECK(read_result, "Failed to read pointer at 0x%x.", virtual_address);
 
 	std::string string;
