@@ -21,9 +21,9 @@ enum Flags
 	FLAG_COMPACT_JSON = 1 << 5
 };
 
-struct Options
+struct StdumpOptions
 {
-	void (*function)(FILE* out, const Options& options) = nullptr;
+	void (*function)(FILE* out, const StdumpOptions& options) = nullptr;
 	fs::path input_file;
 	fs::path output_file;
 	u32 flags = NO_FLAGS;
@@ -31,31 +31,31 @@ struct Options
 	std::vector<SymbolTableLocation> sections;
 };
 
-static void identify_symbol_tables(FILE* out, const Options& options);
+static void identify_symbol_tables(FILE* out, const StdumpOptions& options);
 static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_total, const fs::path& file_path);
-static void print_functions(FILE* out, const Options& options);
-static void print_globals(FILE* out, const Options& options);
-static void print_types(FILE* out, const Options& options);
-static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options);
-static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options);
-static void print_type_graph(FILE* out, const Options& options);
-static void print_labels(FILE* out, const Options& options);
-static void print_json(FILE* out, const Options& options);
-static void print_symbols(FILE* out, const Options& options);
-static void print_headers(FILE* out, const Options& options);
-static void print_files(FILE* out, const Options& options);
-static void print_includes(FILE* out, const Options& options);
-static void print_sections(FILE* out, const Options& options);
-static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const Options& options);
+static void print_functions(FILE* out, const StdumpOptions& options);
+static void print_globals(FILE* out, const StdumpOptions& options);
+static void print_types(FILE* out, const StdumpOptions& options);
+static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const StdumpOptions& options);
+static void print_types_per_file(FILE* out, SymbolDatabase& database, const StdumpOptions& options);
+static void print_type_graph(FILE* out, const StdumpOptions& options);
+static void print_labels(FILE* out, const StdumpOptions& options);
+static void print_json(FILE* out, const StdumpOptions& options);
+static void print_symbols(FILE* out, const StdumpOptions& options);
+static void print_headers(FILE* out, const StdumpOptions& options);
+static void print_files(FILE* out, const StdumpOptions& options);
+static void print_includes(FILE* out, const StdumpOptions& options);
+static void print_sections(FILE* out, const StdumpOptions& options);
+static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const StdumpOptions& options);
 static std::vector<std::unique_ptr<SymbolTable>> select_symbol_tables(
 	SymbolFile& symbol_file, const std::vector<SymbolTableLocation>& sections);
-static Options parse_command_line_arguments(int argc, char** argv);
+static StdumpOptions parse_command_line_arguments(int argc, char** argv);
 static void print_help(FILE* out);
 static const char* get_version();
 
 struct StdumpCommand
 {
-	void (*function)(FILE* out, const Options& options);
+	void (*function)(FILE* out, const StdumpOptions& options);
 	const char* name;
 	std::vector<const char*> help_text;
 };
@@ -161,7 +161,7 @@ static const StdumpCommand commands[] = {
 
 int main(int argc, char** argv)
 {
-	Options options = parse_command_line_arguments(argc, argv);
+	StdumpOptions options = parse_command_line_arguments(argc, argv);
 
 	FILE* out = stdout;
 	if (!options.output_file.empty()) {
@@ -177,7 +177,7 @@ int main(int argc, char** argv)
 	}
 }
 
-static void identify_symbol_tables(FILE* out, const Options& options)
+static void identify_symbol_tables(FILE* out, const StdumpOptions& options)
 {
 	if (fs::is_regular_file(options.input_file)) {
 		identify_symbol_tables_in_file(out, nullptr, nullptr, options.input_file);
@@ -262,7 +262,7 @@ static void identify_symbol_tables_in_file(FILE* out, u32* totals, u32* unknown_
 	}
 }
 
-static void print_functions(FILE* out, const Options& options)
+static void print_functions(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -303,7 +303,7 @@ static void print_functions(FILE* out, const Options& options)
 	}
 }
 
-static void print_globals(FILE* out, const Options& options)
+static void print_globals(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -344,7 +344,7 @@ static void print_globals(FILE* out, const Options& options)
 	}
 }
 
-static void print_types(FILE* out, const Options& options)
+static void print_types(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -356,7 +356,7 @@ static void print_types(FILE* out, const Options& options)
 	}
 }
 
-static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const Options& options)
+static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const StdumpOptions& options)
 {
 	CppPrinterConfig config;
 	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
@@ -372,7 +372,7 @@ static void print_types_deduplicated(FILE* out, SymbolDatabase& database, const 
 	}
 }
 
-static void print_types_per_file(FILE* out, SymbolDatabase& database, const Options& options)
+static void print_types_per_file(FILE* out, SymbolDatabase& database, const StdumpOptions& options)
 {
 	CppPrinterConfig config;
 	config.caller_stack_offsets = options.flags & FLAG_CALLER_STACK_OFFSETS;
@@ -393,7 +393,7 @@ static void print_types_per_file(FILE* out, SymbolDatabase& database, const Opti
 	}
 }
 
-static void print_type_graph(FILE* out, const Options& options)
+static void print_type_graph(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -402,7 +402,7 @@ static void print_type_graph(FILE* out, const Options& options)
 	print_type_dependency_graph(out, database, graph);
 }
 
-static void print_labels(FILE* out, const Options& options)
+static void print_labels(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -422,7 +422,7 @@ static void print_labels(FILE* out, const Options& options)
 	}
 }
 
-static void print_json(FILE* out, const Options& options)
+static void print_json(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -437,7 +437,7 @@ static void print_json(FILE* out, const Options& options)
 	fprintf(out, "%s", buffer.GetString());
 }
 
-static void print_symbols(FILE* out, const Options& options)
+static void print_symbols(FILE* out, const StdumpOptions& options)
 {
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
@@ -467,7 +467,7 @@ static void print_symbols(FILE* out, const Options& options)
 	}
 }
 
-static void print_headers(FILE* out, const Options& options)
+static void print_headers(FILE* out, const StdumpOptions& options)
 {
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
@@ -484,7 +484,7 @@ static void print_headers(FILE* out, const Options& options)
 	}
 }
 
-static void print_files(FILE* out, const Options& options)
+static void print_files(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -494,7 +494,7 @@ static void print_files(FILE* out, const Options& options)
 	}
 }
 
-static void print_includes(FILE* out, const Options& options)
+static void print_includes(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -518,7 +518,7 @@ static void print_includes(FILE* out, const Options& options)
 	}
 }
 
-static void print_sections(FILE* out, const Options& options)
+static void print_sections(FILE* out, const StdumpOptions& options)
 {
 	std::unique_ptr<SymbolFile> symbol_file;
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
@@ -542,7 +542,7 @@ static void print_sections(FILE* out, const Options& options)
 	}
 }
 
-static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const Options& options)
+static SymbolDatabase read_symbol_table(std::unique_ptr<SymbolFile>& symbol_file, const StdumpOptions& options)
 {
 	Result<std::vector<u8>> image = platform::read_binary_file(options.input_file);
 	CCC_EXIT_IF_ERROR(image);
@@ -584,9 +584,9 @@ static std::vector<std::unique_ptr<SymbolTable>> select_symbol_tables(
 	return symbol_tables;
 }
 
-static Options parse_command_line_arguments(int argc, char** argv)
+static StdumpOptions parse_command_line_arguments(int argc, char** argv)
 {
-	Options options;
+	StdumpOptions options;
 	if (argc < 2) {
 		return options;
 	}

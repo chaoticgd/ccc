@@ -51,7 +51,7 @@ static int main_test(const fs::path& input_directory)
 
 		Result<std::unique_ptr<SymbolFile>> symbol_file = parse_symbol_file(*image, entry.path().filename().string());
 		if (!symbol_file.success()) {
-			printf("%s\n", symbol_file.error().message.c_str());
+			fprintf(stderr, "%s\n", symbol_file.error().message.c_str());
 			continue;
 		}
 
@@ -76,6 +76,10 @@ static int main_test(const fs::path& input_directory)
 
 		// Test the C++ printing code.
 		FILE* black_hole = fopen(compressor, "w");
+		if (!black_hole) {
+			fprintf(stderr, "Failed to open file '%s'.\n", compressor);
+			return 1;
+		}
 
 		CppPrinterConfig printer_config;
 		CppPrinter printer(black_hole, printer_config);

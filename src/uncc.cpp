@@ -8,7 +8,7 @@
 
 using namespace ccc;
 
-struct Options
+struct UnccOptions
 {
 	fs::path elf_path;
 	fs::path output_path;
@@ -41,12 +41,12 @@ static void write_h_file(
 	const std::vector<SourceFileHandle>& files);
 static bool needs_lost_and_found_file(const SymbolDatabase& database);
 static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase& database);
-static Options parse_command_line_arguments(int argc, char** argv);
+static UnccOptions parse_command_line_arguments(int argc, char** argv);
 static void print_help(int argc, char** argv);
 
 int main(int argc, char** argv)
 {
-	Options options = parse_command_line_arguments(argc, argv);
+	UnccOptions options = parse_command_line_arguments(argc, argv);
 	if (options.elf_path.empty()) {
 		return 1;
 	}
@@ -241,8 +241,10 @@ static void write_c_cpp_file(
 	const ElfFile& elf)
 {
 	printf("Writing %s\n", path.string().c_str());
+
 	FILE* out = fopen(path.string().c_str(), "w");
 	CCC_EXIT_IF_FALSE(out, "Failed to open '%s' for writing.", path.string().c_str());
+
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 
 	// Configure printing.
@@ -299,7 +301,10 @@ static void write_h_file(
 	const std::vector<SourceFileHandle>& files)
 {
 	printf("Writing %s\n", path.string().c_str());
+
 	FILE* out = fopen(path.string().c_str(), "w");
+	CCC_EXIT_IF_FALSE(out, "Failed to open '%s' for writing.", path.string().c_str());
+
 	fprintf(out, "// STATUS: NOT STARTED\n\n");
 
 	// Configure printing.
@@ -380,6 +385,7 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 	printf("Writing %s\n", path.string().c_str());
 
 	FILE* out = fopen(path.string().c_str(), "w");
+	CCC_EXIT_IF_FALSE(out, "Failed to open '%s' for writing.", path.string().c_str());
 
 	CppPrinterConfig config;
 	config.print_offsets_and_sizes = false;
@@ -401,9 +407,9 @@ static void write_lost_and_found_file(const fs::path& path, const SymbolDatabase
 	fclose(out);
 }
 
-static Options parse_command_line_arguments(int argc, char** argv)
+static UnccOptions parse_command_line_arguments(int argc, char** argv)
 {
-	Options options;
+	UnccOptions options;
 	s32 positional = 0;
 	for (s32 i = 1; i < argc; i++) {
 		u32 importer_flag = parse_importer_flag(argv[i]);
@@ -411,7 +417,7 @@ static Options parse_command_line_arguments(int argc, char** argv)
 			options.importer_flags |= importer_flag;
 		} else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
 			print_help(argc, argv);
-			return Options();
+			return UnccOptions();
 		} else if (positional == 0) {
 			options.elf_path = argv[i];
 			positional++;
@@ -425,7 +431,7 @@ static Options parse_command_line_arguments(int argc, char** argv)
 
 	if (options.elf_path.empty() || options.output_path.empty()) {
 		print_help(argc, argv);
-		return Options();
+		return UnccOptions();
 	}
 
 	return options;

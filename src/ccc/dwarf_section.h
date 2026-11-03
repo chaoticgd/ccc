@@ -68,10 +68,10 @@ enum AttributeFormatFlag
 
 struct AttributeFormat
 {
-	Attribute attribute;
-	u32 index;
-	u32 valid_forms;
-	u32 flags;
+	Attribute attribute = static_cast<Attribute>(0);
+	u32 index = 0;
+	u32 valid_forms = 0;
+	u32 flags = 0;
 };
 
 using AttributeListFormat = std::map<Attribute, AttributeFormat>;
