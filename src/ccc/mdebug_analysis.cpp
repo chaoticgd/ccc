@@ -129,7 +129,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(
 
 Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address, s32 line_number)
 {
-	if (address.valid() && m_current_function && label[0] == '$') {
+	if (address.has_value() && m_current_function && label[0] == '$') {
 		Function::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
 		pair.address = address;
 		pair.line_number = line_number;
@@ -163,7 +163,7 @@ Result<void> LocalSymbolTableAnalyser::function(const char* mangled_name, const 
 		// well add in a hack here to deal with it.
 		bool no_module_base_address = m_context.group.module_symbol
 			&& m_context.group.module_symbol->address().get_or_zero() == 0;
-		bool new_address_greater = address.valid() && address > m_current_function->address();
+		bool new_address_greater = address.has_value() && address > m_current_function->address();
 		if (no_module_base_address && new_address_greater) {
 			m_database.functions.move_symbol(m_current_function->handle(), address);
 		}
@@ -272,7 +272,7 @@ Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset)
 {
 	for (LocalVariableHandle local_variable_handle : m_pending_local_variables) {
 		if (LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
-			local_variable->live_range.low = m_source_file.address().value + begin_offset;
+			local_variable->live_range.low = m_source_file.address().value() + begin_offset;
 		}
 	}
 
@@ -289,7 +289,7 @@ Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset)
 	std::vector<LocalVariableHandle>& variables = m_blocks.back();
 	for (LocalVariableHandle local_variable_handle : variables) {
 		if (LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
-			local_variable->live_range.high = m_source_file.address().value + end_offset;
+			local_variable->live_range.high = m_source_file.address().value() + end_offset;
 		}
 	}
 

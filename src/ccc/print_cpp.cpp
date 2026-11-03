@@ -198,7 +198,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 	name.identifier = &symbol.name();
 
 	if (m_config.print_storage_information) {
-		fprintf(out, "/* %08x %08x */ ", symbol.address().value, symbol.size());
+		fprintf(out, "/* %08x %08x */ ", symbol.address().value(), symbol.size());
 	}
 
 	// Print out the storage class, return type and function name.
@@ -224,7 +224,7 @@ void CppPrinter::function(const Function& symbol, const SymbolDatabase& database
 		fprintf(out, " ");
 		const std::span<char>* body = nullptr;
 		if (function_bodies) {
-			auto body_iter = function_bodies->find(symbol.address().value);
+			auto body_iter = function_bodies->find(symbol.address().value());
 			if (body_iter != function_bodies->end()) {
 				body = &body_iter->second;
 			}
@@ -734,8 +734,8 @@ void CppPrinter::global_storage_comment(const GlobalStorage& storage, Address ad
 	if (m_config.print_storage_information) {
 		fprintf(out, "/* ");
 		fprintf(out, "%s", global_storage_location_to_string(storage.location));
-		if (address.valid()) {
-			fprintf(out, " %x", address.value);
+		if (address.has_value()) {
+			fprintf(out, " %x", address.value());
 		}
 		fprintf(out, " */ ");
 	}

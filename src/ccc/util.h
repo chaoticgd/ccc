@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <set>
@@ -274,47 +275,59 @@ std::optional<std::string_view> get_string(std::span<const u8> bytes, u64 offset
 
 #define CCC_FOURCC(string) ((string)[0] | (string)[1] << 8 | (string)[2] << 16 | (string)[3] << 24)
 
-struct Address
+template <typename Value>
+class NullableInt
 {
-	u32 value = (u32) -1;
-
-	Address() {}
-	Address(u32 v)
-		: value(v)
+public:
+	constexpr NullableInt()
+		: m_value(std::numeric_limits<Value>::max())
 	{
 	}
 
-	bool valid() const { return value != (u32) -1; }
-
-	u32 get_or_zero() const
+	constexpr NullableInt(Value value)
+		: m_value(value)
 	{
-		if (valid()) {
-			return value;
-		} else {
+	}
+
+	bool has_value() const
+	{
+		return m_value != std::numeric_limits<Value>::max();
+	}
+
+	Value value() const
+	{
+		return m_value;
+	}
+
+	Value get_or_zero() const
+	{
+		if (!has_value())
 			return 0;
-		}
+		return m_value;
 	}
 
-	Address add_base_address(Address base_address) const
+	NullableInt<Value> add_base(NullableInt<Value> base)
 	{
-		if (valid()) {
-			return base_address.get_or_zero() + value;
-		} else {
-			return Address();
-		}
+		if (!has_value())
+			return NullableInt<Value>();
+		return m_value + base.get_or_zero();
 	}
 
-	static Address non_zero(u32 address)
+	static NullableInt<Value> non_zero(Value value)
 	{
-		Address result;
-		if (address != 0) {
-			result = address;
-		}
+		NullableInt<Value> result;
+		if (value != 0)
+			result = value;
 		return result;
 	}
 
-	friend auto operator<=>(const Address& lhs, const Address& rhs) = default;
+	friend auto operator<=>(const NullableInt<Value>& lhs, const NullableInt<Value>& rhs) = default;
+
+private:
+	Value m_value;
 };
+
+using Address = NullableInt<u32>;
 
 struct AddressRange
 {

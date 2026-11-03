@@ -509,7 +509,7 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 	std::vector<FunctionHandle> duplicate_functions;
 
 	for (Function& test_function : database.functions) {
-		if (!test_function.address().valid() && !group.is_in_group(test_function)) {
+		if (!test_function.address().has_value() && !group.is_in_group(test_function)) {
 			continue;
 		}
 
@@ -529,7 +529,7 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 		u32 source_file_address = UINT32_MAX;
 		for (SourceFile& source_file : database.source_files) {
 			if (source_file.address() < test_function.address()) {
-				source_file_address = std::min(source_file.address().value, source_file_address);
+				source_file_address = std::min(source_file.address().value(), source_file_address);
 			}
 		}
 
@@ -548,12 +548,12 @@ static void detect_duplicate_functions(SymbolDatabase& database, const SymbolGro
 				continue;
 			}
 
-			if (test_function.address().value - source_file_address < best_offset) {
+			if (test_function.address().value() - source_file_address < best_offset) {
 				if (best_handle.valid()) {
 					duplicate_functions.emplace_back(best_handle);
 				}
 				best_handle = function->handle();
-				best_offset = test_function.address().value - source_file_address;
+				best_offset = test_function.address().value() - source_file_address;
 			} else {
 				duplicate_functions.emplace_back(function->handle());
 			}
@@ -574,7 +574,7 @@ static void detect_fake_functions(
 	// find which one is the real one.
 	s32 fake_function_count = 0;
 	for (Function& function : database.functions) {
-		if (!function.address().valid() || !group.is_in_group(function)) {
+		if (!function.address().has_value() || !group.is_in_group(function)) {
 			continue;
 		}
 
@@ -587,7 +587,7 @@ static void detect_fake_functions(
 			continue;
 		}
 
-		auto external_function = external_functions.find(function.address().value);
+		auto external_function = external_functions.find(function.address().value());
 		if (external_function == external_functions.end()
 			|| strcmp(function.raw_name().c_str(), external_function->second->string) != 0) {
 			database.functions.move_symbol(function.handle(), Address());
@@ -609,7 +609,7 @@ static void destroy_optimized_out_functions(SymbolDatabase& database, const Symb
 	bool marked = false;
 
 	for (Function& function : database.functions) {
-		if (group.is_in_group(function) && !function.address().valid()) {
+		if (group.is_in_group(function) && !function.address().has_value()) {
 			function.mark_for_destruction();
 			marked = true;
 		}

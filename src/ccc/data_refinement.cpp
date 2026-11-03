@@ -32,7 +32,7 @@ bool can_refine_variable(const VariableToRefine& variable)
 		return false;
 	if (variable.storage->location == GlobalStorageLocation::SBSS)
 		return false;
-	if (!variable.address.valid())
+	if (!variable.address.has_value())
 		return false;
 	if (!variable.type)
 		return false;
@@ -43,7 +43,7 @@ Result<RefinedData> refine_variable(
 	const VariableToRefine& variable, const SymbolDatabase& database, const ElfFile& elf)
 {
 	CCC_ASSERT(variable.type);
-	return refine_node(variable.address.value, *variable.type, database, elf, 0);
+	return refine_node(variable.address.value(), *variable.type, database, elf, 0);
 }
 
 static Result<RefinedData> refine_node(

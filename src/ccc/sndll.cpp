@@ -56,7 +56,7 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, S
 {
 	const std::optional<u32> magic = copy_unaligned<u32>(image, 0);
 	CCC_CHECK(magic.has_value(), "File too small.");
-	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.valid() ? "section" : "file");
+	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.has_value() ? "section" : "file");
 
 	char version = *magic >> 24;
 	switch (version) {

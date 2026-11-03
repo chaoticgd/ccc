@@ -106,19 +106,19 @@ Result<void> SymbolTableImporter::import_compile_unit(const DIE& die)
 	// collection of types or a single function, so we make the source file's
 	// address and size cover all the low_pc/high_pc pairs.
 	if (low_pc.valid() && high_pc.valid()) {
-		if (!m_source_file->address().valid()) {
+		if (!m_source_file->address().has_value()) {
 			m_database.source_files.move_symbol(m_source_file->handle(), low_pc.address());
 			m_source_file->set_size(high_pc.address() - low_pc.address());
 		}
 
-		if (m_source_file->address().value > low_pc.address()) {
-			u32 new_size = m_source_file->size() + m_source_file->address().value - low_pc.address();
+		if (m_source_file->address().value() > low_pc.address()) {
+			u32 new_size = m_source_file->size() + m_source_file->address().value() - low_pc.address();
 			m_database.source_files.move_symbol(m_source_file->handle(), low_pc.address());
 			m_source_file->set_size(new_size);
 		}
 
-		if (high_pc.address() > m_source_file->address().value + m_source_file->size()) {
-			m_source_file->set_size(high_pc.address() - m_source_file->address().value);
+		if (high_pc.address() > m_source_file->address().value() + m_source_file->size()) {
+			m_source_file->set_size(high_pc.address() - m_source_file->address().value());
 		}
 	}
 

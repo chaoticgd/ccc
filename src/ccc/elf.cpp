@@ -8,18 +8,17 @@
 namespace ccc {
 
 const std::map<std::string, KnownElfSectionClass> KNOWN_ELF_SECTIONS = {
-	{".bss",    KnownElfSectionClass::DATA},
-    {".data",   KnownElfSectionClass::DATA},
-    {".lit",    KnownElfSectionClass::DATA},
-	{".lita",   KnownElfSectionClass::DATA},
-    {".lit4",   KnownElfSectionClass::DATA},
-    {".lit8",   KnownElfSectionClass::DATA},
-	{".rdata",  KnownElfSectionClass::DATA},
-    {".rodata", KnownElfSectionClass::DATA},
-	{".sbss",   KnownElfSectionClass::DATA},
-    {".sdata",  KnownElfSectionClass::DATA},
-	{".text",   KnownElfSectionClass::CODE}
-};
+	{".bss", KnownElfSectionClass::DATA},
+	{".data", KnownElfSectionClass::DATA},
+	{".lit", KnownElfSectionClass::DATA},
+	{".lita", KnownElfSectionClass::DATA},
+	{".lit4", KnownElfSectionClass::DATA},
+	{".lit8", KnownElfSectionClass::DATA},
+	{".rdata", KnownElfSectionClass::DATA},
+	{".rodata", KnownElfSectionClass::DATA},
+	{".sbss", KnownElfSectionClass::DATA},
+	{".sdata", KnownElfSectionClass::DATA},
+	{".text", KnownElfSectionClass::CODE}};
 
 Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 {
@@ -117,7 +116,7 @@ Result<void> ElfFile::import_symbol_sections(
 			}
 
 			Address address = Address::non_zero(symbol_section.header.addr);
-			if (!address.valid()) {
+			if (!address.has_value()) {
 				continue;
 			}
 

@@ -104,9 +104,9 @@ static void write_symbol_list(
 			json.String(symbol.name());
 		}
 
-		if (symbol.address().valid()) {
+		if (symbol.address().has_value()) {
 			json.Key("address");
-			json.Uint(symbol.address().value);
+			json.Uint(symbol.address().value());
 		}
 
 		if (symbol.size() != 0) {
@@ -212,7 +212,7 @@ static void write_json(Writer& json, const Function& symbol, const SymbolDatabas
 		json.StartArray();
 		for (const Function::LineNumberPair& pair : symbol.line_numbers) {
 			json.StartArray();
-			json.Uint(pair.address.value);
+			json.Uint(pair.address.value());
 			json.Int(pair.line_number);
 			json.EndArray();
 		}
@@ -224,7 +224,7 @@ static void write_json(Writer& json, const Function& symbol, const SymbolDatabas
 		json.StartArray();
 		for (const Function::SubSourceFile& sub : symbol.sub_source_files) {
 			json.StartArray();
-			json.Uint(sub.address.value);
+			json.Uint(sub.address.value());
 			json.String(sub.relative_path);
 			json.EndArray();
 		}
@@ -297,11 +297,11 @@ static void write_json(Writer& json, const LocalVariable& symbol, const SymbolDa
 		write_json(json, *storage, database);
 	}
 
-	if (symbol.live_range.low.valid() && symbol.live_range.high.valid()) {
+	if (symbol.live_range.low.has_value() && symbol.live_range.high.has_value()) {
 		json.Key("live_range");
 		json.StartArray();
-		json.Uint(symbol.live_range.low.value);
-		json.Uint(symbol.live_range.high.value);
+		json.Uint(symbol.live_range.low.value());
+		json.Uint(symbol.live_range.high.value());
 		json.EndArray();
 	}
 }

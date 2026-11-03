@@ -418,7 +418,7 @@ static void print_labels(FILE* out, const Options& options)
 	}
 
 	for (const Label* label : labels) {
-		fprintf(out, "%08x %s\n", label->address().value, label->name().c_str());
+		fprintf(out, "%08x %s\n", label->address().value(), label->name().c_str());
 	}
 }
 
@@ -490,7 +490,7 @@ static void print_files(FILE* out, const Options& options)
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 
 	for (const SourceFile& source_file : database.source_files) {
-		fprintf(out, "%08x %s\n", source_file.address().value, source_file.name().c_str());
+		fprintf(out, "%08x %s\n", source_file.address().value(), source_file.name().c_str());
 	}
 }
 
@@ -524,17 +524,17 @@ static void print_sections(FILE* out, const Options& options)
 	SymbolDatabase database = read_symbol_table(symbol_file, options);
 
 	for (const Section& section : database.sections) {
-		if (!section.address().valid()) {
+		if (!section.address().has_value()) {
 			continue;
 		}
 
-		u32 section_start = section.address().value;
-		u32 section_end = section.address().value + section.size();
+		u32 section_start = section.address().value();
+		u32 section_end = section.address().value() + section.size();
 
 		fprintf(out, "%s:\n", section.name().c_str());
 
 		for (const SourceFile& source_file : database.source_files) {
-			if (source_file.address().valid() && source_file.address() >= section_start
+			if (source_file.address().has_value() && source_file.address() >= section_start
 				&& source_file.address() < section_end) {
 				fprintf(out, "\t%s\n", source_file.full_path().c_str());
 			}
