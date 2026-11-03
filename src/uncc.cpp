@@ -118,13 +118,13 @@ int main(int argc, char** argv)
 			if (should_overwrite_file(path)) {
 				write_c_cpp_file(path, relative_header_path, database, sources, functions_file, (*symbol_file)->elf());
 			} else {
-				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", path.string().c_str());
+				printf("Skipping %s\n", path.string().c_str());
 			}
 			// Write .h file.
 			if (should_overwrite_file(header_path)) {
 				write_h_file(header_path, relative_header_path.string(), database, sources);
 			} else {
-				printf(CCC_ANSI_COLOUR_GRAY "Skipping " CCC_ANSI_COLOUR_OFF " %s\n", header_path.string().c_str());
+				printf("Skipping %s\n", header_path.string().c_str());
 			}
 		} else {
 			printf("Skipping assembly file %s\n", path.string().c_str());
