@@ -32,8 +32,8 @@ u128::u128(const u128& rhs)
 }
 
 u128::u128(const s128& rhs)
-	: low(static_cast<u64>(rhs.low))
-	, high(static_cast<u64>(rhs.high))
+	: low(rhs.low)
+	, high(rhs.high)
 {
 }
 
@@ -208,8 +208,8 @@ s128::s128(u64 h, u64 l)
 }
 
 s128::s128(const u128& rhs)
-	: low(static_cast<s64>(rhs.low))
-	, high(static_cast<s64>(rhs.high))
+	: low(rhs.low)
+	, high(rhs.high)
 {
 }
 

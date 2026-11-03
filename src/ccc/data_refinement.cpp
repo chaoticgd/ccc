@@ -22,6 +22,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass);
 static const char* generate_format_string(u32 size, bool is_signed);
 static std::string single_precision_float_to_string(float value);
 static std::string string_format(const char* format, va_list args);
+CCC_FORMAT_ATTRIBUTE(printf, 1, 2)
 static std::string stringf(const char* format, ...);
 
 bool can_refine_variable(const VariableToRefine& variable)
@@ -389,14 +390,15 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		}
 		case ast::BuiltInClass::FLOAT_32: {
 			static_assert(sizeof(float) == 4);
-			result = single_precision_float_to_string(value.low);
+			result = single_precision_float_to_string(std::bit_cast<float>(static_cast<u32>(value.low)));
 			break;
 		}
 		case ast::BuiltInClass::FLOAT_64: {
 			static_assert(sizeof(double) == 8);
 
-			std::string string = stringf("%g", value.low);
-			if (strtof(string.c_str(), nullptr) != value.low) {
+			double float_value = std::bit_cast<double>(value.low);
+			std::string string = stringf("%g", float_value);
+			if (strtof(string.c_str(), nullptr) != float_value) {
 				string = stringf("%.17g", value.low);
 			}
 

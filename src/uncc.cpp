@@ -315,7 +315,7 @@ static void write_h_file(
 	CppPrinter printer(out, config);
 
 	for (char& c : relative_path) {
-		c = toupper(c);
+		c = static_cast<char>(toupper(c));
 		if (!isalnum(c)) {
 			c = '_';
 		}

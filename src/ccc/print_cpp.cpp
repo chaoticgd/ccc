@@ -163,7 +163,7 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 	VariableName name;
 	name.identifier = &symbol.name();
 	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits.has_value()) {
-		m_digits_for_offset = (s32) ceilf(log2(node.size_bits.value() / 8.f) / 4.f);
+		m_digits_for_offset = (s32) ceilf(log2f(static_cast<float>(node.size_bits.value()) / 8.f) / 4.f);
 	}
 	ast_node(node, name, 0, 0, database, SymbolDescriptor::DATA_TYPE, !symbol.not_defined_in_any_translation_unit);
 	fprintf(out, ";\n");
@@ -713,8 +713,8 @@ static void print_cpp_variable_name(FILE* out, VariableName& name, u32 flags)
 	if (has_brackets) {
 		fprintf(out, "(");
 	}
-	for (s32 i = (s32) name.pointer_chars.size() - 1; i >= 0; i--) {
-		fprintf(out, "%c", name.pointer_chars[i]);
+	for (size_t i = name.pointer_chars.size(); i > 0; i--) {
+		fprintf(out, "%c", name.pointer_chars[i - 1]);
 	}
 	name.pointer_chars.clear();
 	if (has_name) {

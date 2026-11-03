@@ -691,7 +691,7 @@ static void print_help(FILE* out)
 	fprintf(out, "                                %s", common_section_names_are);
 
 	// Print out a line wrapped list of common section names.
-	s32 column = 32 + (s32) strlen(common_section_names_are);
+	u32 column = 32 + static_cast<u32>(strlen(common_section_names_are));
 	for (size_t i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if (column + strlen(format.section_name) + 2 > 80) {
@@ -704,14 +704,14 @@ static void print_help(FILE* out)
 		} else {
 			fprintf(out, ", ");
 		}
-		column += (s32) strlen(format.section_name) + 2;
+		column += static_cast<u32>(strlen(format.section_name)) + 2;
 	}
 
 	// Print out a line wrapped list of supported symbol table formats.
 	const char* supported_formats_are = "Supported formats are: ";
 	fprintf(out, "\n");
 	fprintf(out, "                                %s", supported_formats_are);
-	column = 32 + (s32) strlen(supported_formats_are);
+	column = 32 + static_cast<u32>(strlen(supported_formats_are));
 	for (u32 i = 0; i < SYMBOL_TABLE_FORMATS.size(); i++) {
 		const SymbolTableFormatInfo& format = SYMBOL_TABLE_FORMATS[i];
 		if (column + strlen(format.format_name) + 2 > 80) {
@@ -724,7 +724,7 @@ static void print_help(FILE* out)
 		} else {
 			fprintf(out, ", ");
 		}
-		column += (s32) strlen(format.format_name) + 2;
+		column += static_cast<u32>(strlen(format.format_name)) + 2;
 	}
 
 	fprintf(out, "\n");

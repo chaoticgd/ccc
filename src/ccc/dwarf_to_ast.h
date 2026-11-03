@@ -21,7 +21,7 @@ public:
 private:
 	Result<std::unique_ptr<ast::Node>> array_type_to_ast(const DIE& die);
 
-	SymbolDatabase& m_database;
+	[[maybe_unused]] SymbolDatabase& m_database;
 	const SectionReader& m_dwarf;
 	u32 m_importer_flags;
 };

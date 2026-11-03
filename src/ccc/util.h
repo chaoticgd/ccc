@@ -40,6 +40,14 @@ using s64 = int64_t;
 #define CCC_ANSI_COLOUR_GRAY "\033[90m"
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define CCC_FORMAT_ATTRIBUTE(style, format_index, first_index) [[gnu::format(style, format_index, first_index)]]
+#define CCC_WARN_UNUSED [[gnu::warn_unused]]
+#else
+#define CCC_FORMAT_ATTRIBUTE(style, format_index, first_index)
+#define CCC_WARN_UNUSED
+#endif
+
 struct Error
 {
 	std::string message;
@@ -55,6 +63,7 @@ enum ErrorLevel
 
 typedef void (*CustomErrorCallback)(const Error& error, ErrorLevel level);
 
+CCC_FORMAT_ATTRIBUTE(printf, 3, 4)
 Error format_error(const char* source_file, s32 source_line, const char* format, ...);
 void report_error(const Error& error);
 void report_warning(const Error& warning);
@@ -82,12 +91,6 @@ void set_custom_error_callback(CustomErrorCallback callback);
 	}
 
 #define CCC_ASSERT(condition) CCC_ABORT_IF_FALSE(condition, #condition)
-
-#if defined(__GNUC__) || defined(__clang__)
-#define CCC_WARN_UNUSED [[gnu::warn_unused]]
-#else
-#define CCC_WARN_UNUSED
-#endif
 
 // The main error handling construct in CCC. This class is used to bundle
 // together a return value and a pointer to error information, so that errors

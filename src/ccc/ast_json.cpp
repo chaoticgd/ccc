@@ -189,8 +189,11 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 			const TypeName& type_name = node.as<TypeName>();
 			json.Key("source");
 			json.String(type_name_source_to_string(type_name.source));
-			json.Key("data_type");
-			json.Int(database.data_types.index_from_handle(type_name.data_type_handle));
+			std::optional<size_t> data_type_index = database.data_types.index_from_handle(type_name.data_type_handle);
+			if (data_type_index.has_value()) {
+				json.Key("data_type");
+				json.Uint64(static_cast<u64>(*data_type_index));
+			}
 			if (const TypeName::UnresolvedStabs* unresolved = type_name.unresolved_stabs.get()) {
 				json.Key("type_name");
 				json.String(unresolved->type_name);

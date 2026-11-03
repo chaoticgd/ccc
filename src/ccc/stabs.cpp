@@ -798,7 +798,7 @@ Result<std::string> parse_dodgy_stabs_identifier(const char*& input, char termin
 		}
 	}
 
-	return CCC_FAILURE(STAB_TRUNCATED_ERROR_MESSAGE);
+	return CCC_FAILURE("%s", STAB_TRUNCATED_ERROR_MESSAGE);
 }
 
 STABS_DEBUG(

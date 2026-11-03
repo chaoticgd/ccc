@@ -330,28 +330,28 @@ const SymbolType* SymbolList<SymbolType>::first_symbol_from_raw_name(const std::
 }
 
 template <typename SymbolType>
-s32 SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
+std::optional<size_t> SymbolList<SymbolType>::index_from_handle(SymbolHandle<SymbolType> handle) const
 {
 	if (!handle.valid()) {
-		return -1;
+		return std::nullopt;
 	}
 
 	size_t index = binary_search(handle);
 	if (index >= m_symbols.size() || m_symbols[index].handle() != handle) {
-		return -1;
+		return std::nullopt;
 	}
 
-	return (s32) index;
+	return index;
 }
 
 template <typename SymbolType>
-SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index)
+SymbolType& SymbolList<SymbolType>::symbol_from_index(size_t index)
 {
 	return m_symbols.at(index);
 }
 
 template <typename SymbolType>
-const SymbolType& SymbolList<SymbolType>::symbol_from_index(s32 index) const
+const SymbolType& SymbolList<SymbolType>::symbol_from_index(size_t index) const
 {
 	return m_symbols.at(index);
 }
@@ -363,9 +363,9 @@ bool SymbolList<SymbolType>::empty() const
 }
 
 template <typename SymbolType>
-s32 SymbolList<SymbolType>::size() const
+size_t SymbolList<SymbolType>::size() const
 {
-	return (s32) m_symbols.size();
+	return m_symbols.size();
 }
 
 template <typename SymbolType>
@@ -1021,9 +1021,9 @@ bool SymbolGroup::is_in_group(const Symbol& symbol) const
 
 // *****************************************************************************
 
-s32 SymbolDatabase::symbol_count() const
+size_t SymbolDatabase::symbol_count() const
 {
-	s32 sum = 0;
+	size_t sum = 0;
 #define CCC_X(SymbolType, symbol_list) sum += symbol_list.size();
 	CCC_FOR_EACH_SYMBOL_TYPE_DO_X
 #undef CCC_X

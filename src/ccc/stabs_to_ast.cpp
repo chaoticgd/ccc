@@ -51,9 +51,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	if (statistics.call_depth > 200) {
 		const char* error_message = "Call depth greater than 200 in stabs_type_to_ast, probably infinite recursion.";
 		if (state.importer_flags & STRICT_PARSING) {
-			return CCC_FAILURE(error_message);
+			return CCC_FAILURE("%s", error_message);
 		} else {
-			CCC_WARN(error_message);
+			CCC_WARN("%s", error_message);
 
 			auto error = std::make_unique<ast::Error>();
 			error->message = error_message;
@@ -65,9 +65,9 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 	if (*statistics.call_count > 100000) {
 		const char* error_message = "Call count greater than 100000 in stabs_type_to_ast, probably infinite recursion.";
 		if (state.importer_flags & STRICT_PARSING) {
-			return CCC_FAILURE(error_message);
+			return CCC_FAILURE("%s", error_message);
 		} else {
-			CCC_WARN(error_message);
+			CCC_WARN("%s", error_message);
 
 			auto error = std::make_unique<ast::Error>();
 			error->message = error_message;

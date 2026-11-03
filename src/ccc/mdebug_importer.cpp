@@ -418,13 +418,14 @@ static Result<void> resolve_type_name(
 		return Result<void>();
 	}
 
-	const char* error_message = "Unresolved %s type name '%s' with STABS type number (%d,%d).";
 	if (importer_flags & STRICT_PARSING) {
-		return CCC_FAILURE(error_message, ast::type_name_source_to_string(type_name.source),
+		return CCC_FAILURE("Unresolved %s type name '%s' with STABS type number (%d,%d).",
+			ast::type_name_source_to_string(type_name.source),
 			type_name.unresolved_stabs->type_name.c_str(), type_name.unresolved_stabs->stabs_type_number.file,
 			type_name.unresolved_stabs->stabs_type_number.type);
 	} else {
-		CCC_WARN(error_message, ast::type_name_source_to_string(type_name.source),
+		CCC_WARN("Unresolved %s type name '%s' with STABS type number (%d,%d).",
+			ast::type_name_source_to_string(type_name.source),
 			type_name.unresolved_stabs->type_name.c_str(), type_name.unresolved_stabs->stabs_type_number.file,
 			type_name.unresolved_stabs->stabs_type_number.type);
 	}
