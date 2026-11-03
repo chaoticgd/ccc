@@ -21,7 +21,7 @@ enum NodeDescriptor : u8
 	TYPE_NAME
 };
 
-enum AccessSpecifier
+enum AccessSpecifier : u8
 {
 	AS_PUBLIC = 0,
 	AS_PROTECTED = 1,

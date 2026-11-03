@@ -23,9 +23,7 @@ if(USE_MUSL_LIBC)
 	set(CMAKE_EXE_LINKER_FLAGS "-static")
 endif()
 
-if(MSVC)
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-else()
+if(NOT MSVC)
 	include(CheckPIESupported)
 	check_pie_supported(OUTPUT_VARIABLE PIE_SUPPORTED_OUTPUT LANGUAGES C CXX)
 
