@@ -137,7 +137,7 @@ enum class BuiltInClass
 
 struct BitField : Node
 {
-	s32 bitfield_offset_bits = -1;
+	NullableInt<u32> bitfield_offset_bits;
 	std::unique_ptr<Node> underlying_type;
 
 	BitField()

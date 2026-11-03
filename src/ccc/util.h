@@ -301,23 +301,26 @@ public:
 
 	Value get_or_zero() const
 	{
-		if (!has_value())
+		if (!has_value()) {
 			return 0;
+		}
 		return m_value;
 	}
 
 	NullableInt<Value> add_base(NullableInt<Value> base)
 	{
-		if (!has_value())
+		if (!has_value()) {
 			return NullableInt<Value>();
+		}
 		return m_value + base.get_or_zero();
 	}
 
 	static NullableInt<Value> non_zero(Value value)
 	{
 		NullableInt<Value> result;
-		if (value != 0)
+		if (value != 0) {
 			result = value;
+		}
 		return result;
 	}
 

@@ -85,7 +85,9 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 		case BITFIELD: {
 			const BitField& bitfield = node.as<BitField>();
 			json.Key("bitfield_offset_bits");
-			json.Int(node.as<BitField>().bitfield_offset_bits);
+			if (bitfield.bitfield_offset_bits.has_value()) {
+				json.Uint(bitfield.bitfield_offset_bits.value());
+			}
 			json.Key("underlying_type");
 			write_json(json, bitfield.underlying_type.get(), database);
 			break;

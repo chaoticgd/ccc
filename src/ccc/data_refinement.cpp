@@ -159,7 +159,7 @@ static Result<RefinedData> refine_bitfield(
 {
 	ast::BuiltInClass storage_unit_type = bit_field.storage_unit_type(database);
 
-	CCC_CHECK(bit_field.bitfield_offset_bits > -1, "Bit-field without bit offset.");
+	CCC_CHECK(bit_field.bitfield_offset_bits.has_value(), "Bit-field without bit offset.");
 	CCC_CHECK(bit_field.size_bits.has_value(), "Bit-field without bit size.");
 
 	u128 value;
@@ -169,63 +169,63 @@ static Result<RefinedData> refine_bitfield(
 			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_unsigned_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::BOOL_8: {
 			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_unsigned_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_8: {
 			std::optional<u8> storage_unit = elf.get_object_virtual<u8>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 8-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_signed_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_16: {
 			std::optional<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 16-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_unsigned_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_16: {
 			std::optional<u16> storage_unit = elf.get_object_virtual<u16>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 16-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_signed_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_32: {
 			std::optional<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 32-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_unsigned_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_32: {
 			std::optional<u32> storage_unit = elf.get_object_virtual<u32>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 32-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_signed_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_64: {
 			std::optional<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 64-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_unsigned_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_64: {
 			std::optional<u64> storage_unit = elf.get_object_virtual<u64>(virtual_address);
 			CCC_CHECK(storage_unit, "Failed to read 64-bit bitfield storage unit at 0x%x.", virtual_address);
 			value = unpack_signed_bitfield(
-				*storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				*storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		case ast::BuiltInClass::UNSIGNED_128:
@@ -245,7 +245,7 @@ static Result<RefinedData> refine_bitfield(
 			storage_unit.high = *high;
 
 			value = unpack_unsigned_bitfield(
-				storage_unit, bit_field.bitfield_offset_bits, bit_field.size_bits.value());
+				storage_unit, bit_field.bitfield_offset_bits.value(), bit_field.size_bits.value());
 			break;
 		}
 		default: break;
