@@ -360,8 +360,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 
 	if (node.descriptor == ast::FUNCTION) {
 		const ast::Function& func_type = node.as<ast::Function>();
-		if (func_type.vtable_index > -1) {
-			fprintf(out, "/* vtable[%d] */ ", func_type.vtable_index);
+		if (func_type.vtable_index.has_value()) {
+			fprintf(out, "/* vtable[%u] */ ", func_type.vtable_index.value());
 		}
 	}
 

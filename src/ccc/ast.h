@@ -200,7 +200,7 @@ struct Function : Node
 	std::optional<std::unique_ptr<Node>> return_type;
 	std::optional<std::vector<std::unique_ptr<Node>>> parameters;
 	MemberFunctionModifier modifier = MemberFunctionModifier::NONE;
-	s32 vtable_index = -1;
+	NullableInt<u32> vtable_index;
 	FunctionHandle definition_handle; // Filled in by fill_in_pointers_to_member_function_definitions.
 
 	Function()

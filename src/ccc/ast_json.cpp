@@ -137,9 +137,9 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 				json.Key("modifier");
 				json.String(member_function_modifier_to_string(function.modifier));
 			}
-			if (function.vtable_index > -1) {
+			if (function.vtable_index.has_value()) {
 				json.Key("vtable_index");
-				json.Int(function.vtable_index);
+				json.Uint(function.vtable_index.value());
 			}
 			break;
 		}
