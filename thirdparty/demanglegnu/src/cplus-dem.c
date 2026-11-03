@@ -4431,7 +4431,9 @@ remember_Ktype (struct work_stuff *work, const char *start, int len)
 	}
     }
   tem = XNEWVEC (char, len + 1);
-  memcpy (tem, start, len);
+  /* CCC: If len is zero, start can be NULL. */
+  if (len != 0)
+    memcpy (tem, start, len);
   tem[len] = '\0';
   work -> ktypevec[work -> numk++] = tem;
 }
