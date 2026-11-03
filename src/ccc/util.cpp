@@ -3,6 +3,19 @@
 
 #include "util.h"
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <unistd.h>
+#define CCC_ANSI_COLOUR_OFF "\033[0m"
+#define CCC_ANSI_COLOUR_RED "\033[31m"
+#define CCC_ANSI_COLOUR_MAGENTA "\033[35m"
+#define CCC_ANSI_COLOUR_GRAY "\033[90m"
+#else
+#define CCC_ANSI_COLOUR_OFF ""
+#define CCC_ANSI_COLOUR_RED ""
+#define CCC_ANSI_COLOUR_MAGENTA ""
+#define CCC_ANSI_COLOUR_GRAY ""
+#endif
+
 namespace ccc {
 
 static CustomErrorCallback custom_error_callback = nullptr;
@@ -14,7 +27,7 @@ Error format_error(const char* source_file, s32 source_line, const char* format,
 
 	char message[4096];
 	if (vsnprintf(message, sizeof(message), format, args) < 0) {
-		strncpy(message, "Failed to generate error message.", sizeof(message));
+		strncpy(message, format, sizeof(message));
 	}
 
 	Error error;
@@ -31,8 +44,15 @@ void report_error(const Error& error)
 	if (custom_error_callback) {
 		custom_error_callback(error, ERROR_LEVEL_ERROR);
 	} else {
-		fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n", error.source_file,
-			error.source_line, error.message.c_str());
+#if defined(__linux__) || defined(__APPLE__)
+		if (isatty(STDERR_FILENO)) {
+			fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_RED "error:" CCC_ANSI_COLOUR_OFF " %s\n",
+				error.source_file, error.source_line, error.message.c_str());
+			return;
+		}
+#endif
+
+		fprintf(stderr, "[%s:%d] error: %s\n", error.source_file, error.source_line, error.message.c_str());
 	}
 }
 
@@ -41,8 +61,15 @@ void report_warning(const Error& warning)
 	if (custom_error_callback) {
 		custom_error_callback(warning, ERROR_LEVEL_WARNING);
 	} else {
-		fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_MAGENTA "warning:" CCC_ANSI_COLOUR_OFF " %s\n", warning.source_file,
-			warning.source_line, warning.message.c_str());
+#if defined(__linux__) || defined(__APPLE__)
+		if (isatty(STDERR_FILENO)) {
+			fprintf(stderr, "[%s:%d] " CCC_ANSI_COLOUR_MAGENTA "warning:" CCC_ANSI_COLOUR_OFF " %s\n",
+				warning.source_file, warning.source_line, warning.message.c_str());
+			return;
+		}
+#endif
+
+		fprintf(stderr, "[%s:%d] warning: %s\n", warning.source_file, warning.source_line, warning.message.c_str());
 	}
 }
 
