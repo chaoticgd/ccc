@@ -163,7 +163,7 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 	VariableName name;
 	name.identifier = &symbol.name();
 	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits.has_value() && node.size_bits.value() > 0) {
-		m_digits_for_offset = (s32) ceilf(log2f(static_cast<float>(node.size_bits.value()) / 8.f) / 4.f);
+		m_digits_for_offset = static_cast<s32>(ceilf(log2f(static_cast<float>(node.size_bits.value()) / 8.f) / 4.f));
 	}
 	ast_node(node, name, 0, 0, database, SymbolDescriptor::DATA_TYPE, !symbol.not_defined_in_any_translation_unit);
 	fprintf(out, ";\n");
@@ -365,7 +365,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 		}
 	}
 
-	print_cpp_storage_class(out, (StorageClass) node.storage_class);
+	print_cpp_storage_class(out, node.storage_class);
 
 	if (node.is_const) {
 		fprintf(out, "const ");
@@ -539,8 +539,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 					CCC_ASSERT(base_class.descriptor == ast::TypeName::DESCRIPTOR);
 					offset(base_class, 0);
 					if (base_class.access_specifier != ast::AS_PUBLIC) {
-						fprintf(out, "%s ",
-							ast::access_specifier_to_string((ast::AccessSpecifier) base_class.access_specifier));
+						fprintf(out, "%s ", ast::access_specifier_to_string(base_class.access_specifier));
 					}
 					if (base_class.is_virtual_base_class) {
 						fprintf(out, "virtual ");
@@ -565,8 +564,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 					CCC_ASSERT(field.get());
 					if (access_specifier != field->access_specifier) {
 						indent(out, indentation_level);
-						fprintf(out, "%s:\n",
-							ast::access_specifier_to_string((ast::AccessSpecifier) field->access_specifier));
+						fprintf(out, "%s:\n", ast::access_specifier_to_string(field->access_specifier));
 						access_specifier = field->access_specifier;
 					}
 					indent(out, indentation_level + 1);
@@ -588,9 +586,7 @@ void CppPrinter::ast_node(const ast::Node& node,
 							ast::Function& member_func = member_function->as<ast::Function>();
 							if (access_specifier != member_func.access_specifier) {
 								indent(out, indentation_level);
-								fprintf(out, "%s:\n",
-									ast::access_specifier_to_string(
-										(ast::AccessSpecifier) member_func.access_specifier));
+								fprintf(out, "%s:\n", ast::access_specifier_to_string(member_func.access_specifier));
 								access_specifier = member_func.access_specifier;
 							}
 						}
@@ -626,8 +622,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 						type_name.unresolved_stabs->stabs_type_number.file,
 						type_name.unresolved_stabs->stabs_type_number.type);
 				} else {
-					fprintf(
-						out, "CCC_ERROR(\"Invalid %s type name.\")", ast::type_name_source_to_string(type_name.source));
+					fprintf(out, "CCC_ERROR(\"Invalid %s type name.\")",
+						ast::type_name_source_to_string(type_name.source));
 				}
 			}
 			print_cpp_variable_name(out, name, INSERT_SPACE_TO_LEFT);
@@ -746,8 +742,8 @@ void CppPrinter::register_storage_comment(const RegisterStorage& storage)
 	if (m_config.print_storage_information) {
 		fprintf(out, "/* ");
 		auto [register_class, register_index_relative] = mips::map_dbx_register_index(storage.dbx_register_number);
-		const char** name_table = mips::REGISTER_STRING_TABLES[(s32) register_class];
-		CCC_ASSERT((u64) register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[(s32) register_class]);
+		const char** name_table = mips::REGISTER_STRING_TABLES[static_cast<u32>(register_class)];
+		CCC_ASSERT(register_index_relative < mips::REGISTER_STRING_TABLE_SIZES[static_cast<u32>(register_class)]);
 		const char* register_name = name_table[register_index_relative];
 		fprintf(out, "%s %d", register_name, storage.dbx_register_number);
 		fprintf(out, " */ ");

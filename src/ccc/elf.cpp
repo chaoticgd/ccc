@@ -18,7 +18,8 @@ const std::map<std::string, KnownElfSectionClass> KNOWN_ELF_SECTIONS = {
 	{".rodata", KnownElfSectionClass::DATA},
 	{".sbss", KnownElfSectionClass::DATA},
 	{".sdata", KnownElfSectionClass::DATA},
-	{".text", KnownElfSectionClass::CODE}};
+	{".text", KnownElfSectionClass::CODE},
+};
 
 Result<ElfFile> ElfFile::parse(std::vector<u8> image)
 {
@@ -282,7 +283,7 @@ std::optional<std::span<const u8>> ElfFile::get_virtual(u32 address, u32 size) c
 	return std::nullopt;
 }
 
-bool ElfFile::copy_virtual(u8* dest, u32 address, u32 size) const
+bool ElfFile::copy_virtual(void* dest, u32 address, u32 size) const
 {
 	std::optional<std::span<const u8>> block = get_virtual(address, size);
 	if (!block.has_value()) {

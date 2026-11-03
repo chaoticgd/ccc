@@ -165,7 +165,7 @@ struct ElfFile
 
 	// Copy a block of data in an ELF file to the destination buffer given its
 	// address and size.
-	bool copy_virtual(u8* dest, u32 address, u32 size) const;
+	bool copy_virtual(void* dest, u32 address, u32 size) const;
 
 	// Retrieve an object of type T from an ELF file given its address.
 	template <typename T>
@@ -176,7 +176,7 @@ struct ElfFile
 			return std::nullopt;
 		}
 
-		return *(T*) result->data();
+		return *reinterpret_cast<const T*>(result->data());
 	}
 
 	// Retrieve an array of objects of type T from an ELF file given its
@@ -189,7 +189,9 @@ struct ElfFile
 			return std::nullopt;
 		}
 
-		return std::span<const T>((T*) result->data(), (T*) (result->data() + result->size()));
+		return std::span<const T>(
+			reinterpret_cast<const T*>(result->data()),
+			reinterpret_cast<const T*>((result->data() + result->size())));
 	}
 };
 

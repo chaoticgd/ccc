@@ -41,16 +41,16 @@ enum AccessSpecifier
 struct Node
 {
 	const NodeDescriptor descriptor;
-	u8 is_const : 1 = false;
-	u8 is_volatile : 1 = false;
-	u8 is_virtual_base_class : 1 = false;
-	u8 is_vtable_pointer : 1 = false;
-	u8 is_constructor_or_destructor : 1 = false;
-	u8 is_special_member_function : 1 = false;
-	u8 is_operator_member_function : 1 = false;
-	u8 cannot_compute_size : 1 = false;
-	u8 storage_class : 4 = STORAGE_CLASS_NONE;
-	u8 access_specifier : 2 = AS_PUBLIC;
+	bool is_const : 1 = false;
+	bool is_volatile : 1 = false;
+	bool is_virtual_base_class : 1 = false;
+	bool is_vtable_pointer : 1 = false;
+	bool is_constructor_or_destructor : 1 = false;
+	bool is_special_member_function : 1 = false;
+	bool is_operator_member_function : 1 = false;
+	bool cannot_compute_size : 1 = false;
+	StorageClass storage_class : 4 = STORAGE_CLASS_NONE;
+	AccessSpecifier access_specifier : 2 = AS_PUBLIC;
 
 	NullableInt<u32> size_bytes;
 
@@ -270,8 +270,8 @@ struct StructOrUnion : Node
 		const SymbolDatabase& database,
 		bool skip_statics,
 		u32 base_offset = 0,
-		s32 max_fields = 100000,
-		s32 max_depth = 100) const;
+		size_t max_fields = 100000,
+		size_t max_depth = 100) const;
 };
 
 enum class TypeNameSource : u8

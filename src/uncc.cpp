@@ -165,7 +165,7 @@ static FunctionsFile parse_functions_file(const fs::path& path)
 		if (line.size() >= 9 && memcmp(line.data(), "@function", 9) == 0) {
 			CCC_EXIT_IF_FALSE(line.size() > 10, "Bad @function directive in FUNCTIONS.txt file.");
 			char* end = nullptr;
-			u32 address = (u32) strtol(line.data() + 10, &end, 16);
+			u32 address = static_cast<u32>(strtoul(line.data() + 10, &end, 16));
 			CCC_EXIT_IF_FALSE(end != line.data() + 10, "Bad @function directive in FUNCTIONS.txt file.");
 			function = &result.functions[address];
 			*function = input.subspan(1);

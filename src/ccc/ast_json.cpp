@@ -36,11 +36,11 @@ void write_json(Writer& json, const Node* ptr, const SymbolDatabase& database)
 	}
 	if (node.storage_class != STORAGE_CLASS_NONE) {
 		json.Key("storage_class");
-		json.String(storage_class_to_string((StorageClass) node.storage_class));
+		json.String(storage_class_to_string(node.storage_class));
 	}
 	if (node.access_specifier != AS_PUBLIC) {
 		json.Key("access_specifier");
-		json.String(access_specifier_to_string((AccessSpecifier) node.access_specifier));
+		json.String(access_specifier_to_string(node.access_specifier));
 	}
 	if (node.is_const) {
 		json.Key("is_const");

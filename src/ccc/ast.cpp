@@ -73,8 +73,8 @@ bool StructOrUnion::flatten_fields(
 	const SymbolDatabase& database,
 	bool skip_statics,
 	u32 base_offset,
-	s32 max_fields,
-	s32 max_depth) const
+	size_t max_fields,
+	size_t max_depth) const
 {
 	if (max_depth == 0) {
 		return false;
@@ -109,7 +109,7 @@ bool StructOrUnion::flatten_fields(
 			continue;
 		}
 
-		if ((s32) output.size() >= max_fields) {
+		if (output.size() >= max_fields) {
 			return false;
 		}
 
