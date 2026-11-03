@@ -18,7 +18,10 @@
 			},
 			"environment": {
 				"CCC_DEBUGGING_FLAGS": "-O2 -g0",
-				"CCC_HARDENING_FLAGS": "-Wall",
+				"CCC_FIRST_PARTY_FLAGS": "-Wconversion -Wimplicit-fallthrough",
+				"CCC_FORTIFY_FLAGS": "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3",
+				"CCC_HARDENING_FLAGS": "",
+				"CCC_MISCELLANEOUS_FLAGS": "-Wall -fdiagnostics-color=always",
 				"CCC_SANITIZER_FLAGS": ""
 			}
 		},
@@ -29,14 +32,15 @@
 				"CMAKE_EXE_LINKER_FLAGS": ""
 			},
 			"environment": {
-				"CCC_DEBUGGING_FLAGS": "-O0 -ggdb -fdiagnostics-color=always"
+				"CCC_FORTIFY_FLAGS": "",
+				"CCC_DEBUGGING_FLAGS": "-O0 -ggdb"
 			}
 		},
 		{
 			"name": "enable-hardening",
 			"hidden": true,
 			"environment": {
-				"CCC_HARDENING_FLAGS": "-Wall -Wformat -Wformat=2 -Wconversion -Wimplicit-fallthrough -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -D_GLIBCXX_ASSERTIONS -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST -fstrict-flex-arrays=3 -fstack-clash-protection -fstack-protector-strong -fno-delete-null-pointer-checks -fno-strict-overflow -fno-strict-aliasing -ftrivial-auto-var-init=zero"
+				"CCC_HARDENING_FLAGS": "-Wformat -Wformat=2 -D_GLIBCXX_ASSERTIONS -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST -fstrict-flex-arrays=3 -fstack-clash-protection -fstack-protector-strong -fno-delete-null-pointer-checks -fno-strict-overflow -ftrivial-auto-var-init=zero"
 			}
 		},
 		{
@@ -44,8 +48,9 @@
 			"inherits": ["enable-hardening", "base"],
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Release",
-				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
-				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}"
+				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"FIRST_PARTY_FLAGS": "$env{CCC_FIRST_PARTY_FLAGS}"
 			}
 		},
 		{
@@ -53,8 +58,9 @@
 			"inherits": ["base"],
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Release",
-				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
-				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}"
+				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"FIRST_PARTY_FLAGS": "$env{CCC_FIRST_PARTY_FLAGS}"
 			}
 		},
 		{
@@ -62,8 +68,9 @@
 			"inherits": ["enable-debugging", "enable-hardening", "base"],
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Debug",
-				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
-				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"FIRST_PARTY_FLAGS": "$env{CCC_FIRST_PARTY_FLAGS}",
 				"ENABLE_FUZZ_TESTING": false,
 				"BUILD_DEMANGLER_TOOLS": true
 			}
@@ -73,8 +80,9 @@
 			"inherits": ["enable-debugging", "base"],
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Debug",
-				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
-				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"FIRST_PARTY_FLAGS": "$env{CCC_FIRST_PARTY_FLAGS}",
 				"ENABLE_FUZZ_TESTING": false,
 				"BUILD_DEMANGLER_TOOLS": true
 			}
@@ -83,8 +91,9 @@
 			"name": "debug-fuzzer",
 			"inherits": ["debug"],
 			"cacheVariables": {
-				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
-				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"FIRST_PARTY_FLAGS": "$env{CCC_FIRST_PARTY_FLAGS}",
 				"ENABLE_FUZZ_TESTING": true
 			}
 		},
@@ -92,8 +101,9 @@
 			"name": "debug-sanitize",
 			"inherits": ["debug-fuzzer"],
 			"cacheVariables": {
-				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}",
-				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_SANITIZER_FLAGS}"
+				"CMAKE_C_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"CMAKE_CXX_FLAGS": "$env{CCC_DEBUGGING_FLAGS} $env{CCC_FORTIFY_FLAGS} $env{CCC_HARDENING_FLAGS} $env{CCC_MISCELLANEOUS_FLAGS} $env{CCC_SANITIZER_FLAGS}",
+				"FIRST_PARTY_FLAGS": "$env{CCC_FIRST_PARTY_FLAGS}"
 			},
 			"environment": {
 				"CCC_SANITIZER_FLAGS": "-fsanitize=address,undefined"

@@ -15,6 +15,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+separate_arguments(FIRST_PARTY_FLAGS)
+
 if(USE_MUSL_LIBC)
 	set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 	set(BUILD_SHARED_LIBS OFF)
@@ -92,12 +94,14 @@ add_library(ccc STATIC
 	src/ccc/util.cpp
 	src/ccc/util.h
 )
+target_compile_options(ccc PRIVATE ${FIRST_PARTY_FLAGS})
 target_link_libraries(ccc rapidjson)
 
 add_library(ccc_platform STATIC
 	src/platform/file.cpp
 	src/platform/file.h
 )
+target_compile_options(ccc_platform PRIVATE ${FIRST_PARTY_FLAGS})
 
 set(TEST_SOURCES
 	test/demangler_tests.cpp
@@ -112,15 +116,19 @@ set(TEST_SOURCES
 )
 
 add_executable(demangle src/demangle.cpp)
+target_compile_options(demangle PRIVATE ${FIRST_PARTY_FLAGS})
 target_link_libraries(demangle ccc demanglegnu ccc_versioninfo)
 
 add_executable(stdump src/stdump.cpp)
+target_compile_options(stdump PRIVATE ${FIRST_PARTY_FLAGS})
 target_link_libraries(stdump ccc ccc_platform ccc_versioninfo demanglegnu)
 
 add_executable(uncc src/uncc.cpp)
+target_compile_options(uncc PRIVATE ${FIRST_PARTY_FLAGS})
 target_link_libraries(uncc ccc ccc_platform ccc_versioninfo demanglegnu)
 
 add_executable(tests src/tests.cpp ${TEST_SOURCES})
+target_compile_options(tests PRIVATE ${FIRST_PARTY_FLAGS})
 target_include_directories(tests PUBLIC src/)
 target_link_libraries(tests ccc ccc_platform ccc_versioninfo demanglegnu gtest)
 add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/testdata)
@@ -128,7 +136,7 @@ add_test(NAME tests COMMAND tests ${CMAKE_SOURCE_DIR}/testdata)
 if(ENABLE_FUZZ_TESTING)
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		add_executable(fuzztest src/fuzztest.cpp)
-		target_compile_options(fuzztest PUBLIC -fsanitize=fuzzer,address,signed-integer-overflow)
+		target_compile_options(fuzztest PUBLIC ${FIRST_PARTY_FLAGS} -fsanitize=fuzzer,address,signed-integer-overflow)
 		target_link_options(fuzztest PUBLIC -fsanitize=fuzzer,address,signed-integer-overflow)
 		target_link_libraries(fuzztest ccc ccc_platform ccc_versioninfo demanglegnu)
 	else()
