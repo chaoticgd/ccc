@@ -418,9 +418,9 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 static s64 sign_extend_from_size(u64 value, u32 size)
 {
 	switch (size) {
-		case 1: return static_cast<s64>(static_cast<u8>(value));
-		case 2: return static_cast<s64>(static_cast<u16>(value));
-		case 4: return static_cast<s64>(static_cast<u32>(value));
+		case 1: return static_cast<s8>(static_cast<u8>(value));
+		case 2: return static_cast<s16>(static_cast<u16>(value));
+		case 4: return static_cast<s32>(static_cast<u32>(value));
 	}
 	return static_cast<s64>(value);
 }
