@@ -65,6 +65,7 @@ typedef void (*CustomErrorCallback)(const Error& error, ErrorLevel level);
 
 CCC_FORMAT_ATTRIBUTE(printf, 3, 4)
 Error format_error(const char* source_file, s32 source_line, const char* format, ...);
+
 void report_error(const Error& error);
 void report_warning(const Error& warning);
 void set_custom_error_callback(CustomErrorCallback callback);

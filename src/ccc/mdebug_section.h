@@ -155,10 +155,10 @@ struct File
 class SymbolTableReader
 {
 public:
-	Result<void> init(std::span<const u8> elf, s32 section_offset);
+	Result<void> init(std::span<const u8> elf, u32 section_offset);
 
-	s32 file_count() const;
-	Result<File> parse_file(s32 index) const;
+	u32 file_count() const;
+	Result<File> parse_file(u32 index) const;
 	Result<std::vector<Symbol>> parse_external_symbols() const;
 
 	void print_header(FILE* out) const;
@@ -169,11 +169,11 @@ private:
 	bool m_ready = false;
 
 	std::span<const u8> m_elf;
-	s32 m_section_offset;
+	u32 m_section_offset;
 
 	// If the .mdebug section was moved without updating its contents all the
 	// absolute file offsets stored within will be incorrect by a fixed amount.
-	s32 m_fudge_offset;
+	u32 m_fudge_offset;
 
 	const SymbolicHeader* m_hdrr;
 };

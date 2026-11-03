@@ -11,56 +11,56 @@ namespace ccc::mdebug {
 CCC_PACKED_STRUCT(SymbolicHeader,
 	/* 0x00 */ s16 magic;
 	/* 0x02 */ s16 version_stamp;
-	/* 0x04 */ s32 line_number_count;
-	/* 0x08 */ s32 line_numbers_size_bytes;
-	/* 0x0c */ s32 line_numbers_offset;
-	/* 0x10 */ s32 dense_numbers_count;
-	/* 0x14 */ s32 dense_numbers_offset;
-	/* 0x18 */ s32 procedure_descriptor_count;
-	/* 0x1c */ s32 procedure_descriptors_offset;
-	/* 0x20 */ s32 local_symbol_count;
-	/* 0x24 */ s32 local_symbols_offset;
-	/* 0x28 */ s32 optimization_symbols_count;
-	/* 0x2c */ s32 optimization_symbols_offset;
-	/* 0x30 */ s32 auxiliary_symbol_count;
-	/* 0x34 */ s32 auxiliary_symbols_offset;
-	/* 0x38 */ s32 local_strings_size_bytes;
-	/* 0x3c */ s32 local_strings_offset;
-	/* 0x40 */ s32 external_strings_size_bytes;
-	/* 0x44 */ s32 external_strings_offset;
-	/* 0x48 */ s32 file_descriptor_count;
-	/* 0x4c */ s32 file_descriptors_offset;
-	/* 0x50 */ s32 relative_file_descriptor_count;
-	/* 0x54 */ s32 relative_file_descriptors_offset;
-	/* 0x58 */ s32 external_symbols_count;
-	/* 0x5c */ s32 external_symbols_offset;
+	/* 0x04 */ u32 line_number_count;
+	/* 0x08 */ u32 line_numbers_size_bytes;
+	/* 0x0c */ u32 line_numbers_offset;
+	/* 0x10 */ u32 dense_numbers_count;
+	/* 0x14 */ u32 dense_numbers_offset;
+	/* 0x18 */ u32 procedure_descriptor_count;
+	/* 0x1c */ u32 procedure_descriptors_offset;
+	/* 0x20 */ u32 local_symbol_count;
+	/* 0x24 */ u32 local_symbols_offset;
+	/* 0x28 */ u32 optimization_symbols_count;
+	/* 0x2c */ u32 optimization_symbols_offset;
+	/* 0x30 */ u32 auxiliary_symbol_count;
+	/* 0x34 */ u32 auxiliary_symbols_offset;
+	/* 0x38 */ u32 local_strings_size_bytes;
+	/* 0x3c */ u32 local_strings_offset;
+	/* 0x40 */ u32 external_strings_size_bytes;
+	/* 0x44 */ u32 external_strings_offset;
+	/* 0x48 */ u32 file_descriptor_count;
+	/* 0x4c */ u32 file_descriptors_offset;
+	/* 0x50 */ u32 relative_file_descriptor_count;
+	/* 0x54 */ u32 relative_file_descriptors_offset;
+	/* 0x58 */ u32 external_symbols_count;
+	/* 0x5c */ u32 external_symbols_offset;
 )
 
 CCC_PACKED_STRUCT(FileDescriptor,
 	/* 0x00 */ u32 address;
-	/* 0x04 */ s32 file_path_string_offset;
-	/* 0x08 */ s32 strings_offset;
-	/* 0x0c */ s32 cb_ss;
-	/* 0x10 */ s32 isym_base;
-	/* 0x14 */ s32 symbol_count;
-	/* 0x18 */ s32 line_number_entry_index_base;
-	/* 0x1c */ s32 cline;
-	/* 0x20 */ s32 optimization_entry_index_base;
-	/* 0x24 */ s32 copt;
+	/* 0x04 */ u32 file_path_string_offset;
+	/* 0x08 */ u32 strings_offset;
+	/* 0x0c */ u32 cb_ss;
+	/* 0x10 */ u32 isym_base;
+	/* 0x14 */ u32 symbol_count;
+	/* 0x18 */ u32 line_number_entry_index_base;
+	/* 0x1c */ u32 cline;
+	/* 0x20 */ u32 optimization_entry_index_base;
+	/* 0x24 */ u32 copt;
 	/* 0x28 */ u16 ipd_first;
 	/* 0x2a */ u16 procedure_descriptor_count;
-	/* 0x2c */ s32 iaux_base;
-	/* 0x30 */ s32 caux;
-	/* 0x34 */ s32 rfd_base;
-	/* 0x38 */ s32 crfd;
+	/* 0x2c */ u32 iaux_base;
+	/* 0x30 */ u32 caux;
+	/* 0x34 */ u32 rfd_base;
+	/* 0x38 */ u32 crfd;
 	/* 0x3c */ u32 bitfields;
 	/* 0x3c */ // u32 lang : 5;
 	/* 0x3c */ // u32 f_merge : 1;
 	/* 0x3c */ // u32 f_readin : 1;
 	/* 0x3c */ // u32 f_big_endian : 1;
 	/* 0x3c */ // u32 reserved : 22;
-	/* 0x40 */ s32 line_number_offset;
-	/* 0x44 */ s32 cb_line;
+	/* 0x40 */ u32 line_number_offset;
+	/* 0x44 */ u32 cb_line;
 	
 	u32 lang() const { return bitfields & 0b11111; }
 	u32 f_merge() const { return (bitfields >> 5) & 0b1; }
@@ -95,10 +95,10 @@ static_assert(sizeof(ExternalSymbolHeader) == 0x10);
 
 static void print_symbol(FILE* out, const Symbol& symbol);
 static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& procedure_descriptor);
-static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr);
-static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset);
+static Result<u32> get_corruption_fixing_fudge_offset(u32 section_offset, const SymbolicHeader& hdrr);
+static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, u32 strings_offset);
 
-Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset)
+Result<void> SymbolTableReader::init(std::span<const u8> elf, u32 section_offset)
 {
 	m_elf = elf;
 	m_section_offset = section_offset;
@@ -107,7 +107,7 @@ Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset
 	CCC_CHECK(m_hdrr != nullptr, "MIPS debug section header out of bounds.");
 	CCC_CHECK(m_hdrr->magic == 0x7009, "Invalid symbolic header.");
 
-	Result<s32> fudge_offset = get_corruption_fixing_fudge_offset(m_section_offset, *m_hdrr);
+	Result<u32> fudge_offset = get_corruption_fixing_fudge_offset(m_section_offset, *m_hdrr);
 	CCC_RETURN_IF_ERROR(fudge_offset);
 	m_fudge_offset = *fudge_offset;
 
@@ -116,40 +116,40 @@ Result<void> SymbolTableReader::init(std::span<const u8> elf, s32 section_offset
 	return Result<void>();
 }
 
-s32 SymbolTableReader::file_count() const
+u32 SymbolTableReader::file_count() const
 {
 	CCC_ASSERT(m_ready);
 	return m_hdrr->file_descriptor_count;
 }
 
-Result<File> SymbolTableReader::parse_file(s32 index) const
+Result<File> SymbolTableReader::parse_file(u32 index) const
 {
 	CCC_ASSERT(m_ready);
 
 	File file;
 
-	u64 fd_offset = m_hdrr->file_descriptors_offset + index * sizeof(FileDescriptor);
+	u32 fd_offset = m_hdrr->file_descriptors_offset + index * sizeof(FileDescriptor);
 	const FileDescriptor* fd_header = get_unaligned<FileDescriptor>(m_elf, fd_offset + m_fudge_offset);
 	CCC_CHECK(fd_header != nullptr, "MIPS debug file descriptor out of bounds.");
 	CCC_CHECK(fd_header->f_big_endian() == 0, "Not little endian or bad file descriptor table.");
 
 	file.address = fd_header->address;
 
-	s32 rel_raw_path_offset = fd_header->strings_offset + fd_header->file_path_string_offset;
-	s32 raw_path_offset = m_hdrr->local_strings_offset + rel_raw_path_offset + m_fudge_offset;
+	u32 rel_raw_path_offset = fd_header->strings_offset + fd_header->file_path_string_offset;
+	u32 raw_path_offset = m_hdrr->local_strings_offset + rel_raw_path_offset + m_fudge_offset;
 	std::optional<std::string_view> command_line_path = get_string(m_elf, raw_path_offset);
 	if (command_line_path.has_value()) {
 		file.command_line_path = *command_line_path;
 	}
 
 	// Parse local symbols.
-	for (s64 j = 0; j < fd_header->symbol_count; j++) {
-		u64 rel_symbol_offset = (fd_header->isym_base + j) * sizeof(SymbolHeader);
-		u64 symbol_offset = m_hdrr->local_symbols_offset + rel_symbol_offset + m_fudge_offset;
+	for (u32 i = 0; i < fd_header->symbol_count; i++) {
+		u32 rel_symbol_offset = (fd_header->isym_base + i) * sizeof(SymbolHeader);
+		u32 symbol_offset = m_hdrr->local_symbols_offset + rel_symbol_offset + m_fudge_offset;
 		const SymbolHeader* symbol_header = get_unaligned<SymbolHeader>(m_elf, symbol_offset);
 		CCC_CHECK(symbol_header != nullptr, "Symbol header out of bounds.");
 
-		s32 strings_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + m_fudge_offset;
+		u32 strings_offset = m_hdrr->local_strings_offset + fd_header->strings_offset + m_fudge_offset;
 		Result<Symbol> sym = get_symbol(*symbol_header, m_elf, strings_offset);
 		CCC_RETURN_IF_ERROR(sym);
 
@@ -166,16 +166,15 @@ Result<File> SymbolTableReader::parse_file(s32 index) const
 	}
 
 	// Parse procedure descriptors.
-	for (s64 i = 0; i < fd_header->procedure_descriptor_count; i++) {
-		u64 rel_procedure_offset = (fd_header->ipd_first + i) * sizeof(ProcedureDescriptor);
-		u64 procedure_offset = m_hdrr->procedure_descriptors_offset + rel_procedure_offset + m_fudge_offset;
+	for (u16 i = 0; i < fd_header->procedure_descriptor_count; i++) {
+		u32 rel_procedure_offset = (fd_header->ipd_first + i) * sizeof(ProcedureDescriptor);
+		u32 procedure_offset = m_hdrr->procedure_descriptors_offset + rel_procedure_offset + m_fudge_offset;
 		const ProcedureDescriptor* procedure_descriptor = get_unaligned<ProcedureDescriptor>(m_elf, procedure_offset);
 		CCC_CHECK(procedure_descriptor != nullptr, "Procedure descriptor out of bounds.");
 
 		CCC_CHECK(procedure_descriptor->symbol_index < file.symbols.size(), "Symbol index out of bounds.");
 		file.symbols[procedure_descriptor->symbol_index].procedure_descriptor = procedure_descriptor;
 	}
-
 
 	file.full_path = merge_paths(file.working_dir, file.command_line_path);
 
@@ -187,8 +186,8 @@ Result<std::vector<Symbol>> SymbolTableReader::parse_external_symbols() const
 	CCC_ASSERT(m_ready);
 
 	std::vector<Symbol> external_symbols;
-	for (s64 i = 0; i < m_hdrr->external_symbols_count; i++) {
-		u64 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
+	for (u32 i = 0; i < m_hdrr->external_symbols_count; i++) {
+		u32 sym_offset = m_hdrr->external_symbols_offset + i * sizeof(ExternalSymbolHeader);
 		const ExternalSymbolHeader* external_header = get_unaligned<ExternalSymbolHeader>(
 			m_elf, sym_offset + m_fudge_offset);
 		CCC_CHECK(external_header != nullptr, "External header out of bounds.");
@@ -208,51 +207,51 @@ void SymbolTableReader::print_header(FILE* dest) const
 
 	// clang-format off
 	fprintf(dest, "Symbolic Header, magic = %hx, vstamp = %hx:\n",
-		(u16) m_hdrr->magic,
-		(u16) m_hdrr->version_stamp);
+		m_hdrr->magic,
+		m_hdrr->version_stamp);
 	fprintf(dest, "\n");
 	fprintf(dest, "                              Offset              Size (Bytes)        Count\n");
 	fprintf(dest, "                              ------              ------------        -----\n");
-	fprintf(dest, "  Line Numbers                0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->line_numbers_offset,
-		(u32) m_hdrr->line_numbers_size_bytes,
+	fprintf(dest, "  Line Numbers                0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->line_numbers_offset,
+		m_hdrr->line_numbers_size_bytes,
 		m_hdrr->line_number_count);
-	fprintf(dest, "  Dense Numbers               0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->dense_numbers_offset,
-		(u32) m_hdrr->dense_numbers_count * 8,
+	fprintf(dest, "  Dense Numbers               0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->dense_numbers_offset,
+		m_hdrr->dense_numbers_count * 8,
 		m_hdrr->dense_numbers_count);
-	fprintf(dest, "  Procedure Descriptors       0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->procedure_descriptors_offset,
-		(u32) m_hdrr->procedure_descriptor_count * (u32) sizeof(ProcedureDescriptor),
+	fprintf(dest, "  Procedure Descriptors       0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->procedure_descriptors_offset,
+		m_hdrr->procedure_descriptor_count * (u32) sizeof(ProcedureDescriptor),
 		m_hdrr->procedure_descriptor_count);
-	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->local_symbols_offset,
-		(u32) m_hdrr->local_symbol_count * (u32) sizeof(SymbolHeader),
+	fprintf(dest, "  Local Symbols               0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->local_symbols_offset,
+		m_hdrr->local_symbol_count * (u32) sizeof(SymbolHeader),
 		m_hdrr->local_symbol_count);
-	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   " "%-8d\n",
-		(u32) m_hdrr->optimization_symbols_offset,
+	fprintf(dest, "  Optimization Symbols        0x%-8x          "  "-                   " "%-8u\n",
+		m_hdrr->optimization_symbols_offset,
 		m_hdrr->optimization_symbols_count);
-	fprintf(dest, "  Auxiliary Symbols           0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->auxiliary_symbols_offset,
-		(u32) m_hdrr->auxiliary_symbol_count * 4,
+	fprintf(dest, "  Auxiliary Symbols           0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->auxiliary_symbols_offset,
+		m_hdrr->auxiliary_symbol_count * 4,
 		m_hdrr->auxiliary_symbol_count);
 	fprintf(dest, "  Local Strings               0x%-8x          "  "0x%-8x          "  "-\n",
-		(u32) m_hdrr->local_strings_offset,
-		(u32) m_hdrr->local_strings_size_bytes);
+		m_hdrr->local_strings_offset,
+		m_hdrr->local_strings_size_bytes);
 	fprintf(dest, "  External Strings            0x%-8x          "  "0x%-8x          "  "-\n",
-		(u32) m_hdrr->external_strings_offset,
-		(u32) m_hdrr->external_strings_size_bytes);
-	fprintf(dest, "  File Descriptors            0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->file_descriptors_offset,
-		(u32) m_hdrr->file_descriptor_count * (u32) sizeof(FileDescriptor),
+		m_hdrr->external_strings_offset,
+		m_hdrr->external_strings_size_bytes);
+	fprintf(dest, "  File Descriptors            0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->file_descriptors_offset,
+		m_hdrr->file_descriptor_count * (u32) sizeof(FileDescriptor),
 		m_hdrr->file_descriptor_count);
-	fprintf(dest, "  Relative File Descriptors   0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->relative_file_descriptors_offset,
-		(u32) m_hdrr->relative_file_descriptor_count * 4,
+	fprintf(dest, "  Relative File Descriptors   0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->relative_file_descriptors_offset,
+		m_hdrr->relative_file_descriptor_count * 4,
 		m_hdrr->relative_file_descriptor_count);
-	fprintf(dest, "  External Symbols            0x%-8x          "  "0x%-8x          "  "%-8d\n",
-		(u32) m_hdrr->external_symbols_offset,
-		(u32) m_hdrr->external_symbols_count * 16,
+	fprintf(dest, "  External Symbols            0x%-8x          "  "0x%-8x          "  "%-8u\n",
+		m_hdrr->external_symbols_offset,
+		m_hdrr->external_symbols_count * 16,
 		m_hdrr->external_symbols_count);
 	// clang-format on
 }
@@ -261,8 +260,7 @@ Result<void> SymbolTableReader::print_symbols(
 	FILE* out, bool print_locals, bool print_procedure_descriptors, bool print_externals) const
 {
 	if (print_locals || print_procedure_descriptors) {
-		s32 count = file_count();
-		for (s32 i = 0; i < count; i++) {
+		for (u32 i = 0; i < file_count(); i++) {
 			Result<File> file = parse_file(i);
 			CCC_RETURN_IF_ERROR(file);
 
@@ -339,12 +337,12 @@ static void print_procedure_descriptor(FILE* out, const ProcedureDescriptor& pro
 	// clang-format on
 }
 
-static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const SymbolicHeader& hdrr)
+static Result<u32> get_corruption_fixing_fudge_offset(u32 section_offset, const SymbolicHeader& hdrr)
 {
 	// GCC will always put the first part of the symbol table right after the
 	// header, so if the header says it's somewhere else we know the section has
 	// probably been moved without updating its contents.
-	s32 right_after_header = INT32_MAX;
+	u32 right_after_header = UINT32_MAX;
 	if (hdrr.line_numbers_offset > 0)
 		right_after_header = std::min(hdrr.line_numbers_offset, right_after_header);
 	if (hdrr.dense_numbers_offset > 0)
@@ -368,10 +366,10 @@ static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const 
 	if (hdrr.external_symbols_offset > 0)
 		right_after_header = std::min(hdrr.external_symbols_offset, right_after_header);
 
-	CCC_CHECK(right_after_header >= 0 && right_after_header < INT32_MAX, "Invalid symbolic header.");
+	CCC_CHECK(right_after_header < UINT32_MAX, "Invalid symbolic header.");
 
 	// Figure out how much we need to adjust all the file offsets by.
-	s32 fudge_offset = section_offset - (right_after_header - sizeof(SymbolicHeader));
+	u32 fudge_offset = section_offset - (right_after_header - sizeof(SymbolicHeader));
 	if (fudge_offset != 0) {
 		CCC_WARN("The .mdebug section was moved without updating its contents. Adjusting file offsets by %d bytes.",
 			fudge_offset);
@@ -380,7 +378,7 @@ static Result<s32> get_corruption_fixing_fudge_offset(s32 section_offset, const 
 	return fudge_offset;
 }
 
-static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, s32 strings_offset)
+static Result<Symbol> get_symbol(const SymbolHeader& header, std::span<const u8> elf, u32 strings_offset)
 {
 	Symbol symbol;
 

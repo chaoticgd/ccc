@@ -326,7 +326,7 @@ struct GlobalStorage
 
 struct RegisterStorage
 {
-	s32 dbx_register_number = -1;
+	u32 dbx_register_number = UINT32_MAX;
 	bool is_by_reference = false;
 
 	RegisterStorage() {}
@@ -335,7 +335,7 @@ struct RegisterStorage
 
 struct StackStorage
 {
-	s32 stack_pointer_offset = -1;
+	s32 stack_pointer_offset = INT32_MAX;
 
 	StackStorage() {}
 	friend auto operator<=>(const StackStorage& lhs, const StackStorage& rhs) = default;
@@ -420,7 +420,7 @@ public:
 	struct LineNumberPair
 	{
 		Address address;
-		s32 line_number;
+		u32 line_number;
 	};
 
 	struct SubSourceFile

@@ -58,7 +58,7 @@ Result<SNDLLFile> parse_sndll_file(std::span<const u8> image, Address address, S
 	CCC_CHECK(magic.has_value(), "File too small.");
 	CCC_CHECK((*magic & 0xffffff) == CCC_FOURCC("SNR\00"), "Not a SNDLL %s.", address.has_value() ? "section" : "file");
 
-	char version = *magic >> 24;
+	char version = static_cast<char>(*magic >> 24);
 	switch (version) {
 		case '1': {
 			const SNDLLHeaderV1* header = get_unaligned<SNDLLHeaderV1>(image, 0);

@@ -6,7 +6,7 @@
 #include "ast.h"
 #include "int128.h"
 
-#include <cinttypes>
+#include <bit>
 
 namespace ccc {
 
@@ -19,11 +19,11 @@ static Result<RefinedData> refine_builtin(
 static Result<RefinedData> refine_pointer_or_reference(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf);
 static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass);
-static const char* generate_format_string(u32 size, bool is_signed);
+static s64 sign_extend_from_size(u64 value, u32 size);
 static std::string single_precision_float_to_string(float value);
-static std::string string_format(const char* format, va_list args);
+
 CCC_FORMAT_ATTRIBUTE(printf, 1, 2)
-static std::string stringf(const char* format, ...);
+static std::string string_format(const char* format, ...);
 
 bool can_refine_variable(const VariableToRefine& variable)
 {
@@ -51,12 +51,10 @@ static Result<RefinedData> refine_node(
 	u32 virtual_address, const ast::Node& type, const SymbolDatabase& database, const ElfFile& elf, s32 depth)
 {
 	if (depth > 200) {
-		const char* error_message = "Call depth greater than 200 in refine_node, probably infinite recursion.";
-
-		CCC_WARN(error_message);
+		CCC_WARN("Call depth greater than 200 in refine_node, probably infinite recursion.");
 
 		RefinedData data;
-		data.value = error_message;
+		data.value = "Call depth greater than 200 in refine_node, probably infinite recursion.";
 		return data;
 	}
 
@@ -124,8 +122,9 @@ static Result<RefinedData> refine_node(
 			for (size_t i = 0; i < struct_or_union.base_classes.size(); i++) {
 				const std::unique_ptr<ast::Node>& base_class = struct_or_union.base_classes[i];
 				CCC_CHECK(base_class->offset_bytes.has_value(), "Base class without offset.");
+				u32 base_class_address = virtual_address + base_class->offset_bytes.value();
 				Result<RefinedData> child = refine_node(
-					virtual_address + base_class->offset_bytes.value(), *base_class.get(), database, elf, depth + 1);
+					base_class_address, *base_class.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "base class " + std::to_string(i);
 				children.emplace_back(std::move(*child));
@@ -136,8 +135,8 @@ static Result<RefinedData> refine_node(
 					continue;
 				}
 				CCC_CHECK(field->offset_bytes.has_value(), "Field without offset.");
-				Result<RefinedData> child = refine_node(
-					virtual_address + field->offset_bytes.value(), *field.get(), database, elf, depth + 1);
+				u32 field_address = virtual_address + field->offset_bytes.value();
+				Result<RefinedData> child = refine_node(field_address, *field.get(), database, elf, depth + 1);
 				CCC_RETURN_IF_ERROR(child);
 				child->field_name = "." + field->name;
 				children.emplace_back(std::move(*child));
@@ -342,7 +341,7 @@ static Result<RefinedData> refine_pointer_or_reference(
 			}
 			string += global_variable_symbol->name();
 		} else {
-			string = stringf("0x%x", pointer);
+			string = string_format("0x%x", pointer);
 		}
 	} else {
 		string = "NULL";
@@ -370,9 +369,7 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		case ast::BuiltInClass::UNSIGNED_16:
 		case ast::BuiltInClass::UNSIGNED_32:
 		case ast::BuiltInClass::UNSIGNED_64: {
-			u32 size = builtin_class_size(bclass).value();
-			const char* format = generate_format_string(size, false);
-			result = stringf(format, value.low);
+			result = std::to_string(value.low);
 			break;
 		}
 		case ast::BuiltInClass::SIGNED_8:
@@ -380,8 +377,8 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 		case ast::BuiltInClass::SIGNED_32:
 		case ast::BuiltInClass::SIGNED_64: {
 			u32 size = builtin_class_size(bclass).value();
-			const char* format = generate_format_string(size, true);
-			result = stringf(format, value.low);
+			s64 extended_value = sign_extend_from_size(value.low, size);
+			result = std::to_string(extended_value);
 			break;
 		}
 		case ast::BuiltInClass::BOOL_8: {
@@ -397,9 +394,9 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 			static_assert(sizeof(double) == 8);
 
 			double float_value = std::bit_cast<double>(value.low);
-			std::string string = stringf("%g", float_value);
+			std::string string = string_format("%g", float_value);
 			if (strtof(string.c_str(), nullptr) != float_value) {
-				string = stringf("%.17g", value.low);
+				string = string_format("%.17g", float_value);
 			}
 
 			result = std::move(string);
@@ -418,21 +415,21 @@ static std::string builtin_to_string(u128 value, ast::BuiltInClass bclass)
 	return result;
 }
 
-static const char* generate_format_string(u32 size, bool is_signed)
+static s64 sign_extend_from_size(u64 value, u32 size)
 {
 	switch (size) {
-		case 1: return is_signed ? "%hhd" : "%hhu";
-		case 2: return is_signed ? "%hd" : "%hu";
-		case 4: return is_signed ? "%d" : "%hu";
+		case 1: return static_cast<s64>(static_cast<u8>(value));
+		case 2: return static_cast<s64>(static_cast<u16>(value));
+		case 4: return static_cast<s64>(static_cast<u32>(value));
 	}
-	return is_signed ? ("%" PRId64) : ("%" PRIu64);
+	return static_cast<s64>(value);
 }
 
 static std::string single_precision_float_to_string(float value)
 {
-	std::string result = stringf("%g", value);
+	std::string result = string_format("%g", value);
 	if (strtof(result.c_str(), nullptr) != value) {
-		result = stringf("%.9g", value);
+		result = string_format("%.9g", value);
 	}
 	if (result.find(".") == std::string::npos) {
 		result += ".";
@@ -441,20 +438,16 @@ static std::string single_precision_float_to_string(float value)
 	return result;
 }
 
-static std::string string_format(const char* format, va_list args)
-{
-	char buffer[256];
-	vsnprintf(buffer, sizeof(buffer), format, args);
-	return std::string(buffer);
-}
-
-static std::string stringf(const char* format, ...)
+static std::string string_format(const char* format, ...)
 {
 	va_list args;
+	char buffer[256];
+
 	va_start(args, format);
-	std::string string = string_format(format, args);
+	vsnprintf(buffer, sizeof(buffer), format, args);
 	va_end(args);
-	return string;
+
+	return std::string(buffer);
 }
 
 }

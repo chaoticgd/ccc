@@ -17,7 +17,7 @@ static void destroy_optimized_out_functions(SymbolDatabase& database, const Symb
 Result<void> import_symbol_table(
 	SymbolDatabase& database,
 	std::span<const u8> elf,
-	s32 section_offset,
+	u32 section_offset,
 	const SymbolGroup& group,
 	u32 importer_flags,
 	const DemanglerFunctions& demangler,
@@ -65,10 +65,10 @@ Result<void> import_symbol_table(
 
 Result<void> import_files(SymbolDatabase& database, const AnalysisContext& context, const std::atomic_bool* interrupt)
 {
-	Result<s32> file_count = context.reader->file_count();
+	Result<u32> file_count = context.reader->file_count();
 	CCC_RETURN_IF_ERROR(file_count);
 
-	for (s32 i = 0; i < *file_count; i++) {
+	for (u32 i = 0; i < *file_count; i++) {
 		CCC_CHECK(!interrupt || !*interrupt, "Operation interrupted by user.");
 
 		Result<mdebug::File> file = context.reader->parse_file(i);
@@ -219,7 +219,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 					case StabsSymbolDescriptor::GLOBAL_VARIABLE:
 					case StabsSymbolDescriptor::STATIC_GLOBAL_VARIABLE: {
 						const char* name = symbol.name_colon_type.name.c_str();
-						u32 address = -1;
+						Address address;
 						std::optional<GlobalStorageLocation> location = symbol_class_to_global_variable_location(
 							symbol.raw->symbol_class);
 						if (symbol.name_colon_type.descriptor == StabsSymbolDescriptor::GLOBAL_VARIABLE) {
@@ -230,7 +230,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 							if (context.external_globals) {
 								auto global_symbol = context.external_globals->find(symbol.name_colon_type.name);
 								if (global_symbol != context.external_globals->end()) {
-									address = (u32) global_symbol->second->value;
+									address = global_symbol->second->value;
 									location = symbol_class_to_global_variable_location(
 										global_symbol->second->symbol_class);
 								}
@@ -238,7 +238,7 @@ Result<void> import_file(SymbolDatabase& database, const mdebug::File& input, co
 						} else {
 							// And for static global variables it's just stored
 							// in the local symbol table.
-							address = (u32) symbol.raw->value;
+							address = symbol.raw->value;
 						}
 						CCC_CHECK(location.has_value(), "Invalid global variable location.");
 						const StabsType& type = *symbol.name_colon_type.type.get();

@@ -245,14 +245,16 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 
 			auto struct_or_union = std::make_unique<ast::StructOrUnion>();
 			struct_or_union->is_struct = type.descriptor == StabsTypeDescriptor::STRUCT;
-			struct_or_union->size_bits = (s32) stabs_struct_or_union->size * 8;
+			if (stabs_struct_or_union->size.has_value()) {
+				struct_or_union->size_bits = stabs_struct_or_union->size.value() * 8;
+			}
 
 			for (const StabsStructOrUnionType::BaseClass& stabs_base_class : stabs_struct_or_union->base_classes) {
 				auto base_class = stabs_type_to_ast(
 					*stabs_base_class.type, &type, state, statistics, true, force_substitute);
 				CCC_RETURN_IF_ERROR(base_class);
 
-				(*base_class)->offset_bytes = stabs_base_class.offset;
+				(*base_class)->offset_bytes = static_cast<u32>(stabs_base_class.offset);
 				(*base_class)
 					->set_access_specifier(
 						stabs_field_visibility_to_access_specifier(stabs_base_class.visibility), state.importer_flags);
@@ -357,7 +359,7 @@ Result<std::unique_ptr<ast::Node>> stabs_type_to_ast(
 			CCC_RETURN_IF_ERROR(node);
 			result = std::move(*node);
 
-			result->size_bits = (s32) stabs_type_attribute.size_bits;
+			result->size_bits = stabs_type_attribute.size_bits;
 			break;
 		}
 		case StabsTypeDescriptor::POINTER_TO_DATA_MEMBER: {
@@ -503,12 +505,15 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		auto bitfield_node = stabs_type_to_ast(*field.type, &enclosing_struct, state, statistics, true, false);
 		CCC_RETURN_IF_ERROR(bitfield_node);
 
+		CCC_ASSERT(field.offset_bits.has_value());
+
 		std::unique_ptr<ast::BitField> bitfield = std::make_unique<ast::BitField>();
 		bitfield->name = (field.name == " ") ? "" : field.name;
-		bitfield->offset_bytes = (field.offset_bits - (field.offset_bits % *bitfield_storage_unit_size_bits)) / 8;
+		bitfield->offset_bytes =
+			(field.offset_bits.value() - (field.offset_bits.value() % *bitfield_storage_unit_size_bits)) / 8;
 		bitfield->size_bits = field.size_bits;
 		bitfield->underlying_type = std::move(*bitfield_node);
-		bitfield->bitfield_offset_bits = field.offset_bits % *bitfield_storage_unit_size_bits;
+		bitfield->bitfield_offset_bits = field.offset_bits.value() % *bitfield_storage_unit_size_bits;
 		bitfield->set_access_specifier(
 			stabs_field_visibility_to_access_specifier(field.visibility), state.importer_flags);
 
@@ -520,7 +525,9 @@ static Result<std::unique_ptr<ast::Node>> field_to_ast(
 		CCC_RETURN_IF_ERROR(node);
 
 		(*node)->name = field.name;
-		(*node)->offset_bytes = field.offset_bits / 8;
+		if (field.offset_bits.has_value()) {
+			(*node)->offset_bytes = field.offset_bits.value() / 8;
+		}
 		(*node)->size_bits = field.size_bits;
 		(*node)->set_access_specifier(
 			stabs_field_visibility_to_access_specifier(field.visibility), state.importer_flags);
@@ -573,7 +580,7 @@ static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, c
 	}
 
 	// Determine the size of the underlying storage unit.
-	s32 storage_unit_size_bits = 0;
+	u32 storage_unit_size_bits = 0;
 	switch (*type->descriptor) {
 		case ccc::StabsTypeDescriptor::RANGE: {
 			Result<ast::BuiltInClass> bclass = classify_range(type->as<StabsRangeType>());
@@ -590,7 +597,7 @@ static Result<u32> detect_bitfield(const StabsStructOrUnionType::Field& field, c
 			break;
 		}
 		case ccc::StabsTypeDescriptor::TYPE_ATTRIBUTE: {
-			storage_unit_size_bits = (s32) type->as<StabsSizeTypeAttributeType>().size_bits;
+			storage_unit_size_bits = type->as<StabsSizeTypeAttributeType>().size_bits;
 			break;
 		}
 		case ccc::StabsTypeDescriptor::BUILTIN: {

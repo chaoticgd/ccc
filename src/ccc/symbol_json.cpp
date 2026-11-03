@@ -157,9 +157,9 @@ static void write_json(Writer& json, const RegisterStorage& storage, const Symbo
 	json.Key("register_class");
 	json.String(mips::REGISTER_CLASSES[(s32) register_class]);
 	json.Key("dbx_register_number");
-	json.Int(storage.dbx_register_number);
+	json.Uint(storage.dbx_register_number);
 	json.Key("register_index");
-	json.Int(register_index_relative);
+	json.Uint(register_index_relative);
 	json.Key("is_by_reference");
 	json.Bool(storage.is_by_reference);
 	json.EndObject();
@@ -214,7 +214,7 @@ static void write_json(Writer& json, const Function& symbol, const SymbolDatabas
 		for (const Function::LineNumberPair& pair : symbol.line_numbers) {
 			json.StartArray();
 			json.Uint(pair.address.value());
-			json.Int(pair.line_number);
+			json.Uint(pair.line_number);
 			json.EndArray();
 		}
 		json.EndArray();

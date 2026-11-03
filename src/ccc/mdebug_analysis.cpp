@@ -127,7 +127,7 @@ Result<void> LocalSymbolTableAnalyser::procedure(
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address, s32 line_number)
+Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address, u32 line_number)
 {
 	if (address.has_value() && m_current_function && label[0] == '$') {
 		Function::LineNumberPair& pair = m_current_function->line_numbers.emplace_back();
@@ -138,7 +138,7 @@ Result<void> LocalSymbolTableAnalyser::label(const char* label, Address address,
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::text_end(const char* name, s32 function_size)
+Result<void> LocalSymbolTableAnalyser::text_end(const char* name, u32 function_size)
 {
 	if (m_state == IN_FUNCTION_BEGINNING) {
 		CCC_CHECK(m_current_function, "END TEXT symbol outside of function.");
@@ -199,7 +199,7 @@ Result<void> LocalSymbolTableAnalyser::function_end()
 }
 
 Result<void> LocalSymbolTableAnalyser::parameter(
-	const char* name, const StabsType& type, bool is_stack, s32 value, bool is_by_reference)
+	const char* name, const StabsType& type, bool is_stack, u32 value, bool is_by_reference)
 {
 	CCC_CHECK(m_current_function, "Parameter symbol before first func/proc symbol.");
 
@@ -217,7 +217,7 @@ Result<void> LocalSymbolTableAnalyser::parameter(
 
 	if (is_stack) {
 		StackStorage& stack_storage = (*parameter_variable)->storage.emplace<StackStorage>();
-		stack_storage.stack_pointer_offset = value;
+		stack_storage.stack_pointer_offset = static_cast<s32>(value);
 	} else {
 		RegisterStorage& register_storage = (*parameter_variable)->storage.emplace<RegisterStorage>();
 		register_storage.dbx_register_number = value;
@@ -244,7 +244,8 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 
 	s32 call_count = 0;
 	StabsToAstCallStatistics statistics = {0, &call_count};
-	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(type, nullptr, m_stabs_to_ast_state, statistics, true, false);
+	Result<std::unique_ptr<ast::Node>> node = stabs_type_to_ast(
+		type, nullptr, m_stabs_to_ast_state, statistics, true, false);
 	CCC_RETURN_IF_ERROR(node);
 
 	if (desc == StabsSymbolDescriptor::STATIC_LOCAL_VARIABLE) {
@@ -255,10 +256,10 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 		(*node)->storage_class = STORAGE_CLASS_STATIC;
 	} else if (desc == StabsSymbolDescriptor::REGISTER_VARIABLE) {
 		RegisterStorage& register_storage = (*local_variable)->storage.emplace<RegisterStorage>();
-		register_storage.dbx_register_number = (s32) value;
+		register_storage.dbx_register_number = value;
 	} else if (desc == StabsSymbolDescriptor::LOCAL_VARIABLE) {
 		StackStorage& stack_storage = (*local_variable)->storage.emplace<StackStorage>();
-		stack_storage.stack_pointer_offset = (s32) value;
+		stack_storage.stack_pointer_offset = static_cast<s32>(value);
 	} else {
 		return CCC_FAILURE("LocalSymbolTableAnalyser::local_variable() called with bad symbol descriptor.");
 	}
@@ -268,7 +269,7 @@ Result<void> LocalSymbolTableAnalyser::local_variable(
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset)
+Result<void> LocalSymbolTableAnalyser::lbrac(u32 begin_offset)
 {
 	for (LocalVariableHandle local_variable_handle : m_pending_local_variables) {
 		if (LocalVariable* local_variable = m_database.local_variables.symbol_from_handle(local_variable_handle)) {
@@ -282,7 +283,7 @@ Result<void> LocalSymbolTableAnalyser::lbrac(s32 begin_offset)
 	return Result<void>();
 }
 
-Result<void> LocalSymbolTableAnalyser::rbrac(s32 end_offset)
+Result<void> LocalSymbolTableAnalyser::rbrac(u32 end_offset)
 {
 	CCC_CHECK(!m_blocks.empty(), "RBRAC symbol without a matching LBRAC symbol.");
 

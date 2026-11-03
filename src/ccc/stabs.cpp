@@ -13,6 +13,9 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const char*& input);
 static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_member_functions(const char*& input);
 static Result<StabsStructOrUnionType::Visibility> parse_visibility_character(const char*& input);
+static std::optional<u32> parse_number_u32(const char*& input);
+static std::optional<s32> parse_number_s32(const char*& input);
+static std::optional<s32> parse_number_s64(const char*& input);
 STABS_DEBUG(static void print_field(const StabsStructOrUnionType::Field& field);)
 
 const char* STAB_TRUNCATED_ERROR_MESSAGE =
@@ -223,10 +226,10 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 
 				CCC_EXPECT_CHAR(input, ':', "enum");
 
-				std::optional<s32> value = parse_number_s32(input);
+				std::optional<s64> value = parse_number_s64(input);
 				CCC_CHECK(value.has_value(), "Failed to parse enum value.");
 
-				enum_type->fields.emplace_back(*value, std::move(*name));
+				enum_type->fields.emplace_back(static_cast<s32>(*value), std::move(*name));
 
 				CCC_EXPECT_CHAR(input, ',', "enum");
 			}
@@ -293,7 +296,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			auto struct_type = std::make_unique<StabsStructType>(type_number);
 			STABS_DEBUG_PRINTF("struct {\n");
 
-			std::optional<s64> struct_size = parse_number_s64(input);
+			std::optional<u32> struct_size = parse_number_u32(input);
 			CCC_CHECK(struct_size.has_value(), "Failed to parse struct size.");
 			struct_type->size = *struct_size;
 
@@ -320,7 +323,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 
 					std::optional<s32> offset = parse_number_s32(input);
 					CCC_CHECK(offset.has_value(), "Failed to parse base class offset.");
-					base_class.offset = (s32) *offset;
+					base_class.offset = *offset;
 
 					CCC_EXPECT_CHAR(input, ',', "base class section");
 
@@ -350,7 +353,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 			auto union_type = std::make_unique<StabsUnionType>(type_number);
 			STABS_DEBUG_PRINTF("union {\n");
 
-			std::optional<s64> union_size = parse_number_s64(input);
+			std::optional<u32> union_size = parse_number_u32(input);
 			CCC_CHECK(union_size.has_value(), "Failed to parse union size.");
 			union_type->size = *union_size;
 
@@ -494,7 +497,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 				CCC_CHECK(*input == 's', "Weird value following '@' type descriptor.");
 				input++;
 
-				std::optional<s64> size_bits = parse_number_s64(input);
+				std::optional<u32> size_bits = parse_number_u32(input);
 				CCC_CHECK(size_bits.has_value(), "Failed to parse type attribute.");
 				type_attribute->size_bits = *size_bits;
 				CCC_EXPECT_CHAR(input, ';', "type attribute");
@@ -510,7 +513,7 @@ static Result<std::unique_ptr<StabsType>> parse_stabs_type(const char*& input)
 		case StabsTypeDescriptor::BUILTIN: { // -
 			auto built_in = std::make_unique<StabsBuiltInType>(type_number);
 
-			std::optional<s64> type_id = parse_number_s64(input);
+			std::optional<u32> type_id = parse_number_u32(input);
 			CCC_CHECK(type_id.has_value(), "Failed to parse built-in.");
 			built_in->type_id = *type_id;
 
@@ -564,7 +567,7 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			// Virtual function table pointers and virtual base class pointers.
 			CCC_EXPECT_CHAR(input, ',', "field type");
 
-			std::optional<s32> offset_bits = parse_number_s32(input);
+			std::optional<u32> offset_bits = parse_number_u32(input);
 			CCC_CHECK(offset_bits.has_value(), "Failed to parse field offset.");
 			field.offset_bits = *offset_bits;
 
@@ -584,13 +587,13 @@ static Result<std::vector<StabsStructOrUnionType::Field>> parse_field_list(const
 			// Normal fields.
 			input++;
 
-			std::optional<s32> offset_bits = parse_number_s32(input);
+			std::optional<u32> offset_bits = parse_number_u32(input);
 			CCC_CHECK(offset_bits.has_value(), "Failed to parse field offset.");
 			field.offset_bits = *offset_bits;
 
 			CCC_EXPECT_CHAR(input, ',', "field offset");
 
-			std::optional<s32> size_bits = parse_number_s32(input);
+			std::optional<u32> size_bits = parse_number_u32(input);
 			CCC_CHECK(size_bits.has_value(), "Failed to parse field size.");
 			field.size_bits = *size_bits;
 
@@ -622,6 +625,7 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 			input++;
 			break;
 		}
+
 		StabsStructOrUnionType::MemberFunctionSet member_function_set;
 
 		std::optional<std::string> name = parse_stabs_identifier(input, ':');
@@ -689,8 +693,8 @@ static Result<std::vector<StabsStructOrUnionType::MemberFunctionSet>> parse_memb
 				}
 				case '*': { // virtual member function
 					std::optional<s32> vtable_index = parse_number_s32(input);
-					CCC_CHECK(vtable_index.has_value(), "Failed to parse vtable index.");
-					function.vtable_index = *vtable_index;
+					CCC_CHECK(vtable_index.has_value() && *vtable_index >= 0, "Failed to parse vtable index.");
+					function.vtable_index = static_cast<u32>(*vtable_index);
 
 					CCC_EXPECT_CHAR(input, ';', "virtual member function");
 
@@ -726,21 +730,32 @@ static Result<StabsStructOrUnionType::Visibility> parse_visibility_character(con
 	return CCC_FAILURE("Failed to parse visibility character.");
 }
 
-std::optional<s32> parse_number_s32(const char*& input)
+static std::optional<u32> parse_number_u32(const char*& input)
 {
 	char* end;
-	s64 value = strtoll(input, &end, 10);
-	if (end == input) {
+	u64 value = static_cast<u64>(strtoull(input, &end, 10));
+	if (end == input || value > UINT32_MAX) {
 		return std::nullopt;
 	}
 	input = end;
-	return (s32) value;
+	return static_cast<u32>(value);
 }
 
-std::optional<s64> parse_number_s64(const char*& input)
+static std::optional<s32> parse_number_s32(const char*& input)
 {
 	char* end;
-	s64 value = strtoll(input, &end, 10);
+	s64 value = static_cast<s64>(strtoll(input, &end, 10));
+	if (end == input || value < INT32_MIN || value > INT32_MAX) {
+		return std::nullopt;
+	}
+	input = end;
+	return static_cast<s32>(value);
+}
+
+static std::optional<s32> parse_number_s64(const char*& input)
+{
+	char* end;
+	s64 value = static_cast<s64>(strtoll(input, &end, 10));
 	if (end == input) {
 		return std::nullopt;
 	}

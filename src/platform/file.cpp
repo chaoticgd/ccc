@@ -16,10 +16,10 @@ Result<std::vector<ccc::u8>> read_binary_file(const fs::path& path)
 	CCC_CHECK(file, "Failed to open file '%s' (%s).", path.string().c_str(), strerror(errno));
 
 	file.seekg(0, std::ios::end);
-	s64 size = file.tellg();
+	std::ifstream::pos_type size = file.tellg();
 	CCC_CHECK(size >= 0, "Failed to determine size of file '%s'.", path.string().c_str());
 
-	std::vector<u8> output(size);
+	std::vector<u8> output(static_cast<size_t>(size));
 	file.seekg(0, std::ios::beg);
 	file.read((char*) output.data(), size);
 	CCC_CHECK(file.good(), "Failed to read from file '%s' (%s).", path.string().c_str(), strerror(errno));

@@ -162,7 +162,7 @@ bool CppPrinter::data_type(const DataType& symbol, const SymbolDatabase& databas
 
 	VariableName name;
 	name.identifier = &symbol.name();
-	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits.has_value()) {
+	if (node.descriptor == ast::STRUCT_OR_UNION && node.size_bits.has_value() && node.size_bits.value() > 0) {
 		m_digits_for_offset = (s32) ceilf(log2f(static_cast<float>(node.size_bits.value()) / 8.f) / 4.f);
 	}
 	ast_node(node, name, 0, 0, database, SymbolDescriptor::DATA_TYPE, !symbol.not_defined_in_any_translation_unit);
@@ -572,9 +572,8 @@ void CppPrinter::ast_node(const ast::Node& node,
 					indent(out, indentation_level + 1);
 					offset(*field.get(), base_offset);
 					VariableName dummy;
-					CCC_ASSERT(field->offset_bytes.has_value());
-					ast_node(*field.get(), dummy, base_offset + field->offset_bytes.value(), indentation_level + 1, database,
-						symbol_descriptor);
+					u32 field_offset = base_offset + field->offset_bytes.value();
+					ast_node(*field.get(), dummy, field_offset, indentation_level + 1, database, symbol_descriptor);
 					fprintf(out, ";\n");
 				}
 
